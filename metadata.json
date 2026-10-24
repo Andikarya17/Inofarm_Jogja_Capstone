@@ -1,0 +1,6 @@
+{
+  "name": "Inofarm Jogja - Hydroponic IoT & Nutrition Manager",
+  "description": "Smart hydroponic farm monitoring dashboard, manual nutrient logging, validation parameters, and complete Kotlin Jetpack Compose code generator.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

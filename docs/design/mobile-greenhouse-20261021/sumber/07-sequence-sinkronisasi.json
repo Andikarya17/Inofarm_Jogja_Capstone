@@ -1,0 +1,97 @@
+{
+  "title": "Sequence simpan lokal dan sinkronisasi",
+  "participants": [
+    "Pengguna",
+    "Android / Sync",
+    "Basis data lokal",
+    "Laravel API",
+    "MySQL"
+  ],
+  "steps": [
+    [
+      0,
+      1,
+      "Simpan catatan lengkap"
+    ],
+    [
+      1,
+      2,
+      "Transaksi lokal: catatan + operation_id + base_version"
+    ],
+    [
+      2,
+      1,
+      "Tersimpan lokal; status menunggu",
+      true
+    ],
+    [
+      1,
+      0,
+      "Tampilkan status lokal",
+      true
+    ],
+    "loop [antrean belum mendapat ACK; koneksi dan sesi tersedia]",
+    [
+      1,
+      3,
+      "Kirim operation_id, UUID catatan, base_version dan payload"
+    ],
+    [
+      3,
+      4,
+      "Cek otorisasi, deduplikasi operasi dan versi"
+    ],
+    "alt [operasi sama telah berhasil, payload sama]",
+    [
+      4,
+      3,
+      "Hasil operasi tersimpan",
+      true
+    ],
+    [
+      3,
+      1,
+      "ACK hasil sebelumnya; tanpa duplikasi",
+      true
+    ],
+    "else [operasi baru; akses, versi, musim dan input sah]",
+    [
+      3,
+      4,
+      "Transaksi atomik: catatan + detail + audit + hasil operasi"
+    ],
+    [
+      4,
+      3,
+      "Commit berhasil; versi baru",
+      true
+    ],
+    [
+      3,
+      1,
+      "ACK UUID + versi baru",
+      true
+    ],
+    "else [versi bentrok / akses atau input ditolak]",
+    [
+      3,
+      1,
+      "Konflik beserta versi server / alasan penolakan",
+      true
+    ],
+    [
+      1,
+      0,
+      "Minta tinjau; simpan salinan lokal",
+      true
+    ],
+    "end alt",
+    "opt [ACK berhasil diterima]",
+    [
+      1,
+      2,
+      "Tandai operasi selesai dan catatan tersinkron"
+    ],
+    "end opt | Tanpa ACK: retry operation_id yang sama. Akhiri loop saat selesai."
+  ]
+}

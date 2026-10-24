@@ -1,0 +1,28 @@
+digraph G {
+graph [rankdir=LR, bgcolor="transparent", pad="0.25", nodesep="0.4", ranksep="0.55", fontname="Arial", fontsize=13, compound=true];
+node [shape=box, style="rounded,filled", fillcolor="#F1F7F5", color="#427568", fontname="Arial", fontsize=12, margin="0.16,0.10", penwidth=1.2];
+edge [color="#526B65", fontname="Arial", fontsize=10, arrowsize=0.7];
+season [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>musim_tanam [lihat ERD-01]</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK greenhouse_id</TD></TR></TABLE>>];
+hd [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>detail_panen [lihat ERD-01]</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK panen_id</TD></TR><TR><TD ALIGN="LEFT">grade; berat_kg</TD></TR></TABLE>>];
+cat [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>kategori_biaya</B></TD></TR><TR><TD ALIGN="LEFT">PK id; nama</TD></TR><TR><TD ALIGN="LEFT">klasifikasi: tetap / variabel</TD></TR></TABLE>>];
+ex [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>pengeluaran</B></TD></TR><TR><TD ALIGN="LEFT">PK uuid; FK kategori_id; FK pencatat_id</TD></TR><TR><TD ALIGN="LEFT">tanggal; nilai; uraian; versi; dibatalkan</TD></TR></TABLE>>];
+al [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>alokasi_biaya</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK pengeluaran_id; FK musim_id</TD></TR><TR><TD ALIGN="LEFT">nilai; dasar_alokasi; versi</TD></TR></TABLE>>];
+asset [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>aset</B></TD></TR><TR><TD ALIGN="LEFT">PK uuid; FK pengeluaran_perolehan_id?</TD></TR><TR><TD ALIGN="LEFT">nama; harga_perolehan; nilai_sisa</TD></TR><TR><TD ALIGN="LEFT">umur_tahun; mulai_pakai; versi</TD></TR></TABLE>>];
+dep [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>alokasi_penyusutan</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK aset_id; FK musim_id</TD></TR><TR><TD ALIGN="LEFT">mulai; akhir; proporsi; nilai_beban</TD></TR><TR><TD ALIGN="LEFT">dasar_alokasi; versi</TD></TR></TABLE>>];
+sale [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>penjualan</B></TD></TR><TR><TD ALIGN="LEFT">PK uuid; FK musim_id; FK pencatat_id</TD></TR><TR><TD ALIGN="LEFT">tanggal; status_lunas; versi; dibatalkan</TD></TR></TABLE>>];
+sd [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>detail_penjualan</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK penjualan_id; FK detail_panen_id</TD></TR><TR><TD ALIGN="LEFT">berat_kg; harga_per_kg</TD></TR></TABLE>>];
+sc [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>skenario_investasi</B></TD></TR><TR><TD ALIGN="LEFT">PK uuid; FK pembuat_id</TD></TR><TR><TD ALIGN="LEFT">nama; horizon_tahun; diskonto_tahunan</TD></TR><TR><TD ALIGN="LEFT">investasi_awal; asumsi; versi</TD></TR></TABLE>>];
+sg [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>skenario_greenhouse</B></TD></TR><TR><TD ALIGN="LEFT">PK/FK skenario_id</TD></TR><TR><TD ALIGN="LEFT">PK/FK greenhouse_id</TD></TR></TABLE>>];
+cf [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>arus_kas_tahunan</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK skenario_id</TD></TR><TR><TD ALIGN="LEFT">tahun_ke; kas_masuk; kas_keluar</TD></TR><TR><TD ALIGN="LEFT">asal_aktual_proyeksi; sumber_snapshot</TD></TR><TR><TD ALIGN="LEFT">UQ (skenario_id, tahun_ke)</TD></TR></TABLE>>];
+cat -> ex [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+ex -> al [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+season -> al [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+asset -> dep [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+season -> dep [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+season -> sale [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+sale -> sd [label="",dir="both",arrowtail="teetee",arrowhead="crowtee"];
+hd -> sd [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+sc -> sg [label="",dir="both",arrowtail="teetee",arrowhead="crowtee"];
+sc -> cf [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+ex -> asset [label="perolehan opsional",dir="both",arrowtail="teeodot",arrowhead="crowodot"];
+}

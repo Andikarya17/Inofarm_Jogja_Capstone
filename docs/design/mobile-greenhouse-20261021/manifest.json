@@ -1,0 +1,121 @@
+[
+  {
+    "id": "01-use-case-operasional",
+    "title": "Use case operasional",
+    "kind": "Use case diagram",
+    "caption": "Login menjadi prasyarat akses. Pekerja hanya pada GH penugasannya; koreksi hanya catatan sendiri saat musim terbuka. Pengelola mencakup seluruh GH. Sinkronisasi otomatis adalah proses internal, bukan aktor.",
+    "refs": "P §2.2.2; KF-01–06, KF-08, KF-13; K1–K4"
+  },
+  {
+    "id": "02-use-case-keuangan",
+    "title": "Use case keuangan dan administrasi",
+    "kind": "Use case diagram",
+    "caption": "Tidak tersedia bagi pekerja. Alokasi biaya tidak boleh melebihi biaya sumber. Pemulihan memakai layanan admin terbatas dengan konfirmasi. Model penjualan lunas dan asumsi keuangan bersifat sementara.",
+    "refs": "P KF-07–12, KF-14; §2.2.5–11; K5"
+  },
+  {
+    "id": "03-activity-pencatatan",
+    "title": "Activity pencatatan harian",
+    "kind": "Activity diagram",
+    "caption": "Pengguna memilih konteks dan mengisi aktual; Android memvalidasi dan menyimpan lokal; Laravel memeriksa akses/versi serta menyimpan ke MySQL. Hasil di luar target tetap tersimpan dengan penanda. Antrean dilanjutkan saat koneksi/sesi pulih.",
+    "refs": "P §2.2.3–5; KF-04–06, KF-13; X Sheet1; K1–K4"
+  },
+  {
+    "id": "04-activity-keuangan",
+    "title": "Activity pencatatan dan evaluasi keuangan",
+    "kind": "Activity diagram",
+    "caption": "AD ini memperlihatkan jalur daring; penyimpanan lokal mengikuti diagram 03/07. Evaluasi memakai data tersinkron, bukan draf. Musim berjalan berlabel sementara. Semua aturan bisnis keuangan perlu dikonfirmasi kembali dengan mitra.",
+    "refs": "P KF-07–12; §2.2.7–11; K5"
+  },
+  {
+    "id": "05-activity-koreksi",
+    "title": "Activity koreksi, konflik dan pembatalan",
+    "kind": "Activity diagram",
+    "caption": "Pekerja mengoreksi miliknya pada GH tugas; hanya pengelola membatalkan dan membuka musim. Setiap kegagalan validasi diberi alasan. Pembukaan kembali tidak memberi hak tambahan kepada pekerja atas catatan orang lain.",
+    "refs": "P KF-06, KF-13; §2.2.2–3; K3"
+  },
+  {
+    "id": "06-sequence-login",
+    "title": "Sequence login dan otorisasi",
+    "kind": "Sequence diagram",
+    "caption": "Login awal membutuhkan koneksi. Cache dan draf privat terikat akun; sesi kedaluwarsa tidak membuang antrean. Setiap permintaan diperiksa server, sehingga menu tersembunyi bukan satu-satunya pembatas akses.",
+    "refs": "P KF-01–02; KNF-04; K2–K3"
+  },
+  {
+    "id": "07-sequence-sinkronisasi",
+    "title": "Sequence simpan lokal dan sinkronisasi",
+    "kind": "Sequence diagram",
+    "caption": "operation_id berbeda untuk setiap mutasi; UUID catatan tetap saat dikoreksi. Retry memakai ID dan payload identik. Koreksi setelah konflik menjadi operasi baru dengan base_version terbaru. Idempotensi dan pemeriksaan versi berlangsung atomik di server.",
+    "refs": "P KF-06, KF-13; §2.2.3; rancangan teknis D1"
+  },
+  {
+    "id": "08-sequence-evaluasi",
+    "title": "Sequence evaluasi dan ekspor laporan",
+    "kind": "Sequence diagram",
+    "caption": "Jika data berubah sebelum ekspor, sistem mempertahankan snapshot evaluasi atau meminta pembaruan secara eksplisit. Draf dan catatan batal tidak ikut total. Evaluasi bukan transaksi baru.",
+    "refs": "P KF-10–12; §2.2.7–11; K5"
+  },
+  {
+    "id": "09-class-operasional",
+    "title": "Class diagram domain operasional",
+    "kind": "Class diagram",
+    "caption": "Model konseptual: atribut inti dan perilaku, bukan salinan class implementasi. Kelompok tanam memiliki satu varietas; satu musim dapat memiliki banyak kelompok. Petugas pelaksana dan pencatat dapat direkam terpisah. Komposisi fisik tidak diartikan sebagai izin hapus riwayat.",
+    "refs": "P KF-02–06, KF-08; X Sheet1; K3–K4"
+  },
+  {
+    "id": "10-class-keuangan",
+    "title": "Class diagram domain keuangan",
+    "kind": "Class diagram",
+    "caption": "Skenario investasi dipisahkan dari laporan musim. Arus kas tidak mengurangkan penyusutan sebagai pembayaran. Alokasi aset tidak boleh melampaui nilai yang dapat disusutkan. Detail penjualan merujuk grade pada detail panen.",
+    "refs": "P KF-07–12; §2.2.8–11; K5"
+  },
+  {
+    "id": "11-erd-operasional",
+    "title": "ERD operasional dan pengguna",
+    "kind": "ERD",
+    "caption": "Crow’s foot: | satu; lingkaran opsional; kaki tiga banyak. PK = primary key, FK = foreign key, UQ = unik, ? = nullable. Jadwal opsional; catatan spontan diperbolehkan. Penugasan GH berlaku bagi pekerja; pengelola mengakses seluruh GH.",
+    "refs": "P Tabel 2.7; KF-01–06, KF-08; K3–K4"
+  },
+  {
+    "id": "12-erd-keuangan",
+    "title": "ERD transaksi, aset dan investasi",
+    "kind": "ERD",
+    "caption": "FK pencatat/pembuat → pengguna; skenario_greenhouse.greenhouse_id → greenhouse. Semua detail panen dalam penjualan harus berasal dari musim yang sama; penjualan dapat menggabungkan panen/grade. Alokasi biaya pembelian aset tidak menjadi biaya musim lagi jika sudah disusutkan.",
+    "refs": "P KF-07–11; Tabel 2.7; K5; model sementara"
+  },
+  {
+    "id": "13-erd-audit-sinkronisasi",
+    "title": "ERD audit, lampiran dan keandalan data",
+    "kind": "ERD",
+    "caption": "Registry objek_data menggunakan UUID yang sama dengan objek domain; setiap objek yang diaudit terdaftar 1:1. Jenis objek dibatasi server. Lampiran bukan URL publik. Database lokal dan MySQL berbeda; antrean lokal tidak mempunyai FK langsung ke server.",
+    "refs": "P KF-06, KF-07, KF-12–14; KNF-03–05, KNF-07; D1–D3"
+  },
+  {
+    "id": "14-user-flow-pekerja",
+    "title": "User flow pekerja",
+    "kind": "User flow",
+    "caption": "Menu pekerja: Beranda, Input, Riwayat dan Akun. Tidak ada menu keuangan. Draf kembali ke jenis formulir asal (kegiatan atau panen). Logout dengan antrean tertunda memberi penjelasan; draf tetap privat untuk akun asal.",
+    "refs": "P KF-01, KF-04–06, KF-08, KF-13; K3–K4"
+  },
+  {
+    "id": "15-user-flow-pengelola",
+    "title": "User flow pengelola",
+    "kind": "User flow",
+    "caption": "Pilihan GH dan musim menjadi konteks yang terlihat pada setiap form/laporan. Penjualan hanya mengakses panen pada musim terpilih. Backup/restore memerlukan konfirmasi eksplisit dan hasil proses yang dapat diperiksa.",
+    "refs": "P KF-01–14; K3–K5"
+  },
+  {
+    "id": "16-flowchart-umur-validasi",
+    "title": "Flowchart HSS/HST dan pemeriksaan target",
+    "kind": "Flowchart",
+    "caption": "Hari pertama = 1, zona tanggal Asia/Jakarta. Nilai PPM dan volume tidak negatif; pH aktual dalam skala 0–14. Nilai aktual di luar target tidak ditolak hanya karena selisih target. Batas toleransi PPM dan keterlambatan belum ditetapkan: jangan menciptakan ambang.",
+    "refs": "X Sheet1 B6:C16; P §2.2.4–5; K4; Q1"
+  },
+  {
+    "id": "17-flowchart-keuangan",
+    "title": "Flowchart evaluasi musim dan investasi",
+    "kind": "Flowchart",
+    "caption": "Rancangan sementara mengikuti definisi proposal baru. BEP di sini memakai asumsi biaya total yang tersedia; bukan model margin kontribusi. PP/DPP menggunakan interpolasi tahunan dengan asumsi arus kas merata pada tahun pemulihan. Tidak menyalin subtotal keliru dari referensi.",
+    "refs": "P §2.2.8–11; F Tabel 2–8 sebagai referensi; K5; Q2"
+  }
+]

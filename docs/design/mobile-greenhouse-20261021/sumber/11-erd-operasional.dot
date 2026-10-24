@@ -1,0 +1,33 @@
+digraph G {
+graph [rankdir=LR, bgcolor="transparent", pad="0.25", nodesep="0.4", ranksep="0.55", fontname="Arial", fontsize=13, compound=true];
+node [shape=box, style="rounded,filled", fillcolor="#F1F7F5", color="#427568", fontname="Arial", fontsize=12, margin="0.16,0.10", penwidth=1.2];
+edge [color="#526B65", fontname="Arial", fontsize=10, arrowsize=0.7];
+users [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>pengguna</B></TD></TR><TR><TD ALIGN="LEFT">PK id</TD></TR><TR><TD ALIGN="LEFT">nama; email (UQ); password_hash</TD></TR><TR><TD ALIGN="LEFT">peran; aktif</TD></TR></TABLE>>];
+assign [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>penugasan_gh</B></TD></TR><TR><TD ALIGN="LEFT">PK/FK pengguna_id</TD></TR><TR><TD ALIGN="LEFT">PK/FK greenhouse_id</TD></TR></TABLE>>];
+gh [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>greenhouse</B></TD></TR><TR><TD ALIGN="LEFT">PK id</TD></TR><TR><TD ALIGN="LEFT">nama; lokasi; aktif</TD></TR></TABLE>>];
+season [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>musim_tanam</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK greenhouse_id</TD></TR><TR><TD ALIGN="LEFT">nama (teks bebas); status; versi</TD></TR></TABLE>>];
+var [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>varietas</B></TD></TR><TR><TD ALIGN="LEFT">PK id</TD></TR><TR><TD ALIGN="LEFT">nama; aktif</TD></TR></TABLE>>];
+grp [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>kelompok_tanam</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK musim_id; FK varietas_id</TD></TR><TR><TD ALIGN="LEFT">nama; tanggal_semai; tanggal_pindah?</TD></TR><TR><TD ALIGN="LEFT">populasi; versi</TD></TR></TABLE>>];
+sch [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>jadwal</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK kelompok_id</TD></TR><TR><TD ALIGN="LEFT">jenis; tanggal_rencana; stadia</TD></TR><TR><TD ALIGN="LEFT">target_ppm?; ph_min?; ph_max?; versi</TD></TR></TABLE>>];
+act [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>aktivitas</B></TD></TR><TR><TD ALIGN="LEFT">PK uuid; FK kelompok_id; FK jadwal_id?</TD></TR><TR><TD ALIGN="LEFT">FK pencatat_id; FK petugas_id</TD></TR><TR><TD ALIGN="LEFT">waktu_kejadian; diterima_server_pada</TD></TR><TR><TD ALIGN="LEFT">jenis; stadia_aktual; ppm_aktual?; ph_aktual?</TD></TR><TR><TD ALIGN="LEFT">status_kegiatan; alasan_lewati?</TD></TR><TR><TD ALIGN="LEFT">snapshot_target; penanda; versi; dibatalkan</TD></TR></TABLE>>];
+mat [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>bahan</B></TD></TR><TR><TD ALIGN="LEFT">PK id</TD></TR><TR><TD ALIGN="LEFT">nama; aktif</TD></TR></TABLE>>];
+unit [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>satuan</B></TD></TR><TR><TD ALIGN="LEFT">PK id</TD></TR><TR><TD ALIGN="LEFT">nama; dimensi</TD></TR></TABLE>>];
+detail [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>detail_bahan</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK aktivitas_id</TD></TR><TR><TD ALIGN="LEFT">FK bahan_id; FK satuan_id</TD></TR><TR><TD ALIGN="LEFT">jumlah; jenis_larutan?; catatan?</TD></TR></TABLE>>];
+harvest [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>panen</B></TD></TR><TR><TD ALIGN="LEFT">PK uuid; FK kelompok_id</TD></TR><TR><TD ALIGN="LEFT">FK pencatat_id; FK petugas_id</TD></TR><TR><TD ALIGN="LEFT">tanggal; versi; dibatalkan</TD></TR></TABLE>>];
+hd [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>detail_panen</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK panen_id</TD></TR><TR><TD ALIGN="LEFT">grade; jumlah_buah; berat_kg</TD></TR></TABLE>>];
+users -> assign [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+gh -> assign [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+gh -> season [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+season -> grp [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+var -> grp [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+grp -> sch [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+grp -> act [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+users -> act [label="pencatat / petugas",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+act -> detail [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+mat -> detail [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+unit -> detail [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+grp -> harvest [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+users -> harvest [label="pencatat / petugas",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+harvest -> hd [label="",dir="both",arrowtail="teetee",arrowhead="crowtee"];
+sch -> act [label="acuan opsional",dir="both",arrowtail="teeodot",arrowhead="crowodot"];
+}

@@ -1,0 +1,22 @@
+digraph G {
+graph [rankdir=LR, bgcolor="transparent", pad="0.25", nodesep="0.4", ranksep="0.55", fontname="Arial", fontsize=13, compound=true];
+node [shape=box, style="rounded,filled", fillcolor="#F1F7F5", color="#427568", fontname="Arial", fontsize=12, margin="0.16,0.10", penwidth=1.2];
+edge [color="#526B65", fontname="Arial", fontsize=10, arrowsize=0.7];
+u [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>pengguna [ERD-01]</B></TD></TR><TR><TD ALIGN="LEFT">PK id</TD></TR></TABLE>>];
+obj [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>objek_data</B></TD></TR><TR><TD ALIGN="LEFT">PK uuid; jenis_objek</TD></TR><TR><TD ALIGN="LEFT">versi; status_batal</TD></TR><TR><TD ALIGN="LEFT">Registry UUID domain yang diaudit</TD></TR></TABLE>>];
+audit [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>audit_perubahan</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK objek_id; FK pengguna_id</TD></TR><TR><TD ALIGN="LEFT">versi_lama; versi_baru; aksi</TD></TR><TR><TD ALIGN="LEFT">snapshot_sebelum; snapshot_sesudah</TD></TR><TR><TD ALIGN="LEFT">alasan; waktu_server</TD></TR></TABLE>>];
+op [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>operasi_sinkronisasi [server]</B></TD></TR><TR><TD ALIGN="LEFT">PK operation_id; FK pengguna_id</TD></TR><TR><TD ALIGN="LEFT">FK objek_id; base_version; payload_hash</TD></TR><TR><TD ALIGN="LEFT">hasil; versi_hasil; selesai_pada</TD></TR></TABLE>>];
+file [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>lampiran</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK objek_id; FK pengunggah_id</TD></TR><TR><TD ALIGN="LEFT">lokasi_privat; mime; ukuran; nama_asli</TD></TR></TABLE>>];
+rep [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>snapshot_laporan</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK pembuat_id</TD></TR><TR><TD ALIGN="LEFT">filter; versi_sumber; snapshot_hasil</TD></TR><TR><TD ALIGN="LEFT">asumsi; dibuat_pada; lokasi_berkas_privat</TD></TR></TABLE>>];
+backup [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>pekerjaan_backup</B></TD></TR><TR><TD ALIGN="LEFT">PK id; FK pemohon_id</TD></TR><TR><TD ALIGN="LEFT">jenis: backup / restore; status</TD></TR><TR><TD ALIGN="LEFT">alasan; waktu; checksum; lokasi_privat</TD></TR></TABLE>>];
+local [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6" COLOR="#427568"><TR><TD BGCOLOR="#DCECE6"><B>antrean_lokal [hanya Android]</B></TD></TR><TR><TD ALIGN="LEFT">PK operation_id; UUID objek</TD></TR><TR><TD ALIGN="LEFT">akun_id; base_version; payload</TD></TR><TR><TD ALIGN="LEFT">status_sync; pesan_error; waktu_lokal</TD></TR></TABLE>>];
+u -> audit [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+obj -> audit [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+u -> op [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+obj -> op [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+obj -> file [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+u -> file [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+u -> rep [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+u -> backup [label="",dir="both",arrowtail="teetee",arrowhead="crowodot"];
+local -> op [label="kirim ulang ID operasi yang sama\n(bukan FK lintas database)",style="dashed"];
+}

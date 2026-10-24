@@ -1,0 +1,104 @@
+[
+  {
+    "id": "01-use-case-operasional",
+    "width": 842,
+    "height": 1191,
+    "scale": 0.841
+  },
+  {
+    "id": "02-use-case-keuangan",
+    "width": 842,
+    "height": 1191,
+    "scale": 1.2
+  },
+  {
+    "id": "03-activity-pencatatan",
+    "width": 842,
+    "height": 1253,
+    "scale": 0.78
+  },
+  {
+    "id": "04-activity-keuangan",
+    "width": 842,
+    "height": 1212,
+    "scale": 0.78
+  },
+  {
+    "id": "05-activity-koreksi",
+    "width": 842,
+    "height": 1320,
+    "scale": 0.78
+  },
+  {
+    "id": "06-sequence-login",
+    "width": 1191,
+    "height": 872,
+    "scale": 0.72
+  },
+  {
+    "id": "07-sequence-sinkronisasi",
+    "width": 863,
+    "height": 1191,
+    "scale": 0.72
+  },
+  {
+    "id": "08-sequence-evaluasi",
+    "width": 1191,
+    "height": 974,
+    "scale": 0.72
+  },
+  {
+    "id": "09-class-operasional",
+    "width": 1454,
+    "height": 842,
+    "scale": 0.78
+  },
+  {
+    "id": "10-class-keuangan",
+    "width": 842,
+    "height": 1191,
+    "scale": 0.816
+  },
+  {
+    "id": "11-erd-operasional",
+    "width": 1304,
+    "height": 842,
+    "scale": 0.78
+  },
+  {
+    "id": "12-erd-keuangan",
+    "width": 1191,
+    "height": 842,
+    "scale": 0.945
+  },
+  {
+    "id": "13-erd-audit-sinkronisasi",
+    "width": 842,
+    "height": 1191,
+    "scale": 1.116
+  },
+  {
+    "id": "14-user-flow-pekerja",
+    "width": 842,
+    "height": 1191,
+    "scale": 0.96
+  },
+  {
+    "id": "15-user-flow-pengelola",
+    "width": 1191,
+    "height": 842,
+    "scale": 1.107
+  },
+  {
+    "id": "16-flowchart-umur-validasi",
+    "width": 842,
+    "height": 1195,
+    "scale": 0.78
+  },
+  {
+    "id": "17-flowchart-keuangan",
+    "width": 883,
+    "height": 1191,
+    "scale": 0.78
+  }
+]

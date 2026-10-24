@@ -1,0 +1,40 @@
+digraph G {
+graph [rankdir=LR, bgcolor="transparent", pad="0.25", nodesep="0.4", ranksep="0.55", fontname="Arial", fontsize=13, compound=true];
+node [shape=box, style="rounded,filled", fillcolor="#F1F7F5", color="#427568", fontname="Arial", fontsize=12, margin="0.16,0.10", penwidth=1.2];
+edge [color="#526B65", fontname="Arial", fontsize=10, arrowsize=0.7];
+w [label="«actor»\nPekerja",shape="box",fillcolor="white",style="filled"];
+o [label="«actor»\nPengelola",shape="box",fillcolor="white",style="filled"];
+subgraph cluster_sys { label="Sistem pencatatan greenhouse | Operasional"; color="#9CB9AF";
+a [label="UC-01\nLogin / logout",shape="ellipse",style="filled"];
+b [label="UC-02\nKelola akun dan penugasan GH",shape="ellipse",style="filled"];
+c [label="UC-03\nKelola GH, musim, kelompok varietas",shape="ellipse",style="filled"];
+d [label="UC-04\nKelola jadwal dan target",shape="ellipse",style="filled"];
+e [label="UC-05\nLihat jadwal dan target",shape="ellipse",style="filled"];
+f [label="UC-06\nCatat nutrisi / spraying / pekerjaan",shape="ellipse",style="filled"];
+g [label="UC-07\nCatat panen per grade",shape="ellipse",style="filled"];
+h [label="UC-08\nLihat dan cari riwayat",shape="ellipse",style="filled"];
+i [label="UC-09\nKoreksi catatan",shape="ellipse",style="filled"];
+j [label="UC-10\nBatalkan catatan dengan alasan",shape="ellipse",style="filled"];
+k [label="UC-11\nTutup / buka kembali musim",shape="ellipse",style="filled"];
+l [label="UC-12\nTinjau konflik sinkronisasi",shape="ellipse",style="filled"];
+}
+w -> a [label="",dir="none"];
+w -> e [label="",dir="none"];
+w -> f [label="",dir="none"];
+w -> g [label="",dir="none"];
+w -> h [label="",dir="none"];
+w -> i [label="",dir="none"];
+w -> l [label="",dir="none"];
+o -> a [label="",dir="none"];
+o -> b [label="",dir="none"];
+o -> c [label="",dir="none"];
+o -> d [label="",dir="none"];
+o -> e [label="",dir="none"];
+o -> f [label="",dir="none"];
+o -> g [label="",dir="none"];
+o -> h [label="",dir="none"];
+o -> i [label="",dir="none"];
+o -> j [label="",dir="none"];
+o -> k [label="",dir="none"];
+o -> l [label="",dir="none"];
+}

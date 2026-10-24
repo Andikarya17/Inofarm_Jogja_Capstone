@@ -1,0 +1,1 @@
+Haze 1.6.10 — Christopher Banes and Haze contributors. Source: https://github.com/chrisbanes/haze/tree/1.6.10 . Unmodified library distributed under Apache-2.0.

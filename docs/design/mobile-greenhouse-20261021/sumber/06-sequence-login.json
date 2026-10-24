@@ -1,0 +1,86 @@
+{
+  "title": "Sequence login dan otorisasi",
+  "participants": [
+    "Pengguna",
+    "Android Kotlin",
+    "Laravel API",
+    "MySQL"
+  ],
+  "steps": [
+    [
+      0,
+      1,
+      "Masukkan identitas akun dan kata sandi"
+    ],
+    [
+      1,
+      2,
+      "Kirim kredensial melalui HTTPS"
+    ],
+    [
+      2,
+      3,
+      "Cari akun aktif dan verifikasi hash"
+    ],
+    [
+      3,
+      2,
+      "Akun, peran dan penugasan GH",
+      true
+    ],
+    "alt [kredensial sah]",
+    [
+      2,
+      1,
+      "Sesi + profil + GH yang diizinkan",
+      true
+    ],
+    [
+      1,
+      0,
+      "Tampilkan menu sesuai peran",
+      true
+    ],
+    "else [kredensial tidak sah / akun nonaktif]",
+    [
+      2,
+      1,
+      "Tolak autentikasi; pesan tanpa membocorkan akun",
+      true
+    ],
+    [
+      1,
+      0,
+      "Tampilkan kegagalan login",
+      true
+    ],
+    "end alt | Setelah sesi berhasil dibuat",
+    [
+      0,
+      1,
+      "Pilih GH dan buka resource"
+    ],
+    [
+      1,
+      2,
+      "Permintaan resource + sesi"
+    ],
+    [
+      2,
+      3,
+      "Periksa akses GH dan ambil data yang diizinkan"
+    ],
+    [
+      3,
+      2,
+      "Data sesuai cakupan",
+      true
+    ],
+    [
+      2,
+      1,
+      "Data atau penolakan jika hak berubah",
+      true
+    ]
+  ]
+}

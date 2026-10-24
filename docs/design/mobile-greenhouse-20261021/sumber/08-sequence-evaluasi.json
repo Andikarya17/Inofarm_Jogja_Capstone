@@ -1,0 +1,93 @@
+{
+  "title": "Sequence evaluasi dan ekspor laporan",
+  "participants": [
+    "Pengelola",
+    "Android Kotlin",
+    "Laravel / Evaluasi",
+    "MySQL"
+  ],
+  "steps": [
+    [
+      0,
+      1,
+      "Pilih GH, musim atau skenario investasi"
+    ],
+    [
+      1,
+      2,
+      "Minta evaluasi sesuai filter dan sesi"
+    ],
+    [
+      2,
+      3,
+      "Periksa peran; baca snapshot data sah tersinkron"
+    ],
+    [
+      3,
+      2,
+      "Alokasi biaya, penyusutan, penjualan / arus kas",
+      true
+    ],
+    "alt [prasyarat indikator lengkap dan pembagi sah]",
+    [
+      2,
+      2,
+      "Hitung indikator; presisi desimal"
+    ],
+    [
+      2,
+      1,
+      "Hasil + sumber + asumsi + versi data",
+      true
+    ],
+    "else [data kurang / pembagi nol / IRR tidak tunggal]",
+    [
+      2,
+      1,
+      "Indikator terkait tidak tersedia; alasan eksplisit",
+      true
+    ],
+    "end alt",
+    [
+      1,
+      0,
+      "Tampilkan hasil; musim berjalan diberi label sementara",
+      true
+    ],
+    "opt [pengelola meminta ekspor]",
+    [
+      0,
+      1,
+      "Ekspor PDF / CSV"
+    ],
+    [
+      1,
+      2,
+      "Ekspor dengan filter dan versi evaluasi"
+    ],
+    [
+      2,
+      3,
+      "Simpan metadata/snapshot laporan + pembuat"
+    ],
+    [
+      3,
+      2,
+      "ID laporan dan versi sumber",
+      true
+    ],
+    [
+      2,
+      1,
+      "Berkas melalui akses terotorisasi",
+      true
+    ],
+    [
+      1,
+      0,
+      "Simpan / bagikan berkas",
+      true
+    ],
+    "end opt"
+  ]
+}

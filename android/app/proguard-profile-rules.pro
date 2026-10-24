@@ -1,0 +1,174 @@
+# Local instrumentation calls these entry points from a separate APK. Preserve their API
+# while allowing body optimization. Release does not use this file; dependencies still shrink.
+-keep,allowoptimization class androidx.tracing.Trace { public *; }
+-keep,allowoptimization class androidx.lifecycle.ViewModelProvider { public *; }
+-keep,allowoptimization interface androidx.lifecycle.ViewModelProvider$Factory { public *; }
+-keep,allowoptimization class androidx.lifecycle.ViewModelStore { public *; }
+
+# The test APK shares these runtime libraries with the target APK. Multifile facades can
+# otherwise disappear after inlining even though the separate test runner still calls them.
+-keep,allowoptimization class kotlin.LazyKt* { public *; }
+-keep,allowoptimization class kotlin.ResultKt { public *; }
+-keep,allowoptimization class kotlin.io.CloseableKt { public *; }
+-keep,allowoptimization class kotlin.collections.CollectionsKt* { public *; }
+-keep,allowoptimization class kotlin.collections.MapsKt* { public *; }
+-keep,allowoptimization class kotlin.collections.SetsKt* { public *; }
+-keep,allowoptimization class kotlin.collections.ArraysKt* { public *; }
+-keep,allowoptimization class kotlin.sequences.SequencesKt* { public *; }
+-keep,allowoptimization class kotlin.text.StringsKt* { public *; }
+-keep,allowoptimization class kotlin.jvm.internal.Intrinsics { public *; }
+-keep,allowoptimization class kotlinx.coroutines.BuildersKt* { public *; }
+-keep,allowoptimization class kotlinx.coroutines.JobKt* { public *; }
+-keep,allowoptimization class kotlinx.coroutines.CoroutineScopeKt* { public *; }
+-keep,allowoptimization class kotlinx.coroutines.Dispatchers { public *; }
+-keep class kotlinx.coroutines.AbstractCoroutine { public *; protected *; }
+-keep,allowoptimization class kotlin.jvm.internal.Ref$* { public *; }
+-keep,allowoptimization class kotlin.time.Duration* { public *; }
+-keep,allowoptimization class kotlin.coroutines.intrinsics.IntrinsicsKt* { public *; }
+-keep class kotlin.coroutines.jvm.internal.BaseContinuationImpl { public *; protected *; }
+-keep class kotlin.coroutines.jvm.internal.ContinuationImpl { public *; protected *; }
+-keep class kotlin.coroutines.jvm.internal.SuspendLambda { public *; protected *; }
+-keep,allowoptimization class kotlinx.coroutines.DelayKt* { public *; }
+-keep class kotlinx.coroutines.CoroutineDispatcher { public *; protected *; }
+-keep class kotlinx.coroutines.MainCoroutineDispatcher { public *; protected *; }
+
+# TLS MockWebServer uses the shared client/buffer API from the target's dependencies.
+-keep,allowoptimization class okhttp3.OkHttpClient { public *; }
+-keep,allowoptimization class okhttp3.OkHttpClient$Builder { public *; }
+-keep,allowoptimization class okhttp3.HttpUrl { public *; }
+-keep,allowoptimization class okhttp3.HttpUrl$Companion { public *; }
+-keep,allowoptimization class okhttp3.Headers { public *; }
+-keep,allowoptimization class okhttp3.Headers$Companion { public *; }
+-keep,allowoptimization class okhttp3.Headers$Builder { public *; }
+-keep,allowoptimization class okhttp3.Request { public *; }
+-keep,allowoptimization class okhttp3.Request$Builder { public *; }
+-keep,allowoptimization class okhttp3.Response { public *; }
+-keep,allowoptimization class okhttp3.Response$Builder { public *; }
+-keep,allowoptimization class okhttp3.ResponseBody { public *; }
+-keep,allowoptimization class okhttp3.ResponseBody$Companion { public *; }
+-keep,allowoptimization class okhttp3.RequestBody { public *; }
+-keep,allowoptimization class okhttp3.RequestBody$Companion { public *; }
+-keep,allowoptimization class okhttp3.MediaType { public *; }
+-keep,allowoptimization class okhttp3.MediaType$Companion { public *; }
+-keep,allowoptimization class okhttp3.Protocol { public *; }
+-keep,allowoptimization class okio.Buffer { public *; }
+-keep,allowoptimization class okhttp3.internal.concurrent.TaskRunner** { public *; protected *; }
+-keep,allowoptimization class okhttp3.internal.Util { public *; }
+-keep,allowoptimization interface kotlinx.coroutines.Job { public *; }
+-keep,allowoptimization interface kotlinx.coroutines.CompletableJob { public *; }
+-keep,allowoptimization interface kotlinx.coroutines.Deferred { public *; }
+-keep,allowoptimization interface kotlinx.coroutines.CompletableDeferred { public *; }
+-keep,allowoptimization interface kotlinx.coroutines.DelayWithTimeoutDiagnostics { public *; }
+-keep class kotlinx.coroutines.JobSupport { public *; protected *; }
+-keep,allowoptimization class kotlinx.coroutines.SupervisorKt* { public *; }
+-keep,allowoptimization class okhttp3.internal.concurrent.TaskQueue { public *; protected *; }
+-keep,allowoptimization class okhttp3.internal.concurrent.Task { public *; protected *; }
+-keep,allowoptimization interface kotlin.coroutines.Continuation { public *; }
+-keep,allowoptimization interface kotlin.coroutines.ContinuationInterceptor { public *; }
+-keep,allowoptimization class kotlin.coroutines.ContinuationInterceptor$* { public *; }
+-keep,allowoptimization interface kotlin.coroutines.CoroutineContext { public *; }
+-keep,allowoptimization class kotlin.coroutines.CoroutineContext$* { public *; }
+-keep,allowoptimization interface kotlin.coroutines.CoroutineContext$* { public *; }
+-keep,allowoptimization class kotlin.coroutines.EmptyCoroutineContext { public *; }
+-keep,allowoptimization class kotlin.coroutines.CombinedContext { public *; }
+
+-keep,allowoptimization class com.inofarm.jogja.data.ApiClient { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.ApiException { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.ApiModels { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.ApiSession { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.OwnerRepository { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.SessionStore { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.ReadCache { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.ReadCache$Companion { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.ModelsKt { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.Dashboard { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.NutrientRecord { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.Telemetry { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.SensorValue { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.SensorQuality { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.PlantPhase { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.ValidationStatus { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.Check { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.Page { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.Worker { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.Shift { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.RemoteConfig { public *; }
+-keep,allowoptimization class com.inofarm.jogja.data.Metric { public *; }
+
+# Generated Kotlin files expose composables and composition locals to the test scene.
+-keep,allowoptimization class com.inofarm.jogja.ui.*Kt { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.OwnerViewModel { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.OwnerState { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.ResourceState { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.ActionState { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.ConfigDraft { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.ConfigDraft$Companion { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.BoundDraft { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.ScheduleDraft { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.FarmColors { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.FarmGlyph { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.FarmShape { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.FarmSpace { public *; }
+-keep,allowoptimization class com.inofarm.jogja.ui.FarmMotion { public *; }
+-keep,allowoptimization class okhttp3.HttpUrl$Builder { public *; }
+-keep,allowoptimization class kotlinx.coroutines.channels.ChannelKt* { public *; }
+-keep,allowoptimization interface kotlinx.coroutines.channels.Channel { public *; }
+-keep,allowoptimization class kotlinx.coroutines.channels.Channel$* { public *; }
+-keep,allowoptimization interface kotlinx.coroutines.channels.SendChannel { public *; }
+-keep,allowoptimization interface kotlinx.coroutines.channels.ReceiveChannel { public *; }
+-keep,allowoptimization class kotlin.coroutines.jvm.internal.SpillingKt { public *; }
+-keep,allowoptimization class kotlin.TuplesKt { public *; }
+-keep,allowoptimization class kotlin.io.FilesKt* { public *; }
+-keep,allowoptimization class okhttp3.internal.platform.Platform { public *; protected *; }
+-keep,allowoptimization class okhttp3.internal.platform.Platform$Companion { public *; }
+-keep,allowoptimization class okhttp3.Protocol$Companion { public *; }
+# MockWebServer's TLS HTTP/2 implementation shares these target classes.
+-keep,allowoptimization class okhttp3.internal.http2.Http2Connection* { public *; protected *; }
+-keep,allowoptimization class okhttp3.internal.http2.Http2Stream* { public *; protected *; }
+-keep,allowoptimization class okhttp3.internal.http2.Settings { public *; }
+-keep,allowoptimization class okhttp3.internal.http2.Header { public *; }
+-keep,allowoptimization class okhttp3.internal.http2.ErrorCode* { public *; }
+-keep,allowoptimization class kotlin.Pair { public *; }
+-keep,allowoptimization class kotlin.Unit { public *; }
+-keep,allowoptimization class kotlin.Result* { public *; }
+-keep,allowoptimization class okio.Okio* { public *; }
+-keep,allowoptimization interface okio.BufferedSink { public *; }
+-keep,allowoptimization interface okio.BufferedSource { public *; }
+-keep,allowoptimization interface okio.Sink { public *; }
+-keep,allowoptimization interface okio.Source { public *; }
+-keep,allowoptimization class okio.ByteString* { public *; }
+-keep,allowoptimization class okhttp3.Handshake* { public *; }
+-keep,allowoptimization class okhttp3.TlsVersion* { public *; }
+-keep,allowoptimization class okhttp3.CipherSuite* { public *; }
+-keep,allowoptimization class kotlin.ranges.RangesKt* { public *; }
+-keep,allowoptimization class kotlin.coroutines.jvm.internal.Boxing { public *; }
+-keep class kotlin.time.AbstractLongTimeSource* { public *; protected *; }
+-keep,allowoptimization interface kotlin.time.TimeSource { public *; }
+-keep,allowoptimization interface kotlin.time.TimeMark { public *; }
+-keep,allowoptimization interface kotlin.time.ComparableTimeMark { public *; }
+-keep,allowoptimization class com.inofarm.jogja.R$drawable { public *; }
+-keep,allowoptimization interface kotlin.time.TimeSource$* { public *; }
+-keep,allowoptimization class kotlin.time.TimeSource$* { public *; }
+# Inline value-class ABI used by Compose's external test API.
+-keep,allowoptimization class androidx.compose.ui.unit.IntSize* { public *; }
+-keep,allowoptimization class androidx.compose.ui.unit.IntOffset* { public *; }
+-keep,allowoptimization class androidx.compose.ui.unit.Dp* { public *; }
+-keep,allowoptimization class androidx.compose.ui.unit.Constraints* { public *; }
+-keep,allowoptimization class androidx.compose.ui.geometry.Offset* { public *; }
+-keep,allowoptimization class androidx.compose.ui.geometry.Size* { public *; }
+-keep,allowoptimization class androidx.compose.ui.geometry.Rect* { public *; }
+-keep,allowoptimization interface kotlinx.coroutines.CoroutineExceptionHandler { public *; }
+-keep,allowoptimization class kotlinx.coroutines.CoroutineExceptionHandler$* { public *; }
+-keep,allowoptimization class kotlinx.coroutines.CoroutineExceptionHandlerKt { public *; }
+-keep,allowoptimization class kotlinx.coroutines.CoroutineName { public *; }
+
+# External test subclasses require virtual methods to remain overridable.
+# The test coroutine dispatcher implements this service interface in its own APK.
+-keep interface kotlinx.coroutines.internal.MainDispatcherFactory { *; }
+-keep interface com.google.common.util.concurrent.ListenableFuture { *; }
+-keep class androidx.activity.compose.ComponentActivityKt { public *; }
+-keep class kotlin.collections.AbstractIterator { public *; protected *; }
+# MockWebServer HTTP/1 path used by the unchanged baseline metric harness.
+-keep class okhttp3.internal.Internal { public *; }
+-keep class okhttp3.internal.http.HttpMethod { public *; }
+-keep class okio.Timeout { public *; }

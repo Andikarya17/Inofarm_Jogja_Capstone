@@ -1,0 +1,24 @@
+digraph G {
+graph [rankdir=LR, bgcolor="transparent", pad="0.25", nodesep="0.4", ranksep="0.55", fontname="Arial", fontsize=13, compound=true];
+node [shape=box, style="rounded,filled", fillcolor="#F1F7F5", color="#427568", fontname="Arial", fontsize=12, margin="0.16,0.10", penwidth=1.2];
+edge [color="#526B65", fontname="Arial", fontsize=10, arrowsize=0.7];
+o [label="«actor»\nPengelola",style="filled",fillcolor="white"];
+subgraph cluster_sys { label="Sistem pencatatan greenhouse | Keuangan dan administrasi"; color="#9CB9AF";
+a [label="UC-13\nCatat pengeluaran dan bukti",shape="ellipse",style="filled"];
+b [label="UC-14\nAlokasikan biaya ke musim",shape="ellipse",style="filled"];
+c [label="UC-15\nCatat penjualan lunas per grade",shape="ellipse",style="filled"];
+d [label="UC-16\nKelola aset dan penyusutan",shape="ellipse",style="filled"];
+e [label="UC-17\nLihat evaluasi keuangan musim",shape="ellipse",style="filled"];
+f [label="UC-18\nKelola skenario investasi tahunan",shape="ellipse",style="filled"];
+g [label="UC-19\nEkspor laporan PDF / CSV",shape="ellipse",style="filled"];
+h [label="UC-20\nCadangkan / pulihkan data",shape="ellipse",style="filled"];
+}
+o -> a [label="",dir="none"];
+o -> b [label="",dir="none"];
+o -> c [label="",dir="none"];
+o -> d [label="",dir="none"];
+o -> e [label="",dir="none"];
+o -> f [label="",dir="none"];
+o -> g [label="",dir="none"];
+o -> h [label="",dir="none"];
+}
