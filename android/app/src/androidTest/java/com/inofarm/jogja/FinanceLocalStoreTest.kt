@@ -258,6 +258,22 @@ class FinanceLocalStoreTest {
         assertEquals(rejected.hash,store.outbox("account-a").single {it.id==rejected.id}.hash)
         assertEquals("SUPERSEDED",store.outbox("account-a").single {it.id==rejected.id}.state)
     }
+    @Test fun revokedAssignmentKeepsLatestOwnedDraftButCannotQueueOrReadItsOldContext() {
+        val ghRow=JSONObject().put("entity_type","greenhouses").put("entity_id",gh).put("greenhouse_id",gh).put("version",1).put("tombstone",false).put("data",JSONObject().put("id",gh).put("version",1).put("name","Known fixture GH"))
+        store.applyPull("account-a",page(JSONArray().put(ghRow)))
+        val id=UUID.randomUUID().toString();val first=store.saveDraft("account-a",id,gh,body("Sebelum dicabut"))
+        store.applyPull("account-a",page(scope=JSONArray()))
+        val saved=store.saveDraft("account-a",id,gh,body("Teks terakhir tetap disimpan"),first.revision)
+        assertEquals(SyncState.SCOPE_REVOKED,saved.syncState);assertEquals("Teks terakhir tetap disimpan",saved.body.getString("notes"))
+        assertThrows(IllegalArgumentException::class.java) {store.saveAndQueue("account-a",id,gh,body("Tidak boleh dikirim"),saved.revision)}
+        val unsavedId=UUID.randomUUID().toString()
+        val held=store.saveDraft("account-a",unsavedId,gh,body("Draf dimulai sebelum penugasan dicabut"))
+        assertEquals(SyncState.SCOPE_REVOKED,held.syncState)
+        assertTrue(store.records("account-a").isEmpty());assertNull(store.cachedOne("account-a","greenhouses",gh));assertNull(store.next("account-a"))
+        val foreign=UUID.randomUUID().toString()
+        assertThrows(IllegalArgumentException::class.java) {store.saveDraft("account-a",foreign,UUID.randomUUID().toString(),body("Unknown"))}
+        assertNull(store.record("account-a",foreign))
+    }
     @Test fun migrationTwoToCurrentKeepsCursorDraftAndOutbox() {
         val migrationName="finance-test-migration-${UUID.randomUUID()}.db"
         val id=UUID.randomUUID().toString();val op=UUID.randomUUID().toString()

@@ -1,3 +1,7 @@
+## Draft logout boundary — 30 Oktober 2026 WIB
+
+Branch `codex/finance-draft-logout`, base `bb3d864`. Android27unit/39instrumentation/0lint errors dan real guarded offline/restart/replay/manager cancel/old ACK phases2 PASS. Latest editor flushed before credentials clear; failure retains session through recreation/Back; unchanged accepted editor not converted into correction. [Evidence](../migration/finance-20261029/evidence/20261030-DRAFT_LOGOUT.md) includes environment/fixture failures and limits. Backend/API/schema unchanged.
+
 ## FIN08 panen multi-grade — 29 Oktober 2026
 
 GitHub branch `codex/finance-harvest`, base `89c5026`. Backend54tests/913assertions; Android27unit/33instrumentation/0lint errors; real worker activity+harvest offline/process restart/replay→manager cancel→old ACK no downgrade PASS. Independent PHP/MySQL two-connection harvest/activity base1 races one accepted/one conflict/final2 PASS. [Evidence FIN08](../migration/finance-20261029/evidence/FIN08.md) memuat source quantities/ledger reconciliation dan batas; bukan workflow penjualan/oversell/UAT. Follow-up editor logout/read consistency/identity di GAP_ANALYSIS tetap harus ditangani sebelum handover.

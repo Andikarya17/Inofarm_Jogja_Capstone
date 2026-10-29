@@ -32,15 +32,22 @@ class AuthViewModel(private val repository:AuthRepository):ViewModel() {
         viewModelScope.launch { try { mutable.value=AuthUiState(false,repository.login(base,email,password)) }
             catch(cancelled:CancellationException) { throw cancelled } catch(error:Exception) { mutable.value=AuthUiState(false,error=userMessage(error)) } }
     }
-    fun logout() {
-        mutable.value=AuthUiState(loading=true)
+    fun clearError() {mutable.value=state.value.copy(error=null)}
+    fun logout(beforeRelease:suspend ()->Unit={}) {
+        if(state.value.loading) return
+        val previous=state.value
+        mutable.value=previous.copy(loading=true,error=null)
         viewModelScope.launch {
+            var draftFlushed=false
             try {
+                beforeRelease();draftFlushed=true
                 val (previous,ticket)=repository.logoutLocal()
                 mutable.value=AuthUiState(false,error="Keluar. Draf dan antrean akun ini tetap tersimpan.")
                 if(previous!=null) try { repository.revoke(previous) } catch(cancelled:CancellationException) {throw cancelled}
                 catch(error:Exception) { if(repository.vault.generation==ticket && repository.vault.current==null) mutable.value=AuthUiState(false,error="Keluar dari perangkat. Draf tetap tersimpan; pencabutan sesi server belum terkonfirmasi.") }
-            } catch(cancelled:CancellationException) {throw cancelled} catch(error:Exception) {mutable.value=AuthUiState(false,error=userMessage(error))}
+            } catch(cancelled:CancellationException) {throw cancelled} catch(error:Exception) {
+                mutable.value=AuthUiState(false,repository.vault.current,error=if(!draftFlushed) "Isian terakhir belum berhasil disimpan. Anda tetap di akun ini; coba simpan draf kembali." else userMessage(error))
+            }
         }
     }
 }

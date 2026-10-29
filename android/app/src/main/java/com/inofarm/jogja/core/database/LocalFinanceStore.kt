@@ -135,17 +135,21 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     private fun persistDraft(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long?, editingBaseVersion:Long?=null,kind:String="activity"): LocalRecord {
         requireKind(scope,kind)
-        WireContract.uuid(id); require(gh in visibleGreenhouses(scope)) { "Greenhouse tidak lagi dalam penugasan. Draf lama tetap disimpan." }
+        WireContract.uuid(id)
         val old = record(scope,id)
+        val visible=gh in visibleGreenhouses(scope)
+        val known=visible || old?.greenhouseId==gh || db.rawQuery("SELECT 1 FROM cached_records WHERE scope=? AND kind='greenhouses' AND entity_id=?",arrayOf(scope,gh)).use {it.moveToFirst()}
+        require(known) {"Greenhouse belum pernah tersedia untuk akun ini."}
         require(old==null || old.greenhouseId==gh) { "Greenhouse catatan tidak dapat dipindah." }
         require(old==null || old.kind==kind) {"Jenis catatan tidak dapat diganti."}
         require(if(old == null) expectedRevision == null else expectedRevision == old.revision) { "Draf berubah. Muat ulang sebelum menyimpan." }
         val revision = (old?.revision ?: 0) + 1
         val base = if(old?.syncState == SyncState.ACCEPTED) editingBaseVersion ?: old.serverVersion else old?.baseVersion
-        val held=old?.syncState?.takeIf { it in setOf(SyncState.EPOCH_REVIEW,SyncState.SCOPE_REVOKED) }
+        val held=old?.syncState?.takeIf {it==SyncState.EPOCH_REVIEW} ?: if(!visible) SyncState.SCOPE_REVOKED else old?.syncState?.takeIf {it==SyncState.SCOPE_REVOKED}
+        val heldError=if(!visible) JSONObject().put("message","Penugasan tidak lagi berlaku. Draf tersimpan lokal dan pengiriman ditahan.") else old?.error
         val data = values("scope" to scope,"entity_id" to id,"kind" to kind,"greenhouse_id" to gh,"revision" to revision,
             "base_version" to base,"server_version" to old?.serverVersion,"body" to encrypt(scope,body),"server_body" to encrypt(scope,old?.serverBody),
-            "latest_operation_id" to old?.latestOperationId,"sync_state" to (held?.name ?: "LOCAL"),"error" to if(held != null) encrypt(scope,old.error) else null,"updated_at" to System.currentTimeMillis())
+            "latest_operation_id" to old?.latestOperationId,"sync_state" to (held?.name ?: "LOCAL"),"error" to if(held != null) encrypt(scope,heldError) else null,"updated_at" to System.currentTimeMillis())
         data.putAll(indexValues(body))
         if(old == null) db.insertOrThrow("local_records",null,data) else db.update("local_records",data,"scope=? AND entity_id=?",arrayOf(scope,id))
         return record(scope,id)!!
@@ -168,6 +172,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     private fun putQueued(scope:String,saved:LocalRecord,action:String,payload:JSONObject):LocalRecord {
         requireMutationKind(scope,saved.kind)
+        require(saved.greenhouseId in visibleGreenhouses(scope) && saved.syncState !in setOf(SyncState.SCOPE_REVOKED,SyncState.EPOCH_REVIEW)) {"Draf tersimpan lokal; penugasan atau epoch perlu ditinjau sebelum pengiriman."}
         require((action=="create" && saved.baseVersion==null) || (action!="create" && (saved.baseVersion ?: 0)>0)) {"Versi dasar operasi tidak sesuai."}
         val operationId=UUID.randomUUID().toString()
         val operation=JSONObject().put("schema_version","2").put("sync_epoch",epoch(scope) ?: error("Epoch server belum dikenal."))

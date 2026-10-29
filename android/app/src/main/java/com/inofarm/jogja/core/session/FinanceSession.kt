@@ -75,10 +75,9 @@ class FinanceSessionVault(context: Context, private val cipher: PayloadCipher, p
         return snapshot
     }
     @Synchronized fun beginLogin(): Long {
-        snapshot = null; loaded = true
-        val ticket=counter.incrementAndGet()
         check(preferences.edit().remove("session").commit()) { "Sesi lama gagal dilepas dari perangkat." }
-        return ticket
+        snapshot = null; loaded = true
+        return counter.incrementAndGet()
     }
     @Synchronized fun save(ticket: Long, session: FinanceSession): Boolean {
         if(ticket != generation) return false
@@ -87,8 +86,8 @@ class FinanceSessionVault(context: Context, private val cipher: PayloadCipher, p
         return true
     }
     @Synchronized fun logout(): FinanceSession? {
-        val old = snapshot; counter.incrementAndGet(); snapshot = null; loaded = true
         check(preferences.edit().remove("session").commit()) { "Sesi gagal dihapus dari perangkat." }
+        val old = snapshot; counter.incrementAndGet(); snapshot = null; loaded = true
         return old
     }
     fun matches(ticket: Long, scope: AccountScope) = ticket == generation && snapshot?.scope == scope
