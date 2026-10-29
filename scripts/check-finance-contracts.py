@@ -1,0 +1,40 @@
+"""Read-only v2 JSON Schema/fixture/reference check; requires jsonschema in authoring runtime."""
+import hashlib
+import json
+from pathlib import Path
+
+from jsonschema import Draft202012Validator, FormatChecker
+
+root = Path(__file__).resolve().parents[1] / 'contracts' / 'v2'
+schema = json.loads((root / 'activity-operation.schema.json').read_text(encoding='utf-8'))
+Draft202012Validator.check_schema(schema)
+fixture = json.loads((root / 'fixtures/activity-operation.json').read_text(encoding='utf-8'))
+validator = Draft202012Validator(schema, format_checker=FormatChecker())
+validator.validate(fixture['operation'])
+canonical = json.dumps(fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+assert hashlib.sha256(canonical.encode()).hexdigest() == fixture['canonical_sha256']
+api = json.loads((root / 'openapi.json').read_text(encoding='utf-8'))
+assert api['openapi'] == '3.1.1'
+
+def inspect(value):
+    if isinstance(value, dict):
+        if '$ref' in value:
+            ref = value['$ref']
+            if ref.startswith('#/'):
+                target = api
+                for key in ref[2:].split('/'):
+                    target = target[key]
+            else:
+                assert (root / ref).is_file(), ref
+        for child in value.values():
+            inspect(child)
+    elif isinstance(value, list):
+        for child in value:
+            inspect(child)
+
+inspect(api)
+for invalid in (1.5, 'NaN', '1,5', '1e2'):
+    sample = json.loads(json.dumps(fixture['operation']))
+    sample['payload']['manual_ph'] = invalid
+    assert not validator.is_valid(sample)
+print('PASS: core schema, fixture, decimal rejection, SHA256 and local OpenAPI refs')

@@ -1,0 +1,25 @@
+{
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "00000000-0000-4000-8000-000000000001",
+    "operation_id": "11111111-1111-4111-8111-111111111111",
+    "entity_id": "22222222-2222-4222-8222-222222222222",
+    "entity_type": "activity",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "planting_group_id": "33333333-3333-4333-8333-333333333333",
+      "schedule_id": null,
+      "activity_type": "general",
+      "occurred_at": "2026-10-29T08:00:00+07:00",
+      "manual_ppm": null,
+      "manual_ph": null,
+      "work_state": "completed",
+      "skipped_reason": null,
+      "actual_stage": null,
+      "materials": [],
+      "notes": "Fixture uji: melon / <aman> & koreksi\nBukan data produksi"
+    }
+  },
+  "canonical_sha256": "b0a9d67fe99f50a1de20bd28f2f7c091c2f713518b9685d68104a4fe7199cd82"
+}
