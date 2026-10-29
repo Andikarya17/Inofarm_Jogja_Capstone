@@ -8,7 +8,8 @@ Dokumen ini melengkapi context pack lokal FIN00 yang belum di-commit; tidak meny
 | FIN02 backend | PASS / PARTIAL fitur | Auth/token pekerja-pengelola, public UUID, assignment-window scope dan bounded GH reads; [evidence](../migration/finance-20261029/evidence/FIN02.md). UI login/persistence sesi baru dan administrasi akun belum tersedia. |
 | FIN03 backend | PASS / PARTIAL fitur | Master/assignment/user admin scoped, additive migrations, audit/version/receipt atomic; [evidence](../migration/finance-20261029/evidence/FIN03.md). UI master belum tersedia. |
 | FIN04 backend/domain | PASS / PARTIAL fitur | Jadwal/target versioned, interval scoped, WIB age PHP/Kotlin, comparator; [evidence](../migration/finance-20261029/evidence/FIN04.md). Layar acuan dan penyimpanan snapshot activity menyusul. |
-| FIN05–17 | TODO | Belum tersedia pada commit FIN04. APK masih legacy. |
+| FIN05 server | PASS / PARTIAL fitur | Activity mutation/receipt/snapshot/audit dan scoped stable pull; [evidence](../migration/finance-20261029/evidence/FIN05-server.md). Android durable DB/outbox/retry belum tersedia. |
+| FIN06–17 | TODO | APK masih legacy; backend activity/history sebagian disiapkan sebagai dependency slice. |
 
 Q10: pengguna menyetujui IDR, DECIMAL(20,2) nominal, DECIMAL(20,6) kuantitas/harga dan HALF_UP pada total transaksi dalam chat pelaksanaan. Usulan solver dan business gates Q01–09/Q11–13 tidak otomatis disahkan.
 

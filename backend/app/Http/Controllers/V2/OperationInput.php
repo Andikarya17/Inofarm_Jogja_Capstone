@@ -19,7 +19,7 @@ final class OperationInput
             'operation.operation_id' => ['required', self::UUID], 'operation.entity_id' => ['required', self::UUID],
             'operation.entity_type' => 'required|in:'.$type, 'operation.action' => 'required|in:'.$action,
             'operation.base_version' => $action === 'create' ? 'present|prohibited' : ['required', 'integer', 'min:1', 'max:2147483647'],
-            'operation.payload' => 'required|array:'.implode(',', array_keys($payloadRules))];
+            'operation.payload' => 'required|array:'.implode(',', array_unique(array_map(fn ($key) => explode('.', $key)[0], array_keys($payloadRules))))];
         foreach ($payloadRules as $key => $rule) {
             $rules['operation.payload.'.$key] = $rule;
         }

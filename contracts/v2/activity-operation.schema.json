@@ -42,6 +42,84 @@
       ]
     },
     "payload": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "sync_epoch",
+    "operation_id",
+    "entity_id",
+    "entity_type",
+    "action",
+    "base_version",
+    "payload"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "create"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "base_version": {
+            "type": "null"
+          },
+          "payload": {
+            "$ref": "#/$defs/create"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "update"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "base_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "payload": {
+            "$ref": "#/$defs/update"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "cancel"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "base_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "payload": {
+            "$ref": "#/$defs/cancel"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "create": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -163,42 +241,156 @@
         "materials",
         "notes"
       ]
-    }
-  },
-  "required": [
-    "schema_version",
-    "sync_epoch",
-    "operation_id",
-    "entity_id",
-    "entity_type",
-    "action",
-    "base_version",
-    "payload"
-  ],
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "action": {
-            "const": "create"
+    },
+    "update": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "planting_group_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "schedule_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "activity_type": {
+          "enum": [
+            "nutrition",
+            "spray",
+            "general",
+            "stage"
+          ]
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "manual_ppm": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^-?(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "manual_ph": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^-?(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "work_state": {
+          "enum": [
+            "completed",
+            "skipped"
+          ]
+        },
+        "skipped_reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "actual_stage": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "materials": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "material_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "unit_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "quantity": {
+                "type": "string",
+                "pattern": "^-?(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
+              }
+            },
+            "required": [
+              "material_id",
+              "unit_id",
+              "quantity"
+            ]
           }
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "reference_policy": {
+          "enum": [
+            "preserve",
+            "refresh"
+          ]
         }
       },
-      "then": {
-        "properties": {
-          "base_version": {
-            "type": "null"
-          }
+      "required": [
+        "planting_group_id",
+        "activity_type",
+        "occurred_at",
+        "work_state",
+        "materials",
+        "notes",
+        "reason",
+        "reference_policy"
+      ]
+    },
+    "cancel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
         }
       },
-      "else": {
-        "properties": {
-          "base_version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      }
+      "required": [
+        "reason"
+      ]
     }
-  ]
+  }
 }
