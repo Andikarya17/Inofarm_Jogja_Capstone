@@ -8,7 +8,7 @@ $outputDirectory=Join-Path $projectRoot 'outputs/finance-entry'
 if(Test-Path -LiteralPath $manifest) {throw 'A synthetic fixture already exists; verify its provenance/cleanup before starting another.'}
 if(Get-NetTCPConnection -LocalPort 8001 -State Listen -ErrorAction SilentlyContinue) {throw 'Port8001 is occupied; refusing to replace the service.'}
 New-Item -ItemType Directory -Force $outputDirectory | Out-Null
-$tasks=if($SkipChecks) {@(':app:assembleDebug',':app:assembleDebugAndroidTest','-PfinanceApp')} else {@(':app:assembleDebug',':app:testDebugUnitTest',':app:lintDebug',':app:connectedDebugAndroidTest','-PfinanceApp','-Pandroid.testInstrumentationRunnerArguments.class=com.inofarm.jogja.FinanceLocalStoreTest,com.inofarm.jogja.FinanceSyncCoordinatorTest,com.inofarm.jogja.FinanceEntryUiTest,com.inofarm.jogja.CanonicalUnicodeDeviceTest')}
+$tasks=if($SkipChecks) {@(':app:assembleDebug',':app:assembleDebugAndroidTest','-PfinanceApp')} else {@(':app:assembleDebug',':app:testDebugUnitTest',':app:lintDebug',':app:connectedDebugAndroidTest','-PfinanceApp','-Pandroid.testInstrumentationRunnerArguments.class=com.inofarm.jogja.FinanceAttachmentTest,com.inofarm.jogja.FinanceLocalStoreTest,com.inofarm.jogja.FinanceSyncCoordinatorTest,com.inofarm.jogja.FinanceEntryUiTest,com.inofarm.jogja.CanonicalUnicodeDeviceTest')}
 & (Join-Path $PSScriptRoot 'build-android.ps1') -JavaHome $JavaHome -Tasks $tasks
 foreach($apk in @('android/app/build/outputs/apk/debug/app-debug.apk','android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk')) {
     & $adb install -r -t (Join-Path $projectRoot $apk)
@@ -137,4 +137,4 @@ try {
         if($fixtureCreated -and (Test-Path -LiteralPath $manifest)) {& $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') cleanup;if($LASTEXITCODE -ne 0) {throw 'Synthetic fixture cleanup failed.'}}
     } finally {foreach($key in $attachmentEnv.Keys) {[Environment]::SetEnvironmentVariable($key,$attachmentEnv[$key],'Process')}}
 }
-Write-Output 'PASS: guarded MySQL/Laravel five device phases: worker activity + multi-grade harvest offline/restart/replay/manager cancel/old ACK; manager payment + allocation each offline/process restart/exact receipt; real private PNG/PDF multipart, replay/download/hash/cap/worker denial. No user DB or legacy app data reset; production file policy unchanged.'
+Write-Output 'PASS: guarded MySQL/Laravel five device phases: worker activity + multi-grade harvest offline/restart/replay/manager cancel/old ACK; manager payment + allocation each offline/process restart/exact receipt; native encrypted PNG/PDF copies + bound offline outbox/process restart/multipart replay/encrypted download/hash/cap/worker denial. No user DB or legacy app data reset; production file policy unchanged.'

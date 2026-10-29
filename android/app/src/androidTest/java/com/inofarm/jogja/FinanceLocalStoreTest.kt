@@ -319,7 +319,8 @@ class FinanceLocalStoreTest {
         store.initialize("account-a",epoch,UserRole.MANAGER)
         val held=store.outbox("account-a").single();assertEquals(original.id,held.id);assertEquals(original.hash,held.hash);assertEquals("SCOPE_REVOKED",held.state)
     }
-    @Test fun migrationFourToFiveRetainsFinancialRawDraftOutboxCursorAndArchive() {
+    @Test fun migrationFourAndFiveToCurrentRetainsFinancialRawDraftOutboxCursorAndArchive() {
+        for(priorVersion in listOf(4,5)) {
         val migrationName="finance-test-migration-${UUID.randomUUID()}.db";val id=UUID.randomUUID().toString();val operation=UUID.randomUUID().toString()
         val raw=JSONObject().put("amount","1,2,3").put("paid_at",JSONObject.NULL).put("_local_form",JSONObject().put("date","belum").put("amount","1,2,3"))
         context.openOrCreateDatabase(migrationName,Context.MODE_PRIVATE,null).use {old ->
@@ -328,7 +329,11 @@ class FinanceLocalStoreTest {
             old.execSQL("ALTER TABLE local_records ADD COLUMN indexed INTEGER NOT NULL DEFAULT 0");old.execSQL("ALTER TABLE local_records ADD COLUMN occurred_millis INTEGER")
             old.execSQL("CREATE INDEX local_history_filter ON local_records(scope,kind,group_id,occurred_date)")
             old.execSQL("CREATE TABLE local_record_revisions(scope TEXT NOT NULL,entity_id TEXT NOT NULL,revision INTEGER NOT NULL,kind TEXT NOT NULL,greenhouse_id TEXT NOT NULL,body TEXT NOT NULL,server_body TEXT,base_version INTEGER,server_version INTEGER,resolution TEXT NOT NULL,saved_at INTEGER NOT NULL,PRIMARY KEY(scope,entity_id,revision),FOREIGN KEY(scope,entity_id) REFERENCES local_records(scope,entity_id))")
-            old.version=4
+            if(priorVersion==5) {
+                old.execSQL("ALTER TABLE local_records ADD COLUMN season_id TEXT");old.execSQL("ALTER TABLE local_records ADD COLUMN expense_id TEXT")
+                old.execSQL("CREATE INDEX local_cost_parent ON local_records(scope,kind,expense_id,season_id,record_state)")
+            }
+            old.version=priorVersion
             old.execSQL("INSERT INTO scope_metadata(scope,epoch,role,visible_greenhouses,pull_cursor) VALUES(?,?,?,?,?)",arrayOf("migrate",epoch,"manager",JSONArray().put(gh).toString(),"cursor-v4"))
             old.execSQL("INSERT INTO scope_access(scope,greenhouse_id) VALUES(?,?)",arrayOf("migrate",gh))
             old.execSQL("INSERT INTO local_records(scope,entity_id,kind,greenhouse_id,revision,body,sync_state,updated_at,indexed) VALUES(?,?,?,?,?,?,?,?,?)",arrayOf<Any>("migrate",id,"expense",gh,1,raw.toString(),"QUEUED",1,1))
@@ -337,11 +342,13 @@ class FinanceLocalStoreTest {
         }
         val upgraded=FinanceDatabase(context,migrationName)
         try {
-            val migrated=LocalFinanceStore(upgraded,FixtureCipher());assertEquals(5,upgraded.readableDatabase.version);assertEquals("cursor-v4",migrated.pullCursor("migrate"))
+            val migrated=LocalFinanceStore(upgraded,FixtureCipher());assertEquals(FinanceDatabase.VERSION,upgraded.readableDatabase.version);assertEquals("cursor-v4",migrated.pullCursor("migrate"))
             assertEquals(raw.toString(),migrated.records("migrate",kind="expense").single().body.toString())
             assertEquals(operation,migrated.outbox("migrate").single().id);assertEquals("immutable-v4-hash",migrated.outbox("migrate").single().hash)
+            assertNull(migrated.outbox("migrate").single().blobId)
             assertEquals(raw.toString(),migrated.archived("migrate",id).single().toString());assertTrue(migrated.records("migrate",kind="expense",filter=LocalHistoryFilter(from="2026-10-29")).isEmpty())
         } finally {upgraded.close();context.deleteDatabase(migrationName)}
+        }
     }
     @Test fun migrationThreeKeepsArchivedDraftAndOrdersByOccurrenceInsteadOfArrival() {
         val migrationName="finance-test-migration-${UUID.randomUUID()}.db";val id=UUID.randomUUID().toString();val older=UUID.randomUUID().toString()

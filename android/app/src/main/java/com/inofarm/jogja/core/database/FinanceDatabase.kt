@@ -7,17 +7,18 @@ import android.database.sqlite.SQLiteOpenHelper
 class FinanceDatabase(context: Context, name: String = "inofarm_finance_v2.db") : SQLiteOpenHelper(context.applicationContext, name, null, VERSION) {
     init { setWriteAheadLoggingEnabled(true) }
     override fun onConfigure(db: SQLiteDatabase) { db.setForeignKeyConstraintsEnabled(true) }
-    override fun onCreate(db: SQLiteDatabase) { createVersionOne(db); migrateVersionTwo(db); migrateVersionThree(db); migrateVersionFour(db);migrateVersionFive(db) }
+    override fun onCreate(db: SQLiteDatabase) { createVersionOne(db); migrateVersionTwo(db); migrateVersionThree(db); migrateVersionFour(db);migrateVersionFive(db);migrateVersionSix(db) }
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         require(oldVersion in 1..VERSION && newVersion == VERSION) { "Versi database tidak didukung. Data dipertahankan." }
         if(oldVersion < 2) migrateVersionTwo(db)
         if(oldVersion < 3) migrateVersionThree(db)
         if(oldVersion < 4) migrateVersionFour(db)
         if(oldVersion < 5) migrateVersionFive(db)
+        if(oldVersion < 6) migrateVersionSix(db)
     }
     override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) { error("Downgrade database ditahan untuk melindungi draf.") }
     companion object {
-        const val VERSION = 5
+        const val VERSION = 6
         /** Kept executable for the migration test. No destructive recreate fallback. */
         fun createVersionOne(db: SQLiteDatabase) {
             db.execSQL("""CREATE TABLE scope_metadata(scope TEXT PRIMARY KEY, epoch TEXT NOT NULL, role TEXT NOT NULL, visible_greenhouses TEXT NOT NULL, last_synced_at INTEGER)""")
@@ -52,6 +53,16 @@ class FinanceDatabase(context: Context, name: String = "inofarm_finance_v2.db") 
             db.execSQL("ALTER TABLE local_records ADD COLUMN expense_id TEXT")
             db.execSQL("CREATE INDEX local_cost_parent ON local_records(scope,kind,expense_id,season_id,record_state)")
             db.execSQL("UPDATE local_records SET indexed=0")
+        }
+        private fun migrateVersionSix(db:SQLiteDatabase) {
+            db.execSQL("ALTER TABLE outbox ADD COLUMN blob_id TEXT")
+            db.execSQL("ALTER TABLE local_records ADD COLUMN owner_id TEXT")
+            db.execSQL("CREATE INDEX local_attachment_owner ON local_records(scope,kind,owner_id,updated_at)")
+            db.execSQL("UPDATE local_records SET indexed=0")
+            db.execSQL("""CREATE TABLE local_blobs(scope TEXT NOT NULL,blob_id TEXT NOT NULL,entity_id TEXT NOT NULL,kind TEXT NOT NULL,
+                greenhouse_id TEXT NOT NULL,state TEXT NOT NULL,body TEXT NOT NULL,updated_at INTEGER NOT NULL,
+                PRIMARY KEY(scope,blob_id),FOREIGN KEY(scope) REFERENCES scope_metadata(scope))""")
+            db.execSQL("CREATE INDEX local_blob_owner ON local_blobs(scope,entity_id,state,updated_at)")
         }
     }
 }
