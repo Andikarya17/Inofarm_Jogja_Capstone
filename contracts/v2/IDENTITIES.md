@@ -12,4 +12,6 @@ Schema8 additive migration preflights current/historical v2 identities before DD
 
 Operator command `inofarm:finance-identities --json` is read-only and returns registry_present, identities, collisions, unregistered_or_mismatched and invalid_uuid counts. It reports an absent registry rather than creating it. Source schema through FIN09 is prerequisite. It never repairs/deletes/converts data. Registry entries may legitimately outlive source rows; no automatic purge. Test tooling removes only reservations belonging to its owned synthetic UUIDs.
 
+Schema9 registers the three attachment kinds against record_attachments.id with owner_type predicates. The schema8 backfill map remains frozen, so a fresh migration does not inspect a future table. New attachment UUIDs claim inside the same ledger transaction; owner_id restricts deletion of its existing registry identity. Synthetic cleanup removes owned attachment metadata before owner reservations.
+
 [Evidence](../../docs/migration/finance-20261029/evidence/20261030-GLOBAL_IDENTITIES.md): MySQL75tests/1284assertions, two-process cross-kind create race, existing optimistic/budget races and real device regression. Throughput under large workloads, production rollout/recovery and identity reconciliation UI remain open.

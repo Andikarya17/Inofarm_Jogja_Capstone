@@ -17,15 +17,22 @@ final class EntityIdentity
         'planting_groups' => ['planting_groups', 'id'], 'schedules' => ['schedules', 'id'], 'targets' => ['targets', 'id'],
         'activity' => ['activities', 'id'], 'harvest' => ['harvests', 'id'], 'harvest_item' => ['harvest_items', 'id'],
         'expense' => ['expenses', 'id'], 'expense_balance' => ['expenses', 'balance_id'], 'cost_allocation' => ['cost_allocations', 'id'],
+        'activity_attachment' => ['record_attachments', 'id', ['owner_type' => 'activity']],
+        'harvest_attachment' => ['record_attachments', 'id', ['owner_type' => 'harvest']],
+        'expense_attachment' => ['record_attachments', 'id', ['owner_type' => 'expense']],
     ];
 
     /** Includes historical root IDs even if an external writer removed a physical row. */
     public static function entries(array $sources = self::SOURCES, ?string $id = null): Builder
     {
         $union = null;
-        foreach ($sources as $kind => [$table, $column]) {
+        foreach ($sources as $kind => $source) {
+            [$table, $column] = $source;
             $part = DB::table($table)->select($column.' as entity_id')->selectRaw('? as entity_type', [$kind])->whereNotNull($column)
                 ->when($id !== null, fn ($q) => $q->where($column, $id));
+            foreach ($source[2] ?? [] as $field => $value) {
+                $part->where($field, $value);
+            }
             $union = $union === null ? $part : $union->unionAll($part);
         }
         $history = DB::table('audit_logs')->select('entity_id', 'entity_type')->whereIn('entity_type', array_keys($sources))

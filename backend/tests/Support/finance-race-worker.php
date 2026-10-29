@@ -4,6 +4,9 @@ use App\Domain\Activities\ActivityService;
 use App\Domain\Contracts\DomainFailure;
 use App\Domain\Harvest\HarvestService;
 use App\Domain\Finance\CostAllocationService;
+use App\Domain\Attachments\AttachmentService;
+use App\Domain\Attachments\UploadedEvidence;
+use Illuminate\Http\UploadedFile;
 use App\Models\User;
 use App\Support\TestDatabaseGuard;
 use Illuminate\Contracts\Console\Kernel;
@@ -35,9 +38,18 @@ try {
         'activity' => ActivityService::class,
         'harvest' => HarvestService::class,
         'cost_allocation' => CostAllocationService::class,
+        'expense_attachment' => AttachmentService::class,
         default => throw new InvalidArgumentException('Unsupported synthetic race kind.'),
     };
-    $receipt = app($service)->mutate($actor, $input['operation']);
+    if ($service === AttachmentService::class) {
+        $fixture = $input['attachment_fixture'];
+        config(['finance.attachments' => ['max_bytes' => 1024, 'max_files' => 1, 'allowed_mime_types' => ['image/png']], 'filesystems.disks.finance_private.root' => $fixture['private_root']]);
+        $file = new UploadedFile($fixture['source'], 'fixture.png', 'image/png', null, true);
+        $verified = app(UploadedEvidence::class)->inspect($file, $input['operation']['payload']);
+        $receipt = app($service)->mutate($actor, $input['operation'], $verified);
+    } else {
+        $receipt = app($service)->mutate($actor, $input['operation']);
+    }
     $result = ['status' => 'accepted', 'version' => $receipt['body']['version']];
 } catch (DomainFailure $e) {
     $result = ['status' => $e->domainCode, 'version' => $e->currentVersion];

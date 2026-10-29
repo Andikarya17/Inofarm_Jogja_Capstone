@@ -1,6 +1,6 @@
 # FIN09 — pembayaran aktual dan alokasi eksplisit
 
-Subset backend pada branch `codex/finance-expenses`, base `49efd66`. Migration additive `2026_10_30_000006` menambah expenses dan cost_allocations; tidak mengonversi data legacy. Native editor menyusul pada `codex/finance-expense-entry`, base `ac55dd8`. Lampiran privat masih berikutnya; FIN09/KF07/U09/U21 keseluruhan tetap parsial.
+Subset backend pada branch `codex/finance-expenses`, base `49efd66`. Migration additive `2026_10_30_000006` menambah expenses dan cost_allocations; tidak mengonversi data legacy. Native editor menyusul pada `codex/finance-expense-entry`, base `ac55dd8`. [Backend lampiran privat](ATTACHMENTS.md) tersedia pada schema9; native file draft/queue/UI menyusul, Q07 konfigurasi produksi belum ditetapkan. FIN09/KF07/U09/U21 keseluruhan tetap parsial.
 
 Pengeluaran adalah pembayaran aktual satu GH, bukan beban musim secara otomatis. Payload: greenhouse_id, category_id, paid_at RFC3339 detik+offset, amount, payment_kind operating/asset_acquisition, notes maksimal2000. IDR server-authoritative, nominal string DECIMAL(20,2), tidak negatif, tanpa eksponen/pemisah ribuan atau negative zero. Skala berlebih ditolak, tidak dibulatkan. Nol eksplisit sah dan berbeda dari kosong. GH/kind pembayaran immutable setelah create; kategori sama mempertahankan snapshot nama/versi historis, kategori baru harus aktif dalam GH yang sama.
 

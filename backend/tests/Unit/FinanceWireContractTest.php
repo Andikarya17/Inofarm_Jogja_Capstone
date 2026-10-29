@@ -52,4 +52,12 @@ class FinanceWireContractTest extends TestCase
         $fixture = json_decode(file_get_contents(__DIR__.'/../../../contracts/v2/fixtures/canonical-unicode.json'), true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame($fixture['canonical_sha256'], CanonicalJson::hash($fixture['value']));
     }
+    public function test_attachment_fixture_binds_operation_and_actual_binary_identity(): void
+    {
+        $fixture = json_decode(file_get_contents(__DIR__.'/../../../contracts/v2/fixtures/attachment-operation.json'), true, flags: JSON_THROW_ON_ERROR);
+        $binary = base64_decode($fixture['fixture_file_base64'], true);
+        $this->assertSame($fixture['canonical_sha256'], CanonicalJson::hash($fixture['operation']));
+        $this->assertSame(strlen($binary), $fixture['operation']['payload']['bytes']);
+        $this->assertSame(hash('sha256', $binary), $fixture['operation']['payload']['sha256']);
+    }
 }

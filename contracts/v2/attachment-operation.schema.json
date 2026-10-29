@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Inofarm v2 private attachment operation",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "2"
+    },
+    "sync_epoch": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "operation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "entity_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "entity_type": {
+      "enum": [
+        "activity_attachment",
+        "harvest_attachment",
+        "expense_attachment"
+      ]
+    },
+    "action": {
+      "enum": [
+        "create",
+        "cancel"
+      ]
+    },
+    "base_version": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "sync_epoch",
+    "operation_id",
+    "entity_id",
+    "entity_type",
+    "action",
+    "base_version",
+    "payload"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "create"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "base_version": {
+            "type": "null"
+          },
+          "payload": {
+            "$ref": "#/$defs/create"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "cancel"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "base_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "payload": {
+            "$ref": "#/$defs/cancel"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "create"
+          },
+          "entity_type": {
+            "const": "activity_attachment"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "owner_type": {
+                "const": "activity"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "create"
+          },
+          "entity_type": {
+            "const": "harvest_attachment"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "owner_type": {
+                "const": "harvest"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "create"
+          },
+          "entity_type": {
+            "const": "expense_attachment"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "owner_type": {
+                "const": "expense"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "create": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_type",
+        "owner_id",
+        "owner_version",
+        "original_name",
+        "mime",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "owner_type": {
+          "enum": [
+            "activity",
+            "harvest",
+            "expense"
+          ]
+        },
+        "owner_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "owner_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "original_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[^\\x00-\\x1f\\x7f/\\\\]+$"
+        },
+        "mime": {
+          "enum": [
+            "image/jpeg",
+            "image/png",
+            "application/pdf"
+          ]
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mime": {
+                "const": "image/png"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "original_name": {
+                "pattern": "\\.[pP][nN][gG]$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mime": {
+                "const": "image/jpeg"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "original_name": {
+                "pattern": "\\.[jJ][pP]([eE])?[gG]$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mime": {
+                "const": "application/pdf"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "original_name": {
+                "pattern": "\\.[pP][dD][fF]$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "cancel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reason"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "\\S"
+        }
+      }
+    }
+  }
+}

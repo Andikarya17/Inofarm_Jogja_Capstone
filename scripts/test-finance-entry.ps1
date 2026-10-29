@@ -20,8 +20,11 @@ $serverProcess=$null
 $listenerPid=$null
 $listenerWrapperPid=$null
 $fixtureCreated=$false
+$attachmentEnv=@{}
+foreach($key in @('FINANCE_PRIVATE_ROOT','FINANCE_ATTACHMENT_MAX_BYTES','FINANCE_ATTACHMENT_MAX_FILES','FINANCE_ATTACHMENT_MIME_TYPES')) {$attachmentEnv[$key]=[Environment]::GetEnvironmentVariable($key,'Process')}
 function Start-TestApi {
-    $script:serverProcess=Start-Process -FilePath $php -WorkingDirectory (Join-Path $projectRoot 'backend') -ArgumentList @('artisan','serve','--env=testing','--host=127.0.0.1','--port=8001') -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $outputDirectory 'server.stdout.txt') -RedirectStandardError (Join-Path $outputDirectory 'server.stderr.txt')
+    # No reload preserves explicit fixture env values in Laravel's child PHP process.
+    $script:serverProcess=Start-Process -FilePath $php -WorkingDirectory (Join-Path $projectRoot 'backend') -ArgumentList @('artisan','serve','--env=testing','--no-reload','--host=127.0.0.1','--port=8001') -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $outputDirectory 'server.stdout.txt') -RedirectStandardError (Join-Path $outputDirectory 'server.stderr.txt')
     $deadline=[DateTime]::UtcNow.AddSeconds(30)
     do {
         try {
@@ -78,6 +81,15 @@ try {
     if($LASTEXITCODE -ne 0) {throw 'Guarded fixture creation failed.'}
     $fixtureCreated=$true
     $fixture=Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
+    $fixtureUuid=[Guid]::ParseExact($fixture.fixture_id,'D').ToString()
+    $privateRoot=[IO.Path]::GetFullPath((Join-Path $projectRoot ('tmp/finance-device-blobs-'+$fixtureUuid)))
+    $intendedParent=[IO.Path]::GetFullPath((Join-Path $projectRoot 'tmp'))+[IO.Path]::DirectorySeparatorChar
+    if(-not $privateRoot.StartsWith($intendedParent,[StringComparison]::OrdinalIgnoreCase) -or (Test-Path -LiteralPath $privateRoot)) {throw 'Private fixture root is unsafe or already exists.'}
+    # Explicit synthetic test configuration only; Q07 production policy stays unset.
+    $env:FINANCE_PRIVATE_ROOT=$privateRoot
+    $env:FINANCE_ATTACHMENT_MAX_BYTES='32768'
+    $env:FINANCE_ATTACHMENT_MAX_FILES='2'
+    $env:FINANCE_ATTACHMENT_MIME_TYPES='image/png,application/pdf'
     & $adb push $manifest '/sdcard/Android/data/com.inofarm.jogja.finance/files/finance-device-fixture.json'
     Start-TestApi
     $queueLog=Join-Path $outputDirectory 'device-queue.txt'
@@ -120,7 +132,9 @@ try {
     & $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') verify
     if($LASTEXITCODE -ne 0) {throw 'MySQL verification failed.'}
 } finally {
-    Stop-TestApi
-    if($fixtureCreated -and (Test-Path -LiteralPath $manifest)) {& $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') cleanup;if($LASTEXITCODE -ne 0) {throw 'Synthetic fixture cleanup failed.'}}
+    try {
+        Stop-TestApi
+        if($fixtureCreated -and (Test-Path -LiteralPath $manifest)) {& $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') cleanup;if($LASTEXITCODE -ne 0) {throw 'Synthetic fixture cleanup failed.'}}
+    } finally {foreach($key in $attachmentEnv.Keys) {[Environment]::SetEnvironmentVariable($key,$attachmentEnv[$key],'Process')}}
 }
-Write-Output 'PASS: guarded MySQL/Laravel five device phases: worker activity + multi-grade harvest offline/restart/replay/manager cancel/old ACK; manager payment + allocation each offline/process restart/exact receipt, source balance/audit/worker denial. No user DB or legacy app data reset.'
+Write-Output 'PASS: guarded MySQL/Laravel five device phases: worker activity + multi-grade harvest offline/restart/replay/manager cancel/old ACK; manager payment + allocation each offline/process restart/exact receipt; real private PNG/PDF multipart, replay/download/hash/cap/worker denial. No user DB or legacy app data reset; production file policy unchanged.'
