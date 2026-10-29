@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Contracts\DomainFailure;
 use App\Http\Middleware\DeviceAuth;
 use App\Http\Middleware\FinanceSession;
 use App\Http\Middleware\OwnerScope;
@@ -40,9 +41,10 @@ $app = Application::configure(basePath: dirname(__DIR__))
             $codes = [401 => 'authentication_required', 403 => 'access_denied', 404 => 'not_found', 409 => 'version_conflict', 413 => 'payload_too_large', 422 => 'validation_failed', 429 => 'rate_limited'];
             $message = $status >= 500 ? 'Server belum dapat memproses permintaan.' : ($status === 401 ? 'Silakan masuk kembali dengan akun yang sama.' : $e->getMessage());
 
-            return response()->json(['code' => $codes[$status] ?? 'server_error', 'message' => $message,
+            return response()->json(['code' => $e instanceof DomainFailure ? $e->domainCode : ($codes[$status] ?? 'server_error'), 'message' => $message,
                 'field_errors' => (object) ($e instanceof ValidationException ? $e->errors() : []),
-                'request_id' => (string) Str::uuid(), 'reasons' => [$message]], $status,
+                'request_id' => (string) Str::uuid(), 'reasons' => [$message],
+                ...($e instanceof DomainFailure ? ['current_version' => $e->currentVersion, 'current_data' => $e->currentData] : [])], $status,
                 $e instanceof HttpExceptionInterface ? $e->getHeaders() : []);
         });
         $exceptions->shouldRenderJsonWhen(
