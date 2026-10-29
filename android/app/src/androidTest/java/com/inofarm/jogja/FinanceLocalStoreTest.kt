@@ -292,6 +292,57 @@ class FinanceLocalStoreTest {
             assertEquals(id,migrated.records("migrate",filter=LocalHistoryFilter(type="general")).single().id)
         } finally {upgraded.close();context.deleteDatabase(migrationName)}
     }
+    @Test fun financialPullFiltersBeforePaginationKeepsIndependentBalanceAndGuardsDemotion() {
+        store.initialize("account-a",epoch,UserRole.MANAGER)
+        val source=UUID.randomUUID().toString();val target=UUID.randomUUID().toString();val allocation=UUID.randomUUID().toString();val balance=UUID.randomUUID().toString()
+        fun row(kind:String,id:String,body:JSONObject,version:Int=1)=JSONObject().put("entity_type",kind).put("entity_id",id).put("greenhouse_id",gh).put("version",version).put("tombstone",false).put("data",body.put("id",id).put("version",version))
+        val rows=JSONArray()
+        repeat(65) {index -> val id=if(index==0) source else UUID.randomUUID().toString()
+            rows.put(row("expense",id,JSONObject().put("greenhouse_id",gh).put("amount","100.01").put("paid_at",if(index==0) "2026-10-28T17:30:00Z" else "2026-10-30T08:00:00+07:00").put("record_state","active")))
+        }
+        val allocated=JSONObject().put("expense_id",source).put("season_id",target).put("amount","60.01").put("record_state","active").put("created_at","2026-10-30T00:00:00+07:00")
+        rows.put(row("cost_allocation",allocation,allocated));rows.put(row("expense_balance",balance,JSONObject().put("expense_id",source).put("expense_version",1).put("available_amount","40.00")))
+        store.applyPull("account-a",page(rows))
+        assertEquals(source,store.records("account-a",limit=1,kind="expense",filter=LocalHistoryFilter(seasonId=target,from="2026-10-29",until="2026-10-29")).single().id)
+        assertEquals(allocation,store.records("account-a",kind="cost_allocation",filter=LocalHistoryFilter(seasonId=target,expenseId=source)).single().id)
+        assertNull(store.record("account-a",balance));assertEquals("40.00",store.cachedOne("account-a","expense_balance",balance)!!.getString("available_amount"))
+        store.cacheAudit("account-a",source,gh,JSONObject().put("data",JSONArray()),"expense_audit")
+        assertNotNull(store.cachedOne("account-a","expense_audit",source));assertEquals(setOf(target),store.allocationSeasons("account-a",source))
+        store.applyPull("account-a",page(JSONArray().put(row("cost_allocation",allocation,JSONObject(allocated.toString()).put("record_state","cancelled"),2))))
+        assertTrue(store.records("account-a",kind="expense",filter=LocalHistoryFilter(seasonId=target)).isEmpty());assertTrue(store.allocationSeasons("account-a",source).isEmpty())
+        val queued=UUID.randomUUID().toString();store.saveAndQueue("account-a",queued,gh,JSONObject().put("amount","1.00"),kind="expense");val original=store.next("account-a")!!
+        store.initialize("account-a",epoch,UserRole.WORKER)
+        assertThrows(IllegalArgumentException::class.java) {store.record("account-a",source)}
+        assertThrows(IllegalArgumentException::class.java) {store.cachedOne("account-a","expense_audit",source)}
+        assertThrows(IllegalArgumentException::class.java) {store.cached("account-a","expense_balance")}
+        assertNull(store.next("account-a"));assertTrue(store.outbox("account-a").isEmpty())
+        store.initialize("account-a",epoch,UserRole.MANAGER)
+        val held=store.outbox("account-a").single();assertEquals(original.id,held.id);assertEquals(original.hash,held.hash);assertEquals("SCOPE_REVOKED",held.state)
+    }
+    @Test fun migrationFourToFiveRetainsFinancialRawDraftOutboxCursorAndArchive() {
+        val migrationName="finance-test-migration-${UUID.randomUUID()}.db";val id=UUID.randomUUID().toString();val operation=UUID.randomUUID().toString()
+        val raw=JSONObject().put("amount","1,2,3").put("paid_at",JSONObject.NULL).put("_local_form",JSONObject().put("date","belum").put("amount","1,2,3"))
+        context.openOrCreateDatabase(migrationName,Context.MODE_PRIVATE,null).use {old ->
+            FinanceDatabase.createVersionOne(old);old.execSQL("ALTER TABLE scope_metadata ADD COLUMN pull_cursor TEXT")
+            for(column in listOf("occurred_date","activity_type","group_id","record_state")) old.execSQL("ALTER TABLE local_records ADD COLUMN $column TEXT")
+            old.execSQL("ALTER TABLE local_records ADD COLUMN indexed INTEGER NOT NULL DEFAULT 0");old.execSQL("ALTER TABLE local_records ADD COLUMN occurred_millis INTEGER")
+            old.execSQL("CREATE INDEX local_history_filter ON local_records(scope,kind,group_id,occurred_date)")
+            old.execSQL("CREATE TABLE local_record_revisions(scope TEXT NOT NULL,entity_id TEXT NOT NULL,revision INTEGER NOT NULL,kind TEXT NOT NULL,greenhouse_id TEXT NOT NULL,body TEXT NOT NULL,server_body TEXT,base_version INTEGER,server_version INTEGER,resolution TEXT NOT NULL,saved_at INTEGER NOT NULL,PRIMARY KEY(scope,entity_id,revision),FOREIGN KEY(scope,entity_id) REFERENCES local_records(scope,entity_id))")
+            old.version=4
+            old.execSQL("INSERT INTO scope_metadata(scope,epoch,role,visible_greenhouses,pull_cursor) VALUES(?,?,?,?,?)",arrayOf("migrate",epoch,"manager",JSONArray().put(gh).toString(),"cursor-v4"))
+            old.execSQL("INSERT INTO scope_access(scope,greenhouse_id) VALUES(?,?)",arrayOf("migrate",gh))
+            old.execSQL("INSERT INTO local_records(scope,entity_id,kind,greenhouse_id,revision,body,sync_state,updated_at,indexed) VALUES(?,?,?,?,?,?,?,?,?)",arrayOf<Any>("migrate",id,"expense",gh,1,raw.toString(),"QUEUED",1,1))
+            old.execSQL("INSERT INTO outbox(scope,operation_id,entity_id,local_revision,envelope,canonical_hash,state,created_at) VALUES(?,?,?,?,?,?,?,?)",arrayOf<Any>("migrate",operation,id,1,"{}","immutable-v4-hash","QUEUED",1))
+            old.execSQL("INSERT INTO local_record_revisions(scope,entity_id,revision,kind,greenhouse_id,body,resolution,saved_at) VALUES(?,?,?,?,?,?,?,?)",arrayOf<Any>("migrate",id,1,"expense",gh,raw.toString(),"keep_local",1))
+        }
+        val upgraded=FinanceDatabase(context,migrationName)
+        try {
+            val migrated=LocalFinanceStore(upgraded,FixtureCipher());assertEquals(5,upgraded.readableDatabase.version);assertEquals("cursor-v4",migrated.pullCursor("migrate"))
+            assertEquals(raw.toString(),migrated.records("migrate",kind="expense").single().body.toString())
+            assertEquals(operation,migrated.outbox("migrate").single().id);assertEquals("immutable-v4-hash",migrated.outbox("migrate").single().hash)
+            assertEquals(raw.toString(),migrated.archived("migrate",id).single().toString());assertTrue(migrated.records("migrate",kind="expense",filter=LocalHistoryFilter(from="2026-10-29")).isEmpty())
+        } finally {upgraded.close();context.deleteDatabase(migrationName)}
+    }
     @Test fun migrationThreeKeepsArchivedDraftAndOrdersByOccurrenceInsteadOfArrival() {
         val migrationName="finance-test-migration-${UUID.randomUUID()}.db";val id=UUID.randomUUID().toString();val older=UUID.randomUUID().toString()
         context.openOrCreateDatabase(migrationName,Context.MODE_PRIVATE,null).use {old ->

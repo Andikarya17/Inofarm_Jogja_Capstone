@@ -52,3 +52,7 @@ Dilakukan: ekstraksi60 halaman, review narasi/tabel dan diagram utama, inventari
 ## Review implementasi sesudah FIN07/selama FIN08
 
 Status di atas tetap histori audit FIN00; hasil executable ada di IMPLEMENTATION_STATUS dan evidence per fitur. Flush edit terakhir sebelum logout telah diperbaiki/diverifikasi30 Oktober di evidence/20261030-DRAFT_LOGOUT.md. Read konsisten header+child/version serta scope boundary telah diperbaiki/diverifikasi30 Oktober di evidence/20261030-CONSISTENT_READS.md. Tindak lanjut: tentukan identitas UUID lintas jenis untuk import/kompatibilitas (local pull sudah menolak collision, belum registry global backend). Scope restore/epoch reconciliation belum otomatis. Catatan ini bukan izin purge draft atau auto-map legacy. Background scheduling, API29/perangkat fisik, UI end-to-end timings, UAT dan pentest tetap gate terpisah.
+
+## FIN09 backend/native — 30 Oktober 2026
+
+Pembayaran/alokasi eksplisit dan plafon source sudah diuji backend dua proses MySQL, native35unit/48instrumentation serta5 fase nyata offline/process restart/replay. Lihat [status dan evidence](IMPLEMENTATION_STATUS.md). Private proof/file authorization dan limit Q07 masih berikutnya; seluruh FIN09/KF07/U09/U21 belum dinyatakan complete. Selector acuan/source maksimum1000 cache, pagination selector jarak jauh dan timing dataset tetap follow-up. Gap registry UUID lintas jenis/scope restore/epoch/scheduler/admin/finance selanjutnya/UAT/pentest di atas tetap berlaku.

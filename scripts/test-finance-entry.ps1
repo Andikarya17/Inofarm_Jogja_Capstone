@@ -8,7 +8,7 @@ $outputDirectory=Join-Path $projectRoot 'outputs/finance-entry'
 if(Test-Path -LiteralPath $manifest) {throw 'A synthetic fixture already exists; verify its provenance/cleanup before starting another.'}
 if(Get-NetTCPConnection -LocalPort 8001 -State Listen -ErrorAction SilentlyContinue) {throw 'Port8001 is occupied; refusing to replace the service.'}
 New-Item -ItemType Directory -Force $outputDirectory | Out-Null
-$tasks=if($SkipChecks) {@(':app:assembleDebug',':app:assembleDebugAndroidTest','-PfinanceApp')} else {@(':app:assembleDebug',':app:testDebugUnitTest',':app:lintDebug',':app:connectedDebugAndroidTest','-PfinanceApp','-Pandroid.testInstrumentationRunnerArguments.class=com.inofarm.jogja.FinanceLocalStoreTest,com.inofarm.jogja.FinanceSyncCoordinatorTest,com.inofarm.jogja.FinanceEntryUiTest')}
+$tasks=if($SkipChecks) {@(':app:assembleDebug',':app:assembleDebugAndroidTest','-PfinanceApp')} else {@(':app:assembleDebug',':app:testDebugUnitTest',':app:lintDebug',':app:connectedDebugAndroidTest','-PfinanceApp','-Pandroid.testInstrumentationRunnerArguments.class=com.inofarm.jogja.FinanceLocalStoreTest,com.inofarm.jogja.FinanceSyncCoordinatorTest,com.inofarm.jogja.FinanceEntryUiTest,com.inofarm.jogja.CanonicalUnicodeDeviceTest')}
 & (Join-Path $PSScriptRoot 'build-android.ps1') -JavaHome $JavaHome -Tasks $tasks
 foreach($apk in @('android/app/build/outputs/apk/debug/app-debug.apk','android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk')) {
     & $adb install -r -t (Join-Path $projectRoot $apk)
@@ -99,10 +99,32 @@ try {
     $verifyLog=Join-Path $outputDirectory 'device-verify.txt'
     $verifyProcess=Start-Process -FilePath $adb -ArgumentList @('shell','am','instrument','-w','-r','-e','class','com.inofarm.jogja.FinanceBackendDeviceTest#reconnectReplayAndManagerReview','-e','devicePhase','verify','com.inofarm.jogja.finance.test/androidx.test.runner.AndroidJUnitRunner') -WindowStyle Hidden -PassThru -RedirectStandardOutput $verifyLog -RedirectStandardError (Join-Path $outputDirectory 'device-verify.stderr.txt')
     Assert-Instrumentation $verifyProcess $verifyLog
+    foreach($step in @(
+        @{Name='payment';Method='queueFinancialPaymentWithBackendOffline';Phase='payment-queue'},
+        @{Name='allocation';Method='replayPaymentThenQueueAllocationWithBackendOffline';Phase='allocation-queue'}
+    )) {
+        $phaseLog=Join-Path $outputDirectory ('device-'+$step.Name+'-queue.txt')
+        $phaseProcess=Start-Process -FilePath $adb -ArgumentList @('shell','am','instrument','-w','-r','-e','class',('com.inofarm.jogja.FinanceBackendDeviceTest#'+$step.Method),'-e','devicePhase',$step.Phase,'com.inofarm.jogja.finance.test/androidx.test.runner.AndroidJUnitRunner') -WindowStyle Hidden -PassThru -RedirectStandardOutput $phaseLog -RedirectStandardError (Join-Path $outputDirectory ('device-'+$step.Name+'-queue.stderr.txt'))
+        $deadline=[DateTime]::UtcNow.AddSeconds(60)
+        do {
+            $ready=& $adb shell cat ('/sdcard/Android/data/com.inofarm.jogja.finance/files/finance-'+$step.Name+'-ready.txt') 2>$null
+            if($LASTEXITCODE -eq 0 -and ($ready -join '').Trim() -eq $fixture.fixture_id) {break}
+            if($phaseProcess.HasExited -or [DateTime]::UtcNow -gt $deadline) {throw "Device did not reach $($step.Name) offline barrier."}
+            Start-Sleep -Milliseconds 200
+        } while($true)
+        Stop-TestApi
+        & $adb push $signal ('/sdcard/Android/data/com.inofarm.jogja.finance/files/finance-'+$step.Name+'-offline.txt')
+        Assert-Instrumentation $phaseProcess $phaseLog
+        & $adb shell am force-stop com.inofarm.jogja.finance
+        Start-TestApi
+    }
+    $financeVerifyLog=Join-Path $outputDirectory 'device-finance-verify.txt'
+    $financeVerifyProcess=Start-Process -FilePath $adb -ArgumentList @('shell','am','instrument','-w','-r','-e','class','com.inofarm.jogja.FinanceBackendDeviceTest#replayAllocationAndReviewFinancialScopeAndAudit','-e','devicePhase','finance-verify','com.inofarm.jogja.finance.test/androidx.test.runner.AndroidJUnitRunner') -WindowStyle Hidden -PassThru -RedirectStandardOutput $financeVerifyLog -RedirectStandardError (Join-Path $outputDirectory 'device-finance-verify.stderr.txt')
+    Assert-Instrumentation $financeVerifyProcess $financeVerifyLog
     & $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') verify
     if($LASTEXITCODE -ne 0) {throw 'MySQL verification failed.'}
 } finally {
     Stop-TestApi
     if($fixtureCreated -and (Test-Path -LiteralPath $manifest)) {& $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') cleanup;if($LASTEXITCODE -ne 0) {throw 'Synthetic fixture cleanup failed.'}}
 }
-Write-Output 'PASS: real guarded MySQL/Laravel worker activity + multi-grade harvest offline -> process restart -> receipts/replays -> manager review/cancel -> old ACK cannot downgrade. No user DB or legacy app data reset.'
+Write-Output 'PASS: guarded MySQL/Laravel five device phases: worker activity + multi-grade harvest offline/restart/replay/manager cancel/old ACK; manager payment + allocation each offline/process restart/exact receipt, source balance/audit/worker denial. No user DB or legacy app data reset.'

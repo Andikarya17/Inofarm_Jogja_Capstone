@@ -1,0 +1,31 @@
+# FIN09 native payments/allocations — 30 Oktober 2026 WIB
+
+Branch GitHub `codex/finance-expense-entry`, dependency `ac55dd8` (expense backend `3e2caf1` plus Unicode fix). **PASS core / PARTIAL acceptance**. Private proof upload remains subsequent work; FIN09/KF07/U09/U21/product are not complete.
+
+## Requirement → source
+
+Manager-only Keuangan tab, separate FinancialEntryViewModel/repository/domain validation; explicit payment category/kind and allocation source/season/FC/VC/basis. No default amount/classification/basis. Raw decimal comma/invalid/blank input remains encrypted locally; validation/review constructs a separate fixed2 wire payload, then local record+outbox commit atomically. An allocation whose payment is not accepted can remain a draft; queue requires a cached accepted active operating source and open season in the same GH. Changing source budgets remain server-authoritative.
+
+Payment/allocation histories have separate instances with audit, reasoned cancellation, frozen conflict comparison and reviewed rejection replacement. RecordKind replaces the operational-only assumption; OperationalKind is a compatibility alias. Financial corrections need reason without agronomy policy. `expense_in_use`/`allocation_exceeds_source` replacement retains old UUID/envelope/hash as SUPERSEDED; identity/epoch/counter mismatch is not bypassed. Logout flushes the latest editor before credentials release; unchanged accepted input does not create a correction.
+
+SQLite5 adds indexed season_id/expense_id and reindexes metadata additively. Filters precede SQL LIMIT/OFFSET; dates use paid_at or accepted allocation created_at, invalid/raw dates remain unknown. Payment season filters follow active allocation references. Live balance cache has its own UUID/version, checked against expense_version; UI shows last-known timestamp and missing balance instead of0. Worker/demoted accounts cannot read financial records/cache/audit/outbox; held queues survive role changes.
+
+## Verification
+
+JDK25.0.4/Gradle9.3.1/AGP9.1.1; Medium_Phone_API_37.0/sdk_gphone64_x86_64/API37; isolated `.finance` debug/test APK. MySQL8.0.30 effective `inofarm_test`, pre-SQL guard; no user DB reset, production migration, dependency addition or legacy APK data clear.
+
+- `scripts/build-android.ps1 -JavaHome ...` with `-PfinanceApp`, assembleDebug/testDebugUnitTest/lintDebug/connectedDebugAndroidTest and classes FinanceLocalStoreTest, FinanceSyncCoordinatorTest, FinanceEntryUiTest, CanonicalUnicodeDeviceTest: **35 JVM tests/0 failures**, **48/48 instrumentation PASS** (store23/coordinator3/UI21/canonical1), lint **0errors/31warnings**. Ignored log `tmp/finance-expense-entry-full-first.txt`.
+- Five new UI cases: offline payment/recreation/reconnect/exact amount/allocation/audit; explicit repair after over-allocation retains original envelope; latest invalid money/date logout creates no operation; unchanged accepted editor logout; 320dp and landscape at200% font with IME/reachable save. Two new store cases: financial season/date filters before pagination beyond50 rows, separate balance/audit cache and demotion; migration4→5 preserves raw draft/outbox/hash/cursor/archive. Existing1/2/3→current, operational/lifecycle/conflict regressions also pass.
+- `scripts/test-finance-entry.ps1 -JavaHome ... -SkipChecks`: rebuilt current APKs, **5/5 real Laravel/MySQL device phases PASS**. First two retain worker activity+two-grade harvest offline/restart/replay→manager cancel→old ACK no downgrade. Three financial phases stop the actual owned API and verify IOException, queue payment100.01 and retain raw allocation60,01, restart application, confirm payment then queue allocation offline, restart again, confirm allocation/exact replay/audit/balance and worker403/no financial pull rows. Distinct process PIDs asserted. Ignored log `tmp/finance-expense-entry-real-first.txt`.
+- Final SQL: payment100.01/version1; active VC allocation60.01/version1; source counter=active SUM60.01, available40.00, balance version2 and two manager balance feed rows. One audit/receipt/entity feed per financial record after replay; session actor/season/basis/notes verified. Existing activity1v1 and cancelled harvest1v2/items2/snapshots2/ledger2/balance feed4 reconcile. Owned fixture/manifest/API8001 cleaned; absence checked independently. This is real DB/device evidence, separate from HTTP mocks.
+- Python schema/golden/OpenAPI-ref check PASS. Prior full backend67tests/1151 and independent two-process allocation race are [backend evidence](FIN09-backend.md); no new full PHPUnit run claimed here. [Unicode evidence](20261030-CANONICAL_UNICODE.md) covers PHP/JVM/native hashes.
+
+Initial helper assumed fixed hub selectors were scroll children; corrected. A real financial audit-cache allowlist omission was found/fixed. One currency assertion requested whole-text matching instead of a substring; rendered Rp40,00 was correct. A helper brace compile error was fixed before instrumentation. Failed runs were not counted as passes; final48 and real5 phases pass.
+
+Visual review shortened the compact financial header at large font to prevent mid-word wrapping. Assemble/lint and the dedicated large-font/IME/landscape case were rerun after this text refinement: `tmp/finance-expense-entry-visual-build-final.txt`, `tmp/finance-expense-entry-visual-final.txt`, **1/1 PASS**. [320dp](images/FIN09-expense-narrow-ime.png) and [landscape](images/FIN09-expense-landscape-ime.png) inspected. PNGs capture the Compose root; the native IME is a separate window. A mistyped adb image path was corrected before final inspection.
+
+## Limits
+
+Private upload/limits, API29/physical devices, closed-app scheduling, restore/scope reconciliation, cross-kind UUID registry and remaining finance/admin/evaluation/export/recovery are open. Source/acuan selectors currently read maximum1000 cached records per kind; history uses SQL pagination. Required dataset end-to-end timings, mitra UAT/pentest/academic gates are not established. Q02 production allocation automation and Q07 file configuration remain open; no production business default introduced.
+
+[Contract](../../../../contracts/v2/EXPENSES.md), [local storage](../../../../contracts/v2/LOCAL_STORAGE.md), [status](../../../context/IMPLEMENTATION_STATUS.md).
