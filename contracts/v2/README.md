@@ -1,6 +1,6 @@
 # Kontrak core v2 — FIN01
 
-Baseline source `9da5b30`; branch `codex/finance-contracts`. Proposal SHA256 telah diperiksa cocok pada 29 Oktober 2026. Kontrak ini membekukan slice auth/context/activity/sync. Endpoint finance, upload dan recovery pada rancangan API_V2 belum menjadi route atau kontrak executable. FIN01 keseluruhan tetap parsial sampai kontrak modul tersebut ditambahkan.
+Baseline source `9da5b30`; branch awal `codex/finance-contracts`. Proposal SHA256 telah diperiksa cocok pada 29 Oktober 2026. Kontrak executable berkembang dari auth/context/activity/sync hingga panen dan [pengeluaran/alokasi](EXPENSES.md). Upload, aset, penjualan, evaluasi dan recovery masih ditambahkan per modul; rancangan API_V2 bukan bukti route yang belum diimplementasikan. FIN01 keseluruhan tetap parsial.
 
 ## Wire dan angka
 
@@ -28,6 +28,6 @@ Q04/Q05 belum disahkan: tidak auto-complete jadwal, tidak menetapkan stadia dari
 
 ## Verifikasi
 
-`scripts/check-finance-contracts.py` memvalidasi JSON Schema dan fixture activity/harvest serta seluruh local refs OpenAPI. `FinanceWireContractTest` pada PHPUnit dan Android memeriksa hash lintas bahasa dan penolakan format angka. [Panen FIN08](HARVEST.md) memakai integer JSON untuk jumlah buah dan decimal string untuk bobot kg. Schema mendeskripsikan struktur; invariants lintas parent/role/saldo tetap diuji di service+MySQL, bukan dibuktikan oleh schema saja.
+`scripts/check-finance-contracts.py` memvalidasi JSON Schema dan fixture activity/harvest/expense/allocation serta seluruh local refs OpenAPI. `FinanceWireContractTest` pada PHPUnit dan Android memeriksa hash lintas bahasa dan penolakan format angka; fixture finance baru diuji Python/PHP dahulu, Kotlin menyusul native editor. [Panen FIN08](HARVEST.md) memakai integer JSON untuk jumlah buah dan decimal string untuk bobot kg. Schema mendeskripsikan struktur; invariants lintas parent/role/saldo tetap diuji di service+MySQL, bukan dibuktikan oleh schema saja.
 
 Rujukan teknik diperiksa 29 Oktober 2026: [OpenAPI 3.1.1](https://spec.openapis.org/oas/v3.1.1.html), [Laravel Sanctum 13](https://laravel.com/framework/docs/13.x/sanctum). Tidak menambah dependency runtime.

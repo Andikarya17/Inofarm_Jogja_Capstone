@@ -1,0 +1,19 @@
+{
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "10000000-0000-4000-8000-000000000004",
+    "operation_id": "10000000-0000-4000-8000-000000000021",
+    "entity_id": "10000000-0000-4000-8000-000000000011",
+    "entity_type": "cost_allocation",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "expense_id": "10000000-0000-4000-8000-000000000010",
+      "season_id": "10000000-0000-4000-8000-000000000003",
+      "amount": "60.01",
+      "cost_class": "VC",
+      "allocation_basis": "Nominal eksplisit sintetis untuk musim ini"
+    }
+  },
+  "canonical_sha256": "d728db26fb556a434183528a2151a641453c39152da01adafb612744cac42490"
+}

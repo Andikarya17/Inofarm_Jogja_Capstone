@@ -3,6 +3,7 @@
 use App\Domain\Activities\ActivityService;
 use App\Domain\Contracts\DomainFailure;
 use App\Domain\Harvest\HarvestService;
+use App\Domain\Finance\CostAllocationService;
 use App\Models\User;
 use App\Support\TestDatabaseGuard;
 use Illuminate\Contracts\Console\Kernel;
@@ -33,6 +34,7 @@ try {
     $service = match ($input['operation']['entity_type']) {
         'activity' => ActivityService::class,
         'harvest' => HarvestService::class,
+        'cost_allocation' => CostAllocationService::class,
         default => throw new InvalidArgumentException('Unsupported synthetic race kind.'),
     };
     $receipt = app($service)->mutate($actor, $input['operation']);
