@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V2;
 
 use App\Domain\Identity\GreenhouseAccess;
+use App\Domain\Identity\EntityIdentity;
 use App\Domain\Sync\MutationLedger;
 use App\Http\Controllers\Controller;
 use App\Models\User;
@@ -66,7 +67,9 @@ final class UserController extends Controller
             if ($action === 'create') {
                 abort_if(User::where('public_id', $op['entity_id'])->orWhere('email', strtolower($p['email']))->exists(), 422, 'Email atau identitas akun telah digunakan.');
                 $user = User::create(['public_id' => $op['entity_id'], 'name' => $p['name'], 'email' => strtolower($p['email']), 'role' => $p['role'], 'password' => $p['password']]);
-                DB::table('greenhouse_assignments')->insert(['id' => (string) Str::uuid(), 'greenhouse_id' => $gh, 'user_id' => $user->id,
+                $assignmentId = (string) Str::uuid();
+                app(EntityIdentity::class)->claim('greenhouse_assignments', $assignmentId);
+                DB::table('greenhouse_assignments')->insert(['id' => $assignmentId, 'greenhouse_id' => $gh, 'user_id' => $user->id,
                     'created_by' => $actor->id, 'effective_from' => now(), 'created_at' => now(), 'updated_at' => now()]);
             } else {
                 $user = User::where('public_id', $op['entity_id'])->firstOrFail();

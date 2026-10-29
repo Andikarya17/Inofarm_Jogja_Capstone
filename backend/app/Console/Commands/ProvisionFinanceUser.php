@@ -2,9 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Identity\EntityIdentity;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ProvisionFinanceUser extends Command
@@ -24,7 +26,12 @@ class ProvisionFinanceUser extends Command
 
             return self::FAILURE;
         }
-        User::create([...$input, 'public_id' => (string) Str::uuid()]);
+        DB::transaction(function () use ($input) {
+            DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();
+            $id = (string) Str::uuid();
+            app(EntityIdentity::class)->claim('users', $id);
+            User::create([...$input, 'public_id' => $id]);
+        });
         $this->info('Akun tersimpan. Penugasan greenhouse harus ditetapkan eksplisit.');
 
         return self::SUCCESS;

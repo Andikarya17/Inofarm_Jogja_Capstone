@@ -4,6 +4,7 @@ namespace App\Domain\Finance;
 
 use App\Domain\Contracts\DomainFailure;
 use App\Domain\Identity\GreenhouseAccess;
+use App\Domain\Identity\EntityIdentity;
 use App\Domain\Sync\MutationLedger;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -94,7 +95,9 @@ final class ExpenseService
             $data['version'] = ($row->version ?? 0) + 1;
             $data['updated_at'] = now();
             if ($row === null) {
-                DB::table('expenses')->insert([...$data, 'id' => $op['entity_id'], 'balance_id' => (string) Str::uuid(), 'recorded_by' => $current->id, 'created_at' => now()]);
+                $balanceId = (string) Str::uuid();
+                app(EntityIdentity::class)->claim('expense_balance', $balanceId);
+                DB::table('expenses')->insert([...$data, 'id' => $op['entity_id'], 'balance_id' => $balanceId, 'recorded_by' => $current->id, 'created_at' => now()]);
             } else {
                 DB::table('expenses')->where('id', $row->id)->update([...$data, 'balance_version' => $row->balance_version + 1]);
             }

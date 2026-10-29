@@ -1,3 +1,7 @@
+## Global v2 UUID identities — 30 Oktober 2026 WIB
+
+Branch `codex/finance-global-identities`, base `bf63b70`. Guard4/12 lalu MySQL75tests/1284assertions PASS; cross-kind create race dan3 existing races PASS; five real guarded device phases plus read-only identity preflight PASS. Schema8 metadata-only preflight/backfill, no automatic ID conversion. [Evidence](../migration/finance-20261029/evidence/20261030-GLOBAL_IDENTITIES.md) records barrier fixture failure/correction, maintenance requirements and limits. No production migration/deploy.
+
 ## Full reference names — 30 Oktober 2026 WIB
 
 Branch `codex/finance-reference-names`, base `2f91180`. Isolated guard4/12 then MySQL69tests/1187assertions PASS. Additive schema7 preserves full150-character multibyte master names in harvest/payment/allocation snapshots, including rename/correction/history. [Evidence](../migration/finance-20261029/evidence/20261030-REFERENCE_NAMES.md). No Android/API/dependency change or user-data migration.

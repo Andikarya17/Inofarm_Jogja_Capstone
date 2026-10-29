@@ -4,6 +4,7 @@ namespace App\Domain\Sync;
 
 use App\Domain\Contracts\CanonicalJson;
 use App\Domain\Contracts\DomainFailure;
+use App\Domain\Identity\EntityIdentity;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -36,6 +37,9 @@ final class MutationLedger
                 }
 
                 return ['status' => $receipt->http_status, 'body' => json_decode($receipt->receipt, true, flags: JSON_THROW_ON_ERROR)];
+            }
+            if ($operation['action'] === 'create') {
+                app(EntityIdentity::class)->claim($operation['entity_type'], $operation['entity_id']);
             }
             $change = $execute($actor);
             $now = now();

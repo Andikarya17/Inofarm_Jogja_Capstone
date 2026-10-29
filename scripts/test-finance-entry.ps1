@@ -90,9 +90,6 @@ try {
         Start-Sleep -Milliseconds 200
     } while($true)
     Stop-TestApi
-    $signal=Join-Path $outputDirectory 'go-offline.txt'
-    Set-Content -LiteralPath $signal -Value $fixture.fixture_id -NoNewline
-    & $adb push $signal '/sdcard/Android/data/com.inofarm.jogja.finance/files/finance-device-go-offline.txt'
     Assert-Instrumentation $queueProcess $queueLog
     & $adb shell am force-stop com.inofarm.jogja.finance
     Start-TestApi
@@ -113,7 +110,6 @@ try {
             Start-Sleep -Milliseconds 200
         } while($true)
         Stop-TestApi
-        & $adb push $signal ('/sdcard/Android/data/com.inofarm.jogja.finance/files/finance-'+$step.Name+'-offline.txt')
         Assert-Instrumentation $phaseProcess $phaseLog
         & $adb shell am force-stop com.inofarm.jogja.finance
         Start-TestApi

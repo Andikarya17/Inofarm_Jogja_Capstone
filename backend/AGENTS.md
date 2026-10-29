@@ -6,4 +6,6 @@ API_V2/DATA_CONTRACTS memuat rancangan lengkap; subset core/master/reference/act
 
 Test wajib effective MySQL inofarm_test; guard sebelum SQL/provider. Jangan RefreshDatabase/migrate:fresh/reset/seed pada inofarm_local/data pengguna; jangan disable guard. Concurrency dibuktikan MySQL, bukan mock saja.
 
+Entity UUID v2 global: root create dan inline children/balance harus claim EntityIdentity dalam transaksi/lock ledger; tambahkan source kind saat memperluas modul. Jangan melepas reservation saat cancel/deactivate atau mengubah ID secara otomatis. Schema8 backfill memerlukan preflight/maintenance; CLI identity check read-only. Synthetic cleanup hanya UUID milik fixture yang telah diverifikasi.
+
 Jangan install Laravel Boost/dependency hanya rekomendasi skeleton. Branch per fitur/Git authorization mengikuti root dan koreksi pengguna: remote github. Publikasi bukan deploy/destructive operation. FIN00 dokumentasi tetap historis; implementasi aktif mengikuti master prompt dan evidence baru.
