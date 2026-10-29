@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "Inofarm finance transition core",
-    "version": "2.0.0-masters.1",
+    "version": "2.0.0-references.1",
     "description": "Kontrak core dibekukan FIN01; route hanya tersedia setelah task implementasinya lulus. Keuangan dan administrasi lanjut per FIN03-15."
   },
   "servers": [
@@ -3035,6 +3035,596 @@
                       }
                     },
                     "required": [
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/schedules": {
+      "post": {
+        "operationId": "post_schedules_create",
+        "summary": "Versioned create schedules",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "schedules"
+                  },
+                  "action": {
+                    "const": "create"
+                  },
+                  "base_version": {
+                    "type": "null"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "activity_type": {
+                        "enum": [
+                          "nutrition",
+                          "spray",
+                          "general",
+                          "stage"
+                        ]
+                      },
+                      "planned_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "notes": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "planting_group_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "activity_type",
+                      "planned_at",
+                      "notes",
+                      "planting_group_id"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_schedules",
+        "summary": "Scoped paginated schedules",
+        "responses": {
+          "200": {
+            "description": "Scoped page"
+          }
+        }
+      }
+    },
+    "/schedules/{id}": {
+      "patch": {
+        "operationId": "patch_schedules_update",
+        "summary": "Versioned update schedules",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "schedules"
+                  },
+                  "action": {
+                    "const": "update"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "activity_type": {
+                        "enum": [
+                          "nutrition",
+                          "spray",
+                          "general",
+                          "stage"
+                        ]
+                      },
+                      "planned_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "notes": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "activity_type",
+                      "planned_at",
+                      "notes",
+                      "active",
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/targets": {
+      "post": {
+        "operationId": "post_targets_create",
+        "summary": "Versioned create targets",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "targets"
+                  },
+                  "action": {
+                    "const": "create"
+                  },
+                  "base_version": {
+                    "type": "null"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "activity_type": {
+                        "enum": [
+                          "nutrition",
+                          "spray",
+                          "general",
+                          "stage"
+                        ]
+                      },
+                      "parameter": {
+                        "enum": [
+                          "manual_ppm",
+                          "manual_ph"
+                        ]
+                      },
+                      "unit": {
+                        "enum": [
+                          "ppm",
+                          "pH"
+                        ]
+                      },
+                      "effective_from": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "effective_until": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "target_value": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 30
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "minimum": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 30
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "maximum": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 30
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "tolerance": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 30
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "planting_group_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "activity_type",
+                      "parameter",
+                      "unit",
+                      "effective_from",
+                      "effective_until",
+                      "target_value",
+                      "minimum",
+                      "maximum",
+                      "tolerance",
+                      "planting_group_id"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_targets",
+        "summary": "Scoped paginated targets",
+        "responses": {
+          "200": {
+            "description": "Scoped page"
+          }
+        }
+      }
+    },
+    "/targets/{id}": {
+      "patch": {
+        "operationId": "patch_targets_update",
+        "summary": "Versioned update targets",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "targets"
+                  },
+                  "action": {
+                    "const": "update"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "activity_type": {
+                        "enum": [
+                          "nutrition",
+                          "spray",
+                          "general",
+                          "stage"
+                        ]
+                      },
+                      "parameter": {
+                        "enum": [
+                          "manual_ppm",
+                          "manual_ph"
+                        ]
+                      },
+                      "unit": {
+                        "enum": [
+                          "ppm",
+                          "pH"
+                        ]
+                      },
+                      "effective_from": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "effective_until": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "target_value": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 30
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "minimum": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 30
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "maximum": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 30
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "tolerance": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 30
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "activity_type",
+                      "parameter",
+                      "unit",
+                      "effective_from",
+                      "effective_until",
+                      "target_value",
+                      "minimum",
+                      "maximum",
+                      "tolerance",
+                      "active",
                       "reason"
                     ]
                   }

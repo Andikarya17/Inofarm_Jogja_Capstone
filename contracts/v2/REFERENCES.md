@@ -1,0 +1,11 @@
+# Jadwal, target dan umur — FIN04
+
+GET list/detail, POST create, PATCH update `/schedules|targets`, GET `/{id}/versions`. Envelope ledger sama dengan master, type schedules/targets. Create payload planting_group_id; parent immutable pada update. Semua perubahan pengelola scoped, musim terbuka; update reason/active/base_version wajib. Tidak ada completion otomatis. Revisi JSON immutable per entity+version terpisah dari row aktif dan tidak dihapus ketika dinonaktifkan. Pagination default50/max100, reference versions cursor version integer.
+
+Schedule payload activity_type `nutrition|spray|general|stage`, planned_at RFC3339 detik+offset, notes string (boleh kosong). Target payload activity_type, parameter `manual_ppm|manual_ph`, unit `ppm|pH` yang cocok, target_value/minimum/maximum/tolerance decimal string atau null, effective_from/effective_until (nullable), interval [from,until). Tidak ada threshold bawaan. PPM/rentang/tolerance>=0; pH target/batas 0–14. Target tunggal dan rentang tidak dicampur; range harus dua batas berurutan, tolerance perlu target. Seluruh nilai null sah sebagai aturan belum lengkap. Target aktif yang tumpang tindih per group/type/parameter ditolak dalam ledger transaction.
+
+Pemilihan acuan menggunakan occurred_at UTC, bukan received_at; range inclusive, tolerance inclusive, single tanpa tolerance `delta_only`, target/actual/aturan hilang `unavailable` dengan reasons; actual selalu dipertahankan. Snapshot (disimpan pada aktivitas di FIN05/06) memuat versi comparator1, versi/tanggal kelompok, umur dan checks beserta target+versi. Mengubah acuan tidak mengubah snapshot lama. Re-evaluation historis harus explicit revision, belum menjadi endpoint tersendiri.
+
+Umur PHP/Kotlin memakai tanggal WIB: selisih kalender+1; sebelum pindah HST null, sebelum semai unavailable+reason untuk menahan perilaku Q05 yang belum disahkan. Tidak menetapkan stadia. Tanggal pindah sebelum semai ditolak di master dan preview Kotlin. Tanggal/petugas/aturan completion bisnis lain tetap keputusan terbuka.
+
+Middleware trim/empty-string conversion dilewati hanya untuk v2 agar hash retry mempertahankan nilai wire yang divalidasi. Empty notes dan satu spasi merupakan isi berbeda dan menghasilkan operation_conflict bila ID diulang dengan perubahan tersebut. V1 tetap memakai middleware sebelumnya.

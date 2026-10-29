@@ -3,6 +3,7 @@
 use App\Http\Controllers\V2\AuthController;
 use App\Http\Controllers\V2\ContextController;
 use App\Http\Controllers\V2\MasterController;
+use App\Http\Controllers\V2\ReferenceController;
 use App\Http\Controllers\V2\SyncStatusController;
 use App\Http\Controllers\V2\UserController;
 use Illuminate\Support\Facades\Route;
@@ -18,6 +19,11 @@ Route::prefix('v2')->group(function () {
         Route::get('users', [UserController::class, 'index']);
         Route::post('users', [UserController::class, 'store']);
         Route::patch('users/{id}', [UserController::class, 'update'])->whereUuid('id');
+        Route::get('{reference}', [ReferenceController::class, 'index'])->whereIn('reference', ['schedules', 'targets']);
+        Route::get('{reference}/{id}', [ReferenceController::class, 'show'])->whereIn('reference', ['schedules', 'targets'])->whereUuid('id');
+        Route::get('{reference}/{id}/versions', [ReferenceController::class, 'versions'])->whereIn('reference', ['schedules', 'targets'])->whereUuid('id');
+        Route::post('{reference}', [ReferenceController::class, 'store'])->whereIn('reference', ['schedules', 'targets']);
+        Route::patch('{reference}/{id}', [ReferenceController::class, 'update'])->whereIn('reference', ['schedules', 'targets'])->whereUuid('id');
         Route::get('{resource}', [MasterController::class, 'index'])->whereIn('resource', ['seasons', 'planting-groups', 'varieties', 'materials', 'units', 'grades', 'expense-categories', 'assignments']);
         Route::get('{resource}/{id}', [MasterController::class, 'show'])->whereIn('resource', ['seasons', 'planting-groups', 'varieties', 'materials', 'units', 'grades', 'expense-categories', 'assignments'])->whereUuid('id');
         Route::post('{resource}', [MasterController::class, 'store'])->whereIn('resource', ['greenhouses', 'seasons', 'planting-groups', 'varieties', 'materials', 'units', 'grades', 'expense-categories', 'assignments']);

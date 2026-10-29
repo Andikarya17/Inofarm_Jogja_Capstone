@@ -7,7 +7,8 @@ Dokumen ini melengkapi context pack lokal FIN00 yang belum di-commit; tidak meny
 | FIN01 core | PASS | Kontrak auth/context/activity/sync, decimal dan canonical hash PHP/Kotlin; [evidence](../migration/finance-20261029/evidence/FIN01.md). Kontrak finance/admin/upload/recovery lanjut per modul; FIN01 keseluruhan PARTIAL. |
 | FIN02 backend | PASS / PARTIAL fitur | Auth/token pekerja-pengelola, public UUID, assignment-window scope dan bounded GH reads; [evidence](../migration/finance-20261029/evidence/FIN02.md). UI login/persistence sesi baru dan administrasi akun belum tersedia. |
 | FIN03 backend | PASS / PARTIAL fitur | Master/assignment/user admin scoped, additive migrations, audit/version/receipt atomic; [evidence](../migration/finance-20261029/evidence/FIN03.md). UI master belum tersedia. |
-| FIN04–17 | TODO | Belum tersedia pada commit FIN03. APK masih legacy. |
+| FIN04 backend/domain | PASS / PARTIAL fitur | Jadwal/target versioned, interval scoped, WIB age PHP/Kotlin, comparator; [evidence](../migration/finance-20261029/evidence/FIN04.md). Layar acuan dan penyimpanan snapshot activity menyusul. |
+| FIN05–17 | TODO | Belum tersedia pada commit FIN04. APK masih legacy. |
 
 Q10: pengguna menyetujui IDR, DECIMAL(20,2) nominal, DECIMAL(20,6) kuantitas/harga dan HALF_UP pada total transaksi dalam chat pelaksanaan. Usulan solver dan business gates Q01–09/Q11–13 tidak otomatis disahkan.
 
