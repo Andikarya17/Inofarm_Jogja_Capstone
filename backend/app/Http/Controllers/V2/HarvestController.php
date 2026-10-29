@@ -5,6 +5,8 @@ namespace App\Http\Controllers\V2;
 use App\Domain\Cultivation\MasterService;
 use App\Domain\Harvest\HarvestBalance;
 use App\Domain\Harvest\HarvestService;
+use App\Domain\Sync\AcceptedSnapshot;
+use App\Domain\Sync\ScopedRead;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -20,15 +22,15 @@ final class HarvestController extends Controller
             'until' => 'nullable|date_format:Y-m-d'.($request->filled('from') ? '|after_or_equal:from' : ''),
             'limit' => 'sometimes|integer|min:1|max:100', 'cursor' => 'nullable|string|max:512']);
 
-        return DB::transaction(function () use ($request, $service, $masters, $input) {
-            $q = $service->scope($request->user());
+        return app(ScopedRead::class)->run($request, function (User $actor) use ($request, $service, $masters, $input) {
+            $q = $service->scope($actor);
             foreach (['planting_group_id', 'record_state'] as $key) {
                 if (isset($input[$key])) {
                     $q->where($key, $input[$key]);
                 }
             }
             if (isset($input['season_id']) || isset($input['greenhouse_id'])) {
-                $groups = $masters->scope($request->user(), 'planting_groups')->select('id');
+                $groups = $masters->scope($actor, 'planting_groups')->select('id');
                 if (isset($input['season_id'])) {
                     $groups->where('season_id', $input['season_id']);
                 }
@@ -45,19 +47,19 @@ final class HarvestController extends Controller
             }
             $page = $q->orderByDesc('occurred_at')->orderByDesc('id')->cursorPaginate((int) ($input['limit'] ?? 50));
 
-            return ['data' => collect($page->items())->map(fn ($row) => $service->publicRow($row)), 'next_cursor' => $page->nextCursor()?->encode()];
+            return ['data' => collect($page->items())->map(fn ($row) => app(AcceptedSnapshot::class)->read('harvest', $row)), 'next_cursor' => $page->nextCursor()?->encode()];
         });
     }
 
     public function show(Request $request, string $id, HarvestService $service)
     {
-        return DB::transaction(fn () => $service->publicRow($service->scope($request->user())->where('id', $id)->first() ?? abort(404)));
+        return app(ScopedRead::class)->run($request, fn (User $actor) => app(AcceptedSnapshot::class)->read('harvest', $service->scope($actor)->where('id', $id)->first() ?? abort(404)));
     }
 
     public function availability(Request $request, string $id, HarvestService $service, HarvestBalance $balance)
     {
-        return DB::transaction(function () use ($request, $id, $service, $balance) {
-            $harvest = $service->scope($request->user())->where('id', $id)->first() ?? abort(404);
+        return app(ScopedRead::class)->run($request, function (User $actor) use ($id, $service, $balance) {
+            $harvest = $service->scope($actor)->where('id', $id)->first() ?? abort(404);
 
             return ['data' => DB::table('harvest_items')->where('harvest_id', $id)->orderBy('id')->get()->map(fn ($item) => $balance->publicRow($item, $harvest))->values()];
         });
@@ -80,17 +82,19 @@ final class HarvestController extends Controller
 
     public function audit(Request $request, string $id, HarvestService $service)
     {
-        $service->scope($request->user())->where('id', $id)->first() ?? abort(404);
         $input = $request->validate(['cursor' => 'nullable|integer|min:0', 'limit' => 'sometimes|integer|min:1|max:100']);
-        $limit = (int) ($input['limit'] ?? 50);
-        $rows = DB::table('audit_logs')->where('entity_type', 'harvest')->where('entity_id', $id)->where('id', '>', $input['cursor'] ?? 0)->orderBy('id')->limit($limit + 1)->get();
+        return app(ScopedRead::class)->run($request, function (User $actor) use ($service, $id, $input) {
+            $service->scope($actor)->where('id', $id)->first() ?? abort(404);
+            $limit = (int) ($input['limit'] ?? 50);
+            $rows = DB::table('audit_logs')->where('entity_type', 'harvest')->where('entity_id', $id)->where('id', '>', $input['cursor'] ?? 0)->orderBy('id')->limit($limit + 1)->get();
 
-        return ['data' => $rows->take($limit)->map(function ($row) {
-            $actor = User::findOrFail($row->actor_id);
+            return ['data' => $rows->take($limit)->map(function ($row) {
+                $actor = User::findOrFail($row->actor_id);
 
-            return ['id' => $row->id, 'actor_id' => $actor->public_id, 'actor_name' => $actor->name, 'action' => $row->action, 'version' => $row->version,
-                'reason' => $row->reason, 'changes' => json_decode($row->changes, true, flags: JSON_THROW_ON_ERROR), 'server_at' => CarbonImmutable::parse($row->server_at, 'UTC')->toISOString()];
-        })->values(), 'next_cursor' => $rows->count() > $limit ? (string) $rows[$limit - 1]->id : null];
+                return ['id' => $row->id, 'actor_id' => $actor->public_id, 'actor_name' => $actor->name, 'action' => $row->action, 'version' => $row->version,
+                    'reason' => $row->reason, 'changes' => json_decode($row->changes, true, flags: JSON_THROW_ON_ERROR), 'server_at' => CarbonImmutable::parse($row->server_at, 'UTC')->toISOString()];
+            })->values(), 'next_cursor' => $rows->count() > $limit ? (string) $rows[$limit - 1]->id : null];
+        });
     }
 
     private function perform(Request $request, HarvestService $service, string $action, ?string $id = null)
