@@ -28,9 +28,26 @@ object WireContract {
         null, JSONObject.NULL -> "null"
         is JSONObject -> value.keys().asSequence().sorted().joinToString(",", "{", "}") { canonical(it) + ":" + canonical(value.get(it)) }
         is JSONArray -> (0 until value.length()).joinToString(",", "[", "]") { canonical(value.get(it)) }
-        is String -> JSONObject.quote(value).replace("\\/", "/").replace("\\u2028", "\u2028").replace("\\u2029", "\u2029")
+        is String -> quote(value)
         is Boolean, is Int, is Long -> value.toString()
         else -> error("Desimal harus string; tipe canonical tidak didukung.")
+    }
+    /** org.json quote differs across JVM/Android; wire escaping must not depend on that implementation. */
+    private fun quote(value:String):String=buildString {
+        append('"');var index=0
+        while(index<value.length) {
+            val char=value[index++]
+            when(char) {
+                '"' -> append("\\\"");'\\' -> append("\\\\");'\b' -> append("\\b");'\t' -> append("\\t");'\n' -> append("\\n");'\u000c' -> append("\\f");'\r' -> append("\\r")
+                else -> when {
+                    char.code<32 -> append("\\u").append(char.code.toString(16).padStart(4,'0'))
+                    char.isHighSurrogate() -> {require(index<value.length && value[index].isLowSurrogate()) {"Teks memuat pasangan Unicode yang tidak lengkap."};append(char);append(value[index++])}
+                    char.isLowSurrogate() -> throw IllegalArgumentException("Teks memuat pasangan Unicode yang tidak lengkap.")
+                    else -> append(char)
+                }
+            }
+        }
+        append('"')
     }
     fun hash(operation: JSONObject): String = MessageDigest.getInstance("SHA-256")
         .digest(canonical(operation).toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }

@@ -86,4 +86,22 @@ class FinanceSyncCoordinatorTest {
         assertEquals("QUEUED",store.outbox(scope.key).single().state)
         assertNotNull(store.record(scope.key,id));assertNull(store.record(newScope.key,id))
     }
+    @Test fun mismatchedCanonicalHashIsHeldWithoutRewritingOrSendingTheOperation() = runBlocking {
+        queue();val original=store.next(scope.key)!!;val legacyHash="0".repeat(64)
+        helper.writableDatabase.execSQL("UPDATE outbox SET canonical_hash=? WHERE scope=? AND operation_id=?",arrayOf(legacyHash,scope.key,original.id))
+        var mutations=0
+        val api=object:FinanceApi {
+            override fun validateBase(base:String)=base
+            override suspend fun request(base:String,token:String?,path:String,method:String,body:JSONObject?,query:Map<String,String>):JSONObject=when(path) {
+                "sync/status" -> JSONObject().put("sync_epoch",epoch)
+                "sync/changes" -> page()
+                else -> {mutations++;error("A mismatched operation must not be sent.")}
+            }
+        }
+        val coordinator=FinanceSyncCoordinator(api,vault,store);coordinator.run();coordinator.run()
+        val held=store.outbox(scope.key).single()
+        assertEquals(0,mutations);assertEquals(original.id,held.id);assertEquals(legacyHash,held.hash)
+        assertEquals(original.envelope.toString(),held.envelope.toString());assertEquals("REJECTED",held.state)
+        assertEquals("canonical_hash_mismatch",held.error!!.getString("code"))
+    }
 }

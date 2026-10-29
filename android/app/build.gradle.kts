@@ -11,6 +11,7 @@ require(ownerApiUrl.isBlank() || URI(ownerApiUrl).let { it.scheme == "https" && 
 }
 fun quotedConfig(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 android {
+    sourceSets.getByName("androidTest").assets.srcDir("../../contracts/v2/fixtures")
     namespace = "com.inofarm.jogja"
     compileSdk { version = release(37) { minorApiLevel = 0 } }
     defaultConfig {

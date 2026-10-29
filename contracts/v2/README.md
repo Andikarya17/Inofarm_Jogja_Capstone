@@ -18,6 +18,8 @@ Envelope pada `activity-operation.schema.json`. Object tetap UUID sepanjang hidu
 
 Hash SHA256 atas canonical UTF-8: object keys ASCII diurutkan, array berurutan, tidak ada whitespace, string Unicode/slash tidak di-escape kecuali kontrol/quote/backslash, angka JSON hanya integer. Decimal string tidak dinormalisasi ("6.0" berbeda dari "6.00"); outbox menyimpan envelope immutable. Null berbeda dari absent/0. Fixture hash dibuat dengan Python stdlib independen, dibaca oleh PHP dan Kotlin. Payload tidak boleh mengandung key actor/role/totals atau field tidak dikenal.
 
+Kotlin memakai JSON escaping canonical sendiri agar org.json JVM/Android tidak menghasilkan hash berbeda. Pasangan Unicode tidak lengkap ditolak; teks literal backslash-u dipertahankan. Fixture Unicode, kontrol, emoji dan fixture keuangan diperiksa Python/PHP/JVM/native API37. Hash antrean yang tidak cocok ditahan REJECTED `canonical_hash_mismatch`; envelope/UUID/hash tidak ditulis ulang atau diganti otomatis. [Evidence30 Oktober](../../docs/migration/finance-20261029/evidence/20261030-CANONICAL_UNICODE.md).
+
 Commit server mutation+audit+receipt+change-feed satu transaksi. Unique actor+operation; replay memeriksa akses terkini sebelum receipt. Same ID/hash mengembalikan receipt awal; hash berbeda 409. Update menggunakan optimistic version, bukan last-write-wins. Restore mengganti epoch; antrean lama ditahan untuk rekonsiliasi. Receipt/draft tidak dipurge otomatis sampai Q06 disepakati.
 
 ## Hak akses dan batas keputusan
