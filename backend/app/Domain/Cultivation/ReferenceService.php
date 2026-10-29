@@ -39,7 +39,7 @@ final class ReferenceService
         return $this->ledger->run($user, $op, function (User $actor) use ($table, $op) {
             $this->access->manager($actor);
             $group = $op['action'] === 'create' ? $op['payload']['planting_group_id'] : ($this->scope($actor, $table)->where('id', $op['entity_id'])->value('planting_group_id') ?? abort(404));
-            $this->context->get($actor, $group, true);
+            $this->context->get($actor, $group);
         }, function (User $actor) use ($table, $op) {
             $before = null;
             if ($op['action'] !== 'create') {

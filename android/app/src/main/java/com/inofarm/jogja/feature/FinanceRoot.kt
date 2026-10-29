@@ -45,6 +45,7 @@ import com.inofarm.jogja.feature.auth.AuthUiState
 import com.inofarm.jogja.feature.auth.AuthViewModel
 import com.inofarm.jogja.feature.context.ContextViewModel
 import com.inofarm.jogja.feature.context.CultivationUiState
+import com.inofarm.jogja.feature.history.*
 import org.json.JSONObject
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -54,26 +55,31 @@ import java.util.Locale
 private fun <T:ViewModel> factory(create:()->T)=object:ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST") override fun <V:ViewModel> create(modelClass:Class<V>):V=create() as V
 }
-private fun SyncState.label()=when(this) {
+internal fun SyncState.label()=when(this) {
     SyncState.LOCAL -> "Disimpan lokal";SyncState.QUEUED -> "Menunggu pengiriman";SyncState.ACCEPTED -> "Diterima server"
     SyncState.CONFLICT -> "Konflik versi";SyncState.REJECTED -> "Perlu diperbaiki";SyncState.AUTH_REQUIRED -> "Perlu masuk kembali"
     SyncState.SCOPE_REVOKED -> "Penugasan perlu ditinjau";SyncState.EPOCH_REVIEW -> "Perlu rekonsiliasi"
 }
-private fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).atZoneSameInstant(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm 'WIB'",Locale.forLanguageTag("id-ID"))) }.getOrDefault(value)
+internal fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).atZoneSameInstant(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm 'WIB'",Locale.forLanguageTag("id-ID"))) }.getOrDefault(value)
+internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBlank {serverBody?.optString("recorded_by").orEmpty()}
 
 @Composable fun FinanceRoot(runtime:FinanceRuntime) {
     val auth:AuthViewModel=viewModel(factory=remember(runtime){factory { AuthViewModel(runtime.auth) }})
     val context:ContextViewModel=viewModel(factory=remember(runtime){factory { ContextViewModel(runtime.context) }})
     val activities:ActivityViewModel=viewModel(factory=remember(runtime){factory { ActivityViewModel(runtime.activities) }})
+    val history:HistoryViewModel=viewModel(factory=remember(runtime){factory { HistoryViewModel(runtime.history) }})
     val authState by auth.state.collectAsStateWithLifecycle();val contextState by context.state.collectAsStateWithLifecycle();val activityState by activities.state.collectAsStateWithLifecycle()
+    val historyState by history.state.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if(authState.session!=null) context.refresh() }
-    LaunchedEffect(authState.session?.scope?.key) { context.bind(authState.session);activities.bind(authState.session) }
-    LaunchedEffect(contextState.loading,contextState.message) { if(authState.session!=null && !contextState.loading) activities.reload() }
+    LaunchedEffect(authState.session?.scope?.key) { context.bind(authState.session);activities.bind(authState.session);history.bind(authState.session) }
+    LaunchedEffect(contextState.loading,contextState.message) { if(authState.session!=null && !contextState.loading) {activities.reload();history.reload()} }
+    LaunchedEffect(activityState.records,historyState.changed) {if(authState.session!=null) history.reload()}
+    LaunchedEffect(historyState.changed) {if(historyState.changed>0 && authState.session!=null) {activities.reload();context.refresh()} }
     val pending=activityState.queue.firstOrNull { it.state=="QUEUED" }?.id
     LaunchedEffect(pending,authState.session?.scope?.key) { if(pending!=null && authState.session!=null) context.refresh() }
     Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
         if(authState.session==null) FinanceLogin(authState,auth::login)
-        else key(authState.session!!.scope.key) { FinanceHome(authState.session!!,contextState,activityState,context::refresh,auth::logout,activities) }
+        else key(authState.session!!.scope.key) { FinanceHome(authState.session!!,contextState,activityState,context::refresh,auth::logout,activities,historyState,history) }
     }
 }
 
@@ -106,13 +112,12 @@ private fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).at
     }
 }
 
-@Composable private fun FinanceHome(session:FinanceSession,context:CultivationUiState,activity:ActivityUiState,onSync:()->Unit,onLogout:()->Unit,vm:ActivityViewModel) {
+@Composable private fun FinanceHome(session:FinanceSession,context:CultivationUiState,activity:ActivityUiState,onSync:()->Unit,onLogout:()->Unit,vm:ActivityViewModel,history:HistoryUiState,historyVm:HistoryViewModel) {
     var tab by rememberSaveable { mutableStateOf(0) };var gh by rememberSaveable { mutableStateOf<String?>(null) };var season by rememberSaveable { mutableStateOf<String?>(null) };var group by rememberSaveable { mutableStateOf<String?>(null) }
-    var detailId by rememberSaveable { mutableStateOf<String?>(null) }
     val keyboard=LocalSoftwareKeyboardController.current;val ime=WindowInsets.ime.getBottom(LocalDensity.current)>0
     LaunchedEffect(context.greenhouses.map { it.getString("id") }) { if(gh!=null && context.greenhouses.none { it.getString("id")==gh }) { gh=null;season=null;group=null } }
-    BackHandler(activity.draft!=null || detailId!=null || tab!=0) {
-        when { ime -> keyboard?.hide();activity.draft!=null && activity.reviewing -> vm.backToForm();activity.draft!=null -> vm.saveAndClose();detailId!=null -> detailId=null;else -> tab=0 }
+    BackHandler(activity.draft!=null || history.selected!=null || tab!=0) {
+        when { ime -> keyboard?.hide();activity.draft!=null && activity.reviewing -> vm.backToForm();activity.draft!=null -> vm.saveAndClose();history.comparison!=null -> historyVm.closeComparison();history.selected!=null -> historyVm.close();else -> tab=0 }
     }
     Scaffold(contentWindowInsets=WindowInsets.safeDrawing,topBar={ Column(Modifier.statusBarsPadding().padding(horizontal=16.dp,vertical=8.dp)) {
         if(ime && activity.draft!=null) {
@@ -122,16 +127,17 @@ private fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).at
         if(session.expired()) Notice("Sesi berakhir. Masuk kembali dengan akun yang sama untuk mengirim antrean. Draf tetap dapat disimpan.",true)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text("Pencatatan manual",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium);TextButton(onClick=onSync,enabled=!context.loading,modifier=Modifier.testTag("finance-sync")) {Text(if(context.loading) "Memeriksa…" else "Sinkronkan")} }
         }
-    } },bottomBar={ if(activity.draft==null && detailId==null) NavigationBar { listOf("Beranda","Antrean","Riwayat").forEachIndexed { index,label -> NavigationBarItem(selected=tab==index,onClick={tab=index},icon={Text(listOf("⌂","↻","≡")[index])},label={Text(label)},modifier=Modifier.testTag("finance-tab-$index")) } } }) { padding ->
+    } },bottomBar={ if(activity.draft==null && history.selected==null) NavigationBar { listOf("Beranda","Antrean","Riwayat").forEachIndexed { index,label -> NavigationBarItem(selected=tab==index,onClick={tab=index},icon={Text(listOf("⌂","↻","≡")[index])},label={Text(label)},modifier=Modifier.testTag("finance-tab-$index")) } } }) { padding ->
         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding().padding(horizontal=16.dp).widthIn(max=900.dp)) {
             when {
                 activity.draft!=null -> if(activity.reviewing) ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue) else ActivityForm(activity,context,vm)
-                detailId!=null -> activity.records.find { it.id==detailId }?.let { ActivityDetail(it,session,context,onClose={detailId=null},onEdit={vm.open(it);detailId=null}) } ?: Notice("Catatan tidak tersedia dalam penugasan saat ini.",true)
+                history.selected!=null -> HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()})
                 tab==0 -> LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
                     item { Text("Kegiatan hari ini",style=MaterialTheme.typography.headlineMedium);Text("Pilih konteks budidaya sebelum mencatat. Target hanya menjadi acuan.") }
                     item { context.message?.let { Text(it,modifier=Modifier.testTag("finance-sync-message")) };Text(context.lastSyncedAt?.let {"Data lokal diperbarui: ${timeLabel(Instant.ofEpochMilli(it).toString())}"} ?: "Belum ada data server tersimpan.",style=MaterialTheme.typography.bodySmall) }
                     item { Choice("Greenhouse",gh,context.greenhouses.filter { it.optBoolean("active",true) },"finance-gh") {gh=it;season=null;group=null} }
                     item { Choice("Musim",season,context.seasons.filter { it.optString("greenhouse_id")==gh },"finance-season") {season=it;group=null} }
+                    if(session.role==UserRole.MANAGER && season!=null) item {context.seasons.find {it.optString("id")==season}?.let {SeasonActions(it,history.busy,history.message,historyVm::season)}}
                     item { Choice("Kelompok tanam",group,context.groups.filter { it.optString("season_id")==season && it.optBoolean("active",true) },"finance-group") {group=it} }
                     if(group!=null && gh!=null) {
                         val open=context.seasons.find { it.optString("id")==season }?.optString("status")=="open"
@@ -149,18 +155,14 @@ private fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).at
                     item { context.message?.let { Text(it,modifier=Modifier.testTag("finance-sync-message")) } }
                     if(activity.queue.isEmpty()) item { Notice("Belum ada operasi dalam antrean.") }
                     items(activity.queue,key={it.id}) { op -> ElevatedCard { Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                        Text(runCatching { SyncState.valueOf(op.state).label() }.getOrDefault(op.state),fontWeight=FontWeight.SemiBold)
+                        Text(if(op.state=="SUPERSEDED") "Digantikan setelah ditinjau" else runCatching { SyncState.valueOf(op.state).label() }.getOrDefault("Perlu ditinjau"),fontWeight=FontWeight.SemiBold)
                         Text("Catatan ${op.entityId.take(8)} · percobaan ${op.attempts}",style=MaterialTheme.typography.bodySmall)
                         op.error?.let { ErrorReasons(it) }
+                        if(op.envelope.optString("entity_type")=="activity") TextButton(onClick={historyVm.select(op.entityId);tab=2}) {Text("Tinjau catatan")}
                         Text(if(op.state=="ACCEPTED") "Penerimaan tersimpan. Ini tidak menyatakan kesesuaian agronomi." else "ID operasi tetap sama saat dicoba kembali.",style=MaterialTheme.typography.bodySmall)
                     } } }
                 }
-                else -> LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
-                    item { Text("Riwayat kegiatan",style=MaterialTheme.typography.headlineMedium);Text("Menampilkan catatan lokal dan terakhir diterima dalam penugasan saat ini.") }
-                    item { context.message?.let { Text(it,modifier=Modifier.testTag("finance-sync-message")) } }
-                    if(activity.records.isEmpty()) item { Notice("Belum ada catatan yang tersimpan untuk penugasan ini.") }
-                    items(activity.records,key={it.id}) { record -> OutlinedCard(onClick={detailId=record.id},modifier=Modifier.fillMaxWidth().testTag("finance-record-${record.id}")) { Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {Text(ActivityType.entries.find { it.wire==record.body.optString("activity_type") }?.label ?: "Draf kegiatan",fontWeight=FontWeight.SemiBold);Text(record.body.optString("notes").ifBlank { "Tanpa keterangan" });Text(record.syncState.label(),color=MaterialTheme.colorScheme.primary);if(record.body.optString("record_state")=="cancelled") Text("Dibatalkan",color=MaterialTheme.colorScheme.error);Text(record.body.optString("occurred_at").takeUnless { it=="null" || it.isBlank() }?.let(::timeLabel) ?: "Draf waktu belum lengkap",style=MaterialTheme.typography.bodySmall)} } }
-                }
+                else -> HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()})
             }
         }
     }
@@ -215,6 +217,7 @@ private fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).at
 @Composable private fun ActivityReview(draft:ActivityDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         Text("Periksa catatan",style=MaterialTheme.typography.headlineMedium)
+        if(draft.replaceValidationRejected) Notice("Perbaikan ini membuat operasi baru. Operasi yang ditolak tetap disimpan sebagai riwayat dan tidak dikirim ulang.")
         Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
         Text("${draft.type.label} · ${draft.date} ${draft.time} WIB")
         Text(if(draft.skipped) "Dilewati: ${draft.skippedReason}" else "Kegiatan selesai")
@@ -229,9 +232,19 @@ private fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).at
     }
 }
 
-@Composable private fun ActivityDetail(record:LocalRecord,session:FinanceSession,context:CultivationUiState,onClose:()->Unit,onEdit:()->Unit) {
+@Composable internal fun ActivityDetail(record:LocalRecord,session:FinanceSession,context:CultivationUiState,onClose:()->Unit,onEdit:()->Unit,actions:@Composable ()->Unit={}) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Text("Detail kegiatan",style=MaterialTheme.typography.headlineMedium);Text(record.syncState.label(),fontWeight=FontWeight.Bold)
+        ActivityFacts(record,session,context)
+        record.error?.let { ErrorReasons(it) }
+        val own=record.recorderId().let {it.isBlank() || it==session.scope.accountId}
+        if(record.body.optString("record_state")!="cancelled" && (own || session.role==UserRole.MANAGER)) OutlinedButton(onClick=onEdit,modifier=Modifier.fillMaxWidth().testTag("finance-edit")) {Text(if(record.serverVersion==null) "Lanjutkan draf" else "Koreksi catatan")}
+        actions()
+        OutlinedButton(onClick=onClose,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke riwayat")}
+    }
+}
+@Composable internal fun ActivityFacts(record:LocalRecord,session:FinanceSession,context:CultivationUiState) {
+        if(record.body.optString("record_state")=="cancelled") Text("Dibatalkan",color=MaterialTheme.colorScheme.error)
         val shown=runCatching {ActivityDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion)}.getOrNull()
         shown?.let { draft ->
             Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
@@ -243,7 +256,10 @@ private fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).at
             draft.materials.forEach { material -> Text("${context.materials.find {it.optString("id")==material.materialId}?.optString("name") ?: "Bahan ${material.materialId.take(8)}"}: ${material.quantity} ${context.units.find {it.optString("id")==material.unitId}?.optString("name").orEmpty()}") }
             Text(draft.notes)
         } ?: Text(record.body.optString("notes"))
-        Text("Pencatat: ${record.body.optString("recorded_by_name").ifBlank {if(record.serverVersion==null) session.name else record.body.optString("recorded_by")}}")
+        val recorder=record.body.optString("recorded_by_name").ifBlank {record.serverBody?.optString("recorded_by_name").orEmpty()}.ifBlank {
+            if(record.serverVersion==null || record.recorderId()==session.scope.accountId) session.name else "Nama pencatat belum tersedia"
+        }
+        Text("Pencatat: $recorder")
         Text("Versi server: ${record.serverVersion ?: "belum diterima"}")
         val snapshot=record.body.optJSONObject("reference_snapshot")
         snapshot?.let { snap -> val age=snap.optJSONObject("age");Text("HSS ${if(age?.isNull("hss")==false) age.optString("hss") else "belum tersedia"} · HST ${if(age?.isNull("hst")==false) age.optString("hst") else "belum berlaku"}")
@@ -251,11 +267,6 @@ private fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).at
             snap.optJSONObject("checks")?.let { checks -> checks.keys().forEach { parameter -> val check=checks.getJSONObject(parameter);Text("${if(parameter=="manual_ppm") "PPM" else "pH"}: ${when(check.optString("status")) {"delta_only" -> "selisih ${check.optString("delta")}";"within_range" -> "dalam rentang";"outside_range" -> "di luar rentang";else -> "belum dapat dibandingkan"}}")
                 check.optJSONArray("reasons")?.let { a -> repeat(a.length()) {Text(a.getString(it),style=MaterialTheme.typography.bodySmall)} } } }
         }
-        record.error?.let { ErrorReasons(it) }
-        val own=record.body.optString("recorded_by").let {it.isBlank() || it==session.scope.accountId}
-        if(record.body.optString("record_state")!="cancelled" && (own || session.role==UserRole.MANAGER)) OutlinedButton(onClick=onEdit,modifier=Modifier.fillMaxWidth().testTag("finance-edit")) {Text(if(record.serverVersion==null) "Lanjutkan draf" else "Koreksi catatan")}
-        OutlinedButton(onClick=onClose,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke riwayat")}
-    }
 }
 
 @Composable private fun ReferenceCards(context:CultivationUiState,group:String,draft:ActivityDraft?) {
@@ -279,7 +290,7 @@ private fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).at
     } } }
 }
 
-@Composable private fun ErrorReasons(error:JSONObject) {
+@Composable internal fun ErrorReasons(error:JSONObject) {
     val messages=mutableListOf<String>()
     error.optString("message").takeIf {it.isNotBlank()}?.let {messages.add(it)}
     error.optJSONArray("reasons")?.let { reasons -> repeat(reasons.length()) {messages.add(reasons.getString(it))} }
@@ -288,11 +299,11 @@ private fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).at
     }
     messages.distinct().forEach { Text(it,color=MaterialTheme.colorScheme.error) }
 }
-@Composable private fun Notice(message:String,error:Boolean=false) { Surface(color=if(error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth()) {Text(message,Modifier.padding(12.dp),style=MaterialTheme.typography.bodyMedium)} }
-@Composable private fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true) {
+@Composable internal fun Notice(message:String,error:Boolean=false) { Surface(color=if(error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth()) {Text(message,Modifier.padding(12.dp),style=MaterialTheme.typography.bodyMedium)} }
+@Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true) {
     OutlinedTextField(value,onChange,label={Text(label)},isError=error!=null,supportingText={if(error!=null) Text(error) else if(hint!=null) Text(hint)},singleLine=singleLine,keyboardOptions=KeyboardOptions(keyboardType=keyboard),modifier=Modifier.fillMaxWidth().testTag(tag))
 }
-@Composable private fun Choice(label:String,selected:String?,options:List<JSONObject>,tag:String,onSelect:(String)->Unit) {
+@Composable internal fun Choice(label:String,selected:String?,options:List<JSONObject>,tag:String,onSelect:(String)->Unit) {
     var expanded by rememberSaveable {mutableStateOf(false)}
     val value=options.find {it.optString("id")==selected}?.optString("name")
     OutlinedButton(onClick={expanded=true},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp).testTag(tag)) {Text("$label: ${value ?: "pilih"}",modifier=Modifier.fillMaxWidth())}

@@ -45,7 +45,8 @@ final class ActivityService
     {
         return $this->ledger->run($actor, $op, function (User $current) use ($op) {
             $source = $op['action'] === 'create' ? null : ($this->scope($current)->where('id', $op['entity_id'])->first() ?? abort(404));
-            $this->context->get($current, $source->planting_group_id ?? $op['payload']['planting_group_id'], true);
+            // Replays still require current scope/role. Closed/inactive state blocks only a new mutation.
+            $this->context->get($current, $source->planting_group_id ?? $op['payload']['planting_group_id']);
             if ($source !== null) {
                 abort_unless($current->role === 'manager' || ($source->recorded_by === $current->id && $op['action'] !== 'cancel'), 403, 'Koreksi hanya untuk catatan sendiri; pembatalan memerlukan pengelola.');
             }

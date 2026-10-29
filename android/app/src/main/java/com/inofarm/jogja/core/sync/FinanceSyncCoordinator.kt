@@ -36,13 +36,20 @@ class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: Fin
             var accepted=0
             repeat(50) {
                 if(!vault.matches(ticket,session.scope)) return@withContext SyncOutcome(accepted,"Sesi berubah; antrean akun sebelumnya ditahan.")
-                val op=store.next(session.scope.key) ?: return@withContext SyncOutcome(accepted,if(accepted>0) "$accepted catatan diterima server." else "Data server sudah diperiksa. Tinjau antrean yang ditahan.")
+                val op=store.next(session.scope.key) ?: run {
+                    if(accepted>0) pull(session,ticket)
+                    return@withContext SyncOutcome(accepted,if(accepted>0) "$accepted catatan diterima server." else "Data server sudah diperiksa. Tinjau antrean yang ditahan.")
+                }
                 require(WireContract.hash(op.envelope) == op.hash) { "Isi antrean berubah; pengiriman ditahan." }
                 if(op.envelope.getString("sync_epoch") != store.epoch(session.scope.key)) {
                     store.mark(session.scope.key,op,SyncState.EPOCH_REVIEW,JSONObject().put("message","Epoch operasi lama. Rekonsiliasi diperlukan."));return@withContext SyncOutcome(accepted,"Antrean epoch lama ditahan.")
                 }
                 try {
-                    val result=api.request(session.scope.server,session.token,"sync/operations","POST",op.envelope)
+                    val route=runCatching {OperationRoute.forOperation(op.envelope.getString("entity_type"),op.envelope.getString("action"),op.entityId,session.role)}.getOrElse {
+                        store.mark(session.scope.key,op,SyncState.REJECTED,JSONObject().put("code","unsupported_operation").put("message",it.message))
+                        return@withContext SyncOutcome(accepted,"Jenis antrean perlu ditinjau. Isinya tetap disimpan.")
+                    }
+                    val result=api.request(session.scope.server,session.token,route.path,route.method,op.envelope)
                     if(!vault.matches(ticket,session.scope)) return@withContext SyncOutcome(accepted,"Sesi berubah; respons lama diabaikan.")
                     store.acknowledge(session.scope.key,op.id,result);accepted++
                 } catch(cancelled: CancellationException) { throw cancelled }

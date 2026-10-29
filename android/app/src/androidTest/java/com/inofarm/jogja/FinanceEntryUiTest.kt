@@ -39,6 +39,8 @@ class FinanceEntryUiTest {
     @get:Rule val rule=createAndroidComposeRule<MainActivity>()
     private val server=MockWebServer();private val offline=AtomicBoolean(false);private val posts=AtomicInteger()
     private val receipts=ConcurrentHashMap<String,JSONObject>()
+    private val conflictNext=AtomicBoolean(false)
+    private val seasonState=java.util.concurrent.atomic.AtomicReference("open");private val seasonVersion=AtomicInteger(1)
     private val epoch=UUID.randomUUID().toString();private val worker=UUID.randomUUID().toString();private val manager=UUID.randomUUID().toString()
     private val gh=UUID.randomUUID().toString();private val season=UUID.randomUUID().toString();private val group=UUID.randomUUID().toString()
     private val unit=UUID.randomUUID().toString();private val materialA=UUID.randomUUID().toString();private val materialB=UUID.randomUUID().toString()
@@ -56,12 +58,37 @@ class FinanceEntryUiTest {
                     "sync/status" -> response.setBody(JSONObject().put("schema_version","2").put("sync_epoch",epoch).toString())
                     "sync/changes" -> response.setBody(page().toString())
                     "sync/operations" -> {
-                        val op=JSONObject(request.body.readUtf8());val key=op.getString("operation_id")
-                        val receipt=receipts.getOrPut(key) { posts.incrementAndGet();JSONObject().put("operation_id",key).put("entity_id",op.getString("entity_id")).put("version",1)
-                            .put("data",JSONObject(op.getJSONObject("payload").toString()).put("id",op.getString("entity_id")).put("version",1).put("recorded_by",worker).put("record_state","active")) }
-                        response.setResponseCode(201).setBody(receipt.toString())
+                        val op=JSONObject(request.body.readUtf8());val key=op.getString("operation_id");val id=op.getString("entity_id")
+                        if(op.getString("action")=="update" && conflictNext.compareAndSet(true,false)) {
+                            val remote=JSONObject(receipts.values.first {it.getString("entity_id")==id}.getJSONObject("data").toString()).put("version",2).put("notes","Koreksi server sintetis")
+                            val remoteId=UUID.randomUUID().toString();receipts[remoteId]=JSONObject().put("operation_id",remoteId).put("entity_id",id).put("version",2).put("data",remote)
+                            response.setResponseCode(409).setBody(JSONObject().put("code","version_conflict").put("message","Versi telah berubah.").put("current_version",2).put("current_data",remote).toString())
+                        } else {
+                            val receipt=receipts.getOrPut(key) {
+                                posts.incrementAndGet()
+                                val previous=receipts.values.filter {it.getString("entity_id")==id}.maxByOrNull {it.getInt("version")}
+                                val version=(previous?.getInt("version") ?: 0)+1
+                                val data=if(op.getString("action")=="cancel") JSONObject(previous!!.getJSONObject("data").toString()).put("record_state","cancelled") else JSONObject(op.getJSONObject("payload").toString()).put("record_state","active")
+                                JSONObject().put("operation_id",key).put("entity_id",id).put("version",version)
+                                    .put("data",data.put("id",id).put("version",version).put("recorded_by",previous?.getJSONObject("data")?.optString("recorded_by") ?: if(request.getHeader("Authorization").orEmpty().contains("manager-fixture")) manager else worker))
+                            }
+                            response.setResponseCode(if(op.getString("action")=="create") 201 else 200).setBody(receipt.toString())
+                        }
                     }
-                    else -> response.setResponseCode(404).setBody("{\"message\":\"Fixture route absent\"}")
+                    "seasons/$season/close", "seasons/$season/reopen" -> {
+                        val op=JSONObject(request.body.readUtf8());seasonState.set(if(path.endsWith("/close")) "closed" else "open");val version=seasonVersion.incrementAndGet()
+                        response.setBody(JSONObject().put("operation_id",op.getString("operation_id")).put("entity_id",season).put("version",version)
+                            .put("data",JSONObject().put("id",season).put("version",version).put("greenhouse_id",gh).put("name","Musim UI sintetis").put("status",seasonState.get())).toString())
+                    }
+                    else -> if(path.endsWith("/audit")) {
+                        val id=path.substringAfter("activities/").substringBefore("/audit");val rows=JSONArray()
+                        receipts.values.filter {it.getString("entity_id")==id}.sortedBy {it.getInt("version")}.forEach {receipt ->
+                            rows.put(JSONObject().put("id",receipt.getInt("version")).put("actor_id",worker).put("actor_name","Pekerja sintetis").put("version",receipt.getInt("version"))
+                                .put("action",if(receipt.getInt("version")==1) "create" else "update").put("reason","Audit sintetis").put("server_at","2026-10-29T09:00:00+07:00")
+                                .put("changes",JSONObject().put("before",JSONObject.NULL).put("after",receipt.getJSONObject("data"))))
+                        }
+                        response.setBody(JSONObject().put("data",rows).put("next_cursor",JSONObject.NULL).toString())
+                    } else response.setResponseCode(404).setBody("{\"message\":\"Fixture route absent\"}")
                 }
             }
         }
@@ -72,9 +99,9 @@ class FinanceEntryUiTest {
     @After fun close() { server.shutdown() }
     private fun page():JSONObject {
         val rows=JSONArray()
-        fun row(kind:String,id:String,data:JSONObject) { rows.put(JSONObject().put("sequence",rows.length()+1).put("entity_type",kind).put("entity_id",id).put("greenhouse_id",gh).put("version",1).put("tombstone",false).put("data",data.put("id",id).put("version",1))) }
+        fun row(kind:String,id:String,data:JSONObject) { rows.put(JSONObject().put("sequence",rows.length()+1).put("entity_type",kind).put("entity_id",id).put("greenhouse_id",gh).put("version",data.optInt("version",1)).put("tombstone",false).put("data",data.put("id",id).put("version",data.optInt("version",1)))) }
         row("greenhouses",gh,JSONObject().put("name","GH UI sintetis").put("active",true))
-        row("seasons",season,JSONObject().put("greenhouse_id",gh).put("name","Musim UI sintetis").put("status","open"))
+        row("seasons",season,JSONObject().put("greenhouse_id",gh).put("name","Musim UI sintetis").put("status",seasonState.get()).put("version",seasonVersion.get()))
         row("planting_groups",group,JSONObject().put("season_id",season).put("name","Kelompok UI sintetis").put("active",true).put("sowing_date","2026-10-01").put("transplant_date",JSONObject.NULL))
         row("units",unit,JSONObject().put("greenhouse_id",gh).put("name","gram uji").put("active",true).put("dimension","mass"))
         for((id,name) in listOf(materialA to "Bahan A sintetis",materialB to "Bahan B sintetis")) row("materials",id,JSONObject().put("greenhouse_id",gh).put("name",name).put("active",true).put("dimension","mass"))
@@ -101,6 +128,7 @@ class FinanceEntryUiTest {
         chooseContext();offline.set(true)
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Catatan offline UI sintetis")
         hideKeyboard();rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("finance-tab-2").performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Menunggu pengiriman").fetchSemanticsNodes().isNotEmpty()}
         assertEquals(0,posts.get())
@@ -140,6 +168,84 @@ class FinanceEntryUiTest {
         hideKeyboard();rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
         rule.waitUntil(10000) {posts.get()==1}
         val body=receipts.values.single().getJSONObject("data");assertEquals("6.1",body.getString("manual_ph"));assertEquals(2,body.getJSONArray("materials").length())
+    }
+    private fun createAccepted(note:String):String {
+        chooseContext();rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement(note);hideKeyboard()
+        rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        rule.waitUntil(10000) {posts.get()==1}
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-tab-2").performClick()
+        val id=receipts.values.single().getString("entity_id")
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-edit").fetchSemanticsNodes().isNotEmpty()}
+        return id
+    }
+    private fun makeConflict() {
+        conflictNext.set(true)
+        rule.onNodeWithTag("finance-edit").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Koreksi lokal sintetis");hideKeyboard()
+        rule.onNodeWithTag("finance-reason").performScrollTo().performTextReplacement("Perbaikan lokal");hideKeyboard()
+        rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        rule.waitUntil(10000) {receipts.size==2}
+        val id=receipts.values.first().getString("entity_id")
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("history-compare").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("history-compare").performScrollTo().performClick()
+        try {rule.waitUntil(10000) {rule.onAllNodesWithText("Server · versi 2").fetchSemanticsNodes().isNotEmpty()}}
+        catch(error:AssertionError) {throw AssertionError(rule.onRoot().printToString(),error)}
+        rule.onNodeWithText("Server · versi 2").performScrollTo().assertExists()
+        val image=rule.onRoot().captureToImage().asAndroidBitmap()
+        File(rule.activity.getExternalFilesDir(null),"finance-conflict-review.png").outputStream().use {image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+    }
+    @Test fun conflictUseServerPreservesLocalCopyAndWorkerHasNoCancel() {
+        createAccepted("Catatan awal konflik");rule.onNodeWithTag("history-cancel").assertDoesNotExist();makeConflict()
+        rule.onNodeWithTag("conflict-use-server").performScrollTo().performClick();rule.onNodeWithTag("conflict-confirm-server").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("history-archive-0").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("history-archive-0").performScrollTo().performClick()
+        rule.onNodeWithText("Koreksi lokal sintetis").performScrollTo().assertExists()
+        assertEquals(1,posts.get())
+    }
+    @Test fun conflictKeepLocalRequiresReasonAndManagerCanAuditAndCancel() {
+        val id=createAccepted("Catatan awal penyelesaian");makeConflict()
+        rule.onNodeWithTag("conflict-keep-local").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithTag("conflict-reason").performScrollTo().performTextReplacement("Isi lokal sudah ditinjau");hideKeyboard();choose("conflict-policy","preserve")
+        rule.onNodeWithTag("conflict-keep-local").performScrollTo().performClick()
+        rule.waitUntil(10000) {posts.get()==2}
+        val latest=receipts.values.maxBy {it.getInt("version")};assertEquals(3,latest.getInt("version"));assertEquals("Koreksi lokal sintetis",latest.getJSONObject("data").getString("notes"))
+        rule.onNodeWithTag("finance-logout").performClick();login("manager@example.invalid")
+        rule.onNodeWithTag("finance-tab-2").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        offline.set(true);rule.onNodeWithTag("history-audit").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Audit terbaru belum tersedia.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithText("Audit terakhir tersimpan; pemeriksaan terbaru belum selesai atau koneksi terputus.").assertExists();offline.set(false)
+        rule.onNodeWithTag("history-cancel").performScrollTo().performClick()
+        rule.onNodeWithTag("history-action-confirm").assertIsNotEnabled();rule.onNodeWithTag("history-action-reason").performTextReplacement("Pembatalan sintetis");hideKeyboard()
+        rule.onNodeWithTag("history-action-confirm").performClick();rule.waitUntil(10000) {posts.get()==3}
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Dibatalkan").fetchSemanticsNodes().isNotEmpty()}
+    }
+    @Test fun managerSeasonCloseAndReopenUseReasonedVersionedQueue() {
+        rule.onNodeWithTag("finance-logout").performClick();login("manager@example.invalid");choose("finance-gh",gh);choose("finance-season",season)
+        rule.onNodeWithTag("finance-season-transition").performScrollTo().performClick()
+        rule.onNodeWithTag("history-action-confirm").assertIsNotEnabled();rule.onNodeWithTag("history-action-reason").performTextReplacement("Penutupan sintetis");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
+        rule.waitUntil(10000) {seasonState.get()=="closed"}
+        rule.onNodeWithTag("finance-sync").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Buka kembali musim").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-season-transition").performScrollTo().performClick()
+        rule.onNodeWithTag("history-action-reason").performTextReplacement("Buka untuk koreksi");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
+        rule.waitUntil(10000) {seasonState.get()=="open" && seasonVersion.get()==3}
+    }
+    @Test fun historyFilterShowsEmptyThenRestoresMatchingRecord() {
+        val id=createAccepted("Catatan filter UI")
+        Espresso.pressBack()
+        rule.onNodeWithTag("finance-history-filters").performClick();choose("history-type","nutrition")
+        rule.onNodeWithTag("history-apply").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Belum ada catatan yang cocok dengan filter ini.").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-record-$id").assertDoesNotExist()
+        rule.onNodeWithTag("finance-history-filters").performClick();rule.onNodeWithText("Hapus semua filter").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()}
     }
     @Test fun narrowAndLandscapeAtTwoHundredPercentKeepSaveReachableWithKeyboard() {
         chooseContext()

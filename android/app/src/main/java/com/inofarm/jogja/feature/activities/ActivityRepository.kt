@@ -23,7 +23,7 @@ class ActivityRepository(val vault:FinanceSessionVault,private val store:LocalFi
             val effective=draft.copy(baseVersion=draft.baseVersion ?: existing?.baseVersion)
             val errors=effective.validation()
             if(errors.isNotEmpty()) throw DraftValidationFailure(errors,effective.baseVersion)
-            store.saveAndQueue(session.scope.key,draft.id,draft.greenhouseId,effective.payload(),existing?.revision,effective.baseVersion)
+            store.saveAndQueue(session.scope.key,draft.id,draft.greenhouseId,effective.payload(),existing?.revision,effective.baseVersion,effective.replaceValidationRejected)
         }
         else store.saveDraft(session.scope.key,draft.id,draft.greenhouseId,draft.localJson(),existing?.revision,draft.baseVersion)
     } }

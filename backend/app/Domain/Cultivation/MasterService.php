@@ -73,8 +73,9 @@ final class MasterService
             $this->access->manager($current);
             if ($table !== 'greenhouses' || $op['action'] !== 'create') {
                 $source = $op['action'] === 'create' ? $op['payload'] : ($this->scope($current, $table)->where('id', $op['entity_id'])->first() ?? abort(404));
-                $gh = $this->access->require($current, $this->greenhouse($table, $source));
-                abort_if(! $gh->active && ! ($table === 'greenhouses' && $op['action'] === 'update'), 422, 'Greenhouse tidak aktif.');
+                $this->access->require($current, $this->greenhouse($table, $source));
+            } elseif (DB::table('greenhouses')->where('id', $op['entity_id'])->exists()) {
+                $this->access->require($current, $op['entity_id']);
             }
         }, function (User $current) use ($table, $op) {
             $id = $op['entity_id'];
@@ -91,6 +92,10 @@ final class MasterService
                     throw new DomainFailure('entity_exists', 'Identitas catatan sudah digunakan.');
                 }
                 $gh = $table === 'greenhouses' ? $id : $this->greenhouse($table, $payload);
+            }
+            if ($table !== 'greenhouses' || $action !== 'create') {
+                $context = $this->access->require($current, $gh);
+                abort_if(! $context->active && ! ($table === 'greenhouses' && $action === 'update'), 422, 'Greenhouse tidak aktif.');
             }
             $data = $payload;
             unset($data['reason']);

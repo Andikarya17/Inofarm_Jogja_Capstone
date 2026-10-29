@@ -1,6 +1,6 @@
 # Status implementasi nyata — 29 Oktober 2026
 
-Dokumen ini melengkapi context pack lokal FIN00 yang belum di-commit; tidak menyatakan seluruh target sudah tersedia. Baseline executable `9da5b30`. Perubahan dokumentasi pengguna sebelum implementasi tetap dipertahankan dan tidak disertakan dalam commit source baru.
+Dokumen ini melengkapi context pack FIN00 yang provenance dan arsipnya diverifikasi serta dipublikasikan pada `e986eec`; tidak menyatakan seluruh target sudah tersedia. Baseline executable awal `9da5b30`. Context pengguna sebelumnya dipertahankan dalam arsip byte-identik; folder desain26 Oktober tetap tidak disertakan publikasi.
 
 | Task | Status | Bukti / batas |
 |---|---|---|
@@ -11,7 +11,8 @@ Dokumen ini melengkapi context pack lokal FIN00 yang belum di-commit; tidak meny
 | FIN05 server | PASS core | Activity mutation/receipt/snapshot/audit dan scoped stable pull; [evidence](../migration/finance-20261029/evidence/FIN05-server.md). Terhubung Android pada FIN06. |
 | FIN05 local core | PASS / PARTIAL fitur | Encrypted scoped drafts/outbox, ACK/version/epoch guards, foreground sync; [evidence](../migration/finance-20261029/evidence/FIN05-local.md). Restore reconciliation/background scheduling belum tersedia. |
 | FIN06 core entry slice | PASS / PARTIAL acceptance | Login/context/forms/review/queue/history native, device offline→restart→real Laravel/MySQL→manager history; [evidence](../migration/finance-20261029/evidence/FIN06.md). Mitra/UAT, API29 runtime dan UI performance end-to-end belum disahkan/diukur. |
-| FIN07–17 | TODO | Koreksi backend/entry sudah tersedia; UI conflict/cancel/audit, harvest/finance/investment/report/recovery dan admin master UI belum lengkap. |
+| FIN07 core | PASS / PARTIAL acceptance | Native filters/pagination, audit/cache, reasoned cancel/close/reopen, explicit conflict resolution; SQLite4 migration and retained archives; [evidence](../migration/finance-20261029/evidence/FIN07.md). UAT, physical/API29, attachment/epoch reconciliation tetap terbuka. |
+| FIN08–17 | TODO | Harvest/finance/investment/report/recovery, admin master UI, integration QA dan cutover belum lengkap. |
 
 Q10: pengguna menyetujui IDR, DECIMAL(20,2) nominal, DECIMAL(20,6) kuantitas/harga dan HALF_UP pada total transaksi dalam chat pelaksanaan. Usulan solver dan business gates Q01–09/Q11–13 tidak otomatis disahkan.
 
