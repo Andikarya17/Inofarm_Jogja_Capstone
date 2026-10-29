@@ -1,0 +1,3 @@
+# Preserve historical bytes and manifest hashes across checkout platforms.
+* -text
+*.json whitespace=cr-at-eol

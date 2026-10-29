@@ -1,3 +1,5 @@
+> Catatan historis owner/IoT. Kebutuhan di [context pack](../context/README.md), subset executable dan evidence terbaru di [IMPLEMENTATION_STATUS](../context/IMPLEMENTATION_STATUS.md). Bukti lama di bawah tidak membuktikan target v2.
+
 # REST API Inofarm v1
 
 Implementasi aktual: `backend/routes/api.php`. Base `/api/v1/`; Content-Type/Accept `application/json`, Bearer token. APK hanya mengakses owner endpoints; device token hanya producer endpoints. MySQL tidak diakses klien.

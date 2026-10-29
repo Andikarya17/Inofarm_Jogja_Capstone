@@ -1,3 +1,5 @@
+> Catatan historis owner/IoT. Kebutuhan di [context pack](../context/README.md), subset executable dan evidence terbaru di [IMPLEMENTATION_STATUS](../context/IMPLEMENTATION_STATUS.md). Bukti lama di bawah tidak membuktikan target v2.
+
 # Optimasi performa Android — 13 Oktober 2026
 
 Scope: Android native/build/test lokal dan dokumentasi. Backend dibaca untuk kontrak pagination; backend, firmware, React dan data produksi tidak diubah. Branch kerja `codex/android-performance`, tanpa stage/commit/push/deploy. Staged index sebelum/sesudah identik (SHA256 `49A2A692BE142D74CF0ED5AE2CE9D861A022C6DB2B83D3027D21A453BBB6CAF2`). Baseline diambil dari source working tree pengguna, bukan index Git yang berisi perubahan lebih lama; snapshot/hash tersedia di `output/android-performance-20261013/source-before*`.

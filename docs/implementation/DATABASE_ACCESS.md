@@ -1,3 +1,5 @@
+> Catatan historis owner/IoT. Kebutuhan di [context pack](../context/README.md), subset executable dan evidence terbaru di [IMPLEMENTATION_STATUS](../context/IMPLEMENTATION_STATUS.md). Bukti lama di bawah tidak membuktikan target v2.
+
 # Melihat database lokal Inofarm
 
 Database aplikasi adalah `inofarm_local` pada MySQL `127.0.0.1:3307`.

@@ -1,4 +1,26 @@
-# Inofarm Jogja
+# Inofarm: transisi operasional dan evaluasi keuangan
+
+Target aktif29Oktober2026: Kotlin + Jetpack Compose, Laravel REST, MySQL; pekerja/pengelola, pencatatan manual tanpa IoT, operasional dan keuangan. **Build default masih legacy; slice operasional v2 tersedia dengan -PfinanceApp.** Keuangan/panen/investasi/laporan/recovery masih tahap berikutnya, bukan fitur yang sudah selesai.
+
+Mulai dari [context pack](docs/context/README.md), [status implementasi nyata](docs/context/IMPLEMENTATION_STATUS.md), [master prompt](docs/migration/finance-20261029/MASTER_PROMPT.md). [Audit perbandingan](docs/migration/finance-20261029/AUDIT_COMPARISON.md) adalah baseline sebelum implementasi; subset kontrak executable di [contracts/v2](contracts/v2/README.md). Instruksi legacy di bawah bukan prosedur migrasi target.
+
+## Mode uji operasional v2
+
+Native login dua peran, authorized GH/musim/kelompok, formulir kegiatan manual/multi-bahan, review, draf/outbox terenkripsi, receipt idempoten dan riwayat. UI menyatakan disimpan lokal dan diterima server secara berbeda. APK debug memakai package `com.inofarm.jogja.finance`, minSdk29; tidak menghapus data APK lama.
+
+```powershell
+./scripts/build-android.ps1 -JavaHome $env:JAVA_HOME -Tasks @(':app:assembleDebug', ':app:testDebugUnitTest', ':app:lintDebug', '-PfinanceApp')
+```
+
+Set JAVA_HOME/pass -JavaHome sesuai JDK yang terpasang. Runtime lokal yang diuji: Java25.0.4/Gradle9.3.1, PHP8.5.11, MySQL8.0.30. URL v2 dikonfigurasi lewat field login atau property `inofarmFinanceDebugApiUrl`; default emulator `/api/v2/` port8000. Tidak ada kredensial produksi/sample keuangan otomatis.
+
+[Runner entry](scripts/test-finance-entry.ps1) menguji APK terpisah terhadap **inofarm_test saja**: online login→backend dihentikan→offline queue→force-stop test APK→reconnect/replay→manager history, lalu membersihkan hanya fixture UUID miliknya. `.env.testing`/MySQL test harus disiapkan lebih dulu; guard tidak boleh dinonaktifkan. Runner tidak migrate/reset inofarm_local atau clear APK pengguna. [Evidence FIN06](docs/migration/finance-20261029/evidence/FIN06.md) merinci hasil dan batas. UAT/pentest/cutover belum selesai. Publikasi kerja memakai branch GitHub sesuai instruksi terbaru pengguna.
+
+---
+
+# Legacy v1 — referensi instalasi dan histori
+
+Bagian berikut mempertahankan prosedur owner/IoT lama selama coexistence. Cakupannya berbeda dari aplikasi target v2. README asli tersimpan byte-identik di [arsip](docs/archive/pre-finance-20261029/README.md).
 
 Untuk clone dan menjalankan proyek di komputer lain, ikuti [Cara Instalasi](Cara%20Instalasi.md), termasuk setup Android Studio, backend/MySQL, akun lokal, dan koneksi emulator/USB.
 

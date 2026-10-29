@@ -1,0 +1,34 @@
+[
+  {
+    "path": "AGENTS.md",
+    "sha256": "ac014c43967e22d2c717b29e6d1e7c372064bbe92cfaa3568f7de03f7366648b"
+  },
+  {
+    "path": "README.md",
+    "sha256": "80f014dc94cf8940163007098a7514ad12f19fabf166231c8ca2f93b29e8b944"
+  },
+  {
+    "path": "backend/AGENTS.md",
+    "sha256": "b7d2208287648b950386dff15fec4371985bd881247e95859b871da4d8db9c77"
+  },
+  {
+    "path": "docs/context/PRD.md",
+    "sha256": "581ac14f548825dffa0a8323970a72da37ecb6ff974abddd2447b69ff83567e9"
+  },
+  {
+    "path": "docs/context/ARCHITECTURE.md",
+    "sha256": "0407b76c1286a7deee9e59c2ee23a32b17659cdf694a819615f6dfaa20afa1fb"
+  },
+  {
+    "path": "docs/context/DATA_CONTRACTS.md",
+    "sha256": "ebfeb9cbc6d2b29f415d70517a313c49cca0fac7dbe88b418c28b14199c6c46b"
+  },
+  {
+    "path": "docs/context/IMPLEMENTATION_PLAN.md",
+    "sha256": "0626a4cee543292db2e208fcafda808f01c47aff1ee7393f46cd9dfd4a4a0623"
+  },
+  {
+    "path": "docs/context/GAP_ANALYSIS.md",
+    "sha256": "ce0b3fb84c3b781a64afd9fe54f319cbc8fcd3d30023e5f54c5a2af6538c3ced"
+  }
+]
