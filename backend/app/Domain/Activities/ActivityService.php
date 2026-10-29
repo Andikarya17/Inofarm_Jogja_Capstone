@@ -27,7 +27,9 @@ final class ActivityService
     public function publicRow(object $row): array
     {
         $result = (array) $row;
-        $result['recorded_by'] = User::findOrFail($row->recorded_by)->public_id;
+        $recorder = User::findOrFail($row->recorded_by);
+        $result['recorded_by'] = $recorder->public_id;
+        $result['recorded_by_name'] = $recorder->name;
         foreach (['occurred_at', 'created_at', 'updated_at'] as $key) {
             $result[$key] = CarbonImmutable::parse($result[$key], 'UTC')->toISOString();
         }

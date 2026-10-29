@@ -8,9 +8,10 @@ use App\Http\Controllers\V2\MasterController;
 use App\Http\Controllers\V2\ReferenceController;
 use App\Http\Controllers\V2\SyncStatusController;
 use App\Http\Controllers\V2\UserController;
+use App\Http\Middleware\FinanceLocale;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v2')->group(function () {
+Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:20,1');
     Route::middleware(['auth:sanctum', 'finance-session', 'throttle:120,1'])->group(function () {
         Route::get('me', [AuthController::class, 'me']);

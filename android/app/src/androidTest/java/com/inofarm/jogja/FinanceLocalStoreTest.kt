@@ -97,6 +97,16 @@ class FinanceLocalStoreTest {
         assertThrows(Exception::class.java) { cipher.decode("account-b",encrypted) }
         assertThrows(IllegalArgumentException::class.java) { store.cached("account-a","expense_categories") }
     }
+    @Test fun remotePullBeforeFirstDraftSaveDoesNotRebaseAnEditSilently() {
+        val id=UUID.randomUUID().toString()
+        fun row(version:Int)=JSONObject().put("entity_type","activity").put("entity_id",id).put("greenhouse_id",gh).put("version",version).put("tombstone",false).put("data",body("Server $version").put("id",id).put("version",version))
+        store.applyPull("account-a",page(JSONArray().put(row(1))))
+        val opened=store.record("account-a",id)!!
+        store.applyPull("account-a",page(JSONArray().put(row(2))))
+        store.saveDraft("account-a",id,gh,body("Edit dari versi1"),opened.revision,editingBaseVersion=1)
+        assertEquals(1L,store.record("account-a",id)!!.baseVersion)
+        assertEquals(2L,store.record("account-a",id)!!.serverVersion)
+    }
     @Test fun migrationOneToTwoKeepsDraftAndOutbox() {
         val migrationName="finance-test-migration-${UUID.randomUUID()}.db"
         val id=UUID.randomUUID().toString();val operationId=UUID.randomUUID().toString()

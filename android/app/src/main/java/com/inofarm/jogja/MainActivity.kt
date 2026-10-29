@@ -63,6 +63,11 @@ class MainActivity: ComponentActivity() {
             statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
         )
+        if (BuildConfig.FINANCE_APP) {
+            val runtime = ViewModelProvider(this)[FinanceRuntime::class.java]
+            setContent { InofarmTheme { com.inofarm.jogja.feature.FinanceRoot(runtime) } }
+            return
+        }
         pickerPending=savedInstanceState?.getBoolean("exportPickerPending") ?: false
         val session = SessionStore(applicationContext)
         val repository = OwnerRepository(ApiClient({ session.baseUrl }, { session.readToken() }, BuildConfig.DEBUG), session,ReadCache(applicationContext,session))

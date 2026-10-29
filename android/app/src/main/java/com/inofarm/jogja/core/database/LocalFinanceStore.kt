@@ -54,6 +54,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     fun epoch(scope: String): String? = db.rawQuery("SELECT epoch FROM scope_metadata WHERE scope=?",arrayOf(scope)).use { if(it.moveToFirst()) it.getString(0) else null }
     fun pullCursor(scope: String): String? = db.rawQuery("SELECT pull_cursor FROM scope_metadata WHERE scope=?",arrayOf(scope)).use { if(it.moveToFirst() && !it.isNull(0)) it.getString(0) else null }
+    fun lastSyncedAt(scope:String):Long? = db.rawQuery("SELECT last_synced_at FROM scope_metadata WHERE scope=?",arrayOf(scope)).use {if(it.moveToFirst() && !it.isNull(0)) it.getLong(0) else null}
     fun visibleGreenhouses(scope: String): Set<String> = db.rawQuery("SELECT visible_greenhouses FROM scope_metadata WHERE scope=?",arrayOf(scope)).use {
         if(!it.moveToFirst()) emptySet() else JSONArray(it.getString(0)).let { rows -> (0 until rows.length()).map(rows::getString).toSet() }
     }
@@ -75,12 +76,13 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         require(limit in 1..1000)
         return db.rawQuery("SELECT * FROM outbox WHERE scope=? ORDER BY created_at DESC,operation_id LIMIT ?",arrayOf(scope,limit.toString())).use { rows -> buildList { while(rows.moveToNext()) add(rows.operation(scope)) } }
     }
-    private fun persistDraft(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long?): LocalRecord {
+    private fun persistDraft(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long?, editingBaseVersion:Long?=null): LocalRecord {
         WireContract.uuid(id); require(gh in visibleGreenhouses(scope)) { "Greenhouse tidak lagi dalam penugasan. Draf lama tetap disimpan." }
         val old = record(scope,id)
+        require(old==null || old.greenhouseId==gh) { "Greenhouse catatan tidak dapat dipindah." }
         require(if(old == null) expectedRevision == null else expectedRevision == old.revision) { "Draf berubah. Muat ulang sebelum menyimpan." }
         val revision = (old?.revision ?: 0) + 1
-        val base = if(old?.syncState == SyncState.ACCEPTED) old.serverVersion else old?.baseVersion
+        val base = if(old?.syncState == SyncState.ACCEPTED) editingBaseVersion ?: old.serverVersion else old?.baseVersion
         val held=old?.syncState?.takeIf { it in setOf(SyncState.EPOCH_REVIEW,SyncState.SCOPE_REVOKED) }
         val data = values("scope" to scope,"entity_id" to id,"kind" to "activity","greenhouse_id" to gh,"revision" to revision,
             "base_version" to base,"server_version" to old?.serverVersion,"body" to encrypt(scope,body),"server_body" to encrypt(scope,old?.serverBody),
@@ -88,14 +90,14 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         if(old == null) db.insertOrThrow("local_records",null,data) else db.update("local_records",data,"scope=? AND entity_id=?",arrayOf(scope,id))
         return record(scope,id)!!
     }
-    fun saveDraft(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long? = null): LocalRecord = transaction {
-        persistDraft(scope,id,gh,body,expectedRevision)
+    fun saveDraft(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long? = null, editingBaseVersion:Long?=null): LocalRecord = transaction {
+        persistDraft(scope,id,gh,body,expectedRevision,editingBaseVersion)
     }
-    fun saveAndQueue(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long? = null): LocalRecord = transaction {
+    fun saveAndQueue(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long? = null, editingBaseVersion:Long?=null): LocalRecord = transaction {
         require(record(scope,id)?.syncState !in setOf(SyncState.EPOCH_REVIEW,SyncState.SCOPE_REVOKED)) { "Catatan ditahan untuk rekonsiliasi atau penugasan. Draf tetap disimpan." }
         val blocking = db.rawQuery("SELECT 1 FROM outbox WHERE scope=? AND entity_id=? AND state NOT IN ('ACCEPTED','SUPERSEDED') LIMIT 1",arrayOf(scope,id)).use { it.moveToFirst() }
         require(!blocking) { "Operasi sebelumnya masih menunggu atau perlu ditinjau. Simpan draf dulu." }
-        val saved = persistDraft(scope,id,gh,body,expectedRevision)
+        val saved = persistDraft(scope,id,gh,body,expectedRevision,editingBaseVersion)
         afterRecordWrite()
         val operationId = UUID.randomUUID().toString()
         val operation = JSONObject().put("schema_version","2").put("sync_epoch",epoch(scope) ?: error("Epoch server belum dikenal."))
@@ -127,7 +129,8 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         db.update("outbox",values("state" to state.name,"attempts" to op.attempts + 1,"next_attempt_at" to nextAttemptAt,"error" to encrypt(scope,error)),"scope=? AND operation_id=? AND state!='ACCEPTED'",arrayOf(scope,op.id))
         val record = record(scope,op.entityId)
         if(record?.latestOperationId == op.id) {
-            val patch=values("sync_state" to state.name,"error" to encrypt(scope,error))
+            val patch=values("error" to encrypt(scope,error))
+            if(record.revision==op.revision || state in setOf(SyncState.AUTH_REQUIRED,SyncState.SCOPE_REVOKED,SyncState.EPOCH_REVIEW)) patch.put("sync_state",state.name)
             if(error.has("current_data") && !error.isNull("current_data")) { patch.put("server_body",encrypt(scope,error.getJSONObject("current_data")));patch.put("server_version",error.getLong("current_version")) }
             db.update("local_records",patch,"scope=? AND entity_id=?",arrayOf(scope,op.entityId))
         }
@@ -173,5 +176,5 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         db.execSQL("""UPDATE local_records SET sync_state='SCOPE_REVOKED',error=? WHERE scope=? AND sync_state!='EPOCH_REVIEW'
             AND greenhouse_id NOT IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)""",arrayOf(heldError,scope,scope))
     }
-    fun close() = helper.close()
+    @Synchronized fun close() = helper.close()
 }
