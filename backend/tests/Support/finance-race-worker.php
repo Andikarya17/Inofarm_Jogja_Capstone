@@ -2,9 +2,11 @@
 
 use App\Domain\Activities\ActivityService;
 use App\Domain\Contracts\DomainFailure;
+use App\Domain\Harvest\HarvestService;
 use App\Models\User;
 use App\Support\TestDatabaseGuard;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\DB;
 
 // Dedicated child process. Never boot a database before the guard.
 putenv('APP_ENV=testing');
@@ -16,6 +18,7 @@ $app->make(Kernel::class)->bootstrap();
 [$script, $inputPath, $readyPath, $goPath, $resultPath] = $argv;
 $input = json_decode(file_get_contents($inputPath), true, flags: JSON_THROW_ON_ERROR);
 $actor = User::findOrFail($input['actor_id']);
+$connectionId = (int) DB::selectOne('SELECT CONNECTION_ID() AS connection_id')->connection_id;
 file_put_contents($readyPath, 'ready');
 $deadline = microtime(true) + 15;
 while (! is_file($goPath) && microtime(true) < $deadline) {
@@ -27,11 +30,16 @@ if (! is_file($goPath)) {
     exit(1);
 }
 try {
-    $receipt = app(ActivityService::class)->mutate($actor, $input['operation']);
+    $service = match ($input['operation']['entity_type']) {
+        'activity' => ActivityService::class,
+        'harvest' => HarvestService::class,
+        default => throw new InvalidArgumentException('Unsupported synthetic race kind.'),
+    };
+    $receipt = app($service)->mutate($actor, $input['operation']);
     $result = ['status' => 'accepted', 'version' => $receipt['body']['version']];
 } catch (DomainFailure $e) {
     $result = ['status' => $e->domainCode, 'version' => $e->currentVersion];
 } catch (Throwable $e) {
     $result = ['status' => 'error', 'class' => $e::class];
 }
-file_put_contents($resultPath, json_encode($result, JSON_THROW_ON_ERROR));
+file_put_contents($resultPath, json_encode([...$result, 'pid' => getmypid(), 'connection_id' => $connectionId], JSON_THROW_ON_ERROR));

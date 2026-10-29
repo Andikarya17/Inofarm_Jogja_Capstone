@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import com.inofarm.jogja.core.contracts.SyncState
 import com.inofarm.jogja.core.contracts.UserRole
 import com.inofarm.jogja.core.contracts.WireContract
+import com.inofarm.jogja.core.contracts.ReviewableRejections
 import com.inofarm.jogja.core.session.PayloadCipher
 import org.json.JSONArray
 import org.json.JSONObject
@@ -56,7 +57,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             connection.update("scope_metadata",values("epoch" to epoch,"role" to role.wire),"scope=?",arrayOf(scope))
         }
         if(role == UserRole.WORKER) {
-            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','harvest','activity_audit')",arrayOf(scope))
+            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','harvest','activity_audit','harvest_audit','harvest_balance')",arrayOf(scope))
             val reason=encrypt(scope,JSONObject().put("message","Peran saat ini tidak mengizinkan perubahan pengelola. Antrean tetap disimpan untuk ditinjau."))
             connection.execSQL("UPDATE outbox SET state='SCOPE_REVOKED',error=? WHERE scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW') AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=? AND kind NOT IN ('activity','harvest'))",arrayOf(reason,scope,scope))
         }
@@ -100,7 +101,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     private fun requireKind(scope:String,kind:String) {
         val role=db.rawQuery("SELECT role FROM scope_metadata WHERE scope=?",arrayOf(scope)).use {if(it.moveToFirst()) it.getString(0) else null}
-        require(role=="manager" || kind in setOf("activity","harvest","activity_audit","greenhouses","varieties","units","materials","grades","seasons","planting_groups","schedules","targets")) {"Data ini hanya untuk pengelola."}
+        require(role=="manager" || kind in setOf("activity","harvest","activity_audit","harvest_audit","harvest_balance","greenhouses","varieties","units","materials","grades","seasons","planting_groups","schedules","targets")) {"Data ini hanya untuk pengelola."}
     }
     private fun requireMutationKind(scope:String,kind:String) {
         requireKind(scope,kind)
@@ -121,9 +122,9 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         requireKind(scope,kind)
         return db.rawQuery("SELECT body FROM cached_records WHERE scope=? AND kind=? AND entity_id=? AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)",arrayOf(scope,kind,id,scope)).use {if(it.moveToFirst()) decode(scope,it.getString(0)) else null}
     }
-    fun cacheAudit(scope:String,id:String,gh:String,body:JSONObject)=transaction {
-        requireKind(scope,"activity_audit");require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
-        db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to "activity_audit","entity_id" to id,"greenhouse_id" to gh,"version" to 1L,
+    fun cacheAudit(scope:String,id:String,gh:String,body:JSONObject,kind:String="activity_audit")=transaction {
+        require(kind in setOf("activity_audit","harvest_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to 1L,
             "tombstone" to 0,"body" to encrypt(scope,body)),SQLiteDatabase.CONFLICT_REPLACE)
     }
     fun outbox(scope: String, limit: Int = 100): List<QueuedOperation> {
@@ -153,17 +154,17 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         requireMutationKind(scope,kind)
         persistDraft(scope,id,gh,body,expectedRevision,editingBaseVersion,kind)
     }
-    fun saveAndQueue(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long? = null, editingBaseVersion:Long?=null,replaceValidationRejected:Boolean=false): LocalRecord = transaction {
+    fun saveAndQueue(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long? = null, editingBaseVersion:Long?=null,replaceValidationRejected:Boolean=false,kind:String="activity",queuePayload:JSONObject?=null): LocalRecord = transaction {
         require(record(scope,id)?.syncState !in setOf(SyncState.EPOCH_REVIEW,SyncState.SCOPE_REVOKED)) { "Catatan ditahan untuk rekonsiliasi atau penugasan. Draf tetap disimpan." }
         val pending=pending(scope,id)
         if(replaceValidationRejected) {
-            require(pending.isNotEmpty() && pending.all {it.state=="REJECTED" && it.error?.optString("code")=="validation_failed"}) {"Operasi ini tidak dapat diganti sebagai perbaikan validasi."}
-            record(scope,id)?.let {archive(scope,it,"replace_validation_rejected")}
+            require(pending.isNotEmpty() && pending.all {it.state=="REJECTED" && ReviewableRejections.mayReplace(kind,it.error?.optString("code"))}) {"Penolakan ini tidak dapat diganti tanpa rekonsiliasi."}
+            record(scope,id)?.let {archive(scope,it,"replace_reviewed_rejection")}
             db.update("outbox",values("state" to "SUPERSEDED"),"scope=? AND entity_id=? AND state='REJECTED'",arrayOf(scope,id))
         } else require(pending.isEmpty()) { "Operasi sebelumnya masih menunggu atau perlu ditinjau. Simpan draf dulu." }
-        val saved = persistDraft(scope,id,gh,body,expectedRevision,editingBaseVersion)
+        val saved = persistDraft(scope,id,gh,body,expectedRevision,editingBaseVersion,kind)
         afterRecordWrite()
-        putQueued(scope,saved,if(saved.baseVersion==null) "create" else "update",body)
+        putQueued(scope,saved,if(saved.baseVersion==null) "create" else "update",queuePayload ?: body)
     }
     private fun putQueued(scope:String,saved:LocalRecord,action:String,payload:JSONObject):LocalRecord {
         requireMutationKind(scope,saved.kind)

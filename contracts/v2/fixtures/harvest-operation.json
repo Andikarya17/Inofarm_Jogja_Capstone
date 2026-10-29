@@ -1,0 +1,25 @@
+{
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "10000000-0000-0000-0000-000000000001",
+    "operation_id": "20000000-0000-0000-0000-000000000001",
+    "entity_id": "30000000-0000-0000-0000-000000000001",
+    "entity_type": "harvest",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "planting_group_id": "40000000-0000-0000-0000-000000000001",
+      "occurred_at": "2026-10-29T08:12:34+07:00",
+      "items": [
+        {
+          "id": "50000000-0000-0000-0000-000000000001",
+          "grade_id": "60000000-0000-0000-0000-000000000001",
+          "fruit_count": 10,
+          "weight_kg": "15.250000"
+        }
+      ],
+      "notes": "Panen sintetis; bukan transaksi produksi"
+    }
+  },
+  "canonical_sha256": "0529a86d8740a9f2430e37bd1c5b569ed1396995611b667a71fd512574b07d66"
+}

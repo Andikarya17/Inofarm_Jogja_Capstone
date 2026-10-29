@@ -30,4 +30,12 @@ class FinanceWireContractTest extends TestCase
             }
         }
     }
+
+    public function test_harvest_fixture_matches_independent_hash_with_integer_count_and_decimal_weight(): void
+    {
+        $fixture = json_decode(file_get_contents(__DIR__.'/../../../contracts/v2/fixtures/harvest-operation.json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame($fixture['canonical_sha256'], CanonicalJson::hash($fixture['operation']));
+        $this->assertSame(10, $fixture['operation']['payload']['items'][0]['fruit_count']);
+        $this->assertSame('15.250000', $fixture['operation']['payload']['items'][0]['weight_kg']);
+    }
 }

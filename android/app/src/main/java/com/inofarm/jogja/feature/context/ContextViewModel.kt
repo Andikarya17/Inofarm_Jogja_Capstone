@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 data class CultivationUiState(val loading:Boolean=false,val greenhouses:List<JSONObject> = emptyList(),val seasons:List<JSONObject> = emptyList(),val groups:List<JSONObject> = emptyList(),
-    val materials:List<JSONObject> = emptyList(),val units:List<JSONObject> = emptyList(),val schedules:List<JSONObject> = emptyList(),val targets:List<JSONObject> = emptyList(),val message:String?=null,val lastSyncedAt:Long?=null)
+    val materials:List<JSONObject> = emptyList(),val units:List<JSONObject> = emptyList(),val schedules:List<JSONObject> = emptyList(),val targets:List<JSONObject> = emptyList(),val message:String?=null,val lastSyncedAt:Long?=null,val grades:List<JSONObject> = emptyList(),val harvestBalances:List<JSONObject> = emptyList())
 class ContextViewModel(private val repository:ContextRepository):ViewModel() {
     private val vault get()=repository.vault
     private val mutable=MutableStateFlow(CultivationUiState());val state=mutable.asStateFlow();private var job:Job?=null
@@ -31,7 +31,7 @@ class ContextViewModel(private val repository:ContextRepository):ViewModel() {
     private suspend fun loadLocal(session:FinanceSession) {
         val ticket=vault.generation
         val records=repository.snapshot(session)
-        val data=CultivationUiState(greenhouses=records.greenhouses,seasons=records.seasons,groups=records.groups,materials=records.materials,units=records.units,schedules=records.schedules,targets=records.targets,message=mutable.value.message,lastSyncedAt=records.lastSyncedAt)
+        val data=CultivationUiState(greenhouses=records.greenhouses,seasons=records.seasons,groups=records.groups,materials=records.materials,units=records.units,schedules=records.schedules,targets=records.targets,message=mutable.value.message,lastSyncedAt=records.lastSyncedAt,grades=records.grades,harvestBalances=records.harvestBalances)
         if(vault.matches(ticket,session.scope)) mutable.value=data
     }
     fun refresh() { if(job?.isActive!=true) job=viewModelScope.launch { synchronize() } }

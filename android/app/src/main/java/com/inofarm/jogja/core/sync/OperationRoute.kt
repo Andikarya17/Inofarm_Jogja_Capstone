@@ -8,6 +8,11 @@ data class OperationRoute(val path:String,val method:String) {
         fun forOperation(kind:String,action:String,id:String,role:UserRole):OperationRoute {
             WireContract.uuid(id)
             if(kind=="activity" && action in setOf("create","update","cancel")) return OperationRoute("sync/operations","POST")
+            if(kind=="harvest" && action in setOf("create","update","cancel")) return when(action) {
+                "create" -> OperationRoute("harvests","POST")
+                "update" -> OperationRoute("harvests/$id","PATCH")
+                else -> OperationRoute("harvests/$id/cancel","POST")
+            }
             require(role==UserRole.MANAGER) {"Perubahan ini hanya untuk pengelola."}
             val resource=mapOf("greenhouses" to "greenhouses","seasons" to "seasons","planting_groups" to "planting-groups",
                 "varieties" to "varieties","materials" to "materials","units" to "units","grades" to "grades",
