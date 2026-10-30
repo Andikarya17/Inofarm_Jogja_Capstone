@@ -2,7 +2,7 @@
 
 ## Lanjutan FIN11 — 30 Oktober 2026
 
-Backend/schema11 aset dan alokasi penyusutan manual serta pratinjau Kotlin telah ditambahkan dan diuji. [Evidence FIN11](../migration/finance-20261029/evidence/FIN11-backend.md) memuat konvensi numerik, hasil dan batas. Native form/outbox/device FIN11 dan FIN12–17 belum selesai; FIN10 checkpoint tidak diulang. Proposal asli ditunda oleh pengguna, bukan dianggap telah diverifikasi. Tidak mengubah nilai produksi atau menutup gate handover.
+Backend/schema11 aset dan alokasi penyusutan manual serta pratinjau Kotlin telah ditambahkan dan diuji. [Evidence FIN11](../migration/finance-20261029/evidence/FIN11-backend.md) memuat konvensi numerik, hasil dan batas. Fondasi native draft/outbox FIN11 telah diuji (lihat [evidence native core](../migration/finance-20261029/evidence/FIN11-native-core.md)); form/lifecycle/history dan acceptance offline→restart→API serta FIN12–17 belum selesai. FIN10 checkpoint tidak diulang. Proposal asli ditunda oleh pengguna, bukan dianggap telah diverifikasi. Tidak mengubah nilai produksi atau menutup gate handover.
 
 
 Requirement aktif berasal proposal keuangan. Tabel berikut adalah gap pada FIN00 sebelum implementasi; [status/evidence terkini](IMPLEMENTATION_STATUS.md) mencatat subset FIN01–06 yang sudah executable. Build default masih legacy, target operasional v2 memakai -PfinanceApp. [Audit rinci](../migration/finance-20261029/AUDIT_COMPARISON.md), [sumber](../migration/finance-20261029/SOURCES.md), [keputusan terbuka](../migration/finance-20261029/DECISIONS.md).
