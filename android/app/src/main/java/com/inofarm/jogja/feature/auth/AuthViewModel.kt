@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 
 fun userMessage(error:Throwable):String = when(error) {
+    is android.database.sqlite.SQLiteException, is java.security.GeneralSecurityException -> "Penyimpanan lokal belum berhasil. Isian tetap tersedia; coba simpan kembali."
     is FinanceApiFailure -> {
         val messages=mutableListOf(error.message.orEmpty())
         error.detail.optJSONArray("reasons")?.let { reasons -> repeat(reasons.length()) { messages.add(reasons.getString(it)) } }

@@ -118,15 +118,26 @@ class FinanceBackendDeviceTest {
             try {model.attachments.importUri(session,model.vault.generation,parent,android.net.Uri.fromFile(source),"DEVICE PROOF — ${f.getString("fixture_id")}.$extension")} finally {assertTrue(source.delete())}
         }
         val editor=financeEditor();rule.runOnIdle {editor.open(allocation)}
+        lateinit var attachmentVm:com.inofarm.jogja.feature.attachments.AttachmentViewModel
+        rule.runOnIdle {attachmentVm=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.attachments.AttachmentViewModel::class.java];attachmentVm.open(parent)}
+        rule.waitUntil(10000) {attachmentVm.state.value.policy?.optBoolean("configured")==true}
         financialOfflineBarrier(f,"allocation")
         val attachmentOperations=org.json.JSONArray()
         attachmentDrafts.forEach {draft ->
-            model.attachments.queue(session,model.vault.generation,draft.id)
+            rule.runOnIdle {attachmentVm.select(draft.id)}
+            rule.waitUntil(10000) {attachmentVm.state.value.selected?.id==draft.id && !attachmentVm.state.value.busy}
+            rule.onNodeWithTag("attachment-review").performScrollTo().performClick()
+            rule.onNodeWithTag("attachment-queue").performScrollTo().performClick()
+            rule.waitUntil(10000) {model.store.outbox(session.scope.key).any {it.entityId==draft.id} && !attachmentVm.state.value.busy}
             val queuedFile=model.store.outbox(session.scope.key).single {it.entityId==draft.id}
             assertEquals("QUEUED",queuedFile.state)
             attachmentOperations.put(JSONObject().put("entity_id",draft.id).put("operation_id",queuedFile.id).put("hash",queuedFile.hash).put("blob_id",queuedFile.blobId))
+            rule.onNodeWithTag("attachment-back-list").performScrollTo().performClick()
+            rule.waitUntil(10000) {attachmentVm.state.value.selected==null && !attachmentVm.state.value.busy}
         }
         proof.put("attachment_operations",attachmentOperations)
+        rule.onNodeWithTag("attachment-close").performScrollTo().performClick()
+        rule.waitUntil(10000) {attachmentVm.state.value.parent==null && !attachmentVm.state.value.busy}
         rule.onNodeWithTag("expense-review").performScrollTo().performClick();rule.onNodeWithTag("expense-queue").performScrollTo().performClick()
         rule.waitUntil(10000) {model.store.outbox(session.scope.key).any {it.entityId==allocation.id}}
         val queued=model.store.outbox(session.scope.key).single {it.entityId==allocation.id};assertEquals("QUEUED",queued.state)

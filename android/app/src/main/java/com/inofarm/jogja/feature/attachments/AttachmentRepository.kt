@@ -20,7 +20,7 @@ import org.json.JSONObject
 import java.util.UUID
 
 /** File copy is durable before upload is queued. No plaintext copy is kept in app storage. */
-class AttachmentRepository(context:Context,private val vault:FinanceSessionVault,private val store:LocalFinanceStore,private val api:FinanceApi,private val files:EncryptedAttachmentStore) {
+class AttachmentRepository(context:Context,val vault:FinanceSessionVault,private val store:LocalFinanceStore,private val api:FinanceApi,private val files:EncryptedAttachmentStore) {
     private val resolver=context.applicationContext.contentResolver
     private val writes=Mutex()
     private fun check(session:FinanceSession,ticket:Long) {check(vault.matches(ticket,session.scope)) {"Sesi berubah; pekerjaan akun lama tetap disimpan."}}
@@ -81,8 +81,13 @@ class AttachmentRepository(context:Context,private val vault:FinanceSessionVault
             check(session,ticket);return saved
         } catch(cancelled:CancellationException) {throw cancelled}
         catch(error:Exception) {
-            if(store.blob(session.scope.key,blob.id)?.state!="READY") store.failAttachmentCopy(session.scope.key,blob.id,error.message ?: "Salinan belum selesai. Izin sumber dapat berakhir; pilih ulang bila diperlukan.")
-            throw error
+            val message=when(error) {
+                is java.io.IOException, is SecurityException -> "Salinan belum selesai. Periksa izin dan keberadaan berkas sumber; pilih ulang bila diperlukan."
+                is java.security.GeneralSecurityException -> "Salinan terenkripsi belum dapat diverifikasi. Berkas dan draf tetap disimpan untuk ditinjau."
+                else -> error.message ?: "Salinan belum selesai. Pilih ulang sumber bila diperlukan."
+            }
+            if(store.blob(session.scope.key,blob.id)?.state!="READY") store.failAttachmentCopy(session.scope.key,blob.id,message)
+            throw LocalAttachmentFailure(message)
         }
     }
     suspend fun resumeCopy(session:FinanceSession,ticket:Long,id:String)=withContext(Dispatchers.IO) {writes.withLock {
@@ -100,6 +105,13 @@ class AttachmentRepository(context:Context,private val vault:FinanceSessionVault
         require(parent.serverBody?.optString("record_state")=="active") {"Catatan induk telah dibatalkan atau belum diterima."}
         val policy=store.cachedOne(session.scope.key,record.kind+"_policy",parent.id)
         val metadata=AttachmentBytes.parse(record.body);AttachmentContract.validatePolicy(policy,metadata)
+        var offset=0;var knownActive=0L
+        while(true) {
+            val rows=store.records(session.scope.key,1000,kind=record.kind,filter=LocalHistoryFilter(ownerId=parent.id),offset=offset)
+            knownActive+=rows.count {row -> row.id!=record.id && (row.serverBody?.optString("record_state")=="active" || store.pendingFor(session.scope.key,row.id).any {it.envelope.optString("action")=="create" && it.state !in setOf("REJECTED","SUPERSEDED","ACCEPTED")})}
+            require(knownActive<policy!!.getLong("max_files")) {"Lampiran aktif atau pengajuan yang diketahui telah mencapai batas server. Tunggu penerimaan pembatalan atau tinjau lampiran terkait."}
+            offset+=rows.size;if(rows.size<1000) break
+        }
         require(policy!!.getLong("owner_version")==record.body.getLong("owner_version") && parent.serverVersion==record.body.getLong("owner_version")) {"Versi catatan induk berubah. Tinjau versi terbaru sebelum pengajuan baru."}
         val blob=store.blob(session.scope.key,record.body.getString("_local_blob_id")) ?: error("Salinan belum ditemukan.")
         require(blob.state=="READY");files.verify(session.scope.key,blob.id,metadata)
@@ -137,12 +149,26 @@ class AttachmentRepository(context:Context,private val vault:FinanceSessionVault
         check(session,ticket);authorized(session,record);require(session.role==UserRole.MANAGER)
         require(reason.isNotBlank() && reason.length<=1000) {"Alasan wajib, maksimal1.000 karakter."}
         require(record.syncState==SyncState.ACCEPTED && record.body.optString("record_state")=="active")
-        store.queueAction(session.scope.key,record.id,record.greenhouseId,record.kind,record.body,JSONObject().put("reason",reason),"cancel",record.serverVersion!!,record.revision)
+        store.queueAttachmentCancel(session.scope.key,record.id,reason,record.revision)
     }}
     suspend fun localCopy(session:FinanceSession,record:LocalRecord):LocalBlob?=withContext(Dispatchers.IO) {
         authorized(session,record)
-        store.blobsFor(session.scope.key,record.id).firstOrNull {it.state=="READY"}?.also {files.verify(session.scope.key,it.id,AttachmentBytes.parse(it.body))}
+        val expected=AttachmentBytes.parse(record.serverBody ?: record.body)
+        store.blobsFor(session.scope.key,record.id).firstOrNull {it.state=="READY" && AttachmentBytes.parse(it.body)==expected}?.also {files.verify(session.scope.key,it.id,expected)}
     }
+    suspend fun detail(session:FinanceSession,id:String)=withContext(Dispatchers.IO) {
+        store.detail(session.scope.key,id)?.also {authorized(session,it.record)}
+    }
+    suspend fun form(session:FinanceSession,id:String)=withContext(Dispatchers.IO) {store.attachmentForm(session.scope.key,id)}
+    suspend fun flushForm(session:FinanceSession,ticket:Long,id:String,reason:String)=withContext(Dispatchers.IO) {writes.withLock {
+        check(session,ticket);require(session.role==UserRole.MANAGER);store.saveAttachmentForm(session.scope.key,id,JSONObject().put("reason",reason))
+    }}
+    suspend fun audit(session:FinanceSession,ticket:Long,record:LocalRecord,cursor:String?=null):JSONObject=withContext(Dispatchers.IO) {
+        check(session,ticket);authorized(session,record)
+        val response=api.request(session.scope.server,session.token,"attachments/${record.id}/audit",query=mapOf("limit" to "50")+(cursor?.let {mapOf("cursor" to it)} ?: emptyMap()))
+        check(session,ticket);response.put("fetched_at",System.currentTimeMillis()).also {store.cacheAudit(session.scope.key,record.id,record.greenhouseId,it,record.kind+"_audit")}
+    }
+    suspend fun cachedAudit(session:FinanceSession,record:LocalRecord)=withContext(Dispatchers.IO) {authorized(session,record);store.cachedOne(session.scope.key,record.kind+"_audit",record.id)}
     suspend fun download(session:FinanceSession,ticket:Long,record:LocalRecord):LocalBlob=withContext(Dispatchers.IO) {writes.withLock {
         check(session,ticket);authorized(session,record);val expected=AttachmentBytes.parse(record.serverBody ?: error("Metadata belum diterima server."))
         val blob=store.beginAttachmentDownload(session.scope.key,record.id,UUID.randomUUID().toString())

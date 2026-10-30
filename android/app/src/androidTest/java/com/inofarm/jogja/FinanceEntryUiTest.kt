@@ -268,6 +268,88 @@ class FinanceEntryUiTest {
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-edit").fetchSemanticsNodes().isNotEmpty()}
         return id
     }
+    private fun attachmentDraft():Pair<com.inofarm.jogja.feature.attachments.AttachmentViewModel,ByteArray> {
+        val id=createAccepted("Foto kegiatan sintetis")
+        rule.onNodeWithTag("history-attachments").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("attachment-choose").fetchSemanticsNodes().isNotEmpty()}
+        val vm=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.attachments.AttachmentViewModel::class.java]
+        val bytes=android.util.Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j0ioAAAAASUVORK5CYII=",android.util.Base64.DEFAULT)
+        val source=File(rule.activity.cacheDir,"finance-test-picker-${UUID.randomUUID()}.png");source.writeBytes(bytes)
+        val model=runtime();val session=model.vault.current!!
+        rule.runOnIdle {vm.importResult(android.net.Uri.fromFile(source),session.scope.key,id,model.vault.generation,"Foto sintetis.png")}
+        rule.waitUntil(10000) {vm.state.value.selected?.body?.optString("_copy_state")=="READY" && !vm.state.value.busy}
+        assertTrue(source.delete());return vm to bytes
+    }
+    @Test fun attachmentUnknownPolicyKeepsEncryptedDraftAndPreventsQueue() {
+        val (vm,_)=attachmentDraft()
+        rule.onNodeWithTag("attachment-review").performScrollTo().performClick()
+        rule.onNodeWithTag("attachment-queue").performScrollTo().assertIsNotEnabled()
+        assertTrue(runtime().store.outbox(runtime().vault.current!!.scope.key).none {it.entityId==vm.state.value.selected!!.id})
+        rule.activityRule.scenario.recreate()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("attachment-queue").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("attachment-queue").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithTag("finance-logout").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
+    }
+    @Test fun attachmentPreviewProviderChecksBytesWriteModeAndLogout() {
+        val (vm,bytes)=attachmentDraft();val model=runtime();val session=model.vault.current!!;val record=vm.state.value.selected!!
+        val blob=model.store.blobsFor(session.scope.key,record.id).single()
+        val intent=model.viewer.prepare(session,record,blob);val uri=intent.data!!
+        assertEquals("image/png",rule.activity.contentResolver.getType(uri))
+        rule.activity.contentResolver.query(uri,arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),null,null,null)!!.use {assertTrue(it.moveToFirst());assertEquals("Foto sintetis.png",it.getString(0))}
+        assertArrayEquals(bytes,rule.activity.contentResolver.openInputStream(uri)!!.use {it.readBytes()})
+        assertThrows(SecurityException::class.java) {rule.activity.contentResolver.openFileDescriptor(uri,"w")}
+        val partial=File(rule.activity.cacheDir,"finance-attachment-views/"+uri.pathSegments.drop(1).joinToString("/")+".new");partial.writeBytes(bytes)
+        rule.onNodeWithTag("finance-logout").performClick();rule.waitUntil(10000) {model.vault.current==null}
+        assertFalse(partial.exists())
+        assertThrows(SecurityException::class.java) {rule.activity.contentResolver.openInputStream(uri)}
+        model.files.verify(session.scope.key,blob.id,com.inofarm.jogja.core.contracts.AttachmentBytes.parse(blob.body))
+    }
+    private fun acceptedAttachmentReason():com.inofarm.jogja.feature.attachments.AttachmentViewModel {
+        managerLogin();val (vm,_)=attachmentDraft();val model=runtime();val session=model.vault.current!!;val row=vm.state.value.selected!!
+        val blob=model.store.blobsFor(session.scope.key,row.id).single()
+        val payload=com.inofarm.jogja.core.contracts.AttachmentBytes.parse(row.body).json().put("owner_type","activity").put("owner_id",row.body.getString("owner_id")).put("owner_version",1)
+        // Explicit synthetic accepted file fixture; actual upload is covered by the guarded real runner.
+        model.store.saveAndQueue(session.scope.key,row.id,row.greenhouseId,row.body,row.revision,kind=row.kind,queuePayload=payload,blobId=blob.id)
+        val op=model.store.outbox(session.scope.key).single {it.entityId==row.id}
+        model.store.acknowledge(session.scope.key,op.id,JSONObject().put("operation_id",op.id).put("entity_id",row.id).put("version",1).put("data",JSONObject(payload.toString()).put("id",row.id).put("version",1).put("record_state","active").put("recorded_by",session.scope.accountId)))
+        rule.runOnIdle {vm.select(row.id)}
+        rule.waitUntil(10000) {vm.state.value.selected?.serverVersion==1L && !vm.state.value.busy}
+        rule.onNodeWithTag("attachment-cancel").performScrollTo().performClick();return vm
+    }
+    @Test fun attachmentReasonLogoutFlushesLatestRawTextWithoutChangingAcceptedMetadata() {
+        val vm=acceptedAttachmentReason();val model=runtime();val scope=model.vault.current!!.scope.key;val row=vm.state.value.selected!!
+        rule.onNodeWithTag("attachment-reason").performScrollTo().performTextReplacement("Alasan terbaru — belum dibatalkan")
+        hideKeyboard();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-logout").performClick();rule.waitUntil(10000) {model.vault.current==null}
+        assertEquals("Alasan terbaru — belum dibatalkan",model.store.attachmentForm(scope,row.id)!!.getString("reason"))
+        assertEquals(com.inofarm.jogja.core.contracts.SyncState.ACCEPTED,model.store.record(scope,row.id)!!.syncState)
+        assertTrue(model.store.outbox(scope).filter {it.entityId==row.id}.all {it.state=="ACCEPTED"})
+    }
+    @Test fun attachmentReasonFailedFlushRetainsSessionAndTextThroughRecreation() {
+        acceptedAttachmentReason();val model=runtime();val session=model.vault.current!!;val previousLogoutPosts=logoutPosts.get()
+        val trigger="finance_test_reason_"+UUID.randomUUID().toString().replace("-","")
+        fun sql(statement:String) {android.database.sqlite.SQLiteDatabase.openDatabase(rule.activity.getDatabasePath("inofarm_finance_v2.db").path,null,android.database.sqlite.SQLiteDatabase.OPEN_READWRITE).use {it.execSQL(statement)}}
+        assertTrue(rule.activity.packageName.endsWith(".finance"))
+        try {
+            sql("CREATE TRIGGER $trigger BEFORE INSERT ON local_attachment_forms WHEN NEW.scope='${session.scope.key}' BEGIN SELECT RAISE(ABORT,'Synthetic form write failure'); END")
+            rule.onNodeWithTag("attachment-reason").performScrollTo().performTextReplacement("Alasan yang wajib tetap ada")
+            hideKeyboard();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-logout").performClick()
+            rule.waitUntil(10000) {rule.onAllNodesWithText("Belum keluar").fetchSemanticsNodes().isNotEmpty()}
+            assertNotNull(model.vault.current);assertEquals(previousLogoutPosts,logoutPosts.get())
+            rule.onNodeWithText("Kembali ke isian").performClick();rule.activityRule.scenario.recreate()
+            rule.onNodeWithTag("attachment-reason").performScrollTo().assertTextContains("Alasan yang wajib tetap ada")
+        } finally {sql("DROP TRIGGER IF EXISTS $trigger")}
+        hideKeyboard();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-logout").performClick();rule.waitUntil(10000) {model.vault.current==null}
+    }
+    @Test fun attachmentReviewRemainsReachableAtLargeFontNarrowAndLandscape() {
+        attachmentDraft();val model=runtime()
+        rule.activity.setContent {InofarmTheme {CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density,2f)) {Box(Modifier.widthIn(max=320.dp)) {FinanceRoot(model)}}}}
+        rule.onNodeWithTag("attachment-review").performScrollTo().performClick();rule.onNodeWithTag("attachment-queue").performScrollTo().assertIsNotEnabled()
+        rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        rule.waitUntil(10000) {rule.activity.resources.configuration.orientation==Configuration.ORIENTATION_LANDSCAPE}
+        rule.activity.setContent {InofarmTheme {CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density,2f)) {Box(Modifier.widthIn(max=320.dp)) {FinanceRoot(model)}}}}
+        rule.onNodeWithTag("attachment-queue").performScrollTo().assertIsNotEnabled()
+        rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    }
     private fun makeConflict() {
         conflictNext.set(true)
         rule.onNodeWithTag("finance-edit").performScrollTo().performClick()

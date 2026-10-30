@@ -2,6 +2,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <application android:name=".InofarmApplication" android:label="Inofarm Jogja" android:icon="@drawable/ic_inofarm" android:allowBackup="false" android:theme="@style/AppTheme" android:supportsRtl="true">
+        <provider android:name=".core.files.ScopedFinanceFileProvider" android:authorities="${applicationId}.finance-files" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/finance_file_paths" />
+        </provider>
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
