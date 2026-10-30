@@ -4,13 +4,14 @@ import base64
 import json
 from pathlib import Path
 
-from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema import Draft202012Validator
+from contract_formats import wire_formats
 
 root = Path(__file__).resolve().parents[1] / 'contracts' / 'v2'
 schema = json.loads((root / 'activity-operation.schema.json').read_text(encoding='utf-8'))
 Draft202012Validator.check_schema(schema)
 fixture = json.loads((root / 'fixtures/activity-operation.json').read_text(encoding='utf-8'))
-validator = Draft202012Validator(schema, format_checker=FormatChecker())
+validator = Draft202012Validator(schema, format_checker=wire_formats)
 validator.validate(fixture['operation'])
 canonical = json.dumps(fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
 assert hashlib.sha256(canonical.encode()).hexdigest() == fixture['canonical_sha256']
@@ -39,7 +40,7 @@ unicode_canonical = json.dumps(unicode_fixture['value'], sort_keys=True, separat
 assert hashlib.sha256(unicode_canonical.encode()).hexdigest() == unicode_fixture['canonical_sha256']
 harvest_schema = json.loads((root / 'harvest-operation.schema.json').read_text(encoding='utf-8'))
 Draft202012Validator.check_schema(harvest_schema)
-harvest_validator = Draft202012Validator(harvest_schema, format_checker=FormatChecker())
+harvest_validator = Draft202012Validator(harvest_schema, format_checker=wire_formats)
 harvest_fixture = json.loads((root / 'fixtures/harvest-operation.json').read_text(encoding='utf-8'))
 harvest_validator.validate(harvest_fixture['operation'])
 harvest_canonical = json.dumps(harvest_fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
@@ -55,7 +56,7 @@ for invalid in (1.5, 'NaN', '1,5', '1e2'):
 for kind in ('expense', 'cost-allocation'):
     financial_schema = json.loads((root / f'{kind}-operation.schema.json').read_text(encoding='utf-8'))
     Draft202012Validator.check_schema(financial_schema)
-    financial_validator = Draft202012Validator(financial_schema, format_checker=FormatChecker())
+    financial_validator = Draft202012Validator(financial_schema, format_checker=wire_formats)
     financial_fixture = json.loads((root / f'fixtures/{kind}-operation.json').read_text(encoding='utf-8'))
     financial_validator.validate(financial_fixture['operation'])
     body = json.dumps(financial_fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
@@ -66,7 +67,7 @@ for kind in ('expense', 'cost-allocation'):
         assert not financial_validator.is_valid(sample), (kind, invalid)
 attachment_schema = json.loads((root / 'attachment-operation.schema.json').read_text(encoding='utf-8'))
 Draft202012Validator.check_schema(attachment_schema)
-attachment_validator = Draft202012Validator(attachment_schema, format_checker=FormatChecker())
+attachment_validator = Draft202012Validator(attachment_schema, format_checker=wire_formats)
 attachment_fixture = json.loads((root / 'fixtures/attachment-operation.json').read_text(encoding='utf-8'))
 attachment_validator.validate(attachment_fixture['operation'])
 binary = base64.b64decode(attachment_fixture['fixture_file_base64'], validate=True)
@@ -81,7 +82,7 @@ for field, invalid in [('bytes', 1.5), ('bytes', True), ('bytes', 0), ('bytes', 
 print('PASS: activity/harvest/expense/allocation/attachment schemas, binary and operation goldens, typed rejection and local OpenAPI refs')
 sale_schema = json.loads((root / 'sale-operation.schema.json').read_text(encoding='utf-8'))
 Draft202012Validator.check_schema(sale_schema)
-sale_validator = Draft202012Validator(sale_schema, format_checker=FormatChecker())
+sale_validator = Draft202012Validator(sale_schema, format_checker=wire_formats)
 sale = json.loads((root / 'fixtures/sale-operation.json').read_text(encoding='utf-8'))
 sale_validator.validate(sale['operation'])
 encoded = json.dumps(sale['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
@@ -91,3 +92,12 @@ for key, value in [('quantity_kg', '0'), ('quantity_kg', '0.000000'), ('quantity
     invalid['payload']['items'][0][key] = value
     assert not sale_validator.is_valid(invalid), (key, value)
 print('PASS: paid-sale schema and independent multiline HALF_UP operation golden')
+
+# Response timestamps are normalized to UTC by services; operation input rules stay strict.
+for resource in ['ExpensePublic', 'SalePublic']:
+    timestamp = Draft202012Validator(api['components']['schemas'][resource]['properties']['paid_at'], format_checker=wire_formats)
+    for value in ['2026-10-30T01:00:00.000000Z', '2026-10-30T01:00:00Z', '2026-10-30T08:00:00+07:00']:
+        timestamp.validate(value)
+    for value in ['2026-10-30T01:00:00', '2026-13-30T01:00:00Z', 'not-a-date', 123]:
+        assert not timestamp.is_valid(value), (resource, value)
+print('PASS: public payment UTC/fractional/offset timestamps and malformed rejections; request rules unchanged')
