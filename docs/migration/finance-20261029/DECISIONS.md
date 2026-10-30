@@ -4,6 +4,10 @@ Status pelaksanaan: [IMPLEMENTATION_STATUS](../../context/IMPLEMENTATION_STATUS.
 
 ## Keputusan aktif
 
+Checkpoint30 Oktober 2026: pengguna meminta berhenti aman setelah perubahan FIN10 diverifikasi, commit/push GitHub dan handoff **FIN11–FIN17**. Permintaan ini menggantikan instruksi sebelumnya untuk menyelesaikan FIN11 sebelum handoff. FIN11 belum diimplementasikan.
+
+Q02 disetujui pengguna30 Oktober 2026: **alokasi penyusutan manual eksplisit**. Pengelola wajib mengisi nominal, periode pemakaian, referensi pemakaian unik, dan alasan/basis pembagian. Server membatasi anggaran tahunan dan kumulatif A−S, tanpa pembagian rata otomatis. Ini persetujuan pendekatan FIN11, belum bukti kode/test penyusutan. Detail kontrak tahun/precision/rounding tahunan harus dibekukan saat FIN11 dan dilabeli; jangan menganggap semua kebijakan Q02 lainnya otomatis disahkan.
+
 Q07 diperjelas pengguna pada30 Oktober 2026: **"Konfigurasi produksi belum ditetapkan"**. Usulan JPG/PNG/PDF5MB dan5 berkas belum disahkan sebagai nilai produksi. Implementasi akses privat/configuration dan uji dengan batas fixture tetap dapat dilanjutkan; jangan mengaktifkan upload produksi memakai angka usulan tersebut secara otomatis.
 
 | ID | Keputusan | Dasar/status |
