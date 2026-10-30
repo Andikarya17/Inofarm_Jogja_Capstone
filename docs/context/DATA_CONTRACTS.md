@@ -1,5 +1,10 @@
 # Data contracts target v2
 
+## Lanjutan FIN11 — 30 Oktober 2026
+
+Backend/schema11 aset dan alokasi penyusutan manual serta pratinjau Kotlin telah ditambahkan dan diuji. [Evidence FIN11](../migration/finance-20261029/evidence/FIN11-backend.md) memuat konvensi numerik, hasil dan batas. Native form/outbox/device FIN11 dan FIN12–17 belum selesai; FIN10 checkpoint tidak diulang. Proposal asli ditunda oleh pengguna, bukan dianggap telah diverifikasi. Tidak mengubah nilai produksi atau menutup gate handover.
+
+
 Status **DESIGN keseluruhan**; subset core/master/reference/activity sudah executable dan diuji, lihat [status](IMPLEMENTATION_STATUS.md) dan [kontrak v2](../../contracts/v2/README.md). Sumber proposal §2.2, PDF19–50. [API_V2](../migration/finance-20261029/API_V2.md) adalah peta rancangan FIN00. Penamaan teknis bukan business approval; label UI Indonesia. Bekukan kontrak tiap modul sebelum implementasi lintas layer.
 
 ## 1. Konvensi umum

@@ -3,8 +3,8 @@
 namespace App\Domain\Finance;
 
 use App\Domain\Contracts\DomainFailure;
-use App\Domain\Identity\GreenhouseAccess;
 use App\Domain\Identity\EntityIdentity;
+use App\Domain\Identity\GreenhouseAccess;
 use App\Domain\Sync\MutationLedger;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -75,6 +75,9 @@ final class ExpenseService
                 }
             }
             if ($op['action'] === 'cancel') {
+                if (DB::table('assets')->where('expense_id', $row->id)->where('record_state', 'active')->exists()) {
+                    throw new DomainFailure('expense_in_use', 'Batalkan aset aktif sebelum pembayaran sumber.');
+                }
                 if (DB::table('cost_allocations')->where('expense_id', $row->id)->where('record_state', 'active')->exists()) {
                     throw new DomainFailure('expense_in_use', 'Batalkan seluruh alokasi terkait sebelum membatalkan pembayaran sumber.');
                 }
@@ -82,6 +85,9 @@ final class ExpenseService
             } else {
                 abort_if($row !== null && ($p['greenhouse_id'] !== $gh || $p['payment_kind'] !== $row->payment_kind), 422, 'Greenhouse dan jenis pembayaran tidak dapat dipindah; tinjau pembatalan lalu catatan baru.');
                 $amount = Money::amount($p['amount']);
+                if ($row !== null && bccomp($amount, (string) DB::table('assets')->where('expense_id', $row->id)->where('record_state', 'active')->sum('cost'), 2) < 0) {
+                    throw new DomainFailure('expense_in_use', 'Nominal pembayaran di bawah harga aset aktif.');
+                }
                 if ($row !== null && bccomp($amount, $row->allocated_amount, 2) < 0) {
                     throw new DomainFailure('expense_in_use', 'Nominal pembayaran tidak boleh lebih kecil dari total alokasi aktif.');
                 }

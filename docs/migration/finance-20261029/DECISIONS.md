@@ -4,6 +4,8 @@ Status pelaksanaan: [IMPLEMENTATION_STATUS](../../context/IMPLEMENTATION_STATUS.
 
 ## Keputusan aktif
 
+FIN11 technical freeze30 Oktober: `anniversary-cumulative-half-up-v1`, tahun pemakaian berdasarkan ulang tahun tanggal mulai pakai (leap day diklem dari anchor asli), periode [start,end), anggaran sen tahunan selisih kumulatif HALF_UP sehingga total tepat A−S. Ini konvensi teknik bagi alokasi manual Q02, bukan nominal/jadwal produksi. Pengguna menunda PDF proposal asli dan meminta melanjutkan dari checkpoint; verifikasi sumber PDF tetap terbuka. [Kontrak](../../../contracts/v2/ASSETS.md), [evidence backend/math](evidence/FIN11-backend.md). Native FIN11 dan FIN12–17 belum lengkap.
+
 Checkpoint30 Oktober 2026: pengguna meminta berhenti aman setelah perubahan FIN10 diverifikasi, commit/push GitHub dan handoff **FIN11–FIN17**. Permintaan ini menggantikan instruksi sebelumnya untuk menyelesaikan FIN11 sebelum handoff. FIN11 belum diimplementasikan.
 
 Q02 disetujui pengguna30 Oktober 2026: **alokasi penyusutan manual eksplisit**. Pengelola wajib mengisi nominal, periode pemakaian, referensi pemakaian unik, dan alasan/basis pembagian. Server membatasi anggaran tahunan dan kumulatif A−S, tanpa pembagian rata otomatis. Ini persetujuan pendekatan FIN11, belum bukti kode/test penyusutan. Detail kontrak tahun/precision/rounding tahunan harus dibekukan saat FIN11 dan dilabeli; jangan menganggap semua kebijakan Q02 lainnya otomatis disahkan.

@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\V2\ActivityController;
+use App\Http\Controllers\V2\AssetController;
 use App\Http\Controllers\V2\AttachmentController;
-use App\Http\Controllers\V2\SaleController;
 use App\Http\Controllers\V2\AuthController;
 use App\Http\Controllers\V2\ChangeFeedController;
 use App\Http\Controllers\V2\ContextController;
@@ -10,6 +10,7 @@ use App\Http\Controllers\V2\ExpenseController;
 use App\Http\Controllers\V2\HarvestController;
 use App\Http\Controllers\V2\MasterController;
 use App\Http\Controllers\V2\ReferenceController;
+use App\Http\Controllers\V2\SaleController;
 use App\Http\Controllers\V2\SyncStatusController;
 use App\Http\Controllers\V2\UserController;
 use App\Http\Middleware\FinanceLocale;
@@ -25,6 +26,12 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::get('sync/status', SyncStatusController::class);
         Route::post('sync/operations', [ActivityController::class, 'sync']);
         Route::get('sync/changes', ChangeFeedController::class);
+        Route::get('{assetResource}', [AssetController::class, 'index'])->whereIn('assetResource', ['assets', 'depreciation-allocations']);
+        Route::post('{assetResource}', [AssetController::class, 'store'])->whereIn('assetResource', ['assets', 'depreciation-allocations']);
+        Route::get('{assetResource}/{id}', [AssetController::class, 'show'])->whereIn('assetResource', ['assets', 'depreciation-allocations'])->whereUuid('id');
+        Route::patch('{assetResource}/{id}', [AssetController::class, 'update'])->whereIn('assetResource', ['assets', 'depreciation-allocations'])->whereUuid('id');
+        Route::post('{assetResource}/{id}/cancel', [AssetController::class, 'cancel'])->whereIn('assetResource', ['assets', 'depreciation-allocations'])->whereUuid('id');
+        Route::get('{assetResource}/{id}/audit', [AssetController::class, 'audit'])->whereIn('assetResource', ['assets', 'depreciation-allocations'])->whereUuid('id');
         Route::get('sales', [SaleController::class, 'index']);
         Route::post('sales', [SaleController::class, 'store']);
         Route::get('sales/{id}', [SaleController::class, 'show'])->whereUuid('id');
