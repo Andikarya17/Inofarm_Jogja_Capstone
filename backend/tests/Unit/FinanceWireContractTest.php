@@ -60,4 +60,11 @@ class FinanceWireContractTest extends TestCase
         $this->assertSame(strlen($binary), $fixture['operation']['payload']['bytes']);
         $this->assertSame(hash('sha256', $binary), $fixture['operation']['payload']['sha256']);
     }
+    public function test_sale_fixture_matches_independent_hash_and_decimal_transaction_oracle(): void
+    {
+        $fixture = json_decode(file_get_contents(__DIR__.'/../../../contracts/v2/fixtures/sale-operation.json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame($fixture['canonical_sha256'], CanonicalJson::hash($fixture['operation']));
+        $quote = \App\Domain\Finance\SaleMath::quote($fixture['operation']['payload']['items']);
+        foreach ($fixture['expected'] as $key => $value) {$this->assertSame($value, $quote[$key]);}
+    }
 }

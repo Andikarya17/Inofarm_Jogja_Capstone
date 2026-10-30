@@ -12,6 +12,8 @@ Response error: `code`, `message`, `field_errors`, `request_id`, opsional `curre
 
 ## Resource/action map
 
+Sales backend schema10 sudah menyediakan GET/POST sales, GET/PATCH sales/{id}, reasoned cancel dan audit dengan operasi sale, scoped manager, counter panen dan immutable receipts. [Kontrak penjualan](../../../contracts/v2/SALES.md) membekukan payload/angka/invariants; native UI/outbox penjualan menyusul. Tabel lengkap tetap rancangan untuk modul yang belum executable.
+
 | Area | Endpoint kandidat | Kewenangan / validasi |
 |---|---|---|
 | Auth | POST auth/login; POST auth/logout; GET me | Login online; me berisi role+assignment+expiry, bukan credential |

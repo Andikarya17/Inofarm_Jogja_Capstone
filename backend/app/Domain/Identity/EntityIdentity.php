@@ -17,6 +17,7 @@ final class EntityIdentity
         'planting_groups' => ['planting_groups', 'id'], 'schedules' => ['schedules', 'id'], 'targets' => ['targets', 'id'],
         'activity' => ['activities', 'id'], 'harvest' => ['harvests', 'id'], 'harvest_item' => ['harvest_items', 'id'],
         'expense' => ['expenses', 'id'], 'expense_balance' => ['expenses', 'balance_id'], 'cost_allocation' => ['cost_allocations', 'id'],
+        'sale' => ['sales', 'id'], 'sale_item' => ['sale_items', 'id'],
         'activity_attachment' => ['record_attachments', 'id', ['owner_type' => 'activity']],
         'harvest_attachment' => ['record_attachments', 'id', ['owner_type' => 'harvest']],
         'expense_attachment' => ['record_attachments', 'id', ['owner_type' => 'expense']],

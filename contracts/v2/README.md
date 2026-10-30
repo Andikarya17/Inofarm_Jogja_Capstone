@@ -1,6 +1,6 @@
 # Kontrak core v2 — FIN01
 
-Baseline source `9da5b30`; branch awal `codex/finance-contracts`. Proposal SHA256 telah diperiksa cocok pada 29 Oktober 2026. Kontrak executable berkembang dari auth/context/activity/sync hingga panen, [pengeluaran/alokasi](EXPENSES.md) dan [lampiran privat backend](ATTACHMENTS.md). Aset, penjualan, evaluasi dan recovery masih ditambahkan per modul; rancangan API_V2 bukan bukti route yang belum diimplementasikan. FIN01 keseluruhan tetap parsial.
+Baseline source `9da5b30`; branch awal `codex/finance-contracts`. Proposal SHA256 telah diperiksa cocok pada 29 Oktober 2026. Kontrak executable berkembang dari auth/context/activity/sync hingga panen, [pengeluaran/alokasi](EXPENSES.md), [lampiran privat](ATTACHMENTS.md) dan [penjualan lunas backend](SALES.md). Aset, evaluasi dan recovery masih ditambahkan per modul; rancangan API_V2 bukan bukti route yang belum diimplementasikan. FIN01 keseluruhan tetap parsial.
 
 ## Wire dan angka
 

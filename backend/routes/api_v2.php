@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\V2\ActivityController;
 use App\Http\Controllers\V2\AttachmentController;
+use App\Http\Controllers\V2\SaleController;
 use App\Http\Controllers\V2\AuthController;
 use App\Http\Controllers\V2\ChangeFeedController;
 use App\Http\Controllers\V2\ContextController;
@@ -24,6 +25,12 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::get('sync/status', SyncStatusController::class);
         Route::post('sync/operations', [ActivityController::class, 'sync']);
         Route::get('sync/changes', ChangeFeedController::class);
+        Route::get('sales', [SaleController::class, 'index']);
+        Route::post('sales', [SaleController::class, 'store']);
+        Route::get('sales/{id}', [SaleController::class, 'show'])->whereUuid('id');
+        Route::patch('sales/{id}', [SaleController::class, 'update'])->whereUuid('id');
+        Route::post('sales/{id}/cancel', [SaleController::class, 'cancel'])->whereUuid('id');
+        Route::get('sales/{id}/audit', [SaleController::class, 'audit'])->whereUuid('id');
         Route::get('attachments/policy', [AttachmentController::class, 'policy']);
         Route::get('attachments', [AttachmentController::class, 'index']);
         Route::post('attachments', [AttachmentController::class, 'store']);
