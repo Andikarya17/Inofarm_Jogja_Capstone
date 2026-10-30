@@ -67,6 +67,7 @@ class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFin
                 OperationalKind.ACTIVITY -> ActivityDraft.from(reviewed.id,reviewed.greenhouseId,reviewed.body,version).copy(reason=reason,referencePolicy=policy).payload()
                 OperationalKind.HARVEST -> HarvestDraft.from(reviewed.id,reviewed.greenhouseId,reviewed.body,version).copy(reason=reason,referencePolicy=policy).payload()
                 OperationalKind.EXPENSE,OperationalKind.COST_ALLOCATION -> FinancialDraft.from(reviewed.id,kind,reviewed.greenhouseId,reviewed.body,version).copy(reason=reason).payload()
+                OperationalKind.SALE -> com.inofarm.jogja.feature.sales.SaleDraft.from(reviewed.id,reviewed.greenhouseId,reviewed.body,version).copy(reason=reason).payload()
             }
         } else null
         store.resolveConflict(session.scope.key,reviewed.id,version,reviewed.revision,payload)
@@ -90,7 +91,7 @@ class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFin
         check(session,ticket)
         if(kind.financial) {
             val form=record.body.optJSONObject("_local_form") ?: record.body
-            val seasons=if(kind==OperationalKind.COST_ALLOCATION) setOf(form.getString("season_id")) else store.allocationSeasons(session.scope.key,record.id)
+            val seasons=if(kind in setOf(OperationalKind.COST_ALLOCATION,OperationalKind.SALE)) setOf(form.getString("season_id")) else store.allocationSeasons(session.scope.key,record.id)
             require(seasons.isNotEmpty()) {"Musim terkait belum tersimpan lengkap. Sinkronkan dan tinjau kembali."}
             seasons.forEach {id -> require(store.cachedOne(session.scope.key,"seasons",id)?.optString("status")=="open") {"Musim terkait masih ditutup atau belum tersimpan. Buka kembali dan sinkronkan dahulu."}}
             val op=store.pendingFor(session.scope.key,record.id).singleOrNull {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"} ?: error("Operasi tertahan tidak ditemukan.")

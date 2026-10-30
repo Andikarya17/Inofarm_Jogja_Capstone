@@ -169,6 +169,69 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-logout").performClick()
     }
 
+    @Test fun queueSaleHarvestWithBackendOffline() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="sale-source-queue")
+        val f=fixture();login(f,"worker");val ctx=f.getJSONArray("contexts").getJSONObject(0)
+        choose("finance-gh",ctx.getString("greenhouse_id"));choose("finance-season",ctx.getString("season_id"));choose("finance-group",ctx.getString("group_id"))
+        rule.onNodeWithTag("harvest-new").performScrollTo().performClick()
+        rule.onNodeWithTag("harvest-date").performScrollTo().performTextReplacement("2026-10-30")
+        repeat(2) {index ->
+            rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick();choose("harvest-grade-$index",ctx.getJSONArray("grade_ids").getString(index))
+            rule.onNodeWithTag("harvest-count-$index").performScrollTo().performTextReplacement("3")
+            rule.onNodeWithTag("harvest-weight-$index").performScrollTo().performTextReplacement("5");hideKeyboard()
+        }
+        rule.onNodeWithTag("harvest-notes").performScrollTo().performTextReplacement("DEVICE SALE HARVEST ${f.getString("fixture_id")}");hideKeyboard()
+        financialOfflineBarrier(f,"sale-source")
+        rule.onNodeWithTag("harvest-review").performScrollTo().performClick();rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+        val model=runtime();val session=model.vault.current!!
+        rule.waitUntil(10000) {model.store.outbox(session.scope.key).any {it.envelope.optString("entity_type")=="harvest" && it.state=="QUEUED"}}
+        val op=model.store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="harvest" && it.state=="QUEUED"}
+        val items=op.envelope.getJSONObject("payload").getJSONArray("items")
+        file("finance-device-sale-proof.json").writeText(JSONObject().put("source_pid",android.os.Process.myPid()).put("harvest_id",op.entityId).put("harvest_op",op.id).put("harvest_hash",op.hash).put("sources",org.json.JSONArray().apply {repeat(items.length()) {put(items.getJSONObject(it).getString("id"))}}).toString())
+    }
+    @Test fun replayHarvestThenQueueSaleWithBackendOffline():Unit=kotlinx.coroutines.runBlocking {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="sale-queue")
+        val f=fixture();val proof=JSONObject(file("finance-device-sale-proof.json").readText());assertNotEquals(proof.getInt("source_pid"),android.os.Process.myPid())
+        val model=runtime();rule.waitUntil(15000) {model.vault.current!=null};val worker=model.vault.current!!
+        rule.waitUntil(20000) {model.store.record(worker.scope.key,proof.getString("harvest_id"))?.syncState==com.inofarm.jogja.core.contracts.SyncState.ACCEPTED}
+        val sourceOp=model.store.outbox(worker.scope.key).single {it.id==proof.getString("harvest_op")};assertEquals(proof.getString("harvest_hash"),sourceOp.hash)
+        model.api.request(worker.scope.server,worker.token,"harvests","POST",sourceOp.envelope)
+        login(f,"manager");val ctx=f.getJSONArray("contexts").getJSONObject(0)
+        rule.onNodeWithTag("finance-tab-4").performClick();rule.onNodeWithTag("expense-gh").performClick();rule.onNodeWithTag("expense-gh-option-${ctx.getString("greenhouse_id")}").performScrollTo().performClick();rule.onNodeWithTag("sale-new").performClick()
+        choose("sale-season",ctx.getString("season_id"));rule.onNodeWithTag("sale-date").performScrollTo().performTextReplacement("2026-10-30")
+        repeat(2) {index ->
+            if(index>0) rule.onNodeWithTag("sale-add").performScrollTo().performClick()
+            choose("sale-source-$index",proof.getJSONArray("sources").getString(index))
+            rule.onNodeWithTag("sale-quantity-$index").performScrollTo().performTextReplacement("1");rule.onNodeWithTag("sale-price-$index").performScrollTo().performTextReplacement("0,004");hideKeyboard()
+        }
+        rule.onNodeWithTag("sale-paid").performScrollTo().performClick();rule.onNodeWithTag("sale-notes").performScrollTo().performTextReplacement("DEVICE SALE ${f.getString("fixture_id")}");hideKeyboard()
+        financialOfflineBarrier(f,"sale")
+        rule.onNodeWithTag("sale-review").performScrollTo().performClick();rule.onNodeWithTag("sale-queue").performScrollTo().performClick()
+        val session=model.vault.current!!;rule.waitUntil(10000) {model.store.outbox(session.scope.key).any {it.envelope.optString("entity_type")=="sale"}}
+        val op=model.store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="sale"};assertEquals("QUEUED",op.state)
+        proof.put("sale_pid",android.os.Process.myPid()).put("sale_id",op.entityId).put("sale_op",op.id).put("sale_hash",op.hash);file("finance-device-sale-proof.json").writeText(proof.toString())
+    }
+    @Test fun replaySaleAuditCancelAndWorkerScope():Unit=kotlinx.coroutines.runBlocking {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="sale-verify")
+        val f=fixture();val proof=JSONObject(file("finance-device-sale-proof.json").readText());assertNotEquals(proof.getInt("sale_pid"),android.os.Process.myPid())
+        val model=runtime();rule.waitUntil(15000) {model.vault.current!=null};val session=model.vault.current!!;val id=proof.getString("sale_id")
+        rule.waitUntil(20000) {model.store.record(session.scope.key,id)?.syncState==com.inofarm.jogja.core.contracts.SyncState.ACCEPTED}
+        val op=model.store.outbox(session.scope.key).single {it.id==proof.getString("sale_op")};assertEquals(proof.getString("sale_hash"),op.hash)
+        val receipt=model.api.request(session.scope.server,session.token,"sales","POST",op.envelope);assertEquals("0.01",receipt.getJSONObject("data").getString("total_amount"))
+        rule.onNodeWithTag("finance-tab-4").performClick();rule.onNodeWithTag("expense-history-kind").performClick();rule.onNodeWithTag("expense-history-kind-option-sale").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Pencatatan · versi 1").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("history-cancel").performScrollTo().performClick();rule.onNodeWithTag("history-action-reason").performTextReplacement("DEVICE SALE CANCEL ${f.getString("fixture_id")}");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
+        rule.waitUntil(20000) {model.store.record(session.scope.key,id)?.serverVersion==2L && model.store.record(session.scope.key,id)?.body?.optString("record_state")=="cancelled"}
+        model.store.acknowledge(session.scope.key,op.id,receipt);assertEquals(2L,model.store.record(session.scope.key,id)!!.serverVersion)
+        val balances=model.api.request(session.scope.server,session.token,"harvests/${proof.getString("harvest_id")}/availability").getJSONArray("data")
+        repeat(balances.length()) {assertEquals("0.000000",balances.getJSONObject(it).getString("sold_weight_kg"));assertEquals("5.000000",balances.getJSONObject(it).getString("available_weight_kg"))}
+        rule.onNodeWithTag("finance-logout").performClick();login(f,"worker");val worker=model.vault.current!!
+        try {model.api.request(worker.scope.server,worker.token,"sales/$id");fail("Worker sale must be denied")} catch(error:FinanceApiFailure) {assertEquals(403,error.status)}
+        val changes=model.api.request(worker.scope.server,worker.token,"sync/changes").getJSONArray("data");assertTrue((0 until changes.length()).none {changes.getJSONObject(it).getString("entity_type")=="sale"})
+        rule.onNodeWithTag("finance-logout").performClick()
+    }
+
     @Test fun queueWithBackendOffline() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="queue")
         val f=fixture();login(f,"worker");val a=f.getJSONArray("contexts").getJSONObject(0)

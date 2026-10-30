@@ -51,6 +51,7 @@ import com.inofarm.jogja.feature.history.*
 import com.inofarm.jogja.feature.harvest.*
 import com.inofarm.jogja.feature.expenses.*
 import com.inofarm.jogja.feature.attachments.*
+import com.inofarm.jogja.feature.sales.*
 import org.json.JSONObject
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -80,6 +81,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val allocationHistory:HistoryViewModel=viewModel(key="allocation-history",factory=remember(runtime){factory {HistoryViewModel(runtime.allocationHistory)}})
     val attachments:AttachmentViewModel=viewModel(factory=remember(runtime){factory {AttachmentViewModel(runtime.attachments,runtime.viewer)}})
     val attachmentState by attachments.state.collectAsStateWithLifecycle()
+    val sales:SaleEntryViewModel=viewModel(factory=remember(runtime){factory {SaleEntryViewModel(runtime.sales)}})
+    val saleHistory:HistoryViewModel=viewModel(key="sale-history",factory=remember(runtime){factory {HistoryViewModel(runtime.saleHistory)}})
+    val saleState by sales.state.collectAsStateWithLifecycle();val saleHistoryState by saleHistory.state.collectAsStateWithLifecycle()
     val authState by auth.state.collectAsStateWithLifecycle();val contextState by context.state.collectAsStateWithLifecycle();val activityState by activities.state.collectAsStateWithLifecycle()
     val historyState by history.state.collectAsStateWithLifecycle()
     val harvestState by harvest.state.collectAsStateWithLifecycle();val harvestHistoryState by harvestHistory.state.collectAsStateWithLifecycle()
@@ -90,30 +94,31 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     LaunchedEffect(contextState.lastSyncedAt) {if(attachmentState.parent!=null) attachments.reload()}
     LaunchedEffect(attachmentState.changed) {if(attachmentState.changed>0) {activities.reload();context.refresh()}}
     LaunchedEffect(authState.session?.scope?.key) { context.bind(authState.session);activities.bind(authState.session);history.bind(authState.session);harvest.bind(authState.session);harvestHistory.bind(authState.session) }
-    LaunchedEffect(authState.session?.scope?.key,authState.session?.role) {val manager=authState.session?.takeIf {it.role==UserRole.MANAGER};financial.bind(manager);expenseHistory.bind(manager);allocationHistory.bind(manager)}
+    LaunchedEffect(authState.session?.scope?.key,authState.session?.role) {val manager=authState.session?.takeIf {it.role==UserRole.MANAGER};financial.bind(manager);expenseHistory.bind(manager);allocationHistory.bind(manager);sales.bind(manager);saleHistory.bind(manager)}
     LaunchedEffect(contextState.loading,contextState.message) { if(authState.session!=null && !contextState.loading) {activities.reload();history.reload();harvest.reload();harvestHistory.reload()} }
     LaunchedEffect(activityState.records,historyState.changed) {if(authState.session!=null) history.reload()}
     LaunchedEffect(historyState.changed) {if(historyState.changed>0 && authState.session!=null) {activities.reload();context.refresh()} }
     LaunchedEffect(harvestState.records) {if(authState.session!=null) harvestHistory.reload()}
     LaunchedEffect(harvestState.changed,harvestHistoryState.changed) {if((harvestState.changed>0 || harvestHistoryState.changed>0) && authState.session!=null) {activities.reload();context.refresh()} }
-    LaunchedEffect(contextState.lastSyncedAt) {if(authState.session?.role==UserRole.MANAGER) {expenseHistory.reload();allocationHistory.reload()}}
-    LaunchedEffect(financialState.changed,expenseHistoryState.changed,allocationHistoryState.changed) {
-        if(authState.session?.role==UserRole.MANAGER) {expenseHistory.reload();allocationHistory.reload();if(financialState.changed>0 || expenseHistoryState.changed>0 || allocationHistoryState.changed>0) {activities.reload();context.refresh()}}
+    LaunchedEffect(contextState.lastSyncedAt) {if(authState.session?.role==UserRole.MANAGER) {expenseHistory.reload();allocationHistory.reload();saleHistory.reload()}}
+    LaunchedEffect(financialState.changed,expenseHistoryState.changed,allocationHistoryState.changed,saleState.changed,saleHistoryState.changed) {
+        if(authState.session?.role==UserRole.MANAGER) {expenseHistory.reload();allocationHistory.reload();saleHistory.reload();if(financialState.changed>0 || expenseHistoryState.changed>0 || allocationHistoryState.changed>0 || saleState.changed>0 || saleHistoryState.changed>0) {activities.reload();context.refresh()}}
     }
     val pending=activityState.queue.firstOrNull { it.state=="QUEUED" }?.id
     LaunchedEffect(pending,authState.session?.scope?.key) { if(pending!=null && authState.session!=null) context.refresh() }
     val logout:()->Unit={
         val session=auth.state.value.session
         if(session!=null) {
-            activities.pauseAutosave();harvest.pauseAutosave();financial.pauseAutosave();attachments.pauseAutosave()
+            activities.pauseAutosave();harvest.pauseAutosave();financial.pauseAutosave();attachments.pauseAutosave();sales.pauseAutosave()
             val draft=activities.state.value.draft;val harvestDraft=harvest.state.value.draft;val ticket=runtime.vault.generation
-            val financialDraft=financial.state.value.draft;val attachmentForm=attachments.formSnapshot()
+            val financialDraft=financial.state.value.draft;val attachmentForm=attachments.formSnapshot();val saleDraft=sales.state.value.draft
             auth.logout {
                 check(runtime.vault.matches(ticket,session.scope)) {"Sesi berubah sebelum penyimpanan."}
                 draft?.let {runtime.activities.flush(session,ticket,it)}
                 harvestDraft?.let {runtime.harvest.flush(session,ticket,it)}
                 financialDraft?.let {runtime.financialEntry.flush(session,ticket,it)}
                 attachmentForm?.let {attachments.flush(session,ticket,it)}
+                saleDraft?.let {runtime.sales.flush(session,ticket,it)}
                 runtime.viewer.clearViews()
                 check(runtime.vault.matches(ticket,session.scope)) {"Sesi berubah selama penyimpanan."}
             }
@@ -123,7 +128,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
         if(authState.session==null) FinanceLogin(authState,auth::login)
         else if(authState.loading) Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Spacer(Modifier.height(16.dp));Text("Menyimpan isian terakhir sebelum keluar…")}
-        else key(authState.session!!.scope.key) { CompositionLocalProvider(LocalAttachmentAction provides attachments::open) { FinanceHome(authState.session!!,contextState,activityState,context::refresh,logout,activities,historyState,history,harvestState,harvest,harvestHistoryState,harvestHistory,financialState,financial,expenseHistoryState,expenseHistory,allocationHistoryState,allocationHistory,attachmentState,attachments,runtime.vault.generation) } }
+        else key(authState.session!!.scope.key) { CompositionLocalProvider(LocalAttachmentAction provides attachments::open) { FinanceHome(authState.session!!,contextState,activityState,context::refresh,logout,activities,historyState,history,harvestState,harvest,harvestHistoryState,harvestHistory,financialState,financial,expenseHistoryState,expenseHistory,allocationHistoryState,allocationHistory,attachmentState,attachments,runtime.vault.generation,saleState,sales,saleHistoryState,saleHistory) } }
     }
     if(authState.session!=null && !authState.loading && authState.error!=null) AlertDialog(onDismissRequest=auth::clearError,title={Text("Belum keluar")},text={Text(authState.error!!)},confirmButton={TextButton(onClick=auth::clearError) {Text("Kembali ke isian")}})
 }
@@ -159,29 +164,31 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
 
 @Composable private fun FinanceHome(session:FinanceSession,context:CultivationUiState,activity:ActivityUiState,onSync:()->Unit,onLogout:()->Unit,vm:ActivityViewModel,history:HistoryUiState,historyVm:HistoryViewModel,
     harvest:HarvestUiState,harvestVm:HarvestViewModel,harvestHistory:HistoryUiState,harvestHistoryVm:HistoryViewModel,financial:FinancialEntryState,financialVm:FinancialEntryViewModel,
-    expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long) {
+    expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel) {
     var tab by rememberSaveable { mutableStateOf(0) };var gh by rememberSaveable { mutableStateOf<String?>(null) };var season by rememberSaveable { mutableStateOf<String?>(null) };var group by rememberSaveable { mutableStateOf<String?>(null) }
-    val writing=attachment.busy || activity.busy || harvest.busy || history.busy || harvestHistory.busy || financial.busy || expenseHistory.busy || allocationHistory.busy
+    val writing=sale.busy || saleHistory.busy || attachment.busy || activity.busy || harvest.busy || history.busy || harvestHistory.busy || financial.busy || expenseHistory.busy || allocationHistory.busy
     val keyboard=LocalSoftwareKeyboardController.current;val ime=WindowInsets.ime.getBottom(LocalDensity.current)>0
     LaunchedEffect(context.greenhouses.map { it.getString("id") }) { if(gh!=null && context.greenhouses.none { it.getString("id")==gh }) { gh=null;season=null;group=null } }
-    BackHandler(attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
-        when { writing -> Unit;ime -> keyboard?.hide();attachment.parentReview!=null || attachment.reviewing -> attachmentVm.backToDetails();attachment.selected!=null -> attachmentVm.closeSelected();attachment.parent!=null -> attachmentVm.close();activity.draft!=null && activity.reviewing -> vm.backToForm();activity.draft!=null -> vm.saveAndClose();harvest.draft!=null && harvest.reviewing -> harvestVm.backToForm();harvest.draft!=null -> harvestVm.saveAndClose();financial.draft!=null && financial.reviewing -> financialVm.backToForm();financial.draft!=null -> financialVm.saveAndClose();expenseHistory.comparison!=null -> expenseHistoryVm.closeComparison();expenseHistory.selected!=null -> expenseHistoryVm.close();allocationHistory.comparison!=null -> allocationHistoryVm.closeComparison();allocationHistory.selected!=null -> allocationHistoryVm.close();history.comparison!=null -> historyVm.closeComparison();history.selected!=null -> historyVm.close();harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison();harvestHistory.selected!=null -> harvestHistoryVm.close();else -> tab=0 }
+    BackHandler(sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
+        when { writing -> Unit;ime -> keyboard?.hide();attachment.parentReview!=null || attachment.reviewing -> attachmentVm.backToDetails();attachment.selected!=null -> attachmentVm.closeSelected();attachment.parent!=null -> attachmentVm.close();sale.draft!=null && sale.reviewing -> saleVm.backToForm();sale.draft!=null -> saleVm.saveAndClose();saleHistory.comparison!=null -> saleHistoryVm.closeComparison();saleHistory.selected!=null -> saleHistoryVm.close();activity.draft!=null && activity.reviewing -> vm.backToForm();activity.draft!=null -> vm.saveAndClose();harvest.draft!=null && harvest.reviewing -> harvestVm.backToForm();harvest.draft!=null -> harvestVm.saveAndClose();financial.draft!=null && financial.reviewing -> financialVm.backToForm();financial.draft!=null -> financialVm.saveAndClose();expenseHistory.comparison!=null -> expenseHistoryVm.closeComparison();expenseHistory.selected!=null -> expenseHistoryVm.close();allocationHistory.comparison!=null -> allocationHistoryVm.closeComparison();allocationHistory.selected!=null -> allocationHistoryVm.close();history.comparison!=null -> historyVm.closeComparison();history.selected!=null -> historyVm.close();harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison();harvestHistory.selected!=null -> harvestHistoryVm.close();else -> tab=0 }
     }
     Scaffold(contentWindowInsets=WindowInsets.safeDrawing,topBar={ Column(Modifier.statusBarsPadding().padding(horizontal=16.dp,vertical=8.dp)) {
-        if((attachment.parent!=null && (ime || LocalDensity.current.fontScale>1.5f || LocalConfiguration.current.screenHeightDp<400)) || (ime && (activity.draft!=null || harvest.draft!=null || financial.draft!=null))) {
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(if(attachment.parent!=null) "Lampiran" else if(financial.draft!=null && LocalDensity.current.fontScale>1.5f) "Isian" else if(financial.draft!=null) "Catat ${financial.draft.kind.label}" else if(harvest.draft!=null) "Catat panen" else "Catat kegiatan",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={keyboard?.hide();if(attachment.parent!=null) {if(attachment.selected!=null) attachmentVm.closeSelected() else attachmentVm.close()} else if(financial.draft!=null) financialVm.saveAndClose() else if(harvest.draft!=null) harvestVm.saveAndClose() else vm.saveAndClose()},enabled=!writing) {Text(if(attachment.parent!=null) "Kembali" else "Simpan draf")} }
+        if((attachment.parent!=null && (ime || LocalDensity.current.fontScale>1.5f || LocalConfiguration.current.screenHeightDp<400)) || (ime && (sale.draft!=null || activity.draft!=null || harvest.draft!=null || financial.draft!=null))) {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(if(attachment.parent!=null) "Lampiran" else if(sale.draft!=null) "Penjualan" else if(financial.draft!=null && LocalDensity.current.fontScale>1.5f) "Isian" else if(financial.draft!=null) "Catat ${financial.draft.kind.label}" else if(harvest.draft!=null) "Catat panen" else "Catat kegiatan",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={keyboard?.hide();if(attachment.parent!=null) {if(attachment.selected!=null) attachmentVm.closeSelected() else attachmentVm.close()} else if(sale.draft!=null) saleVm.saveAndClose() else if(financial.draft!=null) financialVm.saveAndClose() else if(harvest.draft!=null) harvestVm.saveAndClose() else vm.saveAndClose()},enabled=!writing) {Text(if(attachment.parent!=null) "Kembali" else "Simpan draf")} }
         } else {
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text("Inofarm",style=MaterialTheme.typography.titleLarge);Text("${session.name} · ${if(session.role==UserRole.WORKER) "Pekerja" else "Pengelola"}",style=MaterialTheme.typography.bodySmall) };TextButton(onClick=onLogout,enabled=!writing,modifier=Modifier.testTag("finance-logout")) {Text("Keluar")} }
         if(session.expired()) Notice("Sesi berakhir. Masuk kembali dengan akun yang sama untuk mengirim antrean. Draf tetap dapat disimpan.",true)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text("Pencatatan manual",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium);TextButton(onClick=onSync,enabled=!context.loading,modifier=Modifier.testTag("finance-sync")) {Text(if(context.loading) "Memeriksa…" else "Sinkronkan")} }
         }
-    } },bottomBar={ if(attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null) NavigationBar { (listOf("Beranda","Antrean","Kegiatan","Panen")+if(session.role==UserRole.MANAGER) listOf("Keuangan") else emptyList()).forEachIndexed { index,label -> NavigationBarItem(selected=tab==index,onClick={tab=index},icon={Text(listOf("⌂","↻","≡","▦","Rp")[index])},label={Text(label)},modifier=Modifier.testTag("finance-tab-$index")) } } }) { padding ->
+    } },bottomBar={ if(sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null) NavigationBar { (listOf("Beranda","Antrean","Kegiatan","Panen")+if(session.role==UserRole.MANAGER) listOf("Keuangan") else emptyList()).forEachIndexed { index,label -> NavigationBarItem(selected=tab==index,onClick={tab=index},icon={Text(listOf("⌂","↻","≡","▦","Rp")[index])},label={Text(label)},modifier=Modifier.testTag("finance-tab-$index")) } } }) { padding ->
         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding().padding(horizontal=16.dp).widthIn(max=900.dp)) {
             when {
                 attachment.parent!=null -> AttachmentScreen(session,context,attachment,attachmentVm,ticket)
-                activity.busy || harvest.busy || financial.busy -> Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Text("Menyimpan isian ke perangkat…")}
+                sale.busy || activity.busy || harvest.busy || financial.busy -> Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Text("Menyimpan isian ke perangkat…")}
                 activity.draft!=null -> if(activity.reviewing) ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue) else ActivityForm(activity,context,vm)
                 harvest.draft!=null -> if(harvest.reviewing) HarvestReview(harvest.draft,context,harvest.busy,harvestVm::backToForm,harvestVm::queue) else HarvestForm(harvest,context,harvestVm)
+                session.role==UserRole.MANAGER && sale.draft!=null -> if(sale.reviewing) SaleReview(sale.draft,context,sale.busy,saleVm::backToForm,saleVm::queue) else SaleForm(sale,context,saleVm)
+                session.role==UserRole.MANAGER && saleHistory.selected!=null -> HistoryScreen(session,context,saleHistory,saleHistoryVm,activity.queue,onEdit={record,replace -> saleVm.open(record,replace);saleHistoryVm.close()},kind=OperationalKind.SALE)
                 session.role==UserRole.MANAGER && financial.draft!=null -> if(financial.reviewing) FinancialReview(financial.draft,context,financial.busy,financialVm::backToForm,financialVm::queue) else FinancialForm(financial,context,financialVm)
                 session.role==UserRole.MANAGER && expenseHistory.selected!=null -> HistoryScreen(session,context,expenseHistory,expenseHistoryVm,activity.queue,onEdit={record,replace -> financialVm.open(record,replace);expenseHistoryVm.close()},kind=OperationalKind.EXPENSE)
                 session.role==UserRole.MANAGER && allocationHistory.selected!=null -> HistoryScreen(session,context,allocationHistory,allocationHistoryVm,activity.queue,onEdit={record,replace -> financialVm.open(record,replace);allocationHistoryVm.close()},kind=OperationalKind.COST_ALLOCATION)
@@ -214,11 +221,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         Text(if(op.state=="SUPERSEDED") "Digantikan setelah ditinjau" else runCatching { SyncState.valueOf(op.state).label() }.getOrDefault("Perlu ditinjau"),fontWeight=FontWeight.SemiBold)
                         Text("Catatan ${op.entityId.take(8)} · percobaan ${op.attempts}",style=MaterialTheme.typography.bodySmall)
                         op.error?.let { ErrorReasons(it) }
-                        if(op.envelope.optString("entity_type") in setOf("activity","harvest","expense","cost_allocation")) TextButton(onClick={when(op.envelope.optString("entity_type")) {"harvest" -> {harvestHistoryVm.select(op.entityId);tab=3};"expense" -> {expenseHistoryVm.select(op.entityId);tab=4};"cost_allocation" -> {allocationHistoryVm.select(op.entityId);tab=4};else -> {historyVm.select(op.entityId);tab=2}}}) {Text("Tinjau catatan")}
+                        if(op.envelope.optString("entity_type") in setOf("activity","harvest","expense","cost_allocation","sale")) TextButton(onClick={when(op.envelope.optString("entity_type")) {"sale" -> {saleHistoryVm.select(op.entityId);tab=4};"harvest" -> {harvestHistoryVm.select(op.entityId);tab=3};"expense" -> {expenseHistoryVm.select(op.entityId);tab=4};"cost_allocation" -> {allocationHistoryVm.select(op.entityId);tab=4};else -> {historyVm.select(op.entityId);tab=2}}}) {Text("Tinjau catatan")}
                         Text(if(op.state=="ACCEPTED") "Penerimaan tersimpan. Ini tidak menyatakan kesesuaian agronomi." else "ID operasi tetap sama saat dicoba kembali.",style=MaterialTheme.typography.bodySmall)
                     } } }
                 }
-                tab==4 && session.role==UserRole.MANAGER -> FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue)
+                tab==4 && session.role==UserRole.MANAGER -> FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm)
                 tab==2 -> HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()})
                 else -> HistoryScreen(session,context,harvestHistory,harvestHistoryVm,activity.queue,onEdit={record,replace -> harvestVm.open(record,replace);harvestHistoryVm.close()},kind=OperationalKind.HARVEST)
             }

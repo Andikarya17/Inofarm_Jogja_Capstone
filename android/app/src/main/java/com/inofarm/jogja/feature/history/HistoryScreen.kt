@@ -85,7 +85,7 @@ import java.time.LocalDate
     val own=record.recorderId().let {it.isBlank() || it==session.scope.accountId}
     RecordDetail(record,session,context,vm::close,onEdit={onEdit(record,reviewable)},kind=kind) {
         val attachments=com.inofarm.jogja.feature.attachments.LocalAttachmentAction.current
-        if(attachments!=null && kind!=OperationalKind.COST_ALLOCATION && record.serverVersion!=null) OutlinedButton(onClick={attachments(record)},modifier=Modifier.fillMaxWidth().testTag("history-attachments")) {Text("Lampiran dan bukti catatan")}
+        if(attachments!=null && kind in setOf(OperationalKind.ACTIVITY,OperationalKind.HARVEST,OperationalKind.EXPENSE) && record.serverVersion!=null) OutlinedButton(onClick={attachments(record)},modifier=Modifier.fillMaxWidth().testTag("history-attachments")) {Text("Lampiran dan bukti catatan")}
         state.message?.let {Notice(it,true)}
         pending.forEach {op ->
             var expanded by rememberSaveable(op.id) {mutableStateOf(false)}
@@ -175,5 +175,5 @@ import java.time.LocalDate
 }
 
 @Composable internal fun RecordFacts(record:LocalRecord,session:FinanceSession,context:CultivationUiState,kind:OperationalKind) {
-    when(kind) {OperationalKind.ACTIVITY -> ActivityFacts(record,session,context);OperationalKind.HARVEST -> HarvestFacts(record,session,context);OperationalKind.EXPENSE,OperationalKind.COST_ALLOCATION -> FinancialFacts(record,context)}
+    when(kind) {OperationalKind.ACTIVITY -> ActivityFacts(record,session,context);OperationalKind.HARVEST -> HarvestFacts(record,session,context);OperationalKind.EXPENSE,OperationalKind.COST_ALLOCATION -> FinancialFacts(record,context);OperationalKind.SALE -> com.inofarm.jogja.feature.sales.SaleFacts(record,context)}
 }
