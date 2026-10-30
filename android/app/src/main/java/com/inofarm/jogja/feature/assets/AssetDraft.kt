@@ -14,7 +14,7 @@ data class AssetDraft(val id:String=UUID.randomUUID().toString(),val greenhouseI
     val expenseId:String="",val assetId:String="",val seasonId:String="",val name:String="",val cost:String="",val residual:String="",
     val lifeYears:String="",val inServiceDate:String="",val usageYear:String="",val periodStart:String="",val periodEnd:String="",
     val usageReference:String="",val amount:String="",val basis:String="",val reason:String="",val baseVersion:Long?=null,
-    val replaceValidationRejected:Boolean=false) {
+    val replaceValidationRejected:Boolean=false,val lockedParents:Boolean=false) {
     fun validation():Map<String,String> = buildMap {
         fun uuid(field:String,value:String) { if(runCatching {WireContract.uuid(value)}.isFailure) put(field,"Pilih identitas sumber yang sah.") }
         uuid("greenhouse",greenhouseId)
@@ -43,7 +43,7 @@ data class AssetDraft(val id:String=UUID.randomUUID().toString(),val greenhouseI
     fun localJson():JSONObject {
         val form=JSONObject().put("expense_id",expenseId).put("asset_id",assetId).put("season_id",seasonId).put("name",name).put("cost",cost).put("residual",residual)
             .put("life_years",lifeYears).put("in_service_date",inServiceDate).put("usage_year",usageYear).put("period_start",periodStart).put("period_end",periodEnd)
-            .put("usage_reference",usageReference).put("amount",amount).put("basis",basis).put("reason",reason).put("replace_validation_rejected",replaceValidationRejected)
+            .put("usage_reference",usageReference).put("amount",amount).put("basis",basis).put("reason",reason).put("replace_validation_rejected",replaceValidationRejected).put("locked_parents",lockedParents)
         return JSONObject().put("_local_form",form).put("completeness","draft").put("expense_id",expenseId).put("season_id",seasonId).put("asset_id",assetId)
     }
     companion object {
@@ -54,7 +54,7 @@ data class AssetDraft(val id:String=UUID.randomUUID().toString(),val greenhouseI
             val local=body.optJSONObject("_local_form");val raw=local ?: body
             return AssetDraft(id,gh,kind,raw.optString("expense_id"),raw.optString("asset_id"),raw.optString("season_id"),raw.optString("name"),raw.optString("cost"),raw.optString("residual"),
                 raw.optString("life_years"),raw.optString("in_service_date"),raw.optString("usage_year"),raw.optString("period_start"),raw.optString("period_end"),raw.optString("usage_reference"),raw.optString("amount"),
-                if(local!=null) raw.optString("basis") else raw.optString(if(kind==AssetKind.ASSET) "usage_basis" else "allocation_basis"),raw.optString("reason"),base,local?.optBoolean("replace_validation_rejected")==true)
+                if(local!=null) raw.optString("basis") else raw.optString(if(kind==AssetKind.ASSET) "usage_basis" else "allocation_basis"),raw.optString("reason"),base,local?.optBoolean("replace_validation_rejected")==true,local?.optBoolean("locked_parents") ?: (base!=null))
         }
     }
 }

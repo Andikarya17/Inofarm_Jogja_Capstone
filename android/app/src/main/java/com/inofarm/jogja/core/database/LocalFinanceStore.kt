@@ -80,7 +80,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             "group_id" to (form?.optString("group_id") ?: body.optString("planting_group_id")).takeIf {it.isNotBlank()},
             "record_state" to body.optString("record_state","active"),"occurred_millis" to runCatching {OffsetDateTime.parse(timestamp).toInstant().toEpochMilli()}.getOrNull(),
             "season_id" to (form?.optString("season_id") ?: body.optString("season_id")).takeIf {it.isNotBlank()},
-            "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"owner_id" to body.optString("owner_id").takeIf {it.isNotBlank()},"indexed" to 1)
+            "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"asset_id" to (form?.optString("asset_id") ?: body.optString("asset_id")).takeIf {it.isNotBlank()},"owner_id" to body.optString("owner_id").takeIf {it.isNotBlank()},"indexed" to 1)
     }
     private fun ensureIndexed(scope:String)=transaction {
         while(true) {
@@ -100,6 +100,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         filter.ownerId?.let {where.append(" AND owner_id=?");args.add(it)}
         filter.seasonId?.let {season ->
             if(kind=="expense") {where.append(" AND entity_id IN (SELECT expense_id FROM local_records WHERE scope=? AND kind='cost_allocation' AND season_id=? AND record_state='active')");args.add(scope);args.add(season)}
+            else if(kind=="asset") {where.append(" AND entity_id IN (SELECT asset_id FROM local_records WHERE scope=? AND kind='depreciation_allocation' AND season_id=? AND record_state='active')");args.add(scope);args.add(season)}
             else {where.append(" AND season_id=?");args.add(season)}
         }
         filter.groups?.let { groups ->
@@ -223,7 +224,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         putQueued(scope,saved,"create",payload,blobId)
     }
     fun cacheAudit(scope:String,id:String,gh:String,body:JSONObject,kind:String="activity_audit")=transaction {
-        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit","sale_audit","activity_attachment_audit","harvest_attachment_audit","expense_attachment_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit","sale_audit","asset_audit","depreciation_allocation_audit","activity_attachment_audit","harvest_attachment_audit","expense_attachment_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
         db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to 1L,
             "tombstone" to 0,"body" to encrypt(scope,body)),SQLiteDatabase.CONFLICT_REPLACE)
     }

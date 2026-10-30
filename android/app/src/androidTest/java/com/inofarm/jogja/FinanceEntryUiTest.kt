@@ -47,6 +47,7 @@ class FinanceEntryUiTest {
     private val gh=UUID.randomUUID().toString();private val season=UUID.randomUUID().toString();private val group=UUID.randomUUID().toString()
     private val unit=UUID.randomUUID().toString();private val materialA=UUID.randomUUID().toString();private val materialB=UUID.randomUUID().toString()
     private val saleRejectNext=AtomicBoolean(false)
+    private val assetConflictNext=AtomicBoolean(false)
     private val category=UUID.randomUUID().toString();private val financeReceipts=ConcurrentHashMap<String,JSONObject>();private val financeKinds=ConcurrentHashMap<String,String>();private val financePosts=AtomicInteger()
     @Before fun prepare() {
         assertTrue(rule.activity.packageName.endsWith(".finance"))
@@ -56,8 +57,8 @@ class FinanceEntryUiTest {
                 if(offline.get()) return MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
                 val path=request.requestUrl!!.encodedPath.substringAfter("/api/v2/")
                 val response=MockResponse().setHeader("Content-Type","application/json")
-                if((path.startsWith("expenses") || path.startsWith("cost-allocations") || path.startsWith("sales")) && request.method in setOf("POST","PATCH")) return financeMutation(request,response)
-                if((path.startsWith("expenses/") || path.startsWith("cost-allocations/") || path.startsWith("sales/")) && path.endsWith("/audit")) return financeAudit(path,response)
+                if((path.startsWith("expenses") || path.startsWith("cost-allocations") || path.startsWith("sales") || path.startsWith("assets") || path.startsWith("depreciation-allocations")) && request.method in setOf("POST","PATCH")) return financeMutation(request,response)
+                if((path.startsWith("expenses/") || path.startsWith("cost-allocations/") || path.startsWith("sales/") || path.startsWith("assets/") || path.startsWith("depreciation-allocations/")) && path.endsWith("/audit")) return financeAudit(path,response)
                 if(path.startsWith("harvests") && request.method in setOf("POST","PATCH")) return harvestMutation(request,response)
                 if(path.startsWith("harvests/") && path.endsWith("/audit")) return harvestAudit(path,response)
                 return when(path) {
@@ -141,7 +142,12 @@ class FinanceEntryUiTest {
         val op=JSONObject(request.body.readUtf8());val key=op.getString("operation_id");val id=op.getString("entity_id");val kind=op.getString("entity_type");val action=op.getString("action")
         financeReceipts[key]?.let {return response.setResponseCode(if(action=="create") 201 else 200).setBody(it.toString())}
         val previous=financeReceipts.values.filter {it.getString("entity_id")==id}.maxByOrNull {it.getInt("version")}
-        val payload=op.getJSONObject("payload");assertFalse(payload.has("_local_form"));if(action!="cancel" && kind!="sale") assertTrue(payload.get("amount") is String)
+        if(kind=="asset" && action=="update" && assetConflictNext.compareAndSet(true,false)) {
+            val remote=JSONObject(previous!!.getJSONObject("data").toString()).put("version",2).put("name","Nama aset pada server")
+            val remoteId=UUID.randomUUID().toString();financeReceipts[remoteId]=JSONObject().put("operation_id",remoteId).put("entity_id",id).put("version",2).put("data",remote)
+            return response.setResponseCode(409).setBody(JSONObject().put("code","version_conflict").put("message","Versi aset berubah.").put("current_version",2).put("current_data",remote).toString())
+        }
+        val payload=op.getJSONObject("payload");assertFalse(payload.has("_local_form"));if(action!="cancel" && kind !in setOf("sale","asset")) assertTrue(payload.get("amount") is String)
         if(kind=="sale" && action!="cancel" && saleRejectNext.compareAndSet(true,false)) return response.setResponseCode(409).setBody("{\"code\":\"harvest_exceeded\",\"message\":\"Saldo sumber berubah pada server sintetis.\"}")
         if(kind=="cost_allocation" && action!="cancel") {
             val source=financeReceipts.values.filter {it.getString("entity_id")==payload.getString("expense_id")}.maxBy {it.getInt("version")}.getJSONObject("data")
@@ -154,12 +160,13 @@ class FinanceEntryUiTest {
         val data=if(action=="cancel") JSONObject(previous!!.getJSONObject("data").toString()).put("record_state","cancelled") else JSONObject(payload.toString()).put("record_state","active")
         data.remove("reason");data.put("id",id).put("version",version).put("currency","IDR").put("recorded_by",manager).put("recorded_by_name","Pengelola sintetis")
             .put("created_at","2026-10-30T00:00:00+07:00").put("updated_at","2026-10-30T00:00:00+07:00")
-        if(kind!="sale") data.put("amount",java.math.BigDecimal(data.getString("amount")).setScale(2).toPlainString())
-        else {
+        if(kind !in setOf("sale","asset")) data.put("amount",java.math.BigDecimal(data.getString("amount")).setScale(2).toPlainString())
+        else if(kind=="sale") {
             val lines=data.getJSONArray("items");var exact=java.math.BigDecimal.ZERO;var weight=java.math.BigDecimal.ZERO
             repeat(lines.length()) {index -> val line=lines.getJSONObject(index);val q=java.math.BigDecimal(line.getString("quantity_kg"));val price=java.math.BigDecimal(line.getString("price_per_kg"));exact=exact+q*price;weight=weight+q;line.put("quantity_kg",q.setScale(6).toPlainString()).put("price_per_kg",price.setScale(6).toPlainString()).put("grade_name","Grade penjualan sintetis").put("harvest_version",1)}
             data.put("total_amount",exact.setScale(2,java.math.RoundingMode.HALF_UP).toPlainString()).put("total_weight_kg",weight.setScale(6).toPlainString()).put("exact_total",exact.setScale(12).toPlainString())
         }
+        if(kind in setOf("asset","depreciation_allocation")) {data.put("greenhouse_id",gh).put("formula_version","anniversary-cumulative-half-up-v1");if(kind=="depreciation_allocation") data.put("year_budget","33.33").put("asset_version",1)}
         if(kind=="expense") data.put("balance_id",previous?.getJSONObject("data")?.optString("balance_id") ?: UUID.randomUUID().toString()).put("category_name","Kategori biaya sintetis").put("category_version",1)
         else data.put("season_name","Musim UI sintetis").put("season_version",1)
         financeKinds[id]=kind
@@ -217,7 +224,7 @@ class FinanceEntryUiTest {
         choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
         rule.onNodeWithTag(if(harvest) "harvest-new" else "finance-new").performScrollTo().performClick()
     }
-    private fun choose(tag:String,id:String) {val selector=rule.onNodeWithTag(tag);(if(tag in setOf("expense-gh","expense-history-kind")) selector else selector.performScrollTo()).performClick();rule.onNodeWithTag("$tag-option-$id").performScrollTo().performClick()}
+    private fun choose(tag:String,id:String) {val selector=rule.onNodeWithTag(tag);selector.performScrollTo().performClick();rule.onNodeWithTag("$tag-option-$id").performScrollTo().performClick()}
     private fun hideKeyboard() {rule.runOnIdle { val input=rule.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager;input.hideSoftInputFromWindow(rule.activity.window.decorView.windowToken,0) };rule.waitForIdle()}
 
     @Test fun offlineQueueRecreationReconnectAndManagerHistoryKeepHonestStatus() {
@@ -750,4 +757,96 @@ class FinanceEntryUiTest {
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
         rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED}
     }
+
+    private fun assetSources(includeAsset:Boolean=false):String {
+        val expense=UUID.randomUUID().toString()
+        fun seed(kind:String,id:String,data:JSONObject) {financeKinds[id]=kind;financeReceipts[UUID.randomUUID().toString()]=JSONObject().put("entity_id",id).put("version",1).put("data",data.put("id",id).put("version",1).put("greenhouse_id",gh).put("record_state","active").put("created_at","2026-10-30T00:00:00Z"))}
+        seed("expense",expense,JSONObject().put("amount","100.00").put("payment_kind","asset_acquisition").put("notes","Pembelian pompa sintetis").put("paid_at","2026-10-30T00:00:00Z").put("balance_id",UUID.randomUUID().toString()))
+        if(includeAsset) {
+            val asset=UUID.randomUUID().toString();seed("asset",asset,JSONObject().put("expense_id",expense).put("name","Pompa sumber sintetis").put("cost","100.00").put("residual","0.00").put("life_years",3).put("in_service_date","2026-01-01").put("usage_basis","Pemakaian sintetis"));return asset
+        }
+        return expense
+    }
+    @Test fun assetFormReviewRecreationAndAcceptedHistoryUseDedicatedFlow() {
+        val expense=assetSources();rule.onNodeWithTag("finance-logout").performClick();login("manager@example.invalid")
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.onNodeWithTag("asset-new").performClick();choose("asset-expense",expense)
+        for((tag,value) in listOf("asset-name" to "Pompa UI sintetis","asset-cost" to "100,00","asset-residual" to "0","asset-life" to "3","asset-start" to "2026-01-01","asset-basis" to "Basis manual eksplisit")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
+        hideKeyboard();rule.activityRule.scenario.recreate();rule.onNodeWithTag("asset-name").performScrollTo().assertTextContains("Pompa UI sintetis")
+        rule.onNodeWithTag("asset-review").performScrollTo().performClick();rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
+        rule.waitUntil(15000) {financeKinds.values.count {it=="asset"}==1};val id=financeKinds.entries.single {it.value=="asset"}.key
+        rule.onNodeWithTag("expense-history-kind").performClick();rule.onNodeWithTag("expense-history-kind-option-asset").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Harga 100.00 IDR · nilai sisa 0.00 IDR").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithText("Harga 100.00 IDR · nilai sisa 0.00 IDR").assertExists()
+    }
+    @Test fun depreciationRequiresExplicitUsagePeriodBasisAndDoesNotInventAmount() {
+        val asset=assetSources(true);rule.onNodeWithTag("finance-logout").performClick();login("manager@example.invalid")
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.onNodeWithTag("depreciation-new").performClick();choose("asset-source",asset);choose("asset-season",season)
+        assertEquals("",rule.onNodeWithTag("asset-amount").performScrollTo().fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.EditableText].text)
+        for((tag,value) in listOf("asset-usage-year" to "1","asset-period-start" to "2026-01-01","asset-period-end" to "2027-01-01","asset-amount" to "33,33","asset-basis" to "Pemakaian musim sintetis")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
+        hideKeyboard();rule.onNodeWithTag("asset-new-usage").performScrollTo().performClick();rule.onNodeWithTag("asset-review").performScrollTo().performClick();rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
+        rule.waitUntil(15000) {financeKinds.values.any {it=="depreciation_allocation"}}
+        val receipt=financeReceipts.values.single {financeKinds[it.getString("entity_id")]=="depreciation_allocation"};assertEquals("33.33",receipt.getJSONObject("data").getString("amount"))
+    }
+    @Test fun assetImmediateLogoutFlushesLatestIncompleteRawInput() {
+        assetSources();rule.onNodeWithTag("finance-logout").performClick();login("manager@example.invalid");rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.onNodeWithTag("asset-new").performClick()
+        rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Terakhir sebelum logout");hideKeyboard();rule.onNodeWithTag("finance-logout").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
+        login("manager@example.invalid");val model=runtime();val session=model.vault.current!!
+        val row=model.store.records(session.scope.key,kind="asset").single();assertEquals("Terakhir sebelum logout",row.body.getJSONObject("_local_form").getString("name"));assertTrue(model.store.outbox(session.scope.key).none {it.envelope.optString("entity_type")=="asset"})
+    }
+    @Test fun assetHubRemainsScrollableWithFont200Percent() {
+        assetSources();rule.onNodeWithTag("finance-logout").performClick();login("manager@example.invalid")
+        rule.runOnUiThread {
+            val model=ViewModelProvider(rule.activity)[FinanceRuntime::class.java];val density=rule.activity.resources.displayMetrics.density
+            rule.activity.setContent {CompositionLocalProvider(LocalDensity provides Density(density,2f)) {InofarmTheme {Box(Modifier.width(320.dp).fillMaxHeight()) {FinanceRoot(model)}}}}
+        }
+        rule.waitForIdle();rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh)
+        rule.onNodeWithTag("asset-new").performScrollTo().assertIsDisplayed();rule.onNodeWithTag("depreciation-new").performScrollTo().assertIsDisplayed()
+        choose("expense-history-kind","asset");rule.onNodeWithTag("asset-new").performScrollTo().performClick()
+        rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Isian 200 persen")
+        rule.onNodeWithTag("asset-basis").performScrollTo().performTextReplacement("Basis tetap bisa dijangkau");hideKeyboard()
+        rule.onNodeWithTag("asset-save-draft").performScrollTo().assertIsDisplayed().performClick()
+    }
+
+    @Test fun assetConflictReviewPreservesRawLocalNameAndOldOperation() {
+        val id=assetSources(true);rule.onNodeWithTag("finance-logout").performClick();login("manager@example.invalid")
+        val model=runtime();val session=model.vault.current!!
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","asset")
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-edit").performScrollTo().performClick();rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Nama aset lokal diperiksa")
+        rule.onNodeWithTag("asset-reason").performScrollTo().performTextReplacement("Koreksi nama aset");hideKeyboard();assetConflictNext.set(true)
+        rule.onNodeWithTag("asset-review").performScrollTo().performClick();rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
+        rule.waitUntil(15000) {model.store.outbox(session.scope.key).any {it.entityId==id && it.state=="CONFLICT"}}
+        val original=model.store.outbox(session.scope.key).single {it.entityId==id}
+        choose("expense-history-kind","asset")
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick();rule.onNodeWithTag("history-compare").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Server · versi 2").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("conflict-keep-local").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithTag("conflict-reason").performScrollTo().performTextReplacement("Nama lokal dipertahankan setelah peninjauan");hideKeyboard()
+        rule.onNodeWithTag("conflict-policy").assertDoesNotExist();rule.onNodeWithTag("conflict-keep-local").performScrollTo().performClick()
+        rule.waitUntil(15000) {model.store.record(session.scope.key,id)?.serverVersion==3L}
+        assertEquals("Nama aset lokal diperiksa",model.store.record(session.scope.key,id)!!.body.getString("name"))
+        val operations=model.store.outbox(session.scope.key).filter {it.entityId==id};assertEquals(2,operations.size)
+        val old=operations.single {it.id==original.id};assertEquals("SUPERSEDED",old.state);assertEquals(original.hash,old.hash);assertEquals(original.envelope.toString(),old.envelope.toString())
+        assertEquals(2,operations.single {it.id!=original.id}.envelope.getInt("base_version"));assertTrue(model.store.archived(session.scope.key,id).isNotEmpty())
+    }
+
+    @Test fun assetQueueRechecksPaymentAndReturnsFailureReasonWithoutLosingRawInput() {
+        val expense=assetSources();rule.onNodeWithTag("finance-logout").performClick();login("manager@example.invalid")
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.onNodeWithTag("asset-new").performClick();choose("asset-expense",expense)
+        for((tag,value) in listOf("asset-name" to "Aset sumber berubah","asset-cost" to "100","asset-residual" to "0","asset-life" to "3","asset-start" to "2026-01-01","asset-basis" to "Basis manual")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
+        hideKeyboard();rule.onNodeWithTag("asset-review").performScrollTo().performClick()
+        val model=runtime();val session=model.vault.current!!;val cancelled=JSONObject(model.store.cachedOne(session.scope.key,"expense",expense)!!.toString()).put("version",2).put("record_state","cancelled")
+        model.store.applyPull(session.scope.key,JSONObject().put("sync_epoch",epoch).put("scope",JSONArray().put(JSONObject().put("id",gh)))
+            .put("data",JSONArray().put(JSONObject().put("entity_type","expense").put("entity_id",expense).put("greenhouse_id",gh).put("version",2).put("tombstone",false).put("data",cancelled))).put("next_cursor","changed-source").put("has_more",false))
+        rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("asset-name").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("asset-name").performScrollTo().assertTextContains("Aset sumber berubah")
+        rule.onNodeWithText("Pilih pembayaran pembelian aset aktif pada greenhouse yang sama.").assertExists()
+        assertTrue(model.store.outbox(session.scope.key).none {it.envelope.optString("entity_type")=="asset"})
+        assertEquals("Aset sumber berubah",model.store.records(session.scope.key,kind="asset").single().body.getJSONObject("_local_form").getString("name"))
+    }
+
 }

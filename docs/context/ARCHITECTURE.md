@@ -2,7 +2,7 @@
 
 ## Lanjutan FIN11 — 30 Oktober 2026
 
-Backend/schema11 aset dan alokasi penyusutan manual serta pratinjau Kotlin telah ditambahkan dan diuji. [Evidence FIN11](../migration/finance-20261029/evidence/FIN11-backend.md) memuat konvensi numerik, hasil dan batas. Fondasi native draft/outbox FIN11 telah diuji (lihat [evidence native core](../migration/finance-20261029/evidence/FIN11-native-core.md)); form/lifecycle/history dan acceptance offline→restart→API serta FIN12–17 belum selesai. FIN10 checkpoint tidak diulang. Proposal asli ditunda oleh pengguna, bukan dianggap telah diverifikasi. Tidak mengubah nilai produksi atau menutup gate handover.
+FIN11 backend/schema11 dan native aset/penyusutan manual kini terverifikasi lokal: sumber/form/review, raw draft/autosave/Back/ON_STOP/logout, riwayat/audit/konflik/pembatalan, SQLite8 additive, dan tiga fase API nyata dengan dua reboot Android (boot3→4→5) serta SQL reconciliation PASS. Lihat [backend/math](../migration/finance-20261029/evidence/FIN11-backend.md), [native core](../migration/finance-20261029/evidence/FIN11-native-core.md), dan [native entry/acceptance](../migration/finance-20261029/evidence/FIN11-native-entry.md). Regresi69 mencatat66 PASS dan3 kegagalan yang ditindaklanjuti dengan fokus API36.1; tidak diklaim satu run69 bersih. JVM53/lint0errors; FIN12–17 dan gate produk tetap terbuka. Salinan proposal telah diterima dan hash/60 halaman cocok baseline; [verifikasi sumber](../migration/finance-20261029/evidence/20261030-PROPOSAL_RECEIVED.md). Nilai produksi tetap kosong; akses push ditunda pengguna.
 
 
 ## Baseline sebelum implementasi, diperiksa 29 Oktober 2026

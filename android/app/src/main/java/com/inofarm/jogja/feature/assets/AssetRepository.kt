@@ -38,6 +38,6 @@ class AssetRepository(val vault:FinanceSessionVault,private val store:LocalFinan
             require(!AssetDraft.date(effective.periodStart).isBefore(budget.start) && !AssetDraft.date(effective.periodEnd).isAfter(budget.end)) {"Periode di luar tahun pemakaian aset."}
             require(AssetDraft.money(effective.amount)<=budget.amount) {"Nominal melebihi anggaran tahunan terakhir diketahui."}
         }
-        store.saveAndQueue(session.scope.key,effective.id,effective.greenhouseId,effective.localJson().put("completeness","ready"),existing.revision,effective.baseVersion,effective.replaceValidationRejected,kind=draft.kind.wire,queuePayload=effective.payload())
+        store.saveAndQueue(session.scope.key,effective.id,effective.greenhouseId,effective.copy(lockedParents=true).localJson().put("completeness","ready"),existing.revision,effective.baseVersion,effective.replaceValidationRejected,kind=draft.kind.wire,queuePayload=effective.payload())
     }}
 }
