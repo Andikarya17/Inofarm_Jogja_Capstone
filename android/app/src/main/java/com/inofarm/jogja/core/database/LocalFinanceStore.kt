@@ -228,6 +228,54 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to 1L,
             "tombstone" to 0,"body" to encrypt(scope,body)),SQLiteDatabase.CONFLICT_REPLACE)
     }
+    /** New report consumers also materialize accepted cache rows received by an older client. */
+    fun hydrateReportCache(scope:String)=transaction {
+        requireKind(scope,"season_report")
+        while(true) {
+            val rows=db.rawQuery("""SELECT c.entity_id,c.greenhouse_id,c.version,c.body FROM cached_records c
+                LEFT JOIN local_records r ON r.scope=c.scope AND r.entity_id=c.entity_id
+                WHERE c.scope=? AND c.kind='season_report' AND c.tombstone=0 AND r.entity_id IS NULL
+                AND c.greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?) LIMIT 100""",arrayOf(scope,scope)).use {cursor ->buildList {
+                while(cursor.moveToNext()) add(listOf(cursor.getString(0),cursor.getString(1),cursor.getLong(2),cursor.getString(3)))
+            }}
+            if(rows.isEmpty()) break
+            rows.forEach {row ->
+                val id=row[0] as String;val gh=row[1] as String;val version=row[2] as Long
+                val body=com.inofarm.jogja.core.contracts.SeasonReportContract.validate(decode(scope,row[3] as String)!!,true)
+                require(body.getString("id")==id && body.getString("greenhouse_id")==gh && body.getLong("version")==version)
+                val data=values("scope" to scope,"entity_id" to id,"kind" to "season_report","greenhouse_id" to gh,"revision" to 1L,
+                    "base_version" to version,"server_version" to version,"body" to encrypt(scope,body),"server_body" to encrypt(scope,body),"sync_state" to "ACCEPTED","updated_at" to System.currentTimeMillis())
+                data.putAll(indexValues(body));db.insertOrThrow("local_records",null,data)
+            }
+        }
+    }
+    fun pendingForSeasonReport(scope:String,gh:String,season:String):Int {
+        requireKind(scope,"season_report");ensureIndexed(scope)
+        val groups=cached(scope,"planting_groups",gh,1000).filter {it.optString("season_id")==season}.map {it.getString("id")}.toSet()
+        var count=0
+        db.rawQuery("""SELECT r.* FROM local_records r WHERE r.scope=? AND r.greenhouse_id=?
+            AND EXISTS(SELECT 1 FROM outbox o WHERE o.scope=r.scope AND o.entity_id=r.entity_id AND o.state NOT IN ('ACCEPTED','SUPERSEDED'))
+            AND r.kind IN ('activity','harvest','expense','cost_allocation','sale','asset','depreciation_allocation')""",arrayOf(scope,gh)).use {cursor ->while(cursor.moveToNext()) {
+                val row=cursor.record(scope);val body=row.body;val form=body.optJSONObject("_local_form") ?: body
+                val related=when(row.kind) {
+                    "activity","harvest" -> (form.optString("group_id").ifBlank {body.optString("planting_group_id")} in groups)
+                    "asset" -> db.rawQuery("SELECT 1 FROM local_records WHERE scope=? AND kind='depreciation_allocation' AND asset_id=? AND season_id=? LIMIT 1",arrayOf(scope,row.id,season)).use {it.moveToFirst()}
+                    "expense" -> db.rawQuery("""SELECT 1 FROM local_records WHERE scope=? AND season_id=? AND kind='cost_allocation' AND expense_id=?
+                        UNION SELECT 1 FROM local_records d JOIN local_records a ON a.scope=d.scope AND a.entity_id=d.asset_id
+                        WHERE d.scope=? AND d.season_id=? AND d.kind='depreciation_allocation' AND a.kind='asset' AND a.expense_id=? LIMIT 1""",arrayOf(scope,season,row.id,scope,season,row.id)).use {it.moveToFirst()}
+                    else -> form.optString("season_id")==season
+                }
+                if(related) count++
+            }}
+        return count
+    }
+    fun cacheReportSources(scope:String,id:String,gh:String,body:JSONObject)=transaction {
+        requireKind(scope,"season_report_sources");WireContract.uuid(id)
+        require(gh in visibleGreenhouses(scope));val row=record(scope,id) ?: error("Laporan belum tersimpan.")
+        require(row.kind=="season_report" && row.greenhouseId==gh)
+        db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to "season_report_sources","entity_id" to id,"greenhouse_id" to gh,
+            "version" to 1L,"tombstone" to 0,"body" to encrypt(scope,body)),SQLiteDatabase.CONFLICT_REPLACE)
+    }
     fun outbox(scope: String, limit: Int = 100): List<QueuedOperation> {
         require(limit in 1..1000)
         return db.rawQuery("""SELECT * FROM outbox WHERE scope=? AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=?

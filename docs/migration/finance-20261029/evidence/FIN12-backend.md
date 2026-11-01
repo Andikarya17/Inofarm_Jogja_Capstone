@@ -20,6 +20,12 @@ Migration additive12 menyimpan laporan lengkap immutable, sources_hash dan snaps
 - `check-season-evaluation-oracle.py --php ../.tools/php/php.exe`: **1024 PASS** dengan Python Fraction independen, exact fractions, status/null/rounding, operation golden; receipt/sources yang dihasilkan API divalidasi schema dan direkonsiliasi ulang totals/hash dengan Python. Log/perantara `tmp/fin12-public.json` ignored dan sintetis. Tidak membandingkan hasil fungsi dengan fungsi itu sendiri.
 - `check-finance-contracts.py`: PASS, termasuk fixture public snapshot sintetis dan formatter timestamp eksplisit yang tidak bergantung extras opsional jsonschema. Seluruh path/schema lama OpenAPI dipertahankan secara struktural; hanya kontrak FIN12 ditambahkan.
 
+## Verifikasi lanjutan — 2 November 2026
+
+Regresi lengkap setelah penambahan case dan worker route: **108 PASS,1755 assertions**,134.47s (`tmp/fin12-backend-108.txt`), tetap mengecualikan dua DemoHistory legacy. Dua race PHP/MySQL independen PASS: duplicate memakai PIDs5128/25528, connections108/109, satu snapshot/ledger; source correction bersamaan memakai PIDs12248/26632, connections113/114, laporan terbit konsisten dengan revisi sumber1 sebelum cancellation2. Kedua skenario membersihkan hanya fixture UUID miliknya. Case source-first/409 juga dibuktikan feature test; hasil race yang teramati tidak diklaim mencakup semua urutan.
+
+Android terbaru: **JVM59 PASS, lint0 errors/33 warnings**, assemble app/test PASS (`tmp/fin12-utf8-android-build.txt`,6m30s). Teks UTF-8 diperbaiki dan draf awal memakai job autosave yang dapat dibatalkan agar tidak menimpa edit baru. Ketujuh case perangkat dan tiga fase real API/reboot masih menunggu hasil saat penambahan catatan ini.
+
 ## Acceptance berikutnya
 
 Native form/history/source drill-down/raw persistence/outbox telah ditulis. JVM59 dan build/lint awal lulus; perubahan scope-quarantine terakhir masih menunggu pemeriksaan ulang. Enam kasus perangkat unik pada revisi awal lulus lintas run: run6 berisi5 PASS dan1 terhalang dialog System UI ANR; kasus keyboard yang sama kemudian PASS tersendiri. Screenshot/dump ignored membuktikan dialog sistem menutupi aplikasi, bukan dianggap aplikasi lulus saat tertutup dialog. Ketujuh case dengan scope-quarantine tambahan dan tiga fase API nyata/reboot belum dinyatakan PASS pada checkpoint backend ini.

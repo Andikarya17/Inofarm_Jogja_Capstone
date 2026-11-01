@@ -2,7 +2,9 @@
 
 ## Lanjutan FIN12 — 2 November 2026
 
-Gap backend evaluasi musim ditutup oleh schema12, source reconciliation, exact math/oracle, role/scope/replay/atomicity/identity/cap tests. Native acceptance FIN12 masih terbuka, termasuk verifikasi ulang scope quarantine dan real API/reboot; gate global admin/reference/background/KNF/API29/fisik/UAT/pentest/reviewer tetap belum selesai. [Evidence backend dan batas acceptance](../migration/finance-20261029/evidence/FIN12-backend.md). Backend106 PASS/1715 assertions, fokus8 PASS/196 assertions dan1024 oracle independen PASS; rincian lintas run tercatat, bukan klaim satu run108.
+Native critical acceptance: JVM59/lint0,7 clean device cases and real API29 offline→two OS reboots→immutable reports/source correction/worker403+SQL reconciliation PASS. Broader cross-screen popup/touch regression remains open. [Native evidence](../migration/finance-20261029/evidence/FIN12-native.md).
+
+Gap backend evaluasi musim ditutup oleh schema12, source reconciliation, exact math/oracle, role/scope/replay/atomicity/identity/cap tests. Native acceptance FIN12 masih terbuka, termasuk verifikasi ulang scope quarantine dan real API/reboot; gate global admin/reference/background/KNF/API29/fisik/UAT/pentest/reviewer tetap belum selesai. [Evidence backend dan batas acceptance](../migration/finance-20261029/evidence/FIN12-backend.md). Regresi backend terbaru108 PASS/1755 assertions, dua race MySQL independen dan1024 oracle independen PASS; native acceptance masih berjalan.
 
 
 ## Lanjutan FIN11 — 30 Oktober 2026

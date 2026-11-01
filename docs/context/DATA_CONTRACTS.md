@@ -2,7 +2,9 @@
 
 ## Lanjutan FIN12 — 2 November 2026
 
-FIN12 memakai season-recorded-cash-rational-half-up-v1: nominal2, kg/harga6, rasio8, pecahan eksak dan HALF_UP presentasi. TR menjumlahkan total transaksi lunas yang sudah dibulatkan masing-masing. Expected source/formula version mengikat review; revisi sumber tidak mengubah laporan tersimpan. Lihat contracts/v2/SEASON_EVALUATION.md. [Evidence backend dan batas acceptance](../migration/finance-20261029/evidence/FIN12-backend.md). Backend106 PASS/1715 assertions, fokus8 PASS/196 assertions dan1024 oracle independen PASS; rincian lintas run tercatat, bukan klaim satu run108.
+Native critical acceptance: JVM59/lint0,7 clean device cases and real API29 offline→two OS reboots→immutable reports/source correction/worker403+SQL reconciliation PASS. Broader cross-screen popup/touch regression remains open. [Native evidence](../migration/finance-20261029/evidence/FIN12-native.md).
+
+FIN12 memakai season-recorded-cash-rational-half-up-v1: nominal2, kg/harga6, rasio8, pecahan eksak dan HALF_UP presentasi. TR menjumlahkan total transaksi lunas yang sudah dibulatkan masing-masing. Expected source/formula version mengikat review; revisi sumber tidak mengubah laporan tersimpan. Lihat contracts/v2/SEASON_EVALUATION.md. [Evidence backend dan batas acceptance](../migration/finance-20261029/evidence/FIN12-backend.md). Regresi backend terbaru108 PASS/1755 assertions, dua race MySQL independen dan1024 oracle independen PASS; native acceptance masih berjalan.
 
 
 ## Lanjutan FIN11 — 30 Oktober 2026

@@ -29,7 +29,7 @@ private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",n
 private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} · ${row.optString("notes").ifBlank {"Pembayaran operasi"}} · ${timeLabel(row.optString("paid_at"))}"
 
 @Composable fun FinancialHub(session:FinanceSession,context:CultivationUiState,entry:FinancialEntryViewModel,
-    expense:HistoryUiState,expenseVm:HistoryViewModel,allocation:HistoryUiState,allocationVm:HistoryViewModel,queue:List<QueuedOperation>,sales:com.inofarm.jogja.feature.sales.SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:com.inofarm.jogja.feature.assets.AssetWorkspace) {
+    expense:HistoryUiState,expenseVm:HistoryViewModel,allocation:HistoryUiState,allocationVm:HistoryViewModel,queue:List<QueuedOperation>,sales:com.inofarm.jogja.feature.sales.SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:com.inofarm.jogja.feature.assets.AssetWorkspace,reports:com.inofarm.jogja.feature.reports.SeasonReportWorkspace) {
     var gh by rememberSaveable {mutableStateOf("")};var selected by rememberSaveable {mutableStateOf(RecordKind.EXPENSE.wire)}
     LaunchedEffect(context.greenhouses.map {it.optString("id")}) {if(gh.isNotBlank() && context.greenhouses.none {it.optString("id")==gh}) gh=""}
     val kind=RecordKind.entries.single {it.wire==selected}
@@ -42,7 +42,10 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} �
             OutlinedButton(onClick={entry.new(RecordKind.EXPENSE,gh)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("expense-new")) {Text("Catat pengeluaran")}
             OutlinedButton(onClick={entry.new(RecordKind.COST_ALLOCATION,gh)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("allocation-new")) {Text("Alokasikan biaya")}
         }
-        OutlinedButton(onClick={sales.new(gh)},enabled=gh.isNotBlank(),modifier=Modifier.fillMaxWidth().testTag("sale-new")) {Text("Catat penjualan lunas")}
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick={sales.new(gh)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("sale-new")) {Text("Catat penjualan lunas")}
+            OutlinedButton(onClick={reports.vm.show(gh)},modifier=Modifier.weight(1f).testTag("report-open")) {Text("Evaluasi musim")}
+        }
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick={asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ASSET)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("asset-new")) {Text("Catat aset")}
             OutlinedButton(onClick={asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ALLOCATION)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("depreciation-new")) {Text("Alokasi penyusutan")}

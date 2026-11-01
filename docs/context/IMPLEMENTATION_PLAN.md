@@ -2,7 +2,9 @@
 
 ## Lanjutan FIN12 — 2 November 2026
 
-FIN12 backend/math lulus lokal; native form/history/sources/outbox sudah ditulis tetapi acceptance akhir masih IN_PROGRESS. FIN13–17 tetap urutan berikutnya. Tidak ada klaim keseluruhan DONE dari hasil backend saja. [Evidence backend dan batas acceptance](../migration/finance-20261029/evidence/FIN12-backend.md). Backend106 PASS/1715 assertions, fokus8 PASS/196 assertions dan1024 oracle independen PASS; rincian lintas run tercatat, bukan klaim satu run108.
+Native critical acceptance: JVM59/lint0,7 clean device cases and real API29 offline→two OS reboots→immutable reports/source correction/worker403+SQL reconciliation PASS. Broader cross-screen popup/touch regression remains open. [Native evidence](../migration/finance-20261029/evidence/FIN12-native.md).
+
+FIN12 backend/math lulus lokal; native form/history/sources/outbox sudah ditulis tetapi acceptance akhir masih IN_PROGRESS. FIN13–17 tetap urutan berikutnya. Tidak ada klaim keseluruhan DONE dari hasil backend saja. [Evidence backend dan batas acceptance](../migration/finance-20261029/evidence/FIN12-backend.md). Regresi backend terbaru108 PASS/1755 assertions, dua race MySQL independen dan1024 oracle independen PASS; native acceptance masih berjalan.
 
 
 ## Lanjutan FIN11 — 30 Oktober 2026

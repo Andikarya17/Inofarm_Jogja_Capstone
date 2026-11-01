@@ -2,7 +2,9 @@
 
 ## Lanjutan FIN12 — 2 November 2026
 
-FIN12 menambah schema12 report_snapshots immutable, service rasional eksak, batch accepted-source audit dan scoped preview/create/read/source pages di bawah sync-state consistency boundary. Public DTO/receipt/feed memuat hasil/hash; sumber bulk dipaginasi. Native UI masih tahap acceptance. [Evidence backend dan batas acceptance](../migration/finance-20261029/evidence/FIN12-backend.md). Backend106 PASS/1715 assertions, fokus8 PASS/196 assertions dan1024 oracle independen PASS; rincian lintas run tercatat, bukan klaim satu run108.
+Native critical acceptance: JVM59/lint0,7 clean device cases and real API29 offline→two OS reboots→immutable reports/source correction/worker403+SQL reconciliation PASS. Broader cross-screen popup/touch regression remains open. [Native evidence](../migration/finance-20261029/evidence/FIN12-native.md).
+
+FIN12 menambah schema12 report_snapshots immutable, service rasional eksak, batch accepted-source audit dan scoped preview/create/read/source pages di bawah sync-state consistency boundary. Public DTO/receipt/feed memuat hasil/hash; sumber bulk dipaginasi. Native UI masih tahap acceptance. [Evidence backend dan batas acceptance](../migration/finance-20261029/evidence/FIN12-backend.md). Regresi backend terbaru108 PASS/1755 assertions, dua race MySQL independen dan1024 oracle independen PASS; native acceptance masih berjalan.
 
 
 ## Lanjutan FIN11 — 30 Oktober 2026
