@@ -1,0 +1,24 @@
+{
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "60000000-0000-0000-0000-000000000001",
+    "operation_id": "60000000-0000-0000-0000-000000000002",
+    "entity_id": "60000000-0000-0000-0000-000000000003",
+    "entity_type": "season_report",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "season_id": "60000000-0000-0000-0000-000000000004",
+      "coverage": {
+        "costs": "complete",
+        "sales": "complete"
+      },
+      "known_pending_count": 0,
+      "requested_state": "provisional",
+      "review_note": "Fixture sintetis; bukan transaksi atau sumber aktual.",
+      "expected_sources_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+      "expected_formula_version": "season-recorded-cash-rational-half-up-v1"
+    }
+  },
+  "canonical_sha256": "4211a0e73a186ece12a26b82adb6db00e57fde005d42a2c9f3762a7b45c82e94"
+}

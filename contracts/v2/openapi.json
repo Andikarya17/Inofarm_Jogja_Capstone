@@ -9335,6 +9335,613 @@
           }
         }
       }
+    },
+    "/season-reports/preview": {
+      "post": {
+        "operationId": "seasonReportPreview",
+        "summary": "Pratinjau evaluasi musim dari sumber server saat ini",
+        "responses": {
+          "200": {
+            "description": "Authorized immutable report/read result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonReportPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "season-report-input.schema.json"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/season-reports/preview/sources": {
+      "get": {
+        "operationId": "seasonReportPreviewSources",
+        "summary": "Tinjau halaman sumber hanya selama hash sesuai",
+        "responses": {
+          "200": {
+            "description": "Authorized immutable report/read result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportSourcesPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sources_hash",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ]
+      }
+    },
+    "/season-reports": {
+      "get": {
+        "operationId": "seasonReportList",
+        "summary": "Riwayat snapshot evaluasi musim",
+        "responses": {
+          "200": {
+            "description": "Authorized immutable report/read result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonReportHistoryPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "greenhouse_id",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "season_id",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "seasonReportCreate",
+        "summary": "Antrekan yang diterima membentuk snapshot immutable",
+        "responses": {
+          "201": {
+            "description": "Authorized immutable report/read result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonReportReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "season-report-operation.schema.json"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/{id}": {
+      "get": {
+        "operationId": "reportSnapshotRead",
+        "summary": "Baca snapshot tersimpan; tidak menghitung ulang",
+        "responses": {
+          "200": {
+            "description": "Authorized immutable report/read result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportSnapshotBase"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        ]
+      }
+    },
+    "/reports/{id}/sources": {
+      "get": {
+        "operationId": "reportSnapshotSources",
+        "summary": "Halaman sumber immutable milik snapshot",
+        "responses": {
+          "200": {
+            "description": "Authorized immutable report/read result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportSourcesPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured error; source/formula changes require explicit review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -11741,6 +12348,1134 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DepreciationAllocationAuditEntry"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SeasonReportIndicator": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit",
+          "status",
+          "reasons",
+          "formula",
+          "inputs",
+          "assumptions",
+          "display_scale",
+          "rounding",
+          "exact_fraction"
+        ],
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+                "maxLength": 160
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "enum": [
+              "IDR",
+              "IDR/kg",
+              "kg",
+              "ratio"
+            ]
+          },
+          "status": {
+            "enum": [
+              "available",
+              "provisional",
+              "unavailable"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "formula": {
+            "type": "string",
+            "minLength": 1
+          },
+          "inputs": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+                  "maxLength": 160
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "display_scale": {
+            "enum": [
+              2,
+              6,
+              8
+            ]
+          },
+          "rounding": {
+            "const": "HALF_UP"
+          },
+          "exact_fraction": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "numerator",
+                  "denominator"
+                ],
+                "properties": {
+                  "numerator": {
+                    "type": "string",
+                    "pattern": "^-?(?:0|[1-9][0-9]*)$"
+                  },
+                  "denominator": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unavailable",
+                    "not_recovered"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "type": "null"
+                },
+                "exact_fraction": {
+                  "type": "null"
+                },
+                "reasons": {
+                  "minItems": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+                  "maxLength": 160
+                },
+                "exact_fraction": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ReportIndicator": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit",
+          "status",
+          "reasons",
+          "formula",
+          "inputs",
+          "assumptions",
+          "display_scale",
+          "rounding",
+          "exact_fraction"
+        ],
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+                "maxLength": 160
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "enum": [
+              "IDR",
+              "IDR/kg",
+              "kg",
+              "ratio",
+              "year",
+              "percent"
+            ]
+          },
+          "status": {
+            "enum": [
+              "available",
+              "provisional",
+              "unavailable",
+              "not_recovered"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "formula": {
+            "type": "string",
+            "minLength": 1
+          },
+          "inputs": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null",
+                "integer",
+                "boolean"
+              ]
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "display_scale": {
+            "enum": [
+              2,
+              6,
+              8
+            ]
+          },
+          "rounding": {
+            "const": "HALF_UP"
+          },
+          "exact_fraction": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "numerator",
+                  "denominator"
+                ],
+                "properties": {
+                  "numerator": {
+                    "type": "string",
+                    "pattern": "^-?(?:0|[1-9][0-9]*)$"
+                  },
+                  "denominator": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                }
+              }
+            ]
+          },
+          "calculation_detail": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unavailable",
+                    "not_recovered"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "type": "null"
+                },
+                "exact_fraction": {
+                  "type": "null"
+                },
+                "reasons": {
+                  "minItems": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+                  "maxLength": 160
+                }
+              }
+            }
+          }
+        ]
+      },
+      "SeasonReportPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "greenhouse_id",
+          "season_id",
+          "scope",
+          "formula_version",
+          "currency",
+          "timezone",
+          "report_state",
+          "coverage",
+          "known_pending_count",
+          "review_note",
+          "metrics",
+          "sources_hash",
+          "source_count",
+          "source_counts",
+          "assumptions"
+        ],
+        "properties": {
+          "greenhouse_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "season_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "greenhouse",
+              "season"
+            ],
+            "properties": {
+              "greenhouse": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "version"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "season": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "version"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          },
+          "formula_version": {
+            "const": "season-recorded-cash-rational-half-up-v1"
+          },
+          "currency": {
+            "const": "IDR"
+          },
+          "timezone": {
+            "const": "Asia/Jakarta"
+          },
+          "report_state": {
+            "enum": [
+              "provisional",
+              "reviewed_final"
+            ]
+          },
+          "coverage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "costs",
+              "sales"
+            ],
+            "properties": {
+              "costs": {
+                "enum": [
+                  "unknown",
+                  "partial",
+                  "complete"
+                ]
+              },
+              "sales": {
+                "enum": [
+                  "unknown",
+                  "partial",
+                  "complete"
+                ]
+              }
+            }
+          },
+          "known_pending_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "review_note": {
+            "type": "string",
+            "pattern": "\\S",
+            "maxLength": 2000
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "FC",
+              "VC",
+              "TC",
+              "TR",
+              "Q",
+              "L",
+              "RC",
+              "BC",
+              "P",
+              "BEP_Q",
+              "BEP_PRICE"
+            ],
+            "properties": {
+              "FC": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "VC": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "TC": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "TR": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "Q": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "L": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "RC": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "BC": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "P": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "BEP_Q": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "BEP_PRICE": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              }
+            }
+          },
+          "sources_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "source_counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "FC",
+              "VC",
+              "sales",
+              "cancelled"
+            ],
+            "properties": {
+              "FC": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "VC": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sales": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cancelled": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "SeasonReportPublic": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "greenhouse_id",
+          "season_id",
+          "scope",
+          "formula_version",
+          "currency",
+          "timezone",
+          "report_state",
+          "coverage",
+          "known_pending_count",
+          "review_note",
+          "metrics",
+          "sources_hash",
+          "source_count",
+          "source_counts",
+          "assumptions",
+          "id",
+          "kind",
+          "version",
+          "recorded_by",
+          "recorded_by_name",
+          "created_at",
+          "generated_at",
+          "snapshot_hash"
+        ],
+        "properties": {
+          "greenhouse_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "season_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "greenhouse",
+              "season"
+            ],
+            "properties": {
+              "greenhouse": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "version"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "season": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "version"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          },
+          "formula_version": {
+            "const": "season-recorded-cash-rational-half-up-v1"
+          },
+          "currency": {
+            "const": "IDR"
+          },
+          "timezone": {
+            "const": "Asia/Jakarta"
+          },
+          "report_state": {
+            "enum": [
+              "provisional",
+              "reviewed_final"
+            ]
+          },
+          "coverage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "costs",
+              "sales"
+            ],
+            "properties": {
+              "costs": {
+                "enum": [
+                  "unknown",
+                  "partial",
+                  "complete"
+                ]
+              },
+              "sales": {
+                "enum": [
+                  "unknown",
+                  "partial",
+                  "complete"
+                ]
+              }
+            }
+          },
+          "known_pending_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "review_note": {
+            "type": "string",
+            "pattern": "\\S",
+            "maxLength": 2000
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "FC",
+              "VC",
+              "TC",
+              "TR",
+              "Q",
+              "L",
+              "RC",
+              "BC",
+              "P",
+              "BEP_Q",
+              "BEP_PRICE"
+            ],
+            "properties": {
+              "FC": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "VC": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "TC": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "TR": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "Q": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "L": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "RC": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "BC": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "P": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "BEP_Q": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              },
+              "BEP_PRICE": {
+                "$ref": "#/components/schemas/SeasonReportIndicator"
+              }
+            }
+          },
+          "sources_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "source_counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "FC",
+              "VC",
+              "sales",
+              "cancelled"
+            ],
+            "properties": {
+              "FC": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "VC": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sales": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cancelled": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "kind": {
+            "const": "season_report"
+          },
+          "version": {
+            "const": 1
+          },
+          "recorded_by": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "recorded_by_name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "snapshot_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "ReportSnapshotBase": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "greenhouse_id",
+          "version",
+          "recorded_by",
+          "recorded_by_name",
+          "created_at",
+          "generated_at",
+          "currency",
+          "timezone",
+          "sources_hash",
+          "source_count",
+          "snapshot_hash",
+          "assumptions",
+          "kind",
+          "formula_version",
+          "metrics"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "greenhouse_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "version": {
+            "const": 1
+          },
+          "recorded_by": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "recorded_by_name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currency": {
+            "const": "IDR"
+          },
+          "timezone": {
+            "const": "Asia/Jakarta"
+          },
+          "sources_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "snapshot_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "kind": {
+            "enum": [
+              "season_report",
+              "investment_report"
+            ]
+          },
+          "formula_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "metrics": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ReportIndicator"
+            }
+          }
+        }
+      },
+      "SeasonReportReceipt": {
+        "type": "object",
+        "required": [
+          "operation_id",
+          "entity_id",
+          "version",
+          "committed_at",
+          "data"
+        ],
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entity_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SeasonReportPublic"
+          }
+        }
+      },
+      "ReportSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "id",
+          "version",
+          "included",
+          "role",
+          "contribution",
+          "reason",
+          "data"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "expense",
+              "cost_allocation",
+              "asset",
+              "depreciation_allocation",
+              "sale"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "included": {
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "season_transaction",
+              "reference_only"
+            ]
+          },
+          "contribution": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+                  "maxLength": 160
+                }
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "expense"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "$ref": "#/components/schemas/ExpensePublic"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "cost_allocation"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "$ref": "#/components/schemas/CostAllocationPublic"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "asset"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "$ref": "#/components/schemas/AssetPublic"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "depreciation_allocation"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "$ref": "#/components/schemas/DepreciationAllocationPublic"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "sale"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "$ref": "#/components/schemas/SalePublic"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ReportSourcesPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "sources_hash",
+          "source_count",
+          "next_cursor"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/ReportSource"
+            }
+          },
+          "sources_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "snapshot_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "SeasonReportHistoryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/SeasonReportPublic"
             }
           },
           "next_cursor": {

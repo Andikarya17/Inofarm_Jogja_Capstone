@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "2"
+    },
+    "sync_epoch": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "operation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "entity_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "entity_type": {
+      "const": "season_report"
+    },
+    "action": {
+      "const": "create"
+    },
+    "base_version": {
+      "type": "null"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "season_id",
+        "coverage",
+        "known_pending_count",
+        "requested_state",
+        "review_note",
+        "expected_sources_hash",
+        "expected_formula_version"
+      ],
+      "properties": {
+        "season_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "costs",
+            "sales"
+          ],
+          "properties": {
+            "costs": {
+              "enum": [
+                "unknown",
+                "partial",
+                "complete"
+              ]
+            },
+            "sales": {
+              "enum": [
+                "unknown",
+                "partial",
+                "complete"
+              ]
+            }
+          }
+        },
+        "known_pending_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "requested_state": {
+          "enum": [
+            "provisional",
+            "reviewed_final"
+          ]
+        },
+        "review_note": {
+          "type": "string",
+          "pattern": "\\S",
+          "maxLength": 2000
+        },
+        "expected_sources_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "expected_formula_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "sync_epoch",
+    "operation_id",
+    "entity_id",
+    "entity_type",
+    "action",
+    "base_version",
+    "payload"
+  ],
+  "title": "Inofarm v2 immutable season report request"
+}
