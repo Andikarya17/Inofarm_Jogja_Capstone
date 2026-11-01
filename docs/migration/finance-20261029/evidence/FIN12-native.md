@@ -27,3 +27,6 @@ First attempt on API36.1 passed phase1 but instrumentation stopped during phase2
 ## Open checks
 
 Broader API29 regression of EntryUi/LocalStore/Sync/Reports/StorageTiming was interrupted after repeated legacy popup/touch lookup failures (`tmp/fin12-api29-regression.txt`); it is not a clean69 run. Investigate synchronization/window transitions and rerun relevant cases before closing FIN12 regression. Existing target-API runtime, whole-product API29/fresh profile/KNF, admin/master/reference UI, background/recovery/export/investment, physical device, mitra UAT/pentest/reviewer/cutover gates remain open. Push remains deferred; no deployment or production restore.
+
+
+Regression follow-up: [separate test-readiness task](20261102-UI_TEST_READINESS.md), six focused cases PASS on API29 with unchanged application hash; full regression still pending.
