@@ -226,6 +226,10 @@ class FinanceEntryUiTest {
         choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
         rule.onNodeWithTag(if(harvest) "harvest-new" else "finance-new").performScrollTo().performClick()
     }
+    private fun readyText(text:String):SemanticsNodeInteraction {
+        rule.waitUntil(10000) {rule.onAllNodesWithText(text).fetchSemanticsNodes().size==1}
+        return rule.onNodeWithText(text)
+    }
     private fun readyNode(tag:String):SemanticsNodeInteraction {
         rule.waitUntil(10000) {rule.onAllNodesWithTag(tag).fetchSemanticsNodes().size==1}
         return rule.onNodeWithTag(tag)
@@ -298,7 +302,7 @@ class FinanceEntryUiTest {
     }
     private fun attachmentDraft():Pair<com.inofarm.jogja.feature.attachments.AttachmentViewModel,ByteArray> {
         val id=createAccepted("Foto kegiatan sintetis")
-        rule.onNodeWithTag("history-attachments").performScrollTo().performClick()
+        readyNode("history-attachments").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("attachment-choose").fetchSemanticsNodes().isNotEmpty()}
         val vm=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.attachments.AttachmentViewModel::class.java]
         val bytes=android.util.Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j0ioAAAAASUVORK5CYII=",android.util.Base64.DEFAULT)
@@ -400,7 +404,7 @@ class FinanceEntryUiTest {
         createAccepted("Catatan awal konflik");rule.onNodeWithTag("history-cancel").assertDoesNotExist();makeConflict()
         rule.onNodeWithTag("conflict-use-server").performScrollTo().performClick();rule.onNodeWithTag("conflict-confirm-server").performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("history-archive-0").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("history-archive-0").performScrollTo().performClick()
+        readyNode("history-archive-0").performScrollTo().performClick()
         rule.onNodeWithText("Koreksi lokal sintetis").performScrollTo().assertExists()
         assertEquals(1,posts.get())
     }
@@ -414,11 +418,11 @@ class FinanceEntryUiTest {
         readyNode("finance-logout").performClick();login("manager@example.invalid")
         rule.onNodeWithTag("finance-tab-2").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
-        rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
-        offline.set(true);rule.onNodeWithTag("history-audit").performScrollTo().performClick()
+        readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        offline.set(true);readyNode("history-audit").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Audit terbaru belum tersedia.",substring=true).fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithText("Audit terakhir tersimpan; pemeriksaan terbaru belum selesai atau koneksi terputus.").assertExists();offline.set(false)
-        rule.onNodeWithTag("history-cancel").performScrollTo().performClick()
+        readyNode("history-cancel").performScrollTo().performClick()
         rule.onNodeWithTag("history-action-confirm").assertIsNotEnabled();rule.onNodeWithTag("history-action-reason").performTextReplacement("Pembatalan sintetis");hideKeyboard()
         rule.onNodeWithTag("history-action-confirm").performClick();rule.waitUntil(10000) {posts.get()==3}
         rule.waitUntil(10000) {rule.onAllNodesWithText("Dibatalkan").fetchSemanticsNodes().isNotEmpty()}
@@ -438,7 +442,7 @@ class FinanceEntryUiTest {
         val id=createAccepted("Catatan filter UI")
         Espresso.pressBack()
         rule.onNodeWithTag("finance-history-filters").performClick();choose("history-type","nutrition")
-        rule.onNodeWithTag("history-apply").performScrollTo().performClick()
+        readyNode("history-apply").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Belum ada catatan yang cocok dengan filter ini.").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("finance-record-$id").assertDoesNotExist()
         rule.onNodeWithTag("finance-history-filters").performClick();rule.onNodeWithText("Hapus semua filter").performScrollTo().performClick()
@@ -467,11 +471,11 @@ class FinanceEntryUiTest {
         assertEquals(2,data.getJSONArray("items").length());assertEquals("15.250000",data.getJSONArray("items").getJSONObject(0).getString("weight_kg"))
         rule.onNodeWithTag("finance-tab-2").performClick();rule.onNodeWithText("Panen offline UI sintetis").assertDoesNotExist();rule.onNodeWithTag("finance-tab-3").performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
-        rule.onNodeWithTag("history-cancel").assertDoesNotExist();rule.onNodeWithText("Pencatat: Pekerja sintetis").performScrollTo().assertExists()
+        rule.onNodeWithTag("history-cancel").assertDoesNotExist();readyText("Pencatat: Pekerja sintetis").performScrollTo().assertExists()
         readyNode("finance-logout").performClick();login("manager@example.invalid");rule.onNodeWithTag("finance-tab-3").performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
-        rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit panen sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("history-cancel").performScrollTo().performClick();rule.onNodeWithTag("history-action-reason").performTextReplacement("Pembatalan panen UI");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
+        readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit panen sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        readyNode("history-cancel").performScrollTo().performClick();rule.onNodeWithTag("history-action-reason").performTextReplacement("Pembatalan panen UI");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
         rule.waitUntil(10000) {harvestPosts.get()==2};rule.waitUntil(10000) {rule.onAllNodesWithText("Dibatalkan").fetchSemanticsNodes().isNotEmpty()}
         assertEquals(2,harvestReceipts.values.maxBy {it.getInt("version")}.getJSONObject("data").getJSONArray("items").length())
     }
@@ -495,7 +499,7 @@ class FinanceEntryUiTest {
         readyNode("finance-edit").performScrollTo().performClick();rule.onNodeWithTag("harvest-weight-0").performScrollTo().performTextReplacement("1");hideKeyboard()
         rule.onNodeWithTag("harvest-reason").performScrollTo().performTextReplacement("Koreksi saldo UI");hideKeyboard();harvestUseNext.set(true);queueHarvest()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Perlu diperbaiki").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
-        rule.onNodeWithTag("history-fix-rejected").performScrollTo().performClick();rule.onNodeWithTag("harvest-weight-0").performScrollTo().performTextReplacement("17,25");hideKeyboard();queueHarvest()
+        readyNode("history-fix-rejected").performScrollTo().performClick();rule.onNodeWithTag("harvest-weight-0").performScrollTo().performTextReplacement("17,25");hideKeyboard();queueHarvest()
         rule.waitUntil(10000) {harvestPosts.get()==2};assertEquals("17.250000",harvestReceipts.values.maxBy {it.getInt("version")}.getJSONObject("data").getJSONArray("items").getJSONObject(0).getString("weight_kg"))
         lateinit var runtime:FinanceRuntime;rule.runOnIdle {runtime=ViewModelProvider(rule.activity)[FinanceRuntime::class.java]}
         val superseded=runtime.store.outbox(runtime.vault.current!!.scope.key).single {it.state=="SUPERSEDED"}
@@ -605,7 +609,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","sale")
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
         rule.onNodeWithTag("sale-accepted-total").performScrollTo().assertTextContains("0,01",substring=true)
-        rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
     }
     @Test fun saleRejectedSourceReviewRetainsOldOperationAndRequiresNewExplicitCorrection() {
         saleFormWithSources();saleRejectNext.set(true)
@@ -615,7 +619,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","sale")
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-${original.entityId}").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-${original.entityId}").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("history-fix-rejected").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("history-fix-rejected").performScrollTo().performClick()
+        readyNode("history-fix-rejected").performScrollTo().performClick()
         rule.onNodeWithTag("sale-quantity-0").performScrollTo().performTextReplacement("0,5");hideKeyboard()
         rule.onNodeWithTag("sale-review").performScrollTo().performClick();rule.onNodeWithTag("sale-queue").performScrollTo().performClick();acceptedFinancial("sale")
         val operations=runtime().store.outbox(session.scope.key).filter {it.entityId==original.entityId};assertEquals(2,operations.size)
@@ -661,7 +665,7 @@ class FinanceEntryUiTest {
         offline.set(false);Thread.sleep(1200);rule.onNodeWithTag("finance-sync").performClick()
         val source=acceptedFinancial("expense");assertEquals("100.01",runtime().store.record(session.scope.key,source)!!.body.getString("amount"))
         rule.onNodeWithTag("finance-tab-4").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$source").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("finance-record-$source").performScrollTo().performClick();rule.onNodeWithTag("history-audit").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-record-$source").performScrollTo().performClick();readyNode("history-audit").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()};Espresso.pressBack()
         financialForm(true);fillAllocation(source);queueFinancial();val allocationId=acceptedFinancial("cost_allocation")
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","cost_allocation")
@@ -677,7 +681,7 @@ class FinanceEntryUiTest {
         val original=runtime().store.outbox(session.scope.key).single {it.error?.optString("code")=="allocation_exceeds_source"}
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","cost_allocation")
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-${original.entityId}").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-${original.entityId}").performScrollTo().performClick()
-        rule.onNodeWithTag("history-fix-rejected").performScrollTo().performClick();rule.onNodeWithTag("expense-amount").performScrollTo().performTextReplacement("60,01");hideKeyboard()
+        readyNode("history-fix-rejected").performScrollTo().performClick();rule.onNodeWithTag("expense-amount").performScrollTo().performTextReplacement("60,01");hideKeyboard()
         queueFinancial();acceptedFinancial("cost_allocation")
         val operations=runtime().store.outbox(session.scope.key).filter {it.entityId==original.entityId}
         assertEquals(2,operations.size);val old=operations.single {it.id==original.id};assertEquals("SUPERSEDED",old.state);assertEquals(original.hash,old.hash)

@@ -9,3 +9,6 @@ Fixture now resets portrait per case, waits for modal option appearance/disappea
 Full69 regression remains pending rerun. Backend108/1755, JVM59/lint0errors and FIN12 real API29/two reboot evidence remain applicable to unchanged application code.
 
 API36 note: the earlier FIN12 reevaluation barrier did not complete within its deadline; cleanup force-stops an active owned instrumentation process. The resulting Process crashed message is not by itself an application crash proof. OS ANRs/provider delays were observed and no app Java fatal stack was found; full API36 reboot result remains unverified.
+
+
+Follow-up: full69 completed66 PASS/3fail (`tmp/fin12-api29-regression-fixed.txt`,833.259s). Three failures were immediate rejected-record controls or recorder-label/audit lookup after async history rendering. Additional normal merged-tree readiness for history positive actions and recorder text; negative assertions untouched. Focus first3 ran2pass/1next audit lookup failure; final **3 PASS,56.584s** (`tmp/fin12-popup-focused5.txt`), test APK assemble PASS. App hash unchanged. Full69 rerun with final helper remains pending.
