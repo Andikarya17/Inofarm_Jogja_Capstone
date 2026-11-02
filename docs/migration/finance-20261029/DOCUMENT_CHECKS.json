@@ -1,0 +1,17 @@
+{
+  "documents_checked": 14,
+  "archive_files_verified": 8,
+  "inventory_files": 344,
+  "source_files_unchanged_checked": 192,
+  "changed_source": [],
+  "kf": 14,
+  "knf": 8,
+  "uat": 21,
+  "errors": [],
+  "numeric_oracle": {
+    "NPV": "4132231.40495867768595041322314049586777",
+    "IRR_percent": "13.06623862918074852584262744907492010230",
+    "PP_years": "1.666666666666666666666666666666666666667",
+    "DPP_years": "1.916666666666666666666666666666666666667"
+  }
+}

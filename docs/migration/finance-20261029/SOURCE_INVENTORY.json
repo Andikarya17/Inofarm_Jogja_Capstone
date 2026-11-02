@@ -1,0 +1,1722 @@
+[
+  {
+    "path": ".env.example",
+    "bytes": 454,
+    "sha256": "997fd4cabe96dd692f1dde691a3ea157e86d97c577dfa7198690a91169278bad"
+  },
+  {
+    "path": ".gitattributes",
+    "bytes": 98,
+    "sha256": "b2c5521f3bfed47efe58a5909fa23a4f9dfcfc5f415af529c6c9688f3b9375ed"
+  },
+  {
+    "path": ".gitignore",
+    "bytes": 979,
+    "sha256": "6db0b063603ede36df02898560fd5bd0c910acac3d2147ac4baf2cccfd7ee035"
+  },
+  {
+    "path": ".gitlab-ci.yml",
+    "bytes": 995,
+    "sha256": "5f61c55bc0bd5cffaa76eff095c565d082204e93e41f9354dbe43167446ce970"
+  },
+  {
+    "path": "AGENTS.md",
+    "bytes": 15463,
+    "sha256": "ac014c43967e22d2c717b29e6d1e7c372064bbe92cfaa3568f7de03f7366648b"
+  },
+  {
+    "path": "Aturan Main/Proposal Monitoring dan Pengingat Nutrisi Melon NFT Terbaru.docx",
+    "bytes": 5837505,
+    "sha256": "710d187d08e2b3f95bee02cc07b70885c6403c920171fa79b35c8eee93a66dc8"
+  },
+  {
+    "path": "Aturan Main/SOP GitLab UMY v2.pdf",
+    "bytes": 350914,
+    "sha256": "cbf3066df1098cac4985c25f1a435e22c85a96b1cbd226d8c5650a9a88221b78"
+  },
+  {
+    "path": "Aturan Main/SOP Pengumpulan Capstone v2.pdf",
+    "bytes": 289551,
+    "sha256": "25b21b1582ee7be2efe8871086fb90e21059da175f932d6438e054fde1069e85"
+  },
+  {
+    "path": "Cara Instalasi.md",
+    "bytes": 15451,
+    "sha256": "153f7b9398731688510aed81ddb78770be5ce1159e54311e56a6dc1e4c7bbda3"
+  },
+  {
+    "path": "README.md",
+    "bytes": 10719,
+    "sha256": "80f014dc94cf8940163007098a7514ad12f19fabf166231c8ca2f93b29e8b944"
+  },
+  {
+    "path": "Run-Inofarm.cmd",
+    "bytes": 573,
+    "sha256": "8cacd826d399cd68ffc096136885006127e8a10b91a1499dd1d5a1435177f307"
+  },
+  {
+    "path": "android/.run/Inofarm MainActivity.run.xml",
+    "bytes": 3488,
+    "sha256": "b64b08e2fdb20e11fcf8830136e60d230dfa81a2bcb51f9b9411d153a50315d9"
+  },
+  {
+    "path": "android/.run/app.run.xml",
+    "bytes": 3525,
+    "sha256": "491d46ebd3a126be07f0924413085b710877b3b819b93317487e4da73b09aec0"
+  },
+  {
+    "path": "android/app/build.gradle.kts",
+    "bytes": 3782,
+    "sha256": "4651dd9d178fe0d9ed55aa601ae888d0060930c6c937e49cb2c43d294ec663c6"
+  },
+  {
+    "path": "android/app/proguard-profile-rules.pro",
+    "bytes": 12925,
+    "sha256": "f556bfc17ee2a602f836f5eb844140102b36647ccb3ec3c3dbef10d622a98f44"
+  },
+  {
+    "path": "android/app/proguard-profile-test-abi.pro",
+    "bytes": 62721,
+    "sha256": "b3fba765b17ce9697994b13b79dc631f4112569e4571324109c8e4a6382fd70e"
+  },
+  {
+    "path": "android/app/proguard-test-rules.pro",
+    "bytes": 231,
+    "sha256": "168b01db1f601f2cb497e24501bf7e55aba686da0e675627062c5f5a77e04303"
+  },
+  {
+    "path": "android/app/src/androidTest/assets/README.md",
+    "bytes": 448,
+    "sha256": "f7346f4db7342ef8656fb4b9ad6a36abdb0f02189f36215ce05dac772a33616a"
+  },
+  {
+    "path": "android/app/src/androidTest/assets/mock-server.p12",
+    "bytes": 2580,
+    "sha256": "1c8b8374661358b28ac04c389f71fe6f5d94827df305c076201c94d0fd8f766f"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/EditorUiTest.kt",
+    "bytes": 13247,
+    "sha256": "7f18978213922bb43207bef722cacdeebdb0cbf1214244ce9ec3f5c481a6987a"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/GlassPerformanceTest.kt",
+    "bytes": 7994,
+    "sha256": "ac74000c317126c9d27b682f2536629bfc35f773aad38d28e74d218295fd8b2e"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/GlassRenderingTest.kt",
+    "bytes": 4390,
+    "sha256": "39b021c9a93c757e10ba4481bdf0ba2d2c0d4a94df65393901dde049a1507072"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/HttpsFixture.kt",
+    "bytes": 1463,
+    "sha256": "8c58b1d52de3f529262161b7de3768d207f53c26bda11484d33b15056833fe14"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/LiquidGlassUiTest.kt",
+    "bytes": 15729,
+    "sha256": "f793fec3a034f1d0e624641f94dbb5db535ef490869a1db89c8d72c3b3656a6f"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/NavigationRegressionTest.kt",
+    "bytes": 17138,
+    "sha256": "3c1370501f825aa6431b58bb61793bd07967af7108338ca1aed62ccfb7933a0a"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/OptimizedOwnerSmokeTest.kt",
+    "bytes": 5811,
+    "sha256": "9f1ced94895426c23ff5c0956943fdb741e00f44d68c73c7e22b096ab5fae3d6"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/OwnerStateTest.kt",
+    "bytes": 10830,
+    "sha256": "3815ea98e42a34d3094aadd3d3cc4cb11f9938b4fd4feddf2d35177520536cdd"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/OwnerUiTest.kt",
+    "bytes": 3567,
+    "sha256": "df24b8b9b769f483b72c6a8b0c098e68f1f7f3e281c96dd1324f42e05996bdf5"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/PerformanceCorrectnessTest.kt",
+    "bytes": 19126,
+    "sha256": "f4b33ae1934b70670842da5df677400007293e68e4fa8d6845f7328d8e469577"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/PerformanceMetricsTest.kt",
+    "bytes": 5176,
+    "sha256": "4abfc30cbfabd96e7cb62d266f04eb6d19534c91e0913570e26a6d56cef371ba"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/RealBackendTest.kt",
+    "bytes": 4502,
+    "sha256": "acb7d85efa7778f05b450347c8c1a4034339371ceaa2e93f65a310dca99e0a1c"
+  },
+  {
+    "path": "android/app/src/androidTest/java/com/inofarm/jogja/RedesignUiTest.kt",
+    "bytes": 17407,
+    "sha256": "85104bb4679f93041150965e0e254191605bb5be769c311edd3198a0ad2127c5"
+  },
+  {
+    "path": "android/app/src/debug/AndroidManifest.xml",
+    "bytes": 221,
+    "sha256": "ed7958fca20082d38eff253e89941bc8da30bca01e1c1e8d9ba21cb0e8583a37"
+  },
+  {
+    "path": "android/app/src/main/AndroidManifest.xml",
+    "bytes": 688,
+    "sha256": "4c61efb16b2190cacb88188d15449429b76d950c197daf8a22566fafcb10e0bd"
+  },
+  {
+    "path": "android/app/src/main/assets/third-party/haze/LICENSE.txt",
+    "bytes": 11558,
+    "sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6"
+  },
+  {
+    "path": "android/app/src/main/assets/third-party/haze/NOTICE.txt",
+    "bytes": 164,
+    "sha256": "810021da130fd5027a75fa55dcd0a16ea3916dbe770068239ed93294477f2100"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/MainActivity.kt",
+    "bytes": 4653,
+    "sha256": "171d1593024ac60d957ea878de190c801bd801bde596e9333fc5d175e150e1d6"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/data/ApiClient.kt",
+    "bytes": 4119,
+    "sha256": "3db57406efa4bcd0f0de9f173d8cd88f9531adf29a68cdb021e1298098ffb7d2"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/data/ApiEndpoint.kt",
+    "bytes": 645,
+    "sha256": "f78b4532b44440437cefda8247ed499d903dc665421481f76d3b1e9ae0bd3a37"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/data/Models.kt",
+    "bytes": 6900,
+    "sha256": "8985e8099a0dc3cf76505826dd5cc3993e09024a6190adb3a076f5066acabaef"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/data/OwnerRepository.kt",
+    "bytes": 6275,
+    "sha256": "eb90f4a387936103e587bdba4a58240892c5a365eada676583e0413cf79ebbd7"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/data/ReadCache.kt",
+    "bytes": 5205,
+    "sha256": "a9b4364d6257ef5a50c39369bb6f1333e554df6e1495d0107b94e9c8bba3bf1e"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/data/SessionStore.kt",
+    "bytes": 6283,
+    "sha256": "03a77cbecaea79601a82533f0d4da8f27fce9885409e4c93b9fed8ffb09336d0"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/ConfigDraft.kt",
+    "bytes": 4987,
+    "sha256": "0af17ebe6e4a3e3ba891ca3cfeefe723b96f9f1d7eacb8d67b633f680bbd097a"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/DashboardScreen.kt",
+    "bytes": 14000,
+    "sha256": "c66eddc491ed23d920d7082b0421e8b50455626fff0acbe36998e5c6b0d7e7dc"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/DesignSystem.kt",
+    "bytes": 5684,
+    "sha256": "ef8c666cc126c874b6fdedb39f7b16f79268155d8cac9376569d317117d4288f"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/EditorComponents.kt",
+    "bytes": 7201,
+    "sha256": "3961c5f152038b4f2328b2b763ab53013900a8375592294ab5ff8323c57c85c4"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/GlassComponents.kt",
+    "bytes": 16744,
+    "sha256": "c5b2dacf68f6d3d0196634c3f958b53f52d89a301c235638ac3d04e5802bb3c9"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/HistoryScreen.kt",
+    "bytes": 8622,
+    "sha256": "b8de5024f94e323a5b38709d882d1146fd2b8a8b997ec50c02b6dd1b495ce6c8"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/LocalHeroImage.kt",
+    "bytes": 2510,
+    "sha256": "ddcc52327c77d4a33da7eeaa22795ca221a0007459eda7b12399e370c6712b70"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/OwnerApp.kt",
+    "bytes": 14769,
+    "sha256": "82ec59bfaa0ec777efccabab1fdd30fd0a34b43ba8e5f29f8d07d62da8e1f6ff"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/OwnerViewModel.kt",
+    "bytes": 15058,
+    "sha256": "02f7fc3e8c90474278ae30b3c88cb96fe4168618676da7e16684a84ca073e0b4"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/SettingsScreen.kt",
+    "bytes": 15525,
+    "sha256": "5b3b2b1a5ac21b0fa7510609b677b9f6aed16af6e50c45830f54f637a3bde0b2"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/UiComponents.kt",
+    "bytes": 11311,
+    "sha256": "67a826381a8fd49209c921c02f435a4c3543bf1448549376325abf10eb4d066a"
+  },
+  {
+    "path": "android/app/src/main/java/com/inofarm/jogja/ui/WorkersScreen.kt",
+    "bytes": 13048,
+    "sha256": "a2d442501da3363024c4656963b90746855b9e2400c27bc9e598a38d9750eebe"
+  },
+  {
+    "path": "android/app/src/main/res/drawable-nodpi/leaf_hero.webp",
+    "bytes": 27910,
+    "sha256": "30ae09262311a41ef1707249e5cc92c111577e27466554846679edd7871354b1"
+  },
+  {
+    "path": "android/app/src/main/res/drawable-nodpi/melon_hero.webp",
+    "bytes": 69906,
+    "sha256": "4f74015c3755d489bd2ebdafc0b890022e826d9ce6613f0f0b2b44b45f9f0d8a"
+  },
+  {
+    "path": "android/app/src/main/res/drawable/ic_inofarm.xml",
+    "bytes": 603,
+    "sha256": "08ab3fc406c793f7b4d38edb60d1a63c493257c92ed7606d20373621a23fcd5d"
+  },
+  {
+    "path": "android/app/src/main/res/drawable/ic_nav_dashboard.xml",
+    "bytes": 487,
+    "sha256": "9fb79668d371c6bf7da7e8ff4d60dfbb4cac669b536a1d8286d3e0b6cd5522a1"
+  },
+  {
+    "path": "android/app/src/main/res/drawable/ic_nav_history.xml",
+    "bytes": 438,
+    "sha256": "5491f3dd628327776f7de9f3de3d01914606a42c544b612fc361ce0259e48b37"
+  },
+  {
+    "path": "android/app/src/main/res/drawable/ic_nav_settings.xml",
+    "bytes": 447,
+    "sha256": "e6a0473d68f9413a1f403967b9712ee55bde7656ea4caffeb4df441ddc13e70b"
+  },
+  {
+    "path": "android/app/src/main/res/values/styles.xml",
+    "bytes": 299,
+    "sha256": "510297289393ad81542494479382c378081ede4afc7ae7a47e6c6d8371947a05"
+  },
+  {
+    "path": "android/app/src/test/java/com/inofarm/jogja/ApiEndpointTest.kt",
+    "bytes": 1084,
+    "sha256": "75b1646430ec82ea68ab59dbcf5fb7f1b320f9dbcdaf8950b56dfe03bbce32df"
+  },
+  {
+    "path": "android/app/src/test/java/com/inofarm/jogja/ContractTest.kt",
+    "bytes": 7050,
+    "sha256": "e6d6709a03c963cfcae0f963c323d38f9c208e754b211bde71e9970865606635"
+  },
+  {
+    "path": "android/build.gradle.kts",
+    "bytes": 153,
+    "sha256": "f75688db4a80c2fcd383001be05ddbd77a0a7c1b1b073242527bce2268ca1e8c"
+  },
+  {
+    "path": "android/gradle.properties",
+    "bytes": 106,
+    "sha256": "a74247bbe3312c9702fe0dcef373262cd361af1b57bf5711553d2c0ea7f0b24a"
+  },
+  {
+    "path": "android/gradle/gradle-daemon-jvm.properties",
+    "bytes": 1150,
+    "sha256": "0c1930722202bec01874360fcb8f1272c84cba9fd8f4a99c86858af1671fe39e"
+  },
+  {
+    "path": "android/gradle/wrapper/gradle-wrapper.jar",
+    "bytes": 46175,
+    "sha256": "b3a875ddc1f044746e1b1a55f645584505f4a10438c1afea9f15e92a7c42ec13"
+  },
+  {
+    "path": "android/gradle/wrapper/gradle-wrapper.properties",
+    "bytes": 347,
+    "sha256": "b708d0b414fc6fbf35639b5eefa240e4c493c8e0e850e6cd14ca00f16c2c00e4"
+  },
+  {
+    "path": "android/gradlew",
+    "bytes": 8866,
+    "sha256": "5901fd800994ef6b176e86345b1c980ea8918e1c557e06967fef8fffd555a49d"
+  },
+  {
+    "path": "android/gradlew.bat",
+    "bytes": 2904,
+    "sha256": "68dd741840589938d60e389d078b3440f11ac79dfa84bf68237df691d4d9635e"
+  },
+  {
+    "path": "android/settings.gradle.kts",
+    "bytes": 288,
+    "sha256": "e2dca810577cd5ae99c9829cd3fe6e93619bbcd2f4d78391a86602da21c8548e"
+  },
+  {
+    "path": "backend/.editorconfig",
+    "bytes": 275,
+    "sha256": "fe39e0ad06edea8e256e44f1fc4f319a8acfa785a7470af5cf6b9ed12dc34406"
+  },
+  {
+    "path": "backend/.env.example",
+    "bytes": 311,
+    "sha256": "9b8cc065c464740593f86dc59719aa3e0095fb3e9fbe7c8169bbe44316671341"
+  },
+  {
+    "path": "backend/.env.testing.example",
+    "bytes": 231,
+    "sha256": "4e67ba63fb16b8aa170e018de2c3f9a97dfa1c744a1334a462a947c6f151752c"
+  },
+  {
+    "path": "backend/.gitattributes",
+    "bytes": 186,
+    "sha256": "a40eb27ee0b545ca5b5542daaf99fec51f84f23b3766a6353864ef2a115bc51c"
+  },
+  {
+    "path": "backend/.gitignore",
+    "bytes": 363,
+    "sha256": "a5c3fa54f3ba5341e4d977d92da2aad899600e56384f4f23abd5be8dcabf13f6"
+  },
+  {
+    "path": "backend/.npmrc",
+    "bytes": 31,
+    "sha256": "e968d1d336604e9986ea31306a4d9e1442f4312fca262f444384baf928d6560e"
+  },
+  {
+    "path": "backend/AGENTS.md",
+    "bytes": 975,
+    "sha256": "b7d2208287648b950386dff15fec4371985bd881247e95859b871da4d8db9c77"
+  },
+  {
+    "path": "backend/CLAUDE.md",
+    "bytes": 1446,
+    "sha256": "fc7f68b818002266982ebc3e423826ce67988c1edb4532bb1b086a17744cd890"
+  },
+  {
+    "path": "backend/README.md",
+    "bytes": 435,
+    "sha256": "62cc90eb14d5cb668b2ee8fbe8c74d967dc8422b6d7b477de56d29ae3f9a4b57"
+  },
+  {
+    "path": "backend/app/Console/Commands/CreateDemoHistory.php",
+    "bytes": 2284,
+    "sha256": "03ac773d57e54c700be03a748b31f081982aa7b0e43a3b4deef866070f00f2e7"
+  },
+  {
+    "path": "backend/app/Console/Commands/ProvisionDevice.php",
+    "bytes": 1420,
+    "sha256": "dd4e7078ebd97719da2b43ff1bf74de5dcb9f7796de494827e32544dc670bc69"
+  },
+  {
+    "path": "backend/app/Console/Commands/ProvisionOwner.php",
+    "bytes": 1465,
+    "sha256": "5b5cbcd0b43572c289d86ba3e4f720f9841da6e2d6d4428a04d8f1c6066a3821"
+  },
+  {
+    "path": "backend/app/Http/Controllers/AuthController.php",
+    "bytes": 1431,
+    "sha256": "f90f07caa126f76da731a5816832f2c47dc120c1f476d37077b8aaf36826275a"
+  },
+  {
+    "path": "backend/app/Http/Controllers/ConfigController.php",
+    "bytes": 1866,
+    "sha256": "0351851c01ae4b69bcd2070f7706c3151f7374d384b88f60fbee44c7c24f6a71"
+  },
+  {
+    "path": "backend/app/Http/Controllers/Controller.php",
+    "bytes": 77,
+    "sha256": "25d1c1ef8e6cc8a376553faacfba2b07d9dfaee9bdbb84f14f77517580e9deb1"
+  },
+  {
+    "path": "backend/app/Http/Controllers/IngestController.php",
+    "bytes": 3324,
+    "sha256": "80b7ec153ff16198bba2f4dbc5f170b95f4d4787ed54adee48095d0824210a47"
+  },
+  {
+    "path": "backend/app/Http/Controllers/ReadController.php",
+    "bytes": 4415,
+    "sha256": "22797b4b4514fbf8ba753c1e5e59a26641a27274b12fb5e9515e128f7dff7de4"
+  },
+  {
+    "path": "backend/app/Http/Controllers/ShiftController.php",
+    "bytes": 3388,
+    "sha256": "18039c015d1ae5bf6eb6121d8924071ddf3894b8799f4616e88a7301a1f70617"
+  },
+  {
+    "path": "backend/app/Http/Controllers/WorkerController.php",
+    "bytes": 3009,
+    "sha256": "a6a2ca6ffd85699ff687f9ef4ab400ed961cb7fa0dafcf8ac8b5944c6ad96277"
+  },
+  {
+    "path": "backend/app/Http/Middleware/DeviceAuth.php",
+    "bytes": 573,
+    "sha256": "10ba5b61277eb2f7c02acda70798bde54839bbcc6e8ddd6e4c9e33f340800cd5"
+  },
+  {
+    "path": "backend/app/Http/Middleware/OwnerScope.php",
+    "bytes": 361,
+    "sha256": "90c258ca44b78190538874d3b382a5ce271cf171ffcd405044b1fe1e67a79785"
+  },
+  {
+    "path": "backend/app/Http/Middleware/PayloadLimit.php",
+    "bytes": 301,
+    "sha256": "1180bbfa7982f8bb21b17c929e18626d28b822b20101c8ab848e8758958beeb0"
+  },
+  {
+    "path": "backend/app/Models/ConfigVersion.php",
+    "bytes": 549,
+    "sha256": "bf7384e42e4f3eeab19884fdfba0ac63ac787369317ee4e282b00ffc563f3754"
+  },
+  {
+    "path": "backend/app/Models/Device.php",
+    "bytes": 378,
+    "sha256": "873c57f333b28cca5ec004fb3573e8e363a2982047ecb9595f66a5d6b3107d95"
+  },
+  {
+    "path": "backend/app/Models/Event.php",
+    "bytes": 857,
+    "sha256": "f6a4a29b0ddd4458bca4bbffb615f8e176602bce52b3f50804e4bcdb7d5564a1"
+  },
+  {
+    "path": "backend/app/Models/PhaseVersion.php",
+    "bytes": 74,
+    "sha256": "54fb3bb2b6e3c9ee09acc92eed24087c4447bd123bd9a6bc2914c3adb6abdd91"
+  },
+  {
+    "path": "backend/app/Models/ShiftVersion.php",
+    "bytes": 388,
+    "sha256": "53fa4e12f17f0aeb382f7caeda0242232228744e76df9e86d7f607ec70c9138a"
+  },
+  {
+    "path": "backend/app/Models/Tank.php",
+    "bytes": 129,
+    "sha256": "0a0423586a65d6012642fc61d2970072062f5c306987aac14eba30056fed0a8f"
+  },
+  {
+    "path": "backend/app/Models/User.php",
+    "bytes": 907,
+    "sha256": "eae0631cdbfe52d5e3b3a5044b58ef3ae11f7edf4e620d9bf6450f612226ce36"
+  },
+  {
+    "path": "backend/app/Models/Worker.php",
+    "bytes": 131,
+    "sha256": "d13b002322b0fe99bc3bdb3346d1b24c28685b54d1b33b7b329ab83faf166e71"
+  },
+  {
+    "path": "backend/app/Models/WorkerVersion.php",
+    "bytes": 350,
+    "sha256": "f2aed06b396bad8e5096fb9ccfb8dd2e671a6efedf139af30fcba43d0258fa47"
+  },
+  {
+    "path": "backend/app/Providers/AppServiceProvider.php",
+    "bytes": 361,
+    "sha256": "caf306ef6a25a547bbb7edd5508a39b51c365083eb6dd58378cf2242018e94c7"
+  },
+  {
+    "path": "backend/app/Services/ConfigurationStore.php",
+    "bytes": 1121,
+    "sha256": "1b678eb530f4103c2db54b50be6720f7867cbe70b97600718302398a810c117f"
+  },
+  {
+    "path": "backend/app/Services/Input.php",
+    "bytes": 6088,
+    "sha256": "448fdd8330be29fc7241dd4238b50cc7a0d40e51cd3c8435b21cdcd4279f67f5"
+  },
+  {
+    "path": "backend/app/Services/NutrientValidator.php",
+    "bytes": 6954,
+    "sha256": "b4c6a63a21826a819c30fe7c9f6cb6b9e5fcb112367a2f29d8d8ee50f55d3bf4"
+  },
+  {
+    "path": "backend/app/Services/ShiftResolver.php",
+    "bytes": 3894,
+    "sha256": "92d832d63a67a2e523e9dc0bdad03c310cec573c04e2d01f691ac0a60cab9460"
+  },
+  {
+    "path": "backend/app/Services/WireFormat.php",
+    "bytes": 482,
+    "sha256": "8858cebf593b6dcda953df9b9ffe9c7b5f850ce27e64f25a47c3526ec435fe6c"
+  },
+  {
+    "path": "backend/app/Support/DemoHistory.php",
+    "bytes": 8284,
+    "sha256": "7498e73b753a02582e39746a7366cecc5df48e3ed23f83281f96d000b7e46f8a"
+  },
+  {
+    "path": "backend/app/Support/TestDatabaseGuard.php",
+    "bytes": 2034,
+    "sha256": "5b3e61aca05a97fa26eaa527b5c4debbf047df37aa5c7295499f730b0230dc21"
+  },
+  {
+    "path": "backend/artisan",
+    "bytes": 425,
+    "sha256": "f91a517c0c5d3a904c3f390933964a5e08ec1fc68146882730daac4aca4ffcec"
+  },
+  {
+    "path": "backend/bootstrap/app.php",
+    "bytes": 1016,
+    "sha256": "1273ba08ef71578b238166d3e1a630803109d969eaa8cc8e50b935993a14c9dc"
+  },
+  {
+    "path": "backend/bootstrap/cache/.gitignore",
+    "bytes": 14,
+    "sha256": "240a3e0d37d2e86b614063f5347eb02d4f99ca6c254de6b82871ff8d95532a7d"
+  },
+  {
+    "path": "backend/bootstrap/providers.php",
+    "bytes": 89,
+    "sha256": "f720e185207a343d4c19fc99dbb317a4187efbcd7d38a303a695bbdd77ffb943"
+  },
+  {
+    "path": "backend/composer.json",
+    "bytes": 1854,
+    "sha256": "c9729e210a300db0bc56cf374b2251e2f311204bc5e315ebe233c6736b96614b"
+  },
+  {
+    "path": "backend/composer.lock",
+    "bytes": 295415,
+    "sha256": "b2fbc5f21255acf796ff0505e1aa31083168e5e79d2cb4a488b793ec679b3a53"
+  },
+  {
+    "path": "backend/config/app.php",
+    "bytes": 4281,
+    "sha256": "b4b25e15efa76846a7f2e19fd1044fec4945e4e928c4098126a2b0042b034383"
+  },
+  {
+    "path": "backend/config/auth.php",
+    "bytes": 4040,
+    "sha256": "c7e204e9785c9f596d66fb884b493f658f2327f157646bdb4088efd6b3a7773f"
+  },
+  {
+    "path": "backend/config/cache.php",
+    "bytes": 4370,
+    "sha256": "5030cdf171704e58b96f2cf17f1c6d5921b27d5c63c2cefb730eeb2da49a8240"
+  },
+  {
+    "path": "backend/config/database.php",
+    "bytes": 6911,
+    "sha256": "00e7f4facfce1da4998388624e28d1380d1a75e072eeca4527c7d644d1d6bf68"
+  },
+  {
+    "path": "backend/config/filesystems.php",
+    "bytes": 2532,
+    "sha256": "ba7060d7a23e490c3ce830656f6d24ad3ccf5b868e3293f2a12e411959dc5635"
+  },
+  {
+    "path": "backend/config/logging.php",
+    "bytes": 4606,
+    "sha256": "beb1ffd0db910f6f0b4f75214c3d5aa385d692733ece8a450f4c169d2c99ce38"
+  },
+  {
+    "path": "backend/config/mail.php",
+    "bytes": 3631,
+    "sha256": "c43ff49a31c5f32ce21eb7159f2a4b3cd2f4074eaed5838d265646dbfedd3474"
+  },
+  {
+    "path": "backend/config/queue.php",
+    "bytes": 4199,
+    "sha256": "6101774da7c8b79af46d0028f2b8b31a484c3f7eda10b76e5b27b6093ad364a4"
+  },
+  {
+    "path": "backend/config/services.php",
+    "bytes": 1039,
+    "sha256": "b7ee786ea1adbc92db9f229f479431c94503527c47051da3862eb0e4d7db70aa"
+  },
+  {
+    "path": "backend/config/session.php",
+    "bytes": 8423,
+    "sha256": "64272cfbef6f47c65bf857f1c5b1e853700c0d0278de46b86663fd83ef4aeed8"
+  },
+  {
+    "path": "backend/database/.gitignore",
+    "bytes": 10,
+    "sha256": "e758642d95e83e907e010b6e46b07b3f953c7cef11fe5ebefc2a77b9d7b4d5f7"
+  },
+  {
+    "path": "backend/database/factories/UserFactory.php",
+    "bytes": 1044,
+    "sha256": "50bdc543f1b09d1a57260be55ad0e1a68aee4b34f63e1109dc94d9bcd3080526"
+  },
+  {
+    "path": "backend/database/migrations/0001_01_01_000000_create_users_table.php",
+    "bytes": 1473,
+    "sha256": "10d79883bc08ce46510f9ad8b1830b4d06d586dc56ae2c8bac3b3e491f69a90f"
+  },
+  {
+    "path": "backend/database/migrations/0001_01_01_000001_create_cache_table.php",
+    "bytes": 873,
+    "sha256": "fbb4665e5a977e71df4e74ec75b3c06ca4f17ad0de7138fe9786639189978e77"
+  },
+  {
+    "path": "backend/database/migrations/0001_01_01_000002_create_jobs_table.php",
+    "bytes": 1883,
+    "sha256": "df4910687180313a14a3f96a8bddd808ae145ed1b107cd772caf865c0dc2b746"
+  },
+  {
+    "path": "backend/database/migrations/2026_10_10_000001_create_inofarm.php",
+    "bytes": 4325,
+    "sha256": "01a30a212b39ca087adb048d0ee307be4d68452d6aa0c4a7f441ed07f7284026"
+  },
+  {
+    "path": "backend/database/migrations/2026_10_10_000002_add_event_clock_trust.php",
+    "bytes": 507,
+    "sha256": "3a790b961cc7a781276cf693fcf0c6b9e15b27609aefbea565a03533867cf9a2"
+  },
+  {
+    "path": "backend/database/seeders/DatabaseSeeder.php",
+    "bytes": 508,
+    "sha256": "355a4d7d54728e1aba7f15443a1029d61d34eb0c66a704bbe7ae5554802ae00d"
+  },
+  {
+    "path": "backend/package.json",
+    "bytes": 461,
+    "sha256": "023d511d768e05b69e8127e18ae0e3d4a2e91702e8dd82917c655e53e5908de5"
+  },
+  {
+    "path": "backend/phpunit.xml",
+    "bytes": 1377,
+    "sha256": "139688e22e2981ee1299b687ec2dd7487b76c6cd6a5800f687026234a6234dd5"
+  },
+  {
+    "path": "backend/public/.htaccess",
+    "bytes": 740,
+    "sha256": "b7e379c77639fd56144947dbae84c84eb466d9c686ea81f2f013ae85421da923"
+  },
+  {
+    "path": "backend/public/favicon.ico",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "backend/public/index.php",
+    "bytes": 543,
+    "sha256": "eba77cba39695b6bd091fe5211d481f7ebb2ce2d8d26230b5a609465d0a4aff9"
+  },
+  {
+    "path": "backend/public/robots.txt",
+    "bytes": 24,
+    "sha256": "e5c4b84484ee4216e9373be99380320c25dd94805f99f0a805846f087636553f"
+  },
+  {
+    "path": "backend/resources/css/app.css",
+    "bytes": 339,
+    "sha256": "02db84e827e06d8349293e9797eb8d81465e109e91976775964c4bf873b6fab5"
+  },
+  {
+    "path": "backend/resources/js/app.js",
+    "bytes": 3,
+    "sha256": "101ead936a2281d53dcc064b7e2a2ab0d53b92ef3ef7b34b668673007895c860"
+  },
+  {
+    "path": "backend/resources/views/welcome.blade.php",
+    "bytes": 72302,
+    "sha256": "bdb9bb7d2eecceb3581e429545b6ec96014ccab6d0ae83d4c52930e9a15f7d65"
+  },
+  {
+    "path": "backend/routes/api.php",
+    "bytes": 1957,
+    "sha256": "350579a1ee1b6c02c2a0b42abe24935ff67ed1d7fe04e910005fa453b10ab6db"
+  },
+  {
+    "path": "backend/routes/console.php",
+    "bytes": 210,
+    "sha256": "9adccc33e7dd400683e434774077c7fdb2f299c5712cedf16a43fdf56f2850fa"
+  },
+  {
+    "path": "backend/routes/web.php",
+    "bytes": 108,
+    "sha256": "248c7eeeb43bb61ee4fb6603e52b44843c64f72a841d671bcd41871aab23f970"
+  },
+  {
+    "path": "backend/storage/app/.gitignore",
+    "bytes": 33,
+    "sha256": "993b9e3709d7b5189da331725d1169d79e561a509db2490b722b525073d2d976"
+  },
+  {
+    "path": "backend/storage/app/private/.gitignore",
+    "bytes": 14,
+    "sha256": "240a3e0d37d2e86b614063f5347eb02d4f99ca6c254de6b82871ff8d95532a7d"
+  },
+  {
+    "path": "backend/storage/app/public/.gitignore",
+    "bytes": 14,
+    "sha256": "240a3e0d37d2e86b614063f5347eb02d4f99ca6c254de6b82871ff8d95532a7d"
+  },
+  {
+    "path": "backend/storage/framework/.gitignore",
+    "bytes": 129,
+    "sha256": "37bc9570de232e9db87ce530b3e4e2d5fa8d75f3bd587069fd26e2fb4ef1ffa5"
+  },
+  {
+    "path": "backend/storage/framework/cache/.gitignore",
+    "bytes": 29,
+    "sha256": "533853ce8390305dd856510063fdffdd1ae206f24c03b9294542d3cfe5c3e33a"
+  },
+  {
+    "path": "backend/storage/framework/cache/data/.gitignore",
+    "bytes": 14,
+    "sha256": "240a3e0d37d2e86b614063f5347eb02d4f99ca6c254de6b82871ff8d95532a7d"
+  },
+  {
+    "path": "backend/storage/framework/cache/locks/.gitignore",
+    "bytes": 14,
+    "sha256": "240a3e0d37d2e86b614063f5347eb02d4f99ca6c254de6b82871ff8d95532a7d"
+  },
+  {
+    "path": "backend/storage/framework/sessions/.gitignore",
+    "bytes": 14,
+    "sha256": "240a3e0d37d2e86b614063f5347eb02d4f99ca6c254de6b82871ff8d95532a7d"
+  },
+  {
+    "path": "backend/storage/framework/testing/.gitignore",
+    "bytes": 14,
+    "sha256": "240a3e0d37d2e86b614063f5347eb02d4f99ca6c254de6b82871ff8d95532a7d"
+  },
+  {
+    "path": "backend/storage/framework/views/.gitignore",
+    "bytes": 14,
+    "sha256": "240a3e0d37d2e86b614063f5347eb02d4f99ca6c254de6b82871ff8d95532a7d"
+  },
+  {
+    "path": "backend/tests/Feature/DemoHistoryTest.php",
+    "bytes": 4680,
+    "sha256": "09598e6d54ef69b155dcff0d04c0f1e3fd5e97e5bf1bb2c5d7733b7980be369c"
+  },
+  {
+    "path": "backend/tests/Feature/ExampleTest.php",
+    "bytes": 361,
+    "sha256": "63f57f5ad97aae06be464df07e755ed4ad3e6ff2ce92ec8d5d2f292f02dec3fa"
+  },
+  {
+    "path": "backend/tests/Feature/InofarmTest.php",
+    "bytes": 12788,
+    "sha256": "165f099953405e12a7043ed8cd92c6473b0a07e36b3809295eb1be7f2e46028f"
+  },
+  {
+    "path": "backend/tests/Feature/SecurityTest.php",
+    "bytes": 4473,
+    "sha256": "4bbda45a0d4daedf720e27d364a555fc84dda6ab791047b6b9006aa5e31ca1c4"
+  },
+  {
+    "path": "backend/tests/TestCase.php",
+    "bytes": 524,
+    "sha256": "45511c717d07e5eb22815b6097906b1e922ef9039a775714f7e5c4f01c299a13"
+  },
+  {
+    "path": "backend/tests/Unit/NutrientValidatorTest.php",
+    "bytes": 1492,
+    "sha256": "b937ccda1e56d39d2182044303f8996fc8bd57a7172df141e94648feb480c523"
+  },
+  {
+    "path": "backend/tests/Unit/TestDatabaseGuardTest.php",
+    "bytes": 2746,
+    "sha256": "f6e228bb602f524f95a57dae47e7cdc2e1dcffcab8d168e818c278d9a78e6912"
+  },
+  {
+    "path": "backend/vite.config.js",
+    "bytes": 632,
+    "sha256": "f413e14379e2db8b200c63a6326b925f6d47cc0df458c77bfe188cfc23e8081f"
+  },
+  {
+    "path": "docs/context/ARCHITECTURE.md",
+    "bytes": 28749,
+    "sha256": "0407b76c1286a7deee9e59c2ee23a32b17659cdf694a819615f6dfaa20afa1fb"
+  },
+  {
+    "path": "docs/context/DATA_CONTRACTS.md",
+    "bytes": 38287,
+    "sha256": "ebfeb9cbc6d2b29f415d70517a313c49cca0fac7dbe88b418c28b14199c6c46b"
+  },
+  {
+    "path": "docs/context/GAP_ANALYSIS.md",
+    "bytes": 46968,
+    "sha256": "ce0b3fb84c3b781a64afd9fe54f319cbc8fcd3d30023e5f54c5a2af6538c3ced"
+  },
+  {
+    "path": "docs/context/IMPLEMENTATION_PLAN.md",
+    "bytes": 75660,
+    "sha256": "0626a4cee543292db2e208fcafda808f01c47aff1ee7393f46cd9dfd4a4a0623"
+  },
+  {
+    "path": "docs/context/PRD.md",
+    "bytes": 64790,
+    "sha256": "581ac14f548825dffa0a8323970a72da37ecb6ff974abddd2447b69ff83567e9"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/Diagram-Proposal-Greenhouse.pdf",
+    "bytes": 171624,
+    "sha256": "83d48286d479e7da38e0ffcfb20b25d481481210177e99b585cfcad14771e6f1"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/README.md",
+    "bytes": 8474,
+    "sha256": "253c961b83d92b525bac84ba49156696ce86a00b8cd89eca263930b8bccae182"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/layout-check.json",
+    "bytes": 1801,
+    "sha256": "38bf615b2089b92b814699ff9536a78c48728d9607831bd745b75d4876b3c7f3"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/manifest.json",
+    "bytes": 7363,
+    "sha256": "b2ff405bb8aafbc501ac0699b761ee3918c9fead93c3197f74a243668f709f9f"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/01-use-case-operasional.png",
+    "bytes": 218511,
+    "sha256": "f35bf03069a71ca22c7aca47e19c09c77203d6aa5ea619ee09b2c66692650000"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/02-use-case-keuangan.png",
+    "bytes": 213538,
+    "sha256": "e820b5196d2a77fb2e577c35f02809f71331828972ec5a92efccd308535b8728"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/03-activity-pencatatan.png",
+    "bytes": 178934,
+    "sha256": "baff44e7a7cfe1a23a1354fb5cf7d43b2f3c4ef0ff688347c80124addd9ca2a0"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/04-activity-keuangan.png",
+    "bytes": 153059,
+    "sha256": "67aa417e245500ff5b9f18cbd4b7f8db52644c2abfac5bfe757f8870e890d6f1"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/05-activity-koreksi.png",
+    "bytes": 170793,
+    "sha256": "3821e4b52f185c1aaaf48260001cd39e37925cd8d47cb24b0528cccaedaa3f7c"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/06-sequence-login.png",
+    "bytes": 118825,
+    "sha256": "843613c8b3786f90ca16900c0cf0b40d31e83179159beaccd3e4655459db6b33"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/07-sequence-sinkronisasi.png",
+    "bytes": 162207,
+    "sha256": "9b66e2ccc33156e430162756dab09e552f470c18d487184378c1669fe3f4e8bd"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/08-sequence-evaluasi.png",
+    "bytes": 135435,
+    "sha256": "a4238815b9ec7189019b8db46bde52812bfcf27b268a7decfb787a573db21269"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/09-class-operasional.png",
+    "bytes": 191482,
+    "sha256": "0066ddc2a908b6019870a29411de7228d72f4373447d153a9ca44b9ad6f3f406"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/10-class-keuangan.png",
+    "bytes": 208414,
+    "sha256": "db17050756981d21cc7c6ad5b06e2885dd1c209c30a463baf26155fe01987d6f"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/11-erd-operasional.png",
+    "bytes": 188207,
+    "sha256": "c09fb4c9d2a9a7ef5ec7b03dd186a77c2ae0eafa423293924055459c792cfdf5"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/12-erd-keuangan.png",
+    "bytes": 209113,
+    "sha256": "34caaa9c7e998f8d996991466599b21d5be95737a0a3d9bf2119fbcedac307ed"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/13-erd-audit-sinkronisasi.png",
+    "bytes": 224447,
+    "sha256": "49958f5453a95d0bfd14ca5e760c501a193c8b28e0c19cd172ab6a089598ede7"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/14-user-flow-pekerja.png",
+    "bytes": 168881,
+    "sha256": "68a41a5aa7e11c4a100646410c8ec3b28a9ce3dc5520258d318d91d4cf0ba123"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/15-user-flow-pengelola.png",
+    "bytes": 172475,
+    "sha256": "ca54fd1ea05fc53cf385d5371cedda4e1b04c8765cc2452e357e58ebd6bed03c"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/16-flowchart-umur-validasi.png",
+    "bytes": 178856,
+    "sha256": "950278c4270e37c3f031975d85361e157f15680b913343645ee98a6e9676e14c"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/png/17-flowchart-keuangan.png",
+    "bytes": 191590,
+    "sha256": "5b1c77ea73a31ed73340c3c7f9704becc89aae7a425cf8e0ea5e12fe5724fb72"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/01-use-case-operasional.dot",
+    "bytes": 2144,
+    "sha256": "c55a6d4853e43b6755c80c2577919aa80b6d13b0d70baff32825c88b055c4b17"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/02-use-case-keuangan.dot",
+    "bytes": 1434,
+    "sha256": "45f1ea80c4733fcbceed629e6b2fca68e5cda5b8f9f988da34fd7be560e06c74"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/03-activity-pencatatan.dot",
+    "bytes": 2530,
+    "sha256": "2bb659b10fdf30e5fbaa7dfa70b46793ac8dfa2e24e039186b31bfafa4d784b8"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/04-activity-keuangan.dot",
+    "bytes": 2453,
+    "sha256": "d43cd87a718abe672c5dead302216f12cdcde2791c823b80f8e47a390aed5506"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/05-activity-koreksi.dot",
+    "bytes": 2552,
+    "sha256": "57f0ddfc9f859a6567460caafdba406a852380b1d2feb56bdb889420c8fc4f69"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/06-sequence-login.json",
+    "bytes": 1386,
+    "sha256": "fd660dbe5f4a3898980758351be0c59a98529d969e741dc524c9bca5ba91e993"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/07-sequence-sinkronisasi.json",
+    "bytes": 1840,
+    "sha256": "681961f9d60394e4dcf2d94e61557363d6593f0a1b9b07bc36648651b69df51c"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/08-sequence-evaluasi.json",
+    "bytes": 1617,
+    "sha256": "20fdcd42b4ef2beaa37f2b7df1b1fbe6220bf83b57bb6004876745c9b223d76d"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/09-class-operasional.dot",
+    "bytes": 5443,
+    "sha256": "99a361379a4aed951563a94e9735bd6257d5f376c540668d28d48ed318c6d18a"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/10-class-keuangan.dot",
+    "bytes": 5587,
+    "sha256": "7b9bde3f19a2d194f26b6673c21230aa0f675985170be14c9abb31a6dcb27c36"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/11-erd-operasional.dot",
+    "bytes": 5709,
+    "sha256": "886a9a3f645d773438e310dbcd06a171be65718867a6090a4b428963be646aa3"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/12-erd-keuangan.dot",
+    "bytes": 5015,
+    "sha256": "343b9e0ca2c091c83f751ec4c16b5ca4cf2dbe48dd186b787e51be206b6d8fb3"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/13-erd-audit-sinkronisasi.dot",
+    "bytes": 3833,
+    "sha256": "e7d4e97e1edfcb355c49cf6f06f75379b353290ca0acaff0224a345ce4bba74d"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/14-user-flow-pekerja.dot",
+    "bytes": 1836,
+    "sha256": "e9e60b5c4c2634ae67d685829d208c0ccf37e98c4fa684fe5a08b217b98a2b15"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/15-user-flow-pengelola.dot",
+    "bytes": 1700,
+    "sha256": "167ad961bed8f72d7f8bba557f785d7e706c4cd3b3feec886916a90aa61e1b45"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/16-flowchart-umur-validasi.dot",
+    "bytes": 2326,
+    "sha256": "48d67782d549e217327e763fd6539f84c0f9f81762ec6c39b6a5e1ea9644779a"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/sumber/17-flowchart-keuangan.dot",
+    "bytes": 2565,
+    "sha256": "1edffe0ce0b3a2cdd427a9bb5989d4a53fe14707929ad67d835dcfe695329174"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/01-use-case-operasional.svg",
+    "bytes": 11049,
+    "sha256": "076492325ab39f39813dee37589244e2e0966dba722482225795721f976f7272"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/02-use-case-keuangan.svg",
+    "bytes": 6448,
+    "sha256": "2f1d6f44a606bb730fc5881ce898df8882d95bd0086de7cb51fac74bd4e87219"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/03-activity-pencatatan.svg",
+    "bytes": 18964,
+    "sha256": "c989b601cb12b44439dc8717a4e3af9bb2ba601a49363771c196a84d8e208707"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/04-activity-keuangan.svg",
+    "bytes": 16952,
+    "sha256": "9d81639afb1db74b3c0eacba518d6e9fa679451005bcfa2a98c2c2cf67dc80ea"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/05-activity-koreksi.svg",
+    "bytes": 17795,
+    "sha256": "b8df51ce5333b59d561bcd8ed423faa77b6359810d9aeb6929226a907d514173"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/06-sequence-login.svg",
+    "bytes": 6710,
+    "sha256": "784b0acb640eedf83417b519f32d2ce595ba6d46003f76ab9e673c1096f2b2ae"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/07-sequence-sinkronisasi.svg",
+    "bytes": 7879,
+    "sha256": "5838e937063b585317454805dbb49b4cd3f2f518635aab97b27c6c2906c69ad5"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/08-sequence-evaluasi.svg",
+    "bytes": 7657,
+    "sha256": "e37388dc73fb9ddaba1245eb2ccca2ddf4bd0f8a1416b0b4a458975f9205cc0e"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/09-class-operasional.svg",
+    "bytes": 21313,
+    "sha256": "436aa252528720af2b93a85b54897bad314336d005c6af4ba8900148bb6236a5"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/10-class-keuangan.svg",
+    "bytes": 21689,
+    "sha256": "496833b9b95e4990ff480aedd339543cb7ab5b573e147162d54aa49b4ad26de4"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/11-erd-operasional.svg",
+    "bytes": 29936,
+    "sha256": "f084d76bbaf47f4294edb3dcc8189bd9c6c6b1a7b7fb1d28e188d70eeff9e3a9"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/12-erd-keuangan.svg",
+    "bytes": 24375,
+    "sha256": "37fedc3e60bd428d57a10cd5c4657f656b115d514832a8105383f2f3ff28f7b8"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/13-erd-audit-sinkronisasi.svg",
+    "bytes": 17958,
+    "sha256": "e8563e42c240739474640cabb685b6f95b6f305939f621d79641d76444da7c51"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/14-user-flow-pekerja.svg",
+    "bytes": 17727,
+    "sha256": "4cc29d5c9001686331194ff634bad5d9118e6c7486d6fc7f0c02df78bde337fe"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/15-user-flow-pengelola.svg",
+    "bytes": 16809,
+    "sha256": "8bfd62a291a061b3d4b2a22cdead516f96cb817fa89cb12abbf1025b336d1d1e"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/16-flowchart-umur-validasi.svg",
+    "bytes": 17116,
+    "sha256": "02d05513a6b8c3b9ac37065477158a331e3dbc4f5c0e195a3364cdd44773c4b6"
+  },
+  {
+    "path": "docs/design/mobile-greenhouse-20261021/svg/17-flowchart-keuangan.svg",
+    "bytes": 19668,
+    "sha256": "dd9cb3780498d996d6810aeacc0f9a64166bab32158da144b5a7bc22eb748320"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/BACA-REVISI.html",
+    "bytes": 2271009,
+    "sha256": "b07c30b469e08e58c2e65ab272be39f072690cf62dbd1ad68a9c959d76c1803b"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/GALERI-DIAGRAM.html",
+    "bytes": 2200424,
+    "sha256": "480ebd6e85229b29d564a44911c285b3cc6a02ff5e8b3ee07f19e6596e4ece87"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/GALERI-LENGKAP.html",
+    "bytes": 3946,
+    "sha256": "a9092691ad200ceee72e7cc8a7281ec3b225cc61e686f1c87e65e31220394097"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/KELENGKAPAN-DIAGRAM.md",
+    "bytes": 5639,
+    "sha256": "ffa20a178287a2649f172d971d86c2cfb07a3358e237d7170d8bae49e8439d19"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/NASKAH-REVISI.md",
+    "bytes": 58751,
+    "sha256": "04709bb32677aef77dabc4c12b5652690ae265d0df228e95a0da0f53ef81d99f"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/PAKET-REVISI.zip",
+    "bytes": 4886674,
+    "sha256": "b8ebb242d01bf0e8e8d8c61c429351be0b7a9e95d9c1f3faf4547f63492b7644"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/PETA-REVISI.md",
+    "bytes": 5548,
+    "sha256": "f511363b60ca2e8bfe690bf42362ddf943fd8afb1aa970b3f66a66bb87aa2249"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/README.md",
+    "bytes": 3456,
+    "sha256": "32257ba1ee62782f186a27101f92b2f3be705ee0e1a3a61660a4750c4049ed85"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/VERIFIKASI.md",
+    "bytes": 694,
+    "sha256": "f947f6a570b28096218942713682defd331d4930eb196b5fae64bdedfd5c061d"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/build-diagrams.cjs",
+    "bytes": 11990,
+    "sha256": "e272e95ce0dfca6ff5b0272597593e9bb9936db3f2f19c33487d699bbc6b9798"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/build-package.cjs",
+    "bytes": 6588,
+    "sha256": "228b39ff22d9479f986a986a3e86b8ca91d1ba132ccb971f65f586807dc23a02"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/build-supplement.cjs",
+    "bytes": 7418,
+    "sha256": "539b2c9cf58ba01ae0e332c2351989763bef19d35d94d7698a197a78dc67e92c"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/build-unified-flowchart.cjs",
+    "bytes": 881,
+    "sha256": "3b0184994c06301992540838cbdcff121a21900a1d3dd7db653a5dae1d0a4b8c"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/diagram-validation.json",
+    "bytes": 1011,
+    "sha256": "b6407f5315cf08d5a4cad3e84f5e3852765dcd2be58d3baacf6558202379fba1"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/01-arsitektur.mmd",
+    "bytes": 496,
+    "sha256": "aee62e0272a7e015b61e1aafb4197bb5e0961c4b775542aeae1e4fd5945cf6e1"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/02-usecase-operasional.mmd",
+    "bytes": 311,
+    "sha256": "3a61339c503d1f3dbba0a4c2fae441a71a9b025d1d143d2ef3e030c5a9dfb924"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/03-usecase-pengelola.mmd",
+    "bytes": 466,
+    "sha256": "d52018caf926f02716f2db00f073114277818be90122348fcedf50401218104c"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/04-alur-pencatatan.mmd",
+    "bytes": 557,
+    "sha256": "3090f4f8df0fec93463b05c5fa6573e3083d8cbfe67fa480bb56b023ed982090"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/05-sequence-sinkronisasi.mmd",
+    "bytes": 1195,
+    "sha256": "517ce686617b9f3acb3d307844e2fb9743bbd85f57e7b3bfa3d9b8d9b4fb9f06"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/06-umur-target.mmd",
+    "bytes": 622,
+    "sha256": "ee7beecb28621d235fbd3c2f029a5ac632ca16df45e8155aa08e33689cf0a50a"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/07-class-domain.mmd",
+    "bytes": 826,
+    "sha256": "9b1e444001b5b9228a476500030e847b23cd4dccedb36545aadc8d1ec07ad758"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/08-erd-operasional.mmd",
+    "bytes": 391,
+    "sha256": "2bdee8da79428dba014d7afa16c39091036631c874ab9ba0d5eefa8c4d56075f"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/09-erd-keuangan.mmd",
+    "bytes": 1022,
+    "sha256": "36959879af25dcfb42be140d66f2858636fb2ba9567a15d95b13dbbc23f3076b"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/10-erd-investasi.mmd",
+    "bytes": 527,
+    "sha256": "0561255bd76ed2aa5c7668594d7168104bb59c519a018eea3247eba28fd653cc"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/11-evaluasi.mmd",
+    "bytes": 822,
+    "sha256": "39f58d2a2ed8e054d4245a787e9a229bd4c1c1cb320e4c70192feb81b274e896"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/12-user-flow.mmd",
+    "bytes": 554,
+    "sha256": "01c6ba5883f7253617fc0b27c04465d8cc7fcaefdeb8747a30eda33b37ec51b5"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/13-tahapan.mmd",
+    "bytes": 234,
+    "sha256": "777287317ad4e036c8051440df5381f6666569d952bddacb7c704ebe03fa5288"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/15-user-flow-pekerja.mmd",
+    "bytes": 567,
+    "sha256": "dc62443c0ff47c4116f4e009b355c185386de115708802ca5c1cd93e12d04a85"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/16-user-flow-pengelola.mmd",
+    "bytes": 811,
+    "sha256": "bc4fa9b8add57f411d30ec9e61502abbfd009313fdec294fa77d02b8f80e60b0"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/mermaid/17-flowchart-sistem-lengkap.mmd",
+    "bytes": 2991,
+    "sha256": "8e5baa443d2920f376c89d29ae014ba5ebf1d47a2f41fb5576423abfc195919b"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/01-arsitektur.png",
+    "bytes": 81087,
+    "sha256": "062bcd68fea3f433222eb573b25fdab19e0549568f8676cf220494e8c94ddb47"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/02-usecase-operasional.png",
+    "bytes": 86686,
+    "sha256": "f7c20f49f78c2cba7ae0debef01ed1ca32c74deb0ee65ae35073db5337e26ae7"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/03-usecase-pengelola.png",
+    "bytes": 153576,
+    "sha256": "4377b01a7f44b40ca14760a09b5a63f5b233ffc752228736e2884c3258684927"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/04-alur-pencatatan.png",
+    "bytes": 136495,
+    "sha256": "7cdfd936b7fedca5e56fb489e4c5b6cd2b7b7c08babe6d8d073262fdec6cb51a"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/05-sequence-sinkronisasi.png",
+    "bytes": 231309,
+    "sha256": "9ac0466c68a4d080b79d553c1c7197edb192dfc6dd7c1eb139920a900549a872"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/06-umur-target.png",
+    "bytes": 150853,
+    "sha256": "86b69de5793b45fbe44d6dd222d64016b26a627219d8971798b86dbed0229e33"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/07-class-domain.png",
+    "bytes": 135559,
+    "sha256": "48b6905950bedfb73d1061ae35f5266630fb935358af856c7bfe3d3a990b5a03"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/08-erd-operasional.png",
+    "bytes": 72243,
+    "sha256": "e497ff9824f7ebb1ee848d4e953bdf428b6c13ff1f3b60954acce118faaca9a3"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/09-erd-keuangan.png",
+    "bytes": 171209,
+    "sha256": "07eda1052aaef73d5e70a7aa9a1702fb5d374d73ab975b97a3882749fd75eca4"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/10-erd-investasi.png",
+    "bytes": 95106,
+    "sha256": "b576d428bbcd6472893515e62f393458ba7b3c2bd23feebe488eb013d16a7508"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/11-evaluasi.png",
+    "bytes": 190622,
+    "sha256": "04e452d4b560b5a897cad0a8fd8e01e91cf131850bbd974241b8739012fe3186"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/12-user-flow.png",
+    "bytes": 105378,
+    "sha256": "56ff616635057d9985443d1d3618b2ffea0cf7f878b7d9e2d89f48abd675c76e"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/13-tahapan.png",
+    "bytes": 32823,
+    "sha256": "dbe4d972e459c3d5c41d55fe97c53759695087086987470bd194b9cb13a3813a"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/14-activity-pencatatan.png",
+    "bytes": 384459,
+    "sha256": "fb22c5d3feb46e77a55c20eb6bc93881af986ffe0fa975f549acade804fdba6f"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/15-user-flow-pekerja.png",
+    "bytes": 123825,
+    "sha256": "d7fae3471920f59f153a6ab4312022e6d52a98aa4a24a7cf07064ef23ab3682a"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/16-user-flow-pengelola.png",
+    "bytes": 165039,
+    "sha256": "5bbabb1df1737186284094a4dbdcd51a881063004bbc12664e5485fe0454b523"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/png/17-flowchart-sistem-lengkap.png",
+    "bytes": 622632,
+    "sha256": "d13a036ca395eb1bc1c490ba813feeca96fec9a723a353cbc4f05efe2dd2ff47"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/supplement-validation.json",
+    "bytes": 370,
+    "sha256": "2a5ddb7223f91a6275324b6c80f45974047f64858eac755e60b35559337d52ff"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/01-arsitektur.svg",
+    "bytes": 22396,
+    "sha256": "db3fe221380e6f4075c50b339ddd5929c6e50bb7b3b0b9c53d85cca841d3bbaa"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/02-usecase-operasional.svg",
+    "bytes": 24233,
+    "sha256": "05983a9bed1832086c7c0bababfc8c6067c65563f164a82964db025f0fdf33da"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/03-usecase-pengelola.svg",
+    "bytes": 28368,
+    "sha256": "09764a74eafb63190cccc57a9a5b9dfd0940b9f5415347c085b80090a3f3036b"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/04-alur-pencatatan.svg",
+    "bytes": 114462,
+    "sha256": "4a1dbd7a6caa97938c6176cf331d890e07d3fb13b7437b4c532030cb78d954fa"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/05-sequence-sinkronisasi.svg",
+    "bytes": 36959,
+    "sha256": "6e5c67296158e5d03a188b51a6f1d78d2fa7b3c98ad5de22ae085565643b00f9"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/06-umur-target.svg",
+    "bytes": 113270,
+    "sha256": "af9aa3be6fd623909ece429b46ca7f3fc306a39999b092830477024e21e7ed14"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/07-class-domain.svg",
+    "bytes": 47304,
+    "sha256": "9908c01df231e28374268dd7a6c8256d88287d4554d6ebe285e84efed8672210"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/08-erd-operasional.svg",
+    "bytes": 22918,
+    "sha256": "8a9db4f7596788d5f48c5baf6822126fa3338714f5d74f630b39e533a59a6337"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/09-erd-keuangan.svg",
+    "bytes": 125732,
+    "sha256": "40e347cba0275660f24c454c95edb81040b0bf01798d91513ac23a036f87f47e"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/10-erd-investasi.svg",
+    "bytes": 68000,
+    "sha256": "310621ec0496483a6420657ede912876eef77bdb0ca64fd1d982b7818dc94303"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/11-evaluasi.svg",
+    "bytes": 115323,
+    "sha256": "2018fb18e4ef8ce815bd41cd36675316831ad951230aa86fadda9ae8a1bfc1bd"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/12-user-flow.svg",
+    "bytes": 23790,
+    "sha256": "68e2eda9ed036aa5116f582c285b587b18ede2e32b02d0bf1948ddcdecfc0edf"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/13-tahapan.svg",
+    "bytes": 17732,
+    "sha256": "7e059d67e9241561b50e2d5f52e975229bea06f91aa724e1af66a9f1150982aa"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/14-activity-pencatatan.svg",
+    "bytes": 11920,
+    "sha256": "6f1d270043834aa4344d2a1471cdecbc235fbb6de71cb2942eecc4d9d7891f7a"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/15-user-flow-pekerja.svg",
+    "bytes": 29107,
+    "sha256": "92228b523709add64a0d4f6ccebea9d17ff7fb375ceb30d2e1c5f482ba4bb7b3"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/16-user-flow-pengelola.svg",
+    "bytes": 25784,
+    "sha256": "fa3ce334857365657a7e649190040ce1c833f41a371995882d3e6f6d1ad6c030"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/svg/17-flowchart-sistem-lengkap.svg",
+    "bytes": 368175,
+    "sha256": "22737a3953d0a971ca2dc93ba4cd657dae07b851b847a893aac70a548b07ed74"
+  },
+  {
+    "path": "docs/design/proposal-revisi-20261026/unified-flowchart-validation.json",
+    "bytes": 92,
+    "sha256": "14570569cc57e7d607ac50b2e7263230dda4a641f3f3304a03f1c0aaf18c3d88"
+  },
+  {
+    "path": "docs/implementation/ANDROID_PERFORMANCE.md",
+    "bytes": 12467,
+    "sha256": "59083c5976521d47bcbf5837db1192c39ecaf6fee34689a993190155744a63de"
+  },
+  {
+    "path": "docs/implementation/API.md",
+    "bytes": 13476,
+    "sha256": "01411b44c56413aec2aeb1b594f2fca3e9118853e89041268b22196e6cf0dfc0"
+  },
+  {
+    "path": "docs/implementation/DATABASE_ACCESS.md",
+    "bytes": 2326,
+    "sha256": "e3f8ff27b5d2879d496f0bfc1ed21c01cda37e3048cf0d380e582d32aef16b2c"
+  },
+  {
+    "path": "docs/implementation/DECISIONS.md",
+    "bytes": 23149,
+    "sha256": "dea27d9ec590114ee15c0588026a3356fe755d265ff6118530591b3bb154985e"
+  },
+  {
+    "path": "docs/implementation/DEMO_DATA.md",
+    "bytes": 4592,
+    "sha256": "94ba89f274c9c6ad80b563c0ea7576d4b20f8b2c12ac83b46e2334711c5a858c"
+  },
+  {
+    "path": "docs/implementation/GITHUB_PUBLICATION.md",
+    "bytes": 4081,
+    "sha256": "c6468767824bd58155b7973349ae9d5f58f23af4d0d0f9d463be9e85c341d692"
+  },
+  {
+    "path": "docs/implementation/GIT_WORKFLOW.md",
+    "bytes": 3358,
+    "sha256": "fb44df6a2c6d9aa2b4dbd3ae0c27777c49ab9e1ecbd39f4f7f3a857b14530f7a"
+  },
+  {
+    "path": "docs/implementation/UI_REDESIGN.md",
+    "bytes": 17917,
+    "sha256": "cb7ac5d4370d012441e407e91b6788018a0ecd262881b24abae521834bf4c76d"
+  },
+  {
+    "path": "docs/implementation/VERIFICATION.md",
+    "bytes": 38826,
+    "sha256": "49416cffca0db2bf997d09821c2054166b12da5587bc8eca501c049b7b10a68e"
+  },
+  {
+    "path": "firmware/README.md",
+    "bytes": 1694,
+    "sha256": "c6420168c8c3e599fa2fa246031cbc1ce35f09659d62fa5b08da7d6bc33fff1f"
+  },
+  {
+    "path": "firmware/include/board_config.example.h",
+    "bytes": 812,
+    "sha256": "15748202a90d2da462fdd6d7684d91cf3a4592ef98c713f2eff3e90dccfedb80"
+  },
+  {
+    "path": "firmware/include/core.h",
+    "bytes": 2806,
+    "sha256": "91d4c7ca432a9e7679d7da38911c659cdc698ccbcd6cbccfe79f7af2a168f35c"
+  },
+  {
+    "path": "firmware/include/secrets.example.h",
+    "bytes": 455,
+    "sha256": "2fd7f11095dd84f8034e8779941c4152d606c60274f0d581aac683e868df5663"
+  },
+  {
+    "path": "firmware/include/transport.h",
+    "bytes": 3189,
+    "sha256": "2b4e6bd42d2a9c64f1bbc4f14ee64cee623d1529a6d9c930f6bdcd85595466d4"
+  },
+  {
+    "path": "firmware/platformio.ini",
+    "bytes": 813,
+    "sha256": "13b4799ae8606200617e18864c67ddbc17e28383a1e3653a3dc921948740bbbf"
+  },
+  {
+    "path": "firmware/src/main.cpp",
+    "bytes": 20134,
+    "sha256": "bfd02be64af21f620b47da3ec73c65fd6accd50d09fc7b5bf87eb90b33a6cabe"
+  },
+  {
+    "path": "firmware/test/test_core/test_main.cpp",
+    "bytes": 5850,
+    "sha256": "55cfdc92ca67c34fa708b65deb0d4315ff393b72576aac630870f5b493cd1c2f"
+  },
+  {
+    "path": "index.html",
+    "bytes": 1386,
+    "sha256": "73034b2d02c65456c3a71a325df0afb9b2027d53b178774a64e27c592219e8ae"
+  },
+  {
+    "path": "metadata.json",
+    "bytes": 338,
+    "sha256": "0a7d14f55f4cab605fd7f4e73c770f15d8eb2d69bcaa1b7b29a130bf986c6e72"
+  },
+  {
+    "path": "package.json",
+    "bytes": 923,
+    "sha256": "425ec528aaad376fedc25634415269eca15b615afd197ef80b17ff680edcf4bb"
+  },
+  {
+    "path": "scripts/build-android.ps1",
+    "bytes": 1503,
+    "sha256": "0b943444edc2a4da10f491c923deba32512425f91e7fd1002b85be8803b4d5a4"
+  },
+  {
+    "path": "scripts/build-firmware.ps1",
+    "bytes": 2565,
+    "sha256": "d4c5fee5f434222ac7e01dc6c751dae13073def6c16436634f80669e4a6c017e"
+  },
+  {
+    "path": "scripts/cache-platformio.py",
+    "bytes": 1048,
+    "sha256": "b846253717c5291bd40bae40ca652df86b85ec013aff26b8b76ae9f13ee08087"
+  },
+  {
+    "path": "scripts/download-gradle.py",
+    "bytes": 1499,
+    "sha256": "4dc9e2600aa6714a18b72a4c27b1f645169492afe2ff6f5e8215f0f19dfb2063"
+  },
+  {
+    "path": "scripts/download-ranges.py",
+    "bytes": 1283,
+    "sha256": "0c65bff8ef0f30be6ae8f90e5ef149c659cc9415077660210d1b920100a53ab3"
+  },
+  {
+    "path": "scripts/generate-profile-test-abi.py",
+    "bytes": 5961,
+    "sha256": "a375089d7bcba6421b8513fb89141e5ed16716b4b7bac02e6e893adffd9ae114"
+  },
+  {
+    "path": "scripts/inspect-demo-history.sql",
+    "bytes": 1157,
+    "sha256": "9508f9f604dd2c64dc536a21bb0925f178aac2fc53c218f41e11e0abb310cfe9"
+  },
+  {
+    "path": "scripts/local-database.ps1",
+    "bytes": 4439,
+    "sha256": "cc191c2f1c3d20c70a6efdec6023880d56781129d206cc9e84e525d2fedeee6d"
+  },
+  {
+    "path": "scripts/package-local.ps1",
+    "bytes": 1541,
+    "sha256": "82e0f37b624c57281cadb4d45d675761fcdf0a5b4726c602e6254119bb70fca7"
+  },
+  {
+    "path": "scripts/platformio-path-fix.py",
+    "bytes": 711,
+    "sha256": "d83382f71d7050eb4eb640c84e732864c36d23bfd00b606e1fcd6f29f81ec211"
+  },
+  {
+    "path": "scripts/run-android.ps1",
+    "bytes": 6134,
+    "sha256": "12bc83261a7ce24515e554f5b9c3de83ccfabcf4e4a3c060e38646547de2cb97"
+  },
+  {
+    "path": "scripts/split-android-ui.py",
+    "bytes": 1671,
+    "sha256": "713acb441a21c75f2b7892c48227430aed17d8a7c76386a485889230efc8c732"
+  },
+  {
+    "path": "scripts/start-backend.ps1",
+    "bytes": 398,
+    "sha256": "9ce7e3395bd300b94636c42f440b3a62684974a48829a9850dee4fa07fe823c6"
+  },
+  {
+    "path": "scripts/start-test-backend.ps1",
+    "bytes": 280,
+    "sha256": "fb7ffe70e0f3d91590df82e2493d101589af5a46736374b4991851c7ff7e268c"
+  },
+  {
+    "path": "scripts/test-backend.ps1",
+    "bytes": 698,
+    "sha256": "c3a5fe6db1054bafea1092de42e77fd7271b8a91f6bc9e5b76c1aef179a562ee"
+  },
+  {
+    "path": "scripts/test-fixture.php",
+    "bytes": 1163,
+    "sha256": "9a0360790deb997b1bf812701abf0a96588ced526f4e86226d3134d40da9299c"
+  },
+  {
+    "path": "src/App.tsx",
+    "bytes": 9243,
+    "sha256": "bc152d7656f89cf432c1a9662bcc9bdf7cb6bc59b816357bdaba542874a387ad"
+  },
+  {
+    "path": "src/components/BottomNavBar.tsx",
+    "bytes": 2846,
+    "sha256": "b18b8640cc883c060052d0b1dc0b4e46e617798ac02806414a78916301748d37"
+  },
+  {
+    "path": "src/components/DashboardScreen.tsx",
+    "bytes": 12274,
+    "sha256": "5bef6acf74216bbbdcc3e15623850ffbfdcbf576a0818a83065cc50ab9b2c0d1"
+  },
+  {
+    "path": "src/components/HistoryScreen.tsx",
+    "bytes": 15480,
+    "sha256": "33e6fe214f5b9c349c294f4fb44e2bc437d28adbd38addfbe3ffe143dd5e9b0e"
+  },
+  {
+    "path": "src/components/KotlinCodeViewer.tsx",
+    "bytes": 7012,
+    "sha256": "37f409d2a7490bdfad3748532a689255c7afa05358ed1b9045ac10417c6087a4"
+  },
+  {
+    "path": "src/components/ManualEntryModal.tsx",
+    "bytes": 9119,
+    "sha256": "2badec399f77c171c55b9e64dfa949ddfac00a8ff9bc73234ed551ac980f3d6f"
+  },
+  {
+    "path": "src/components/NotificationsModal.tsx",
+    "bytes": 3902,
+    "sha256": "eb4f13dc3c139250960ca8d54c73d4a4e7b943db50efbd08bf0ef624b42fd9d8"
+  },
+  {
+    "path": "src/components/SensorChart.tsx",
+    "bytes": 9167,
+    "sha256": "e771a8e3717a2d11e70a3d8955c5348d334b9d648cc06c710246c68bea329e12"
+  },
+  {
+    "path": "src/components/SettingsScreen.tsx",
+    "bytes": 15321,
+    "sha256": "9309e307abc591250c52d9d259c456e40b22a68819899c8848db90a0ed270e6b"
+  },
+  {
+    "path": "src/components/TopAppBar.tsx",
+    "bytes": 3268,
+    "sha256": "1824a13bf94cf548844dfb43109e2fece65190767c07cda1eb97d63e6a5568c2"
+  },
+  {
+    "path": "src/index.css",
+    "bytes": 2126,
+    "sha256": "d1ef1b873c91abf66356c11a38f92a60974437009d528f97dc2bbcddff4313a0"
+  },
+  {
+    "path": "src/main.tsx",
+    "bytes": 164,
+    "sha256": "47ae3e53e64c565ee24467e34ec314be9b42a56ba76b02ced3bd8e923675b43c"
+  },
+  {
+    "path": "src/types/index.ts",
+    "bytes": 1334,
+    "sha256": "273cff65f537c3c44cc9687518d39f3e00e98da536e5087bd1516faf5163b0c5"
+  },
+  {
+    "path": "src/utils/kotlinTemplates.ts",
+    "bytes": 51853,
+    "sha256": "c79d7ded4ffb98822904dfa3372883b124e7f8c0bd9801a20b0b7a1225fee352"
+  },
+  {
+    "path": "src/utils/validation.ts",
+    "bytes": 4578,
+    "sha256": "322a65557e75645b86bc49ec9c0382b20121f57fcf0dc2b2b2ed85dbfd767515"
+  },
+  {
+    "path": "tsconfig.json",
+    "bytes": 565,
+    "sha256": "58d501268d21ea004784e658f61fd55061028696fad319390fd1421240365df6"
+  },
+  {
+    "path": "vite.config.ts",
+    "bytes": 727,
+    "sha256": "e2b951ea8ad28347fbd791da1011ca4222ed86e7d19bb54de20acde30487fc96"
+  }
+]

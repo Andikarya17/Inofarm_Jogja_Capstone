@@ -1,9 +1,9 @@
-# Backend Inofarm Jogja
+# Backend Inofarm: transisi operasional dan keuangan
 
-## Otorisasi Git — 15 Oktober 2026
+Ikuti AGENTS root/context aktif29 Oktober 2026 dan docs/migration/finance-20261029. Backend masih v1 owner/tank/device; target auth pekerja/pengelola scoped greenhouse, activities/harvest, expenses/allocation/assets/sales, evaluation/investment, sync/audit/report/recovery.
 
-Pengguna memberi izin eksplisit commit per fitur dan push ke `https://student-git.umy.ac.id/andika.arya.ft23/inofarm_jogja.git` mengikuti SOP GitLab UMY. Izin ini menggantikan larangan commit/push historis untuk task publikasi tersebut; tidak memberi izin deployment atau operasi destruktif data pengguna. Riwayat remote dipertahankan, development pada branch kerja, validasi lokal dan pemeriksaan secret dilakukan sebelum push.
+API_V2/DATA_CONTRACTS memuat rancangan lengkap; subset core/master/reference/activity sudah executable, lihat contracts/v2/, routes/api_v2.php dan docs/context/IMPLEMENTATION_STATUS.md. Migration additive; jangan ubah makna histori atau auto-convert device events. Domain services/policy/validation; fixed decimal, transaction locks, idempotent operation/base_version, audit dan snapshots immutable. Actor dari sesi; file/sync/export scoped.
 
-Ikuti AGENTS.md root dan keputusan terbaru pengguna. Setup Laravel skeleton selesai. Jangan memasang Laravel Boost atau dependency lain hanya dari rekomendasi skeleton; pengguna meminta dependency yang diperlukan saja.
+Test wajib effective MySQL inofarm_test; guard sebelum SQL/provider. Jangan RefreshDatabase/migrate:fresh/reset/seed pada inofarm_local/data pengguna; jangan disable guard. Concurrency dibuktikan MySQL, bukan mock saja.
 
-MySQL, scoped owner/device API, production-empty configuration, append-only history/provenance dan seluruh reasons B. Test hanya pada inofarm_test. Jangan menjalankan RefreshDatabase pada data owner. Tidak ada izin commit/push/deploy/destructive data operations.
+Jangan install Laravel Boost/dependency hanya rekomendasi skeleton. Branch per fitur/Git authorization mengikuti root dan koreksi pengguna: remote github. Publikasi bukan deploy/destructive operation. FIN00 dokumentasi tetap historis; implementasi aktif mengikuti master prompt dan evidence baru.

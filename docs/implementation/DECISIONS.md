@@ -1,3 +1,9 @@
+## Keputusan migrasi29Oktober2026
+
+Pengguna memilih proposal baru, Kotlin/Compose + Laravel + MySQL tetap. Audit/context/master prompt disusun; kode/database belum dimigrasi. [Register keputusan target](../migration/finance-20261029/DECISIONS.md) mengatasi aturan owner-only/ESP32-only di bagian historis.
+
+> Catatan historis owner/IoT. Kebutuhan di [context pack](../context/README.md), subset executable dan evidence terbaru di [IMPLEMENTATION_STATUS](../context/IMPLEMENTATION_STATUS.md). Bukti lama di bawah tidak membuktikan target v2.
+
 # Implementasi 10 Oktober 2026
 
 ## Baseline GitHub dan instalasi tim — 24 Oktober 2026

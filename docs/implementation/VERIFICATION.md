@@ -1,3 +1,23 @@
+## Pelaksanaan core FIN01–06 — 29 Oktober 2026
+
+Source FIN06 `ff5869f`, GitHub branch codex/finance-activity-entry. Backend45tests/711assertions; Android19unit/12focused instrumentation; real guarded MySQL offline/restart/replay/manager drill passed. [Evidence FIN06](../migration/finance-20261029/evidence/FIN06.md) merinci commands, failures yang diperbaiki dan batas. Bukan acceptance seluruh produk; FIN07–17/UAT/pentest tetap terbuka. [Review provenance](../migration/finance-20261029/PROVENANCE_REVIEW.md) memperbaiki README arsip sambil mempertahankan indeks dan hash seluruh delapan file.
+
+## Audit dan context pack proposal baru — 29 Oktober 2026
+
+Branch `codex/finance-proposal-context`, baseline source HEAD `9da5b30bfe707f94b64028de98878c2e55adccea`. Scope: audit/perbandingan, context pack dan master prompt, bukan implementasi aplikasi target.
+
+- Proposal 60 halaman diekstrak; diagram utama diperiksa visual, ERD PDF30–31 diperiksa halaman penuh. Source inventory344file tracked/untracked non-ignored; inspeksi rinci terfokus lintas modul, bukan klaim setiap baris direview.
+- Delapan file pre-edit diarsipkan byte-identik, manifest SHA256 diverifikasi8/8; termasuk context modified sebelum task.
+- Pemeriksaan14dokumen aktif: link relatif dan fenced blocks PASS; coverage KF14/14, KNF8/8, U21/21 PASS.
+- Hash192file source pada android/backend/firmware/src/scripts (kecuali backend/AGENTS.md) identik dengan inventory awal; tidak mengubah runtime source/schema executable.
+- Oracle decimal independen: NPV4132231.4049586777, IRR13.06623862918075%, PP1.6666666667, DPP1.9166666667 cocok fixture proposal; ini pemeriksaan angka rancangan, bukan unit test service yang belum dibuat.
+- `git diff --check` PASS; Git memberi peringatan normalisasi CRLF→LF backend/AGENTS.md, bukan error whitespace.
+- Tidak build/test app/backend/firmware, tidak SQL/migration/reset/deploy/commit/push. Data pengguna tidak disentuh. U01–21 target tetap NOT RUN. Hasil lama di bawah tidak menjadi hasil target baru.
+
+Paket: [master prompt](../migration/finance-20261029/MASTER_PROMPT.md), [audit](../migration/finance-20261029/AUDIT_COMPARISON.md), [context](../context/README.md), [hasil checks dokumentasi](../migration/finance-20261029/DOCUMENT_CHECKS.json). Temp ekstraksi/render tidak dipublikasi.
+
+> Catatan historis owner/IoT. Kebutuhan di [context pack](../context/README.md), subset executable dan evidence terbaru di [IMPLEMENTATION_STATUS](../context/IMPLEMENTATION_STATUS.md). Bukti lama di bawah tidak membuktikan target v2.
+
 # Bukti implementasi lokal — 10 Oktober 2026
 
 ## Persiapan baseline GitHub — 24 Oktober 2026

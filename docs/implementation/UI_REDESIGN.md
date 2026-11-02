@@ -1,3 +1,5 @@
+> Catatan historis owner/IoT. Kebutuhan di [context pack](../context/README.md), subset executable dan evidence terbaru di [IMPLEMENTATION_STATUS](../context/IMPLEMENTATION_STATUS.md). Bukti lama di bawah tidak membuktikan target v2.
+
 # Redesign UI Android
 
 ## Sembilan referensi disetujui — 12 Oktober 2026

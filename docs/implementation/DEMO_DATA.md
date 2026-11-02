@@ -1,3 +1,5 @@
+> Catatan historis owner/IoT. Kebutuhan di [context pack](../context/README.md), subset executable dan evidence terbaru di [IMPLEMENTATION_STATUS](../context/IMPLEMENTATION_STATUS.md). Bukti lama di bawah tidak membuktikan target v2.
+
 # Data demo lokal 10–19 Oktober 2026
 
 Permintaan pengguna 20 Oktober 2026: riwayat dummy tanpa IoT, untuk melihat struktur
