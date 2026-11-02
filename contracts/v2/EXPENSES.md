@@ -18,6 +18,8 @@ JSON Schema dan Python/PHP golden fixtures membekukan format/hash. Invariant lin
 
 ## Native entry dan riwayat
 
+Nama kategori/musim snapshot mendukung batas master150 karakter tanpa memotong histori; schema7 memperlebar kolom yang semula120. Nama grade panen mengikuti batas yang sama. [Evidence](../../docs/migration/finance-20261029/evidence/20261030-REFERENCE_NAMES.md).
+
 Tab Keuangan hanya untuk pengelola, form/ViewModel/repository terpisah dari operasional. Pembayaran memilih kategori dan operating/asset_acquisition secara eksplisit; alokasi memilih sumber diterima, musim, FC/VC dan basis. Tidak ada default kategori/kelas/nominal. Nominal mentah (termasuk koma/input belum sah) tetap dalam encrypted local_form; queue payload fixed2 dibentuk hanya setelah validasi/review. Parent/kind dikunci setelah queued/accepted, server tetap otoritatif. Draf alokasi sumber yang belum diterima boleh disimpan, belum boleh diantrekan. Logout flush terbaru serta failure hold mengikuti boundary semua editor.
 
 Riwayat kedua jenis terpisah, pagination lokal50, filter GH/musim/state/tanggal WIB diterapkan sebelum limit. Waktu expense=paid_at; alokasi=created_at saat diterima (draf belum punya waktu server). Filter musim expense mengikuti rincian alokasi aktif, bukan membebankan seluruh nominal sumber pada musim. SQLite5 menambah metadata indeks parent; uang tetap encrypted. Audit/cache/reasoned cancel/conflict/new-operation review memakai alur bersama, tanpa kebijakan acuan agronomis pada koreksi keuangan.

@@ -1,3 +1,7 @@
+## Full reference names — 30 Oktober 2026 WIB
+
+Branch `codex/finance-reference-names`, base `2f91180`. Isolated guard4/12 then MySQL69tests/1187assertions PASS. Additive schema7 preserves full150-character multibyte master names in harvest/payment/allocation snapshots, including rename/correction/history. [Evidence](../migration/finance-20261029/evidence/20261030-REFERENCE_NAMES.md). No Android/API/dependency change or user-data migration.
+
 ## FIN09 native expense/allocation — 30 Oktober 2026 WIB
 
 Branch `codex/finance-expense-entry`, base `ac55dd8`. Android35unit/48instrumentation/0lint errors PASS; five real guarded Laravel/MySQL phases prove payment/allocation offline/process restart/exact receipt/source balance/audit/worker denial, retaining worker/harvest regression. SQLite5 preserves raw drafts/outbox/hash/cursor/archives. [Evidence](../migration/finance-20261029/evidence/FIN09-android.md) includes test corrections, visual QA and limits. Private proof/full FIN09/UAT remain open.
