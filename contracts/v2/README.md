@@ -14,7 +14,7 @@ Baseline source `9da5b30`; branch `codex/finance-contracts`. Proposal SHA256 tel
 
 Aktivitas `completed|skipped`, completeness lokal `draft|ready`, pembatalan `active|cancelled`; sync lokal terpisah `LOCAL|QUEUED|ACCEPTED|CONFLICT|REJECTED|AUTH_REQUIRED|SCOPE_REVOKED|EPOCH_REVIEW`. Pembandingan dan upload berdiri sendiri. Accepted hanya berarti server menerima catatan.
 
-Envelope pada `activity-operation.schema.json`. Object tetap UUID sepanjang hidup; operation UUID baru setiap create/update/cancel. Retry memakai payload persis sama, termasuk epoch. Actor selalu dari sesi, bukan payload. Action create base_version null; update/cancel versi positif. Cancel memakai payload activity snapshot yang sama ditambah alasan melalui kontrak action sebelum FIN07; jangan mengirim cancel sebelum tersedia.
+Envelope pada `activity-operation.schema.json`. Object tetap UUID sepanjang hidup; operation UUID baru setiap create/update/cancel. Retry memakai payload persis sama, termasuk epoch. Actor selalu dari sesi, bukan payload. Action create base_version null; update/cancel versi positif. Cancel memakai payload hanya `{reason}` dan memerlukan pengelola. [FIN07 riwayat/resolusi](HISTORY.md) membekukan filter, audit, arsip lokal, dan penggantian operasi setelah tinjauan eksplisit.
 
 Hash SHA256 atas canonical UTF-8: object keys ASCII diurutkan, array berurutan, tidak ada whitespace, string Unicode/slash tidak di-escape kecuali kontrol/quote/backslash, angka JSON hanya integer. Decimal string tidak dinormalisasi ("6.0" berbeda dari "6.00"); outbox menyimpan envelope immutable. Null berbeda dari absent/0. Fixture hash dibuat dengan Python stdlib independen, dibaca oleh PHP dan Kotlin. Payload tidak boleh mengandung key actor/role/totals atau field tidak dikenal.
 

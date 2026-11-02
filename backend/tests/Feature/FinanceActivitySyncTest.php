@@ -84,9 +84,31 @@ class FinanceActivitySyncTest extends FinanceTestCase
         $cancel = $this->operation('activity', ['reason' => 'Catatan keliru uji'], 'cancel', $op['entity_id'], 2);
         $this->postJson('/api/v2/activities/'.$op['entity_id'].'/cancel', $cancel)->assertForbidden();
         $this->asUser($manager)->postJson('/api/v2/activities/'.$op['entity_id'].'/cancel', $cancel)->assertOk()->assertJsonPath('data.record_state', 'cancelled');
-        $this->getJson('/api/v2/activities/'.$op['entity_id'].'/audit')->assertJsonCount(3, 'data');
+        $this->getJson('/api/v2/activities/'.$op['entity_id'].'/audit')->assertJsonCount(3, 'data')->assertJsonPath('data.0.actor_name', $worker->name)->assertJsonPath('data.2.actor_id', $manager->public_id);
         $this->postJson('/api/v2/seasons/'.$ctx['season']['id'].'/close', $this->operation('seasons', ['reason' => 'Uji tutup'], 'close', $ctx['season']['id'], 1))->assertOk();
         $this->asUser($worker)->postJson('/api/v2/sync/operations', $this->operation('activity', $p))->assertConflict()->assertJsonPath('code', 'season_closed');
+    }
+
+    public function test_history_filters_wib_dates_scope_state_and_audit_pages(): void
+    {
+        $manager = $this->account();
+        $ctx = $this->context($manager);
+        $worker = $this->assignedWorker($ctx);
+        $this->asUser($worker);
+        $first = $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], ['occurred_at' => '2026-10-29T00:30:00+07:00'])))->assertCreated()->json();
+        $second = $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], ['occurred_at' => '2026-10-28T23:30:00+07:00'])))->assertCreated()->json();
+        $query = http_build_query(['greenhouse_id' => $ctx['gh']['id'], 'season_id' => $ctx['season']['id'], 'from' => '2026-10-29', 'until' => '2026-10-29', 'record_state' => 'active']);
+        $this->getJson('/api/v2/activities?'.$query)->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $first['entity_id']);
+        $this->getJson('/api/v2/activities?until=2026-10-28')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $second['entity_id']);
+        $this->getJson('/api/v2/activities?from=2026-10-29&until=2026-10-28')->assertUnprocessable();
+        $this->asUser($manager)->postJson('/api/v2/activities/'.$first['entity_id'].'/cancel', $this->operation('activity', ['reason' => 'Uji filter pembatalan'], 'cancel', $first['entity_id'], 1))->assertOk();
+        $this->getJson('/api/v2/activities?record_state=cancelled')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $first['entity_id']);
+        $audit = $this->getJson('/api/v2/activities/'.$first['entity_id'].'/audit?limit=1')->assertJsonCount(1, 'data')->assertJsonPath('data.0.actor_id', $worker->public_id)->json();
+        $this->assertNotNull($audit['next_cursor']);
+        $this->getJson('/api/v2/activities/'.$first['entity_id'].'/audit?limit=1&cursor='.$audit['next_cursor'])->assertJsonCount(1, 'data')->assertJsonPath('data.0.action', 'cancel')->assertJsonPath('next_cursor', null);
+        $foreign = $this->context($this->account());
+        $this->getJson('/api/v2/activities?season_id='.$ctx['season']['id'])->assertJsonCount(0, 'data');
+        $this->getJson('/api/v2/activities/'.$first['entity_id'].'/audit')->assertNotFound();
     }
 
     public function test_activity_snapshot_is_immutable_after_group_dates_change_and_explicit_refresh_is_required(): void

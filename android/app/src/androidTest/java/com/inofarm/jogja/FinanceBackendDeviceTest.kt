@@ -54,6 +54,7 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-new").performScrollTo().performClick()
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("DEVICE OFFLINE ${f.getString("fixture_id")}")
         hideKeyboard();rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("finance-tab-2").performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Menunggu pengiriman").fetchSemanticsNodes().isNotEmpty()}
         val runtime=runtime();val session=runtime.vault.current!!;val op=runtime.store.outbox(session.scope.key).single()
         assertEquals("QUEUED",op.state)

@@ -1,3 +1,7 @@
+## FIN07 riwayat dan resolusi konflik — 29 Oktober 2026
+
+Branch GitHub `codex/finance-history-conflicts`, dependency `e986eec`. Backend48tests/777assertions; Android21unit,0lint errors,26/26 focused instrumentation dalam satu run dan2 real guarded Laravel/MySQL device phases PASS. SQLite4 migration1/2/3 mempertahankan draf/outbox/cursor/arsip; local/server comparison membutuhkan reviewed version/revision. [Evidence FIN07](../migration/finance-20261029/evidence/FIN07.md) merinci koreksi race, fixture/test readiness, command dan batas; bukan acceptance produk. FIN08–17/UAT/pentest berikutnya.
+
 ## Pelaksanaan core FIN01–06 — 29 Oktober 2026
 
 Source FIN06 `ff5869f`, GitHub branch codex/finance-activity-entry. Backend45tests/711assertions; Android19unit/12focused instrumentation; real guarded MySQL offline/restart/replay/manager drill passed. [Evidence FIN06](../migration/finance-20261029/evidence/FIN06.md) merinci commands, failures yang diperbaiki dan batas. Bukan acceptance seluruh produk; FIN07–17/UAT/pentest tetap terbuka. [Review provenance](../migration/finance-20261029/PROVENANCE_REVIEW.md) memperbaiki README arsip sambil mempertahankan indeks dan hash seluruh delapan file.

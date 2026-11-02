@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V2;
 
 use App\Domain\Activities\ActivityService;
+use App\Domain\Cultivation\MasterService;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -11,15 +12,26 @@ use Illuminate\Support\Facades\DB;
 
 final class ActivityController extends Controller
 {
-    public function index(Request $request, ActivityService $service)
+    public function index(Request $request, ActivityService $service, MasterService $masters)
     {
         $input = $request->validate(['planting_group_id' => 'nullable|uuid', 'activity_type' => 'nullable|in:nutrition,spray,general,stage',
-            'from' => 'nullable|date_format:Y-m-d', 'until' => 'nullable|date_format:Y-m-d', 'limit' => 'sometimes|integer|min:1|max:100', 'cursor' => 'nullable|string|max:512']);
+            'greenhouse_id' => 'nullable|uuid', 'season_id' => 'nullable|uuid', 'record_state' => 'nullable|in:active,cancelled',
+            'from' => 'nullable|date_format:Y-m-d', 'until' => 'nullable|date_format:Y-m-d'.($request->filled('from') ? '|after_or_equal:from' : ''), 'limit' => 'sometimes|integer|min:1|max:100', 'cursor' => 'nullable|string|max:512']);
         $q = $service->scope($request->user());
-        foreach (['planting_group_id', 'activity_type'] as $key) {
+        foreach (['planting_group_id', 'activity_type', 'record_state'] as $key) {
             if (isset($input[$key])) {
                 $q->where($key, $input[$key]);
             }
+        }
+        if (isset($input['season_id']) || isset($input['greenhouse_id'])) {
+            $groups = $masters->scope($request->user(), 'planting_groups')->select('id');
+            if (isset($input['season_id'])) {
+                $groups->where('season_id', $input['season_id']);
+            }
+            if (isset($input['greenhouse_id'])) {
+                $groups->whereIn('season_id', DB::table('seasons')->select('id')->where('greenhouse_id', $input['greenhouse_id']));
+            }
+            $q->whereIn('planting_group_id', $groups);
         }
         if (isset($input['from'])) {
             $q->where('occurred_at', '>=', CarbonImmutable::parse($input['from'], 'Asia/Jakarta')->utc()->format('Y-m-d H:i:s'));
@@ -68,7 +80,9 @@ final class ActivityController extends Controller
         $rows = DB::table('audit_logs')->where('entity_type', 'activity')->where('entity_id', $id)->where('id', '>', $input['cursor'] ?? 0)->orderBy('id')->limit($limit + 1)->get();
 
         return ['data' => $rows->take($limit)->map(function ($row) {
-            return ['id' => $row->id, 'actor_id' => User::findOrFail($row->actor_id)->public_id, 'action' => $row->action, 'version' => $row->version,
+            $actor = User::findOrFail($row->actor_id);
+
+            return ['id' => $row->id, 'actor_id' => $actor->public_id, 'actor_name' => $actor->name, 'action' => $row->action, 'version' => $row->version,
                 'reason' => $row->reason, 'changes' => json_decode($row->changes, true, flags: JSON_THROW_ON_ERROR), 'server_at' => CarbonImmutable::parse($row->server_at, 'UTC')->toISOString()];
         })->values(), 'next_cursor' => $rows->count() > $limit ? (string) $rows[$limit - 1]->id : null];
     }
