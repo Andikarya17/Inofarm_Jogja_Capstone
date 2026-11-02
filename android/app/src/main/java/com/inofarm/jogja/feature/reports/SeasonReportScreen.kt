@@ -53,6 +53,7 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
             }
             item {OutlinedButton(onClick=vm::back,modifier=Modifier.fillMaxWidth().testTag("report-save-draft")) {Text("Simpan draf dan kembali")}}
         } else if(selected!=null) {
+            if(accepted) item {com.inofarm.jogja.feature.exports.ReportExportActions(selected)}
             item {Notice(if(accepted) {if(state.fresh) "Laporan tersimpan telah diperiksa ke server pada sesi ini." else "Menampilkan salinan laporan tersimpan. Pemeriksaan terbaru belum terkonfirmasi."} else "Permintaan lokal belum diterima server. Hasil berikut hanya pratinjau yang pernah ditinjau.",!accepted)}
             selected.error?.let {error ->item {ErrorReasons(error)}}
             if(data!=null) {

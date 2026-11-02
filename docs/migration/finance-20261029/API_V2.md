@@ -2,6 +2,8 @@
 
 **RANCANGAN FIN00; tidak seluruhnya aktif.** V1 tetap di `docs/implementation/API.md`/routes/api.php. Subset v2 sudah berjalan di routes/api_v2.php dan [contracts/v2](../../../contracts/v2/README.md); [status/evidence](../../context/IMPLEMENTATION_STATUS.md) menunjukkan bagian yang diuji. Nama endpoint peta lengkap di bawah adalah rancangan engineering, bukan endpoint literal proposal. Bekukan tiap modul sebelum implementasi.
 
+FIN14 executable menyediakan `GET report-exports/{id}/{pdf|csv}?expected_snapshot_hash={sha256}` untuk snapshot laporan accepted. Current manager/GH/token/epoch diperiksa ulang sebelum delivery; respons privat mencantumkan hash snapshot, SHA byte dan panjang berkas. PDF/CSV tidak menghitung ulang sumber. [Kontrak ekspor](../../../contracts/v2/REPORT_EXPORT.md), [evidence dan batas jaringan emulator](evidence/FIN14-backend.md).
+
 ## Konvensi
 
 Base URL environment configurable, kandidat `/api/v2/`; HTTPS produksi. Auth bearer Sanctum dapat dipertahankan dengan policy baru. JSON decimal berupa string; UUID canonical; dates YYYY-MM-DD, timestamps ISO8601 offset. List cursor/limit bounded dengan stable order dan scope; batas dipilih/didokumentasikan, rekomendasi10KB SOP bukan otomatis seluruh kontrak upload. Pisahkan upload binary dan JSON. Semua mutation menyertakan operation_id/base_version bila applicable; jalur normal dan sync harus memakai domain service/idempotensi yang sama.

@@ -1,5 +1,9 @@
 # Architecture: kondisi aktual dan target
 
+## FIN14 — 2 November 2026
+
+FIN14 menambahkan ScopedRead → SavedReportStorage → ReportDocumentRenderer di backend, render di luar lock lalu pemeriksaan ulang token/manager/GH/epoch sebelum respons privat. Android memakai ReportExportTransport → ReportExportRepository → ACTION_CREATE_DOCUMENT; MIME/hash/byte length diverifikasi sebelum menulis URI. Dompdf3.1.6 pinned dengan remote/PHP/JavaScript disabled. Tidak ada migration baru; schema13 dan SQLite9 tetap. [Evidence/batas](../migration/finance-20261029/evidence/FIN14-backend.md), [kontrak](../../contracts/v2/REPORT_EXPORT.md). Commit lokal per fitur; push ditunda pengguna.
+
 ## Perbaikan histori FIN13 — 2 November 2026
 
 Cancelled-only fresh-cache history kini dipertahankan dengan typed hydration/current scope; raw draft tidak ditimpa. APK/unit66 dan device17PASS (10 investasi +7 evaluasi musim). [Evidence](../migration/finance-20261029/evidence/20261102-CANCELLED_SCENARIO_HISTORY.md). Gap terkait ditutup lokal. Berikutnya FIN14; push ditunda pengguna, FIN15–17 di luar scope.

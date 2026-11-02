@@ -1,0 +1,37 @@
+# FIN14 immutable report export — 2 November 2026
+
+**PASS core lokal**, branch `codex/finance-report-export`, parent `1367fd7`. Scope pengguna selesai sampai FIN14; push ditunda. FIN15–17 belum dikerjakan. Hasil ini tidak menggantikan UAT/pentest/reviewer/perangkat fisik atau handover produksi.
+
+## Requirement → implementasi
+
+FIN14 pada CONTINUE_FIN11_FIN17 dan IMPLEMENTATION_PLAN: PDF/CSV berasal dari immutable snapshot yang sama dengan UI, private current authorization dan mitigasi CSV formula injection. `GET report-exports/{id}/{pdf|csv}` memerlukan expected_snapshot_hash dari laporan accepted yang dibuka. SavedReportStorage memverifikasi full/source hashes; tidak ada agregasi ulang sumber. Ekspor tidak menambah receipt/audit/feed. Manager/token/GH dan epoch diperiksa sebelum render dan sebelum delivery; render di luar global DB lock. Unknown query/format, wrong hash, worker/foreign/revoked access dan snapshot korup ditolak. Filename hanya kind/UUID, respons private/no-store/nosniff dengan Content-Length, hash snapshot dan SHA256 byte. Tidak ada public download URL.
+
+ReportDocumentRenderer memakai Dompdf3.1.6 pinned; HTML pengguna di-escape, remote/PHP/JavaScript disabled, file protocol chroot ke bundled fonts, cache di luar public. Ringkasan Indonesia dan rincian lengkap source/version/formula/input/status/reasons/assumptions/pecahan/IRR metadata. Angka lokal memakai string grouping tanpa float/recalculation; desimal asli tetap di rincian. CSV UTF8 BOM/RFC4180/CRLF menyediakan field pointer/type/value/canonical json_value/text_escaped; formula-like display text termasuk Unicode/control prefix diamankan. json_value merekonstruksi seluruh leaf tanpa kehilangan presisi.
+
+Android menambahkan ReportExportTransport, ReportExportRepository dan ReportExportHost; tombol tersedia pada accepted season_report/investment_report. ACTION_CREATE_DOCUMENT memilih tujuan, selection tersimpan tanpa credential. Current session/generation/manager/GH/epoch-state/hash diperiksa sebelum HTTP dan sebelum destination dipanggil. No-redirect transfer memeriksa MIME/hash/length/PDF signature sebelum menulis ContentResolver URI. Cap teknis16MiB/deadline120s, bukan aturan bisnis. Pembatalan picker tidak mengunduh, error/cancel tidak mengklaim berkas lengkap tersimpan. Tidak ada migration, perubahan angka produksi atau input agronomis.
+
+## Hasil terukur
+
+- Backend regression **126 PASS/2021 assertions/95.24s**, `tmp/fin14-backend-regression.txt`, guarded MySQL inofarm_test. Dua DemoHistory legacy tetap dikecualikan. Tidak ada PHPUnit/RefreshDatabase saat live fixture aktif.
+- Final focus export/renderer **7 PASS/119 assertions/29.20s**, `tmp/fin14-backend-final.txt`. Termasuk PDF/CSV kedua jenis, immutable CSV setelah correction, current worker/foreign/revoked scope/hash/query/format, token dicabut dan epoch berubah saat render, full-hash tampering, CSV controls/Unicode/formula injection, HTML escaping, exact Content-Length. Pint selesai untuk source PHP terkait.
+- Independent `scripts/check-report-export-artifacts.py`: investment **168 typed leaves/4 metrics/3 sources/8 pages**, season **223 leaves/11 metrics/2 sources/10 pages** PASS; canonical full/source hashes, seluruh raw metric values/formula/source IDs ada pada PDF. Semua18 halaman dirender Poppler dan diperiksa melalui contact sheets; first/last/detail dilihat lebih besar. Ringkasan jelas, Unicode terbaca, long rational/hash lines membungkus dan tidak tampak angka terpotong. Artifacts/contact sheets ada di `outputs/finance-report-export`, tidak di-stage.
+- Native app/test build + **72 JVM PASS**, lint **0 errors/33 warnings/5 hints**, `tmp/fin14-android-second.txt` (8m9s). APK test akhir rebuild PASS2m3s (`tmp/fin14-final-device-build.txt`); source utama sama dengan build/unit/lint tersebut.
+- Final `FinanceReportExportTest` **5 PASS/25.835s**, `tmp/fin14-device-final.txt`: byte nyata via ContentResolver, stale scope/session tidak menulis, worker/server deny, ACTION_CREATE_DOCUMENT intent+success pada320dp/font200%, cancel tanpa download/success. Activity-result registry diinjeksi; ini bukan klaim seluruh provider penyimpanan vendor/physical device sudah diuji.
+- Real PHP/MySQL/API29 `FinanceReportExportBackendDeviceTest`: **dua fixture independen PASS39.585s dan39.223s** melalui ADB reverse, `tmp/fin14-real-api29-reverse.txt`, `tmp/fin14-real-api29-reverse-repeat.txt`, current instrumentation/proof di `outputs/finance-report-exports`. Root UI kedua laporan memuat tombol unduh; PDF/CSV kedua jenis disimpan/dibaca melalui URI. Setelah depreciation allocation dibatalkan dan scenario I0 dikoreksi, CSV lama byte-identik, PDF masih lolos integrity. Worker UI menyembunyikan keuangan dan direct download403. SQL membuktikan dua snapshot version1/hash/TC113.33/NPV4132231.40 serta satu audit/operation/feed per report tetap, sumber menjadi cancelled/scenario version2. Hanya data/accounts/tokens milik fixture dibersihkan; mapping ADB milik runner dilepas.
+- OpenAPI/schema/operation goldens checker PASS; semua published paths/schemas tetap. Staging32 task files PASS private-path exclusion, local-secret equality/credential-marker scan serta git diff --check; env/secrets/log/vendor/build/runtime/artifacts tidak masuk commit. Seluruh metadata/version dependency Composer sebelumnya dipertahankan.
+
+## Temuan transfer dan batas yang tetap terbuka
+
+Direct emulator NAT10.0.2.2 intermittently menerima PDF tidak lengkap: checksum mismatch sebelum explicit length, lalu unexpected EOF pada pengulangan dengan Content-Length. PC independent wire probe cocok; satu run NAT37.936s lulus tetapi tidak konsisten. Failed evidence `tmp/fin14-wire-detail-failure.txt` dan `tmp/fin14-nat-final-failure.txt`; tidak dihapus untuk menyatakan semua run hijau. Exact Content-Length ditambahkan dan diuji, namun tidak diklaim memperbaiki seluruh jalur NAT. Integrity guard tidak dilemahkan. Acceptance memakai owned `-UseAdbReverse` yang memberi Android base127.0.0.1; dua pengulangan independen lulus. Penyebab jaringan NAT lebih rinci dan transfer di perangkat/jaringan nyata tetap perlu diuji pada FIN16.
+
+Reproduksi dari root repo dengan emulator finance yang sudah boot, PHP/JDK/SDK/GradleHome environment setara:
+
+```powershell
+./scripts/test-finance-report-export.ps1 -JavaHome <JDK> -SdkPath <Android-SDK> -PhpPath <PHP-exe> -GradleHome <Gradle-cache> -Device emulator-5558 -SkipBuild -UseAdbReverse
+```
+
+Runner menolak manifest/port8001/reverse mapping yang sudah ada, memverifikasi nonce/PID PHP sendiri, tidak membersihkan data APK, dan hanya menghapus fixture miliknya. Jangan jalankan bersamaan dengan PHPUnit/migration/runner lain. Tanpa SkipBuild, build memakai financeApp; dependensi toolchain harus tersedia.
+
+Composer menambah5 PDF packages saja. Audit mencatat **pre-existing symfony/mime v8.1.7 CVE-2026-45070**, sama dengan baseline; tidak ada advisory PDF packages pada audit ini. Tetap separate security gate, bukan klaim clean audit atau pentest. Context checker masih gagal pada satu link legacy `docs/implementation/UI_REDESIGN.md` → missing `output/liquid-glass-implementation/comparisons/all-nine.png`; tidak dibuat bukti gambar palsu. Functional acceptance FIN14 tidak menutup dua gap ini.
+
+Tidak ada push, deploy, production restore, reset database pengguna, app-data clear, physical-device verification atau implementasi FIN15–17. Primary dependency references dan contract: [REPORT_EXPORT](../../../../contracts/v2/REPORT_EXPORT.md).

@@ -1,5 +1,9 @@
 # Implementation plan migrasi proposal terbaru
 
+## FIN14 — 2 November 2026
+
+FIN14 core PASS lokal: backend126 regression/2021 assertions; final focus7/119;72 JVM/lint0;5 device cases serta real API29 PDF/CSV sebelum/sesudah koreksi sumber + SQL reconciliation melalui ADB reverse PASS. Seluruh halaman PDF sintetis dan typed CSV diperiksa. Scope pengguna berhenti pada FIN14; FIN15 backup/restore, FIN16 regresi/UAT/pentest dan FIN17 handover belum dikerjakan pada task ini. [Evidence/batas](../migration/finance-20261029/evidence/FIN14-backend.md), [kontrak](../../contracts/v2/REPORT_EXPORT.md). Commit lokal per fitur; push ditunda pengguna.
+
 ## Perbaikan histori FIN13 — 2 November 2026
 
 Cancelled-only fresh-cache history kini dipertahankan dengan typed hydration/current scope; raw draft tidak ditimpa. APK/unit66 dan device17PASS (10 investasi +7 evaluasi musim). [Evidence](../migration/finance-20261029/evidence/20261102-CANCELLED_SCENARIO_HISTORY.md). Gap terkait ditutup lokal. Berikutnya FIN14; push ditunda pengguna, FIN15–17 di luar scope.

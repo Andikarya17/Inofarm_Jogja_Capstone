@@ -1,5 +1,9 @@
 # PRD: pencatatan operasional dan evaluasi keuangan greenhouse
 
+## FIN14 — 2 November 2026
+
+FIN14 core tersedia dan PASS lokal: pengelola dapat mengunduh PDF/CSV dari laporan musim atau investasi yang sudah diterima server. Isi memakai snapshot yang sama dengan tampilan, termasuk sumber/versi, input, status, alasan dan asumsi; koreksi sumber tidak menghitung ulang laporan lama. Nilai belum diketahui tetap belum diketahui. Pemilihan tujuan Android, pembatalan dan kegagalan unduhan tidak mengklaim sukses palsu. [Evidence/batas](../migration/finance-20261029/evidence/FIN14-backend.md), [kontrak](../../contracts/v2/REPORT_EXPORT.md). Commit lokal per fitur; push ditunda pengguna.
+
 ## Perbaikan histori FIN13 — 2 November 2026
 
 Cancelled-only fresh-cache history kini dipertahankan dengan typed hydration/current scope; raw draft tidak ditimpa. APK/unit66 dan device17PASS (10 investasi +7 evaluasi musim). [Evidence](../migration/finance-20261029/evidence/20261102-CANCELLED_SCENARIO_HISTORY.md). Gap terkait ditutup lokal. Berikutnya FIN14; push ditunda pengguna, FIN15–17 di luar scope.
