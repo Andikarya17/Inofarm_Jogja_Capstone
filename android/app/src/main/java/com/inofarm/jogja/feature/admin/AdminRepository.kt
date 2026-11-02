@@ -1,0 +1,76 @@
+package com.inofarm.jogja.feature.admin
+
+import android.content.Context
+import com.inofarm.jogja.core.contracts.UserRole
+import com.inofarm.jogja.core.contracts.WireContract
+import com.inofarm.jogja.core.database.LocalFinanceStore
+import com.inofarm.jogja.core.network.FinanceApi
+import com.inofarm.jogja.core.session.FinanceSession
+import com.inofarm.jogja.core.session.FinanceSessionVault
+import com.inofarm.jogja.core.session.PayloadCipher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.util.UUID
+
+/** A separate, encrypted admin journal; credentials are never written to disk or the sync queue. */
+class AdminRepository(context:Context,val vault:FinanceSessionVault,private val store:LocalFinanceStore,private val api:FinanceApi,private val cipher:PayloadCipher,preferenceName:String="finance_admin_v2") {
+    private val preferences=context.getSharedPreferences(preferenceName,Context.MODE_PRIVATE)
+    private fun current(session:FinanceSession,ticket:Long) {
+        check(vault.matches(ticket,session.scope) && vault.current?.token==session.token && vault.current?.role==UserRole.MANAGER) {"Sesi pengelola berubah. Isian akun sebelumnya tetap disimpan."}
+    }
+    @Synchronized fun read(session:FinanceSession,ticket:Long):JSONObject {
+        current(session,ticket)
+        return preferences.getString(session.scope.key,null)?.let {JSONObject(cipher.decode(session.scope.key,it))} ?: JSONObject()
+    }
+    @Synchronized fun write(session:FinanceSession,ticket:Long,journal:JSONObject) {
+        current(session,ticket)
+        val previous=read(session,ticket)
+        if(journal.optLong("revision")<previous.optLong("revision")) return
+        check(preferences.edit().putString(session.scope.key,cipher.encode(session.scope.key,journal.toString())).commit()) {"Draf administrasi belum berhasil disimpan."}
+    }
+    suspend fun list(session:FinanceSession,ticket:Long,resource:AdminResource,greenhouse:String?,cursor:String?=null):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        if(resource==AdminResource.USER) require(!greenhouse.isNullOrBlank()) {"Pilih greenhouse untuk daftar akun."}
+        val query=mutableMapOf("limit" to "100")
+        if(resource !in setOf(AdminResource.SCHEDULE,AdminResource.TARGET) && !greenhouse.isNullOrBlank()) query["greenhouse_id"]=greenhouse
+        cursor?.let {query["cursor"]=it}
+        api.request(session.scope.server,session.token,resource.path,query=query).also {current(session,ticket)}
+    }
+    suspend fun options(session:FinanceSession,ticket:Long,source:String,greenhouse:String?):List<JSONObject> {
+        val resource=AdminResource.entries.single {it.path==source}
+        val rows=mutableListOf<JSONObject>();val seen=mutableSetOf<String>();var cursor:String?=null
+        do {
+            val page=list(session,ticket,resource,if(resource==AdminResource.GREENHOUSE) null else greenhouse,cursor)
+            val data=page.getJSONArray("data");repeat(data.length()) {rows+=data.getJSONObject(it)}
+            cursor=page.optString("next_cursor").takeUnless {it.isBlank() || it=="null"}
+            check(cursor==null || seen.add(cursor)) {"Pagination server tidak bergerak."}
+        } while(cursor!=null)
+        return rows
+    }
+    suspend fun prepare(session:FinanceSession,ticket:Long,form:AdminForm,password:String,journal:JSONObject):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val status=api.request(session.scope.server,session.token,"sync/status")
+        current(session,ticket)
+        require(status.getString("schema_version")=="2")
+        val epoch=status.getString("sync_epoch");WireContract.uuid(epoch)
+        require(store.epoch(session.scope.key)==epoch) {"Epoch berubah. Sinkronkan dan tinjau pemulihan sebelum mengajukan administrasi."}
+        val payload=form.payload(password)
+        val operation=JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("operation_id",UUID.randomUUID().toString())
+            .put("entity_id",form.id).put("entity_type",form.resource.kind).put("action",form.action).put("base_version",form.version ?: JSONObject.NULL).put("payload",payload)
+        val hash=WireContract.hash(operation);val secret=payload.has("password");payload.remove("password")
+        JSONObject(journal.toString()).put("pending",operation).put("hash",hash).put("needs_password",secret).also {write(session,ticket,it)}
+    }
+    suspend fun send(session:FinanceSession,ticket:Long,journal:JSONObject,password:String):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val operation=JSONObject(journal.getJSONObject("pending").toString())
+        if(journal.optBoolean("needs_password")) operation.getJSONObject("payload").put("password",password)
+        require(WireContract.hash(operation)==journal.getString("hash")) {"Isi pengajuan harus sama. Masukkan kembali password yang dipakai saat pengajuan pertama."}
+        val form=AdminForm.parse(journal.getJSONObject("form"))
+        val path=if(form.action=="create") form.resource.path else "${form.resource.path}/${form.id}"+if(form.action in setOf("close","reopen")) "/${form.action}" else ""
+        val result=api.request(session.scope.server,session.token,path,if(form.action=="update") "PATCH" else "POST",operation)
+        current(session,ticket)
+        require(result.getString("operation_id")==operation.getString("operation_id") && result.getString("entity_id")==form.id)
+        result
+    }
+}

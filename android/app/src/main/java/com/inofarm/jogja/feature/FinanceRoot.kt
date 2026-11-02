@@ -148,12 +148,15 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             }
         }
     }
+    var adminOpen by rememberSaveable(authState.session?.scope?.key) {mutableStateOf(false)}
+    val openAdmin:()->Unit={adminOpen=true}
     BackHandler(authState.loading && authState.session!=null) { /* Wait for the bounded local persistence boundary. */ }
     Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
         if(authState.session==null) FinanceLogin(authState,auth::login)
         else if(authState.loading) Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Spacer(Modifier.height(16.dp));Text("Menyimpan isian terakhir sebelum keluar…")}
-        else key(authState.session!!.scope.key) { CompositionLocalProvider(LocalAttachmentAction provides attachments::open) { com.inofarm.jogja.feature.exports.ReportExportHost(authState.session!!,runtime.reportExports) { com.inofarm.jogja.feature.recovery.RecoveryHost(authState.session!!,runtime.recovery,activities::reload) { FinanceHome(authState.session!!,contextState,activityState,context::refresh,logout,activities,historyState,history,harvestState,harvest,harvestHistoryState,harvestHistory,financialState,financial,expenseHistoryState,expenseHistory,allocationHistoryState,allocationHistory,attachmentState,attachments,runtime.vault.generation,saleState,sales,saleHistoryState,saleHistory,assetWorkspace,reportWorkspace,investmentWorkspace) } } } }
+        else key(authState.session!!.scope.key) { CompositionLocalProvider(LocalAttachmentAction provides attachments::open) { com.inofarm.jogja.feature.exports.ReportExportHost(authState.session!!,runtime.reportExports) { com.inofarm.jogja.feature.recovery.RecoveryHost(authState.session!!,runtime.recovery,activities::reload) { FinanceHome(authState.session!!,contextState,activityState,context::refresh,logout,activities,historyState,history,harvestState,harvest,harvestHistoryState,harvestHistory,financialState,financial,expenseHistoryState,expenseHistory,allocationHistoryState,allocationHistory,attachmentState,attachments,runtime.vault.generation,saleState,sales,saleHistoryState,saleHistory,assetWorkspace,reportWorkspace,investmentWorkspace,openAdmin) } } } }
     }
+    if(adminOpen && authState.session?.role==UserRole.MANAGER) com.inofarm.jogja.feature.admin.AdminHost(authState.session!!,runtime.admin,context::refresh) {adminOpen=false}
     if(authState.session!=null && !authState.loading && authState.error!=null) AlertDialog(onDismissRequest=auth::clearError,title={Text("Belum keluar")},text={Text(authState.error!!)},confirmButton={TextButton(onClick=auth::clearError) {Text("Kembali ke isian")}})
 }
 
@@ -188,7 +191,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
 
 @Composable private fun FinanceHome(session:FinanceSession,context:CultivationUiState,activity:ActivityUiState,onSync:()->Unit,onLogout:()->Unit,vm:ActivityViewModel,history:HistoryUiState,historyVm:HistoryViewModel,
     harvest:HarvestUiState,harvestVm:HarvestViewModel,harvestHistory:HistoryUiState,harvestHistoryVm:HistoryViewModel,financial:FinancialEntryState,financialVm:FinancialEntryViewModel,
-    expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:AssetWorkspace,reports:SeasonReportWorkspace,investments:InvestmentWorkspace) {
+    expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:AssetWorkspace,reports:SeasonReportWorkspace,investments:InvestmentWorkspace,onAdmin:()->Unit) {
     var tab by rememberSaveable { mutableStateOf(0) };var gh by rememberSaveable { mutableStateOf<String?>(null) };var season by rememberSaveable { mutableStateOf<String?>(null) };var group by rememberSaveable { mutableStateOf<String?>(null) }
     val writing=investments.state.busy || reports.state.busy || asset.entry.busy || asset.history.busy || asset.depreciation.busy || sale.busy || saleHistory.busy || attachment.busy || activity.busy || harvest.busy || history.busy || harvestHistory.busy || financial.busy || expenseHistory.busy || allocationHistory.busy
     val keyboard=LocalSoftwareKeyboardController.current;val ime=WindowInsets.ime.getBottom(LocalDensity.current)>0
@@ -224,6 +227,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 history.selected!=null -> HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()})
                 harvestHistory.selected!=null -> HistoryScreen(session,context,harvestHistory,harvestHistoryVm,activity.queue,onEdit={record,replace -> harvestVm.open(record,replace);harvestHistoryVm.close()},kind=OperationalKind.HARVEST)
                 tab==0 -> LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
+                    item { if(session.role==UserRole.MANAGER) OutlinedButton(onClick=onAdmin,modifier=Modifier.fillMaxWidth().testTag("finance-admin")) {Text("Kelola akun, budidaya dan acuan")} }
                     item { Text("Kegiatan hari ini",style=MaterialTheme.typography.headlineMedium);Text("Pilih konteks budidaya sebelum mencatat. Target hanya menjadi acuan.") }
                     item { context.message?.let { Text(it,modifier=Modifier.testTag("finance-sync-message")) };Text(context.lastSyncedAt?.let {"Data lokal diperbarui: ${timeLabel(Instant.ofEpochMilli(it).toString())}"} ?: "Belum ada data server tersimpan.",style=MaterialTheme.typography.bodySmall) }
                     item { Choice("Greenhouse",gh,context.greenhouses.filter { it.optBoolean("active",true) },"finance-gh") {gh=it;season=null;group=null} }
