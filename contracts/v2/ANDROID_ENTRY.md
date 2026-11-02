@@ -1,0 +1,15 @@
+# Android entry slice — FIN06
+
+Build target `-PfinanceApp`: Kotlin/Compose worker/manager login → authorized context → manual form → review → encrypted draft/outbox → server receipt/history. Default build remains legacy during coexistence; target debug package `.finance`, minSdk29. Release cutover is still FIN17, not implied by test APK.
+
+Application-scoped dependencies own one database, vault generation and sync mutex across activity instances. Auth, context and activity have separate ViewModels/repositories; validation/payload preparation is a domain class, not Composable money logic. Activity recreation does not rebind/reset the active draft. Storage is not closed by an activity ViewModel while another feature is writing.
+
+Forms: nutrition PPM/pH manual+material(s), spray multiple materials, actual stage, general work, skipped reason; date/time WIB, seconds preserved when correcting existing records. Indonesian decimal comma is normalized at the wire boundary; missing does not become zero. Invalid/raw/incomplete input can be saved as encrypted local draft. Queue payload is constructed separately and excludes local form metadata. Review is required before queue; correction reason/reference policy are explicit. New edits retain their base version even if pull updates the server cache before first draft save.
+
+No target autofill or age-derived stage. Age preview uses calendar WIB, historic corrections default to preserved dates/target snapshot, explicit refresh uses current reference. History detail shows actuals, materials/units, recorder, accepted version, age/comparison reasons. Queue states/local-save/accepted/cancelled remain distinct. Last-known cache update time is shown. Worker menu excludes admin/finance.
+
+Startup, foreground resume, new queued operation and manual Sync run the foreground coordinator. Network/5xx/429 do not discard operation identity; retry timestamps remain durable. Background closed-app scheduling, conflict-resolution UI, attachments and all financial modules remain subsequent tasks. No claim that the entire product or every device is synchronized.
+
+API37 local servers require a runtime permission: login requests ACCESS_LOCAL_NETWORK for an explicitly private IP/.local server; denial leaves data intact and explains the missing access. Public/loopback URLs are not probed by DNS or prompted unnecessarily. Reference checked: [Android local network permission](https://developer.android.com/privacy-and-security/local-network-permission). The permission addresses backend LAN access, not IoT/device discovery.
+
+Verification: `scripts/test-finance-entry.ps1 -JavaHome ...` builds/checks the isolated APK, runs UI+storage tests, then uses only inofarm_test synthetic accounts/two GH. It stops the guarded API listener before offline save, verifies transport failure on-device, force-stops only .finance, restarts API, checks ACK/replay and manager history, verifies exact MySQL ledger counts and cleans only that fixture. Do not run another backend-reset suite against the shared test instance while this drill is active.

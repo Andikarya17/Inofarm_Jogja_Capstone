@@ -12,6 +12,13 @@ class FinanceAuthScopeTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_v2_validation_is_indonesian_without_changing_legacy_locale(): void
+    {
+        $locale = app()->getLocale();
+        $this->postJson('/api/v2/auth/login', ['email' => 'fixture@example.invalid'])->assertUnprocessable()->assertJsonPath('field_errors.password.0', 'Password wajib diisi.');
+        $this->assertSame($locale, app()->getLocale());
+    }
+
     private function account(string $role = 'worker'): User
     {
         return User::create(['public_id' => (string) Str::uuid(), 'name' => 'Akun sintetis',

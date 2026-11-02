@@ -5,12 +5,13 @@ Dokumen ini melengkapi context pack lokal FIN00 yang belum di-commit; tidak meny
 | Task | Status | Bukti / batas |
 |---|---|---|
 | FIN01 core | PASS | Kontrak auth/context/activity/sync, decimal dan canonical hash PHP/Kotlin; [evidence](../migration/finance-20261029/evidence/FIN01.md). Kontrak finance/admin/upload/recovery lanjut per modul; FIN01 keseluruhan PARTIAL. |
-| FIN02 backend | PASS / PARTIAL fitur | Auth/token pekerja-pengelola, public UUID, assignment-window scope dan bounded GH reads; [evidence](../migration/finance-20261029/evidence/FIN02.md). UI login/persistence sesi baru dan administrasi akun belum tersedia. |
+| FIN02 backend + login Android | PASS / PARTIAL fitur | Auth/token pekerja-pengelola, public UUID, assignment scope; UI/vault dibuktikan FIN06. [Server evidence](../migration/finance-20261029/evidence/FIN02.md). UI administrasi akun masih berikutnya. |
 | FIN03 backend | PASS / PARTIAL fitur | Master/assignment/user admin scoped, additive migrations, audit/version/receipt atomic; [evidence](../migration/finance-20261029/evidence/FIN03.md). UI master belum tersedia. |
-| FIN04 backend/domain | PASS / PARTIAL fitur | Jadwal/target versioned, interval scoped, WIB age PHP/Kotlin, comparator; [evidence](../migration/finance-20261029/evidence/FIN04.md). Layar acuan dan penyimpanan snapshot activity menyusul. |
-| FIN05 server | PASS / PARTIAL fitur | Activity mutation/receipt/snapshot/audit dan scoped stable pull; [evidence](../migration/finance-20261029/evidence/FIN05-server.md). Android durable DB/outbox/retry belum tersedia. |
-| FIN05 local core | PASS / PARTIAL fitur | SQLite encrypted scope/draft/outbox, ACK/version/epoch guards, foreground sync; [evidence](../migration/finance-20261029/evidence/FIN05-local.md). UI/reconciliation dan background scheduler belum tersedia. |
-| FIN06–17 | TODO | APK masih legacy; backend activity/history sebagian disiapkan sebagai dependency slice. |
+| FIN04 backend/domain/read UI | PASS / PARTIAL fitur | Jadwal/target versioned, WIB age PHP/Kotlin, comparator + immutable activity snapshots; [evidence](../migration/finance-20261029/evidence/FIN04.md). Editor acuan pengelola masih berikutnya. |
+| FIN05 server | PASS core | Activity mutation/receipt/snapshot/audit dan scoped stable pull; [evidence](../migration/finance-20261029/evidence/FIN05-server.md). Terhubung Android pada FIN06. |
+| FIN05 local core | PASS / PARTIAL fitur | Encrypted scoped drafts/outbox, ACK/version/epoch guards, foreground sync; [evidence](../migration/finance-20261029/evidence/FIN05-local.md). Restore reconciliation/background scheduling belum tersedia. |
+| FIN06 core entry slice | PASS / PARTIAL acceptance | Login/context/forms/review/queue/history native, device offline→restart→real Laravel/MySQL→manager history; [evidence](../migration/finance-20261029/evidence/FIN06.md). Mitra/UAT, API29 runtime dan UI performance end-to-end belum disahkan/diukur. |
+| FIN07–17 | TODO | Koreksi backend/entry sudah tersedia; UI conflict/cancel/audit, harvest/finance/investment/report/recovery dan admin master UI belum lengkap. |
 
 Q10: pengguna menyetujui IDR, DECIMAL(20,2) nominal, DECIMAL(20,6) kuantitas/harga dan HALF_UP pada total transaksi dalam chat pelaksanaan. Usulan solver dan business gates Q01–09/Q11–13 tidak otomatis disahkan.
 
