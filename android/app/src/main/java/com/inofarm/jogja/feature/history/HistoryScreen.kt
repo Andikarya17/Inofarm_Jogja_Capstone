@@ -84,6 +84,8 @@ import java.time.LocalDate
     val reviewable=pending.isNotEmpty() && pending.all {it.state=="REJECTED" && ReviewableRejections.mayReplace(kind.wire,it.error?.optString("code"))}
     val own=record.recorderId().let {it.isBlank() || it==session.scope.accountId}
     RecordDetail(record,session,context,vm::close,onEdit={onEdit(record,reviewable)},kind=kind) {
+        val attachments=com.inofarm.jogja.feature.attachments.LocalAttachmentAction.current
+        if(attachments!=null && kind!=OperationalKind.COST_ALLOCATION && record.serverVersion!=null) OutlinedButton(onClick={attachments(record)},modifier=Modifier.fillMaxWidth().testTag("history-attachments")) {Text("Lampiran dan bukti catatan")}
         state.message?.let {Notice(it,true)}
         pending.forEach {op ->
             var expanded by rememberSaveable(op.id) {mutableStateOf(false)}

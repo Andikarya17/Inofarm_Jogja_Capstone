@@ -189,6 +189,19 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         db.insertOrThrow("local_blobs",null,values("scope" to scope,"blob_id" to blobId,"entity_id" to id,"kind" to record.kind,"greenhouse_id" to record.greenhouseId,"state" to "COPYING","body" to encrypt(scope,metadata),"updated_at" to System.currentTimeMillis()))
         blob(scope,blobId)!!
     }
+    fun attachmentForm(scope:String,id:String):JSONObject? {
+        val row=record(scope,id) ?: return null;require(row.kind in AttachmentContract.kinds);require(row.greenhouseId in visibleGreenhouses(scope))
+        return db.rawQuery("SELECT body FROM local_attachment_forms WHERE scope=? AND entity_id=? AND submitted=0",arrayOf(scope,id)).use {if(it.moveToFirst()) decode(scope,it.getString(0)) else null}
+    }
+    fun saveAttachmentForm(scope:String,id:String,form:JSONObject)=transaction {
+        val row=record(scope,id) ?: error("Lampiran tidak ditemukan.");require(row.kind in AttachmentContract.kinds);requireMutationKind(scope,row.kind)
+        db.insertWithOnConflict("local_attachment_forms",null,values("scope" to scope,"entity_id" to id,"kind" to row.kind,"greenhouse_id" to row.greenhouseId,"body" to encrypt(scope,form),"submitted" to 0,"updated_at" to System.currentTimeMillis()),SQLiteDatabase.CONFLICT_REPLACE)
+    }
+    fun queueAttachmentCancel(scope:String,id:String,reason:String,expectedRevision:Long):LocalRecord=transaction {
+        val row=record(scope,id) ?: error("Lampiran tidak ditemukan.");require(row.kind in AttachmentContract.kinds && row.revision==expectedRevision && row.serverVersion!=null)
+        val result=queueAction(scope,id,row.greenhouseId,row.kind,row.body,JSONObject().put("reason",reason),"cancel",row.serverVersion!!,expectedRevision)
+        db.update("local_attachment_forms",values("submitted" to 1),"scope=? AND entity_id=?",arrayOf(scope,id));result
+    }
     fun retryAttachment(scope:String,operationId:String)=transaction {
         val op=db.rawQuery("SELECT * FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,operationId)).use {if(it.moveToFirst()) it.operation(scope) else null} ?: error("Pengajuan tidak ditemukan.")
         require(op.envelope.getString("entity_type") in AttachmentContract.kinds && op.state=="REJECTED" && op.error?.optString("code") in setOf("attachment_configuration_missing","attachment_limit_reached","season_closed","local_attachment_unavailable")) {"Penolakan ini perlu tinjauan lain."}

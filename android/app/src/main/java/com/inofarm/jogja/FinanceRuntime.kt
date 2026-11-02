@@ -16,6 +16,7 @@ import com.inofarm.jogja.feature.harvest.HarvestRepository
 import com.inofarm.jogja.core.contracts.OperationalKind
 import com.inofarm.jogja.feature.expenses.FinancialEntryRepository
 import com.inofarm.jogja.core.files.EncryptedAttachmentStore
+import com.inofarm.jogja.core.files.AttachmentViewer
 import com.inofarm.jogja.core.sync.AttachmentTransfer
 import com.inofarm.jogja.feature.attachments.AttachmentRepository
 
@@ -32,6 +33,7 @@ class FinanceDependencies(application:Application) {
     val files=EncryptedAttachmentStore(application)
     val sync=FinanceSyncCoordinator(api,vault,store,AttachmentTransfer(store,files))
     val attachments=AttachmentRepository(application,vault,store,api,files)
+    val viewer=AttachmentViewer(application,vault,store,files)
     val auth=AuthRepository(api,vault,store)
     val activities=ActivityRepository(vault,store)
     val context=ContextRepository(vault,store,sync)
@@ -60,4 +62,5 @@ class FinanceRuntime(application:Application):AndroidViewModel(application) {
     val allocationHistory get()=dependencies.allocationHistory
     val files get()=dependencies.files
     val attachments get()=dependencies.attachments
+    val viewer get()=dependencies.viewer
 }

@@ -106,6 +106,40 @@ class FinanceAttachmentTest {
         val raw=File(File(root,scope.key),"${nextOp.blobId}.blob");val bytes=raw.readBytes();bytes[bytes.lastIndex]=(bytes.last().toInt() xor 1).toByte();raw.writeBytes(bytes)
         FinanceSyncCoordinator(transport,vault,store,AttachmentTransfer(store,files)).run();assertEquals(2,attempts);assertEquals("local_attachment_unavailable",store.outbox(scope.key).single {it.id==nextOp.id}.error!!.getString("code"));assertEquals(nextOp.hash,store.outbox(scope.key).single {it.id==nextOp.id}.hash)
     }
+    @Test fun clientCountsKnownPendingUploadsBeforeQueueingAnotherFile():Unit=runBlocking {
+        val first=draft();val second=draft()
+        store.cacheAttachmentPolicy(scope.key,parentId,"activity_attachment",gh,profile().put("max_files",1))
+        repo().queue(session,vault.generation,first.id)
+        assertThrows(IllegalArgumentException::class.java) {runBlocking {repo().queue(session,vault.generation,second.id)}}
+        assertEquals(1,store.outbox(scope.key).size);assertEquals(SyncState.LOCAL,store.record(scope.key,second.id)!!.syncState);assertEquals("READY",store.blobsFor(scope.key,second.id).single().state)
+    }
+    @Test fun missingSelectedSourceKeepsDraftAndReportsLocalCopyReason():Unit=runBlocking {
+        val missing=File(context.cacheDir,"finance-test-missing-${UUID.randomUUID()}.png")
+        assertThrows(LocalAttachmentFailure::class.java) {runBlocking {repo().importUri(session,vault.generation,store.record(scope.key,parentId)!!,Uri.fromFile(missing),"Berkas hilang.png")}}
+        val row=store.records(scope.key,kind="activity_attachment").single()
+        assertEquals("FAILED",row.body.getString("_copy_state"));assertTrue(row.error!!.getString("message").contains("berkas sumber"));assertFalse(row.error!!.getString("message").contains(missing.path));assertTrue(store.outbox(scope.key).isEmpty())
+    }
+    @Test fun migrationSixPreservesBindingsAndCancellationFormIsIndependentAndAtomic():Unit=runBlocking {
+        val draft=draft();repo().policy(session,vault.generation,store.record(scope.key,parentId)!!);repo().queue(session,vault.generation,draft.id)
+        val original=store.next(scope.key)!!
+        helper.close()
+        // Only this owned synthetic DB: remove the sole schema7 addition to construct schema6.
+        require(name.startsWith("finance-test-files-"))
+        context.openOrCreateDatabase(name,0,null).use {old ->old.execSQL("DROP TABLE local_attachment_forms");old.version=6}
+        helper=FinanceDatabase(context,name);store=LocalFinanceStore(helper,AndroidPayloadCipher())
+        assertEquals(7,helper.readableDatabase.version);val upgraded=store.next(scope.key)!!
+        assertEquals(original.hash,upgraded.hash);assertEquals(original.blobId,upgraded.blobId)
+        store.initialize(scope.key,epoch,UserRole.MANAGER)
+        store.saveAttachmentForm(scope.key,draft.id,JSONObject().put("reason","Alasan mentah — belum diajukan"))
+        assertEquals("Alasan mentah — belum diajukan",store.attachmentForm(scope.key,draft.id)!!.getString("reason"))
+        assertEquals(draft.body.toString(),store.record(scope.key,draft.id)!!.body.toString())
+        store.acknowledge(scope.key,original.id,JSONObject().put("operation_id",original.id).put("entity_id",draft.id).put("version",1).put("data",payload(draft).put("id",draft.id).put("version",1).put("record_state","active")))
+        val accepted=store.record(scope.key,draft.id)!!
+        store.queueAttachmentCancel(scope.key,draft.id,"Alasan mentah — belum diajukan",accepted.revision)
+        assertNull(store.attachmentForm(scope.key,draft.id));assertEquals("cancel",store.next(scope.key)!!.envelope.getString("action"))
+        assertEquals(original.blobId,store.outbox(scope.key).single {it.id==original.id}.blobId)
+        files.verify(scope.key,original.blobId!!,AttachmentBytes.parse(store.blob(scope.key,original.blobId!!)!!.body))
+    }
     @Test fun parentConflictNeedsNewReviewedOperationButPreservesOldBindingAndEpochHold():Unit=runBlocking {
         val draft=draft();repo().policy(session,vault.generation,store.record(scope.key,parentId)!!);repo().queue(session,vault.generation,draft.id)
         val original=store.next(scope.key)!!;store.mark(scope.key,original,SyncState.REJECTED,JSONObject().put("code","parent_version_conflict").put("current_version",2))
