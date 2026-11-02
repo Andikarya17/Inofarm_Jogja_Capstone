@@ -7,6 +7,8 @@ use App\Domain\Contracts\DomainFailure;
 use App\Domain\Finance\AssetService;
 use App\Domain\Finance\CostAllocationService;
 use App\Domain\Finance\ExpenseService;
+use App\Domain\Finance\InvestmentReportService;
+use App\Domain\Finance\InvestmentScenarioService;
 use App\Domain\Finance\SaleService;
 use App\Domain\Finance\SeasonReportService;
 use App\Domain\Harvest\HarvestService;
@@ -45,12 +47,14 @@ try {
         'cost_allocation' => CostAllocationService::class,
         'sale' => SaleService::class,
         'season_report' => SeasonReportService::class,
+        'investment_scenario' => InvestmentScenarioService::class,
+        'investment_report' => InvestmentReportService::class,
         'asset', 'depreciation_allocation' => AssetService::class,
         'expense' => ExpenseService::class,
         'expense_attachment' => AttachmentService::class,
         default => throw new InvalidArgumentException('Unsupported synthetic race kind.'),
     };
-    if ($service === SeasonReportService::class) {
+    if (in_array($service, [SeasonReportService::class, InvestmentReportService::class], true)) {
         $receipt = app($service)->create($actor, $input['operation']);
     } elseif ($service === AttachmentService::class) {
         $fixture = $input['attachment_fixture'];

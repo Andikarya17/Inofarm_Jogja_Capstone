@@ -1,5 +1,14 @@
 # Gap analysis baseline 29 Oktober 2026
 
+## Lanjutan FIN13 — 2 November 2026
+
+Gap backend investasi ditutup lokal dengan119/1906 regression,259 independent numeric oracle, typed contracts dan dua real process races. Native/build/lifecycle/reboot masih terbuka. Gate UAT/pentest/fisik/recovery/reviewer tidak diklaim selesai. [Evidence dan batas verifikasi](../migration/finance-20261029/evidence/FIN13-backend.md).
+
+
+Native66 JVM/lint0,8 Android cases dan3 fase real HTTP/MySQL dengan dua OS reboot + SQL reconciliation PASS. [Evidence/batas native](../migration/finance-20261029/evidence/FIN13-native.md). FIN14 ekspor belum dimulai; checkpoint ini dipublikasikan atas instruksi terbaru pengguna.
+
+Follow-up FIN13: `hydrateReportCache` masih menyaring tombstone cache; scenario cancelled-only pada profile baru dapat tidak muncul di daftar lokal. Backend history/report utuh; tambahkan typed hydration dan fixture fresh profile. Root navigation/recreation/logout focus1PASS.
+
 ## Lanjutan FIN12 — 2 November 2026
 
 Native critical acceptance: JVM59/lint0,7 clean device cases and real API29 offline→two OS reboots→immutable reports/source correction/worker403+SQL reconciliation PASS. Broader cross-screen popup/touch regression remains open. [Native evidence](../migration/finance-20261029/evidence/FIN12-native.md).

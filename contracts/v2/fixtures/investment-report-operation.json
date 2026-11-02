@@ -1,0 +1,19 @@
+{
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "70000000-0000-0000-0000-000000000002",
+    "operation_id": "70000000-0000-0000-0000-000000000003",
+    "entity_id": "70000000-0000-0000-0000-000000000004",
+    "entity_type": "investment_report",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "scenario_id": "70000000-0000-0000-0000-000000000006",
+      "review_note": "Tinjauan sintetis",
+      "expected_scenario_version": 1,
+      "expected_sources_hash": "7777777777777777777777777777777777777777777777777777777777777777",
+      "expected_formula_version": "annual-relative-rational-bisection-v1"
+    }
+  },
+  "canonical_sha256": "d0e00fcc5fac1de87f14b1e454858ac37139bf7be24a751328520ed2ac7ef1b3"
+}

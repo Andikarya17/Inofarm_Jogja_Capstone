@@ -1,0 +1,419 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "sync_epoch",
+    "operation_id",
+    "entity_id",
+    "entity_type",
+    "action",
+    "base_version",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2"
+    },
+    "sync_epoch": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "operation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "entity_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "entity_type": {
+      "const": "investment_scenario"
+    },
+    "action": {
+      "enum": [
+        "create",
+        "update",
+        "cancel"
+      ]
+    },
+    "base_version": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "create"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "base_version": {
+            "type": "null"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "greenhouse_id",
+              "name",
+              "base_date",
+              "horizon_years",
+              "initial_outlay",
+              "initial_source",
+              "discount_rate",
+              "payback_convention",
+              "cash_flows",
+              "notes"
+            ],
+            "properties": {
+              "greenhouse_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "base_date": {
+                "type": "string",
+                "format": "date"
+              },
+              "horizon_years": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "initial_outlay": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "initial_source": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "reference",
+                  "basis"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "actual",
+                      "projection",
+                      null
+                    ]
+                  },
+                  "reference": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "basis": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                }
+              },
+              "discount_rate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^(?:(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,8})?|-0(?:\\.[0-9]{1,8})?)$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "payback_convention": {
+                "enum": [
+                  "interpolation",
+                  "end_of_year",
+                  null
+                ]
+              },
+              "cash_flows": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "year",
+                    "amount",
+                    "source_kind",
+                    "source_reference",
+                    "basis"
+                  ],
+                  "properties": {
+                    "year": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "amount": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^-?(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source_kind": {
+                      "enum": [
+                        "actual",
+                        "projection",
+                        null
+                      ]
+                    },
+                    "source_reference": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "basis": {
+                      "type": "string",
+                      "maxLength": 2000
+                    }
+                  }
+                }
+              },
+              "notes": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "update"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "base_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "greenhouse_id",
+              "name",
+              "base_date",
+              "horizon_years",
+              "initial_outlay",
+              "initial_source",
+              "discount_rate",
+              "payback_convention",
+              "cash_flows",
+              "notes",
+              "reason"
+            ],
+            "properties": {
+              "greenhouse_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "base_date": {
+                "type": "string",
+                "format": "date"
+              },
+              "horizon_years": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "initial_outlay": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "initial_source": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "reference",
+                  "basis"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "actual",
+                      "projection",
+                      null
+                    ]
+                  },
+                  "reference": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "basis": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                }
+              },
+              "discount_rate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^(?:(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,8})?|-0(?:\\.[0-9]{1,8})?)$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "payback_convention": {
+                "enum": [
+                  "interpolation",
+                  "end_of_year",
+                  null
+                ]
+              },
+              "cash_flows": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "year",
+                    "amount",
+                    "source_kind",
+                    "source_reference",
+                    "basis"
+                  ],
+                  "properties": {
+                    "year": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "amount": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^-?(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source_kind": {
+                      "enum": [
+                        "actual",
+                        "projection",
+                        null
+                      ]
+                    },
+                    "source_reference": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "basis": {
+                      "type": "string",
+                      "maxLength": 2000
+                    }
+                  }
+                }
+              },
+              "notes": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "reason": {
+                "type": "string",
+                "pattern": "\\S",
+                "maxLength": 2000
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "cancel"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "base_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "reason"
+            ],
+            "properties": {
+              "reason": {
+                "type": "string",
+                "pattern": "\\S",
+                "maxLength": 2000
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

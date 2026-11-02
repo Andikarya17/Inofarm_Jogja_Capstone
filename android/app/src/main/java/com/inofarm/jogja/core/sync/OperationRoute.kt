@@ -21,9 +21,14 @@ data class OperationRoute(val path:String,val method:String) {
                 else -> OperationRoute("harvests/$id/cancel","POST")
             }
             require(role==UserRole.MANAGER) {"Perubahan ini hanya untuk pengelola."}
-            if(kind=="season_report") {
+            if(kind in setOf("season_report","investment_report")) {
                 require(action=="create") {"Laporan immutable. Buat evaluasi baru untuk revisi."}
-                return OperationRoute("season-reports","POST")
+                return OperationRoute(if(kind=="season_report") "season-reports" else "investment-reports","POST")
+            }
+            if(kind=="investment_scenario" && action in setOf("create","update","cancel")) return when(action) {
+                "create" -> OperationRoute("investment-scenarios","POST")
+                "update" -> OperationRoute("investment-scenarios/$id","PATCH")
+                else -> OperationRoute("investment-scenarios/$id/cancel","POST")
             }
             if(kind in setOf("expense","cost_allocation","sale","asset","depreciation_allocation") && action in setOf("create","update","cancel")) {
                 val financeResource=when(kind) {"expense" -> "expenses";"sale" -> "sales";"asset" -> "assets";"depreciation_allocation" -> "depreciation-allocations";else -> "cost-allocations"}

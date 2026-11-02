@@ -1,5 +1,12 @@
 # PRD: pencatatan operasional dan evaluasi keuangan greenhouse
 
+## Lanjutan FIN13 — 2 November 2026
+
+Investasi terpisah dari laba musim: input net cash manual actual/projection dengan basis, I0 sekali, diskonto tanpa default, hasil independen dan laporan immutable. Backend dan native critical acceptance PASS lokal. [Evidence dan batas verifikasi](../migration/finance-20261029/evidence/FIN13-backend.md).
+
+
+Native66 JVM/lint0,8 Android cases dan3 fase real HTTP/MySQL dengan dua OS reboot + SQL reconciliation PASS. [Evidence/batas native](../migration/finance-20261029/evidence/FIN13-native.md). FIN14 ekspor belum dimulai; checkpoint ini dipublikasikan atas instruksi terbaru pengguna.
+
 ## Lanjutan FIN12 — 2 November 2026
 
 Native critical acceptance: JVM59/lint0,7 clean device cases and real API29 offline→two OS reboots→immutable reports/source correction/worker403+SQL reconciliation PASS. Broader cross-screen popup/touch regression remains open. [Native evidence](../migration/finance-20261029/evidence/FIN12-native.md).

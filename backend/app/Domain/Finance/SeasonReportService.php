@@ -61,23 +61,12 @@ final class SeasonReportService
 
     public function full(object $row): array
     {
-        $snapshot = json_decode($row->content, true, flags: JSON_THROW_ON_ERROR);
-        if (! hash_equals($row->snapshot_hash, CanonicalJson::hash($snapshot)) || ($snapshot['id'] ?? null) !== $row->id
-            || ($snapshot['greenhouse_id'] ?? null) !== $row->greenhouse_id || ($snapshot['season_id'] ?? null) !== $row->season_id
-            || ($snapshot['kind'] ?? null) !== $row->kind || ($snapshot['version'] ?? null) !== $row->version || ($snapshot['sources_hash'] ?? null) !== $row->sources_hash
-            || count($snapshot['sources'] ?? []) !== $row->source_count) {
-            throw new DomainFailure('report_snapshot_integrity', 'Integritas snapshot laporan perlu diperiksa; hasil tidak dihitung ulang.', 500);
-        }
-
-        return $snapshot;
+        return app(SavedReportStorage::class)->full($row);
     }
 
     public function publicRow(object $row): array
     {
-        $snapshot = $this->full($row);
-        unset($snapshot['sources']);
-
-        return [...$snapshot, 'snapshot_hash' => $row->snapshot_hash];
+        return app(SavedReportStorage::class)->publicRow($row);
     }
 
     private function compare(string $expected, string $actual): void

@@ -9942,6 +9942,1053 @@
           }
         ]
       }
+    },
+    "/investment-scenarios": {
+      "get": {
+        "operationId": "investmentScenarioList",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current manager scope, frozen accepted data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentScenarioHistory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "investmentScenarioCreate",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Current manager scope, frozen accepted data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentScenarioReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvestmentScenarioOperation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/investment-scenarios/{id}": {
+      "get": {
+        "operationId": "investmentScenarioRead",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current manager scope, frozen accepted data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentScenarioPublic"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "investmentScenarioUpdate",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current manager scope, frozen accepted data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentScenarioReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvestmentScenarioOperation"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        ]
+      }
+    },
+    "/investment-scenarios/{id}/cancel": {
+      "post": {
+        "operationId": "investmentScenarioCancel",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Current manager scope, frozen accepted data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentScenarioReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvestmentScenarioOperation"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        ]
+      }
+    },
+    "/investment-scenarios/{id}/audit": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "investmentScenarioAudit",
+        "summary": "Audit assets",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil; pengelola dalam assignment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetAuditPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/investment-reports/preview": {
+      "post": {
+        "operationId": "investmentReportPreview",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current manager scope, frozen accepted data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentReportPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvestmentReportInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/investment-reports": {
+      "get": {
+        "operationId": "investmentReportList",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current manager scope, frozen accepted data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentReportHistory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "investmentReportCreate",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Current manager scope, frozen accepted data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentReportReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvestmentReportOperation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/investment-reports/{id}": {
+      "get": {
+        "operationId": "investmentReportRead",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current manager scope, frozen accepted data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentReportPublic"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        ]
+      }
+    },
+    "/investment-reports/{id}/sources": {
+      "get": {
+        "operationId": "investmentReportSources",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current manager scope, frozen accepted data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentReportSourcePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured authorization, source/version or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -13482,6 +14529,2047 @@
             "type": [
               "string",
               "null"
+            ]
+          }
+        }
+      },
+      "InvestmentScenarioInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "greenhouse_id",
+          "name",
+          "base_date",
+          "horizon_years",
+          "initial_outlay",
+          "initial_source",
+          "discount_rate",
+          "payback_convention",
+          "cash_flows",
+          "notes"
+        ],
+        "properties": {
+          "greenhouse_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "base_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "horizon_years": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "initial_outlay": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "initial_source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "reference",
+              "basis"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "actual",
+                  "projection",
+                  null
+                ]
+              },
+              "reference": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "basis": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            }
+          },
+          "discount_rate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,8})?|-0(?:\\.[0-9]{1,8})?)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payback_convention": {
+            "enum": [
+              "interpolation",
+              "end_of_year",
+              null
+            ]
+          },
+          "cash_flows": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "year",
+                "amount",
+                "source_kind",
+                "source_reference",
+                "basis"
+              ],
+              "properties": {
+                "year": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "amount": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^-?(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "source_kind": {
+                  "enum": [
+                    "actual",
+                    "projection",
+                    null
+                  ]
+                },
+                "source_reference": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "basis": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              }
+            }
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "description": "Nullable values are unknown, never zero. Service also enforces exact JSON integers, year1..horizon once, positive1+r and bounded anniversary dates."
+      },
+      "InvestmentScenarioOperation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "sync_epoch",
+          "operation_id",
+          "entity_id",
+          "entity_type",
+          "action",
+          "base_version",
+          "payload"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "2"
+          },
+          "sync_epoch": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "operation_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "entity_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "entity_type": {
+            "const": "investment_scenario"
+          },
+          "action": {
+            "enum": [
+              "create",
+              "update",
+              "cancel"
+            ]
+          },
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payload": {
+            "type": "object"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "action": {
+                  "const": "create"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "base_version": {
+                  "type": "null"
+                },
+                "payload": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "greenhouse_id",
+                    "name",
+                    "base_date",
+                    "horizon_years",
+                    "initial_outlay",
+                    "initial_source",
+                    "discount_rate",
+                    "payback_convention",
+                    "cash_flows",
+                    "notes"
+                  ],
+                  "properties": {
+                    "greenhouse_id": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "base_date": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "horizon_years": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "initial_outlay": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "initial_source": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "kind",
+                        "reference",
+                        "basis"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "actual",
+                            "projection",
+                            null
+                          ]
+                        },
+                        "reference": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "basis": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      }
+                    },
+                    "discount_rate": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^(?:(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,8})?|-0(?:\\.[0-9]{1,8})?)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "payback_convention": {
+                      "enum": [
+                        "interpolation",
+                        "end_of_year",
+                        null
+                      ]
+                    },
+                    "cash_flows": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 100,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "year",
+                          "amount",
+                          "source_kind",
+                          "source_reference",
+                          "basis"
+                        ],
+                        "properties": {
+                          "year": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                          },
+                          "amount": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^-?(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "source_kind": {
+                            "enum": [
+                              "actual",
+                              "projection",
+                              null
+                            ]
+                          },
+                          "source_reference": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "basis": {
+                            "type": "string",
+                            "maxLength": 2000
+                          }
+                        }
+                      }
+                    },
+                    "notes": {
+                      "type": "string",
+                      "maxLength": 2000
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "action": {
+                  "const": "update"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "base_version": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "payload": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "greenhouse_id",
+                    "name",
+                    "base_date",
+                    "horizon_years",
+                    "initial_outlay",
+                    "initial_source",
+                    "discount_rate",
+                    "payback_convention",
+                    "cash_flows",
+                    "notes",
+                    "reason"
+                  ],
+                  "properties": {
+                    "greenhouse_id": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "base_date": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "horizon_years": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "initial_outlay": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "initial_source": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "kind",
+                        "reference",
+                        "basis"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "actual",
+                            "projection",
+                            null
+                          ]
+                        },
+                        "reference": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "basis": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      }
+                    },
+                    "discount_rate": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^(?:(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,8})?|-0(?:\\.[0-9]{1,8})?)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "payback_convention": {
+                      "enum": [
+                        "interpolation",
+                        "end_of_year",
+                        null
+                      ]
+                    },
+                    "cash_flows": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 100,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "year",
+                          "amount",
+                          "source_kind",
+                          "source_reference",
+                          "basis"
+                        ],
+                        "properties": {
+                          "year": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                          },
+                          "amount": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^-?(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "source_kind": {
+                            "enum": [
+                              "actual",
+                              "projection",
+                              null
+                            ]
+                          },
+                          "source_reference": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "basis": {
+                            "type": "string",
+                            "maxLength": 2000
+                          }
+                        }
+                      }
+                    },
+                    "notes": {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "reason": {
+                      "type": "string",
+                      "pattern": "\\S",
+                      "maxLength": 2000
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "action": {
+                  "const": "cancel"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "base_version": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "payload": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "reason"
+                  ],
+                  "properties": {
+                    "reason": {
+                      "type": "string",
+                      "pattern": "\\S",
+                      "maxLength": 2000
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "InvestmentReportOperation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "sync_epoch",
+          "operation_id",
+          "entity_id",
+          "entity_type",
+          "action",
+          "base_version",
+          "payload"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "2"
+          },
+          "sync_epoch": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "operation_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "entity_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "entity_type": {
+            "const": "investment_report"
+          },
+          "action": {
+            "const": "create"
+          },
+          "base_version": {
+            "type": "null"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "scenario_id",
+              "review_note",
+              "expected_scenario_version",
+              "expected_sources_hash",
+              "expected_formula_version"
+            ],
+            "properties": {
+              "scenario_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "review_note": {
+                "type": "string",
+                "pattern": "\\S",
+                "maxLength": 2000
+              },
+              "expected_scenario_version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              },
+              "expected_sources_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "expected_formula_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            }
+          }
+        }
+      },
+      "InvestmentReportInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "review_note"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "review_note": {
+            "type": "string",
+            "pattern": "\\S",
+            "maxLength": 2000
+          }
+        }
+      },
+      "InvestmentScenarioPublic": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "greenhouse_id",
+          "name",
+          "base_date",
+          "horizon_years",
+          "initial_outlay",
+          "initial_source",
+          "discount_rate",
+          "payback_convention",
+          "cash_flows",
+          "notes",
+          "id",
+          "version",
+          "record_state",
+          "source_provenance",
+          "completeness",
+          "recorded_by",
+          "recorded_by_name",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "greenhouse_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "base_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "horizon_years": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "initial_outlay": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "initial_source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "reference",
+              "basis"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "actual",
+                  "projection",
+                  null
+                ]
+              },
+              "reference": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "basis": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            }
+          },
+          "discount_rate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:(?:0|[1-9][0-9]{0,11})\\.[0-9]{8}|-0\\.[0-9]{8})$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payback_convention": {
+            "enum": [
+              "interpolation",
+              "end_of_year",
+              null
+            ]
+          },
+          "cash_flows": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "year",
+                "amount",
+                "source_kind",
+                "source_reference",
+                "basis"
+              ],
+              "properties": {
+                "year": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "amount": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "source_kind": {
+                  "enum": [
+                    "actual",
+                    "projection",
+                    null
+                  ]
+                },
+                "source_reference": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "basis": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              }
+            }
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "record_state": {
+            "enum": [
+              "active",
+              "cancelled"
+            ]
+          },
+          "source_provenance": {
+            "enum": [
+              "declared_complete",
+              "incomplete"
+            ]
+          },
+          "completeness": {
+            "enum": [
+              "evaluation_ready",
+              "incomplete"
+            ]
+          },
+          "recorded_by": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "recorded_by_name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InvestmentIndicator": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit",
+          "status",
+          "reasons",
+          "formula",
+          "inputs",
+          "assumptions",
+          "display_scale",
+          "rounding",
+          "exact_fraction"
+        ],
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+                "maxLength": 1024
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "enum": [
+              "IDR",
+              "year",
+              "percent"
+            ]
+          },
+          "status": {
+            "enum": [
+              "available",
+              "provisional",
+              "unavailable",
+              "not_recovered"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "formula": {
+            "type": "string",
+            "minLength": 1
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "initial_outlay",
+              "annual_cash_flows",
+              "discount_rate",
+              "horizon_years",
+              "payback_convention"
+            ],
+            "properties": {
+              "initial_outlay": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "annual_cash_flows": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 100,
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "discount_rate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^(?:(?:0|[1-9][0-9]{0,11})\\.[0-9]{8}|-0\\.[0-9]{8})$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "horizon_years": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "payback_convention": {
+                "enum": [
+                  "interpolation",
+                  "end_of_year",
+                  null
+                ]
+              }
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "display_scale": {
+            "enum": [
+              2,
+              8
+            ]
+          },
+          "rounding": {
+            "const": "HALF_UP"
+          },
+          "exact_fraction": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "numerator",
+                  "denominator"
+                ],
+                "properties": {
+                  "numerator": {
+                    "type": "string",
+                    "pattern": "^-?(?:0|[1-9][0-9]*)$"
+                  },
+                  "denominator": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                }
+              }
+            ]
+          },
+          "calculation_detail": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unavailable",
+                    "not_recovered"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "type": "null"
+                },
+                "exact_fraction": {
+                  "type": "null"
+                },
+                "reasons": {
+                  "minItems": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+                  "maxLength": 1024
+                }
+              }
+            }
+          }
+        ]
+      },
+      "InvestmentNPVIndicator": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/InvestmentIndicator"
+          },
+          {
+            "properties": {
+              "unit": {
+                "const": "IDR"
+              },
+              "display_scale": {
+                "const": 2
+              },
+              "status": {
+                "enum": [
+                  "available",
+                  "provisional",
+                  "unavailable"
+                ]
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 1024,
+                    "pattern": "^-?(?:0|[1-9][0-9]*)\\.[0-9]{2}$"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "available",
+                    "provisional"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "exact_fraction": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "numerator",
+                    "denominator"
+                  ],
+                  "properties": {
+                    "numerator": {
+                      "type": "string",
+                      "pattern": "^-?(?:0|[1-9][0-9]*)$"
+                    },
+                    "denominator": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "InvestmentIRRIndicator": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/InvestmentIndicator"
+          },
+          {
+            "properties": {
+              "unit": {
+                "const": "percent"
+              },
+              "display_scale": {
+                "const": 8
+              },
+              "status": {
+                "enum": [
+                  "available",
+                  "provisional",
+                  "unavailable"
+                ]
+              },
+              "exact_fraction": {
+                "type": "null"
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 1024,
+                    "pattern": "^-?(?:0|[1-9][0-9]*)\\.[0-9]{8}$"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "InvestmentPPIndicator": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/InvestmentIndicator"
+          },
+          {
+            "properties": {
+              "unit": {
+                "const": "year"
+              },
+              "display_scale": {
+                "const": 8
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 1024,
+                    "pattern": "^-?(?:0|[1-9][0-9]*)\\.[0-9]{8}$"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "available",
+                    "provisional"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "exact_fraction": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "numerator",
+                    "denominator"
+                  ],
+                  "properties": {
+                    "numerator": {
+                      "type": "string",
+                      "pattern": "^-?(?:0|[1-9][0-9]*)$"
+                    },
+                    "denominator": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "InvestmentDPPIndicator": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/InvestmentIndicator"
+          },
+          {
+            "properties": {
+              "unit": {
+                "const": "year"
+              },
+              "display_scale": {
+                "const": 8
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 1024,
+                    "pattern": "^-?(?:0|[1-9][0-9]*)\\.[0-9]{8}$"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "available",
+                    "provisional"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "exact_fraction": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "numerator",
+                    "denominator"
+                  ],
+                  "properties": {
+                    "numerator": {
+                      "type": "string",
+                      "pattern": "^-?(?:0|[1-9][0-9]*)$"
+                    },
+                    "denominator": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "InvestmentReportPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "greenhouse_id",
+          "season_id",
+          "scenario_id",
+          "scenario_version",
+          "scope",
+          "formula_version",
+          "currency",
+          "timezone",
+          "report_state",
+          "review_note",
+          "source_count",
+          "sources_hash",
+          "source_summary",
+          "metrics",
+          "assumptions"
+        ],
+        "properties": {
+          "greenhouse_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "season_id": {
+            "type": "null"
+          },
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "scenario_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "greenhouse",
+              "scenario"
+            ],
+            "properties": {
+              "greenhouse": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "version"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  }
+                }
+              },
+              "scenario": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "version",
+                  "name",
+                  "base_date",
+                  "horizon_years"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "base_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "horizon_years": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  }
+                }
+              }
+            }
+          },
+          "formula_version": {
+            "const": "annual-relative-rational-bisection-v1"
+          },
+          "currency": {
+            "const": "IDR"
+          },
+          "timezone": {
+            "const": "Asia/Jakarta"
+          },
+          "report_state": {
+            "const": "provisional"
+          },
+          "review_note": {
+            "type": "string",
+            "pattern": "\\S",
+            "maxLength": 2000
+          },
+          "source_count": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 101
+          },
+          "sources_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_summary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "actual",
+              "projection",
+              "unknown"
+            ],
+            "properties": {
+              "actual": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 101
+              },
+              "projection": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 101
+              },
+              "unknown": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 101
+              }
+            }
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "NPV",
+              "IRR",
+              "PP",
+              "DPP"
+            ],
+            "properties": {
+              "NPV": {
+                "$ref": "#/components/schemas/InvestmentNPVIndicator"
+              },
+              "IRR": {
+                "$ref": "#/components/schemas/InvestmentIRRIndicator"
+              },
+              "PP": {
+                "$ref": "#/components/schemas/InvestmentPPIndicator"
+              },
+              "DPP": {
+                "$ref": "#/components/schemas/InvestmentDPPIndicator"
+              }
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "InvestmentReportPublic": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "greenhouse_id",
+          "season_id",
+          "scenario_id",
+          "scenario_version",
+          "scope",
+          "formula_version",
+          "currency",
+          "timezone",
+          "report_state",
+          "review_note",
+          "source_count",
+          "sources_hash",
+          "source_summary",
+          "metrics",
+          "assumptions",
+          "id",
+          "kind",
+          "version",
+          "recorded_by",
+          "recorded_by_name",
+          "created_at",
+          "generated_at",
+          "snapshot_hash"
+        ],
+        "properties": {
+          "greenhouse_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "season_id": {
+            "type": "null"
+          },
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "scenario_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "greenhouse",
+              "scenario"
+            ],
+            "properties": {
+              "greenhouse": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "version"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  }
+                }
+              },
+              "scenario": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "id",
+                  "version",
+                  "name",
+                  "base_date",
+                  "horizon_years"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "base_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "horizon_years": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  }
+                }
+              }
+            }
+          },
+          "formula_version": {
+            "const": "annual-relative-rational-bisection-v1"
+          },
+          "currency": {
+            "const": "IDR"
+          },
+          "timezone": {
+            "const": "Asia/Jakarta"
+          },
+          "report_state": {
+            "const": "provisional"
+          },
+          "review_note": {
+            "type": "string",
+            "pattern": "\\S",
+            "maxLength": 2000
+          },
+          "source_count": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 101
+          },
+          "sources_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_summary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "actual",
+              "projection",
+              "unknown"
+            ],
+            "properties": {
+              "actual": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 101
+              },
+              "projection": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 101
+              },
+              "unknown": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 101
+              }
+            }
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "NPV",
+              "IRR",
+              "PP",
+              "DPP"
+            ],
+            "properties": {
+              "NPV": {
+                "$ref": "#/components/schemas/InvestmentNPVIndicator"
+              },
+              "IRR": {
+                "$ref": "#/components/schemas/InvestmentIRRIndicator"
+              },
+              "PP": {
+                "$ref": "#/components/schemas/InvestmentPPIndicator"
+              },
+              "DPP": {
+                "$ref": "#/components/schemas/InvestmentDPPIndicator"
+              }
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "kind": {
+            "const": "investment_report"
+          },
+          "version": {
+            "const": 1
+          },
+          "recorded_by": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "recorded_by_name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "snapshot_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "InvestmentScenarioReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_id",
+          "entity_id",
+          "version",
+          "committed_at",
+          "data"
+        ],
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "entity_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "$ref": "#/components/schemas/InvestmentScenarioPublic"
+          }
+        }
+      },
+      "InvestmentReportReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_id",
+          "entity_id",
+          "version",
+          "committed_at",
+          "data"
+        ],
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "entity_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "$ref": "#/components/schemas/InvestmentReportPublic"
+          }
+        }
+      },
+      "InvestmentReportSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_key",
+          "kind",
+          "scenario_id",
+          "version",
+          "year",
+          "known",
+          "data"
+        ],
+        "properties": {
+          "source_key": {
+            "type": "string",
+            "pattern": "^(?:initial_outlay|year:(?:[1-9][0-9]?|100))$"
+          },
+          "kind": {
+            "enum": [
+              "initial_outlay",
+              "annual_cash_flow"
+            ]
+          },
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "year": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "known": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "initial_outlay"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_key": {
+                  "const": "initial_outlay"
+                },
+                "year": {
+                  "const": 0
+                },
+                "data": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "amount",
+                    "source_kind",
+                    "source_reference",
+                    "basis",
+                    "at_date"
+                  ],
+                  "properties": {
+                    "amount": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source_kind": {
+                      "enum": [
+                        "actual",
+                        "projection",
+                        null
+                      ]
+                    },
+                    "source_reference": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "basis": {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "at_date": {
+                      "type": "string",
+                      "format": "date"
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "year": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "data": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "year",
+                    "amount",
+                    "source_kind",
+                    "source_reference",
+                    "basis",
+                    "period_start",
+                    "period_end",
+                    "timing"
+                  ],
+                  "properties": {
+                    "year": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "amount": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source_kind": {
+                      "enum": [
+                        "actual",
+                        "projection",
+                        null
+                      ]
+                    },
+                    "source_reference": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "basis": {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "period_start": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "period_end": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "timing": {
+                      "const": "end_of_annual_period"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "InvestmentReportSourcePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "source_count",
+          "sources_hash",
+          "snapshot_hash",
+          "next_cursor"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/InvestmentReportSource"
+            }
+          },
+          "source_count": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 101
+          },
+          "sources_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "snapshot_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "InvestmentScenarioHistory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/InvestmentScenarioPublic"
+            }
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "InvestmentReportHistory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/InvestmentReportPublic"
+            }
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
             ]
           }
         }
