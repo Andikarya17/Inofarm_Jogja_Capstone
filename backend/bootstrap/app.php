@@ -23,6 +23,9 @@ $app = Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Retry identity is based on the exact validated wire strings, including empty/whitespace notes.
+        $middleware->trimStrings(except: [fn (Request $request) => $request->is('api/v2/*')]);
+        $middleware->convertEmptyStringsToNull(except: [fn (Request $request) => $request->is('api/v2/*')]);
         $middleware->alias(['device' => DeviceAuth::class, 'owner' => OwnerScope::class, 'finance-session' => FinanceSession::class]);
         $middleware->api(prepend: [PayloadLimit::class]);
     })
