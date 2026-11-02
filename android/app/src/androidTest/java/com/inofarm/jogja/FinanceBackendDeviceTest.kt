@@ -13,13 +13,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 import java.io.IOException
-import java.security.MessageDigest
 import java.util.UUID
-import okhttp3.OkHttpClient
-import okhttp3.MultipartBody
-import okhttp3.Request
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 
 /** Real Laravel/MySQL integration in explicitly selected isolated instrumentation processes. */
 class FinanceBackendDeviceTest {
@@ -54,11 +48,7 @@ class FinanceBackendDeviceTest {
         }
         assertTrue("Actual guarded API must become unavailable before offline entry",unavailable)
     }
-    /** Test transport only: fixture limits are explicitly set by the guarded host runner. */
-    private suspend fun verifyPrivateAttachments(f:JSONObject,expenseId:String):List<String> {
-        val model=runtime();val session=model.vault.current!!
-        val policy=model.api.request(session.scope.server,session.token,"attachments/policy",query=mapOf("owner_type" to "expense","owner_id" to expenseId)).getJSONObject("data")
-        assertTrue(policy.toString(),policy.getBoolean("configured"));assertTrue(policy.toString(),policy.getBoolean("upload_allowed"));assertEquals(32768,policy.getInt("max_bytes"));assertEquals(2,policy.getInt("max_files"))
+    private fun privateTestFiles():List<Pair<String,ByteArray>> {
         val png=android.util.Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j0ioAAAAASUVORK5CYII=",android.util.Base64.DEFAULT)
         val pdf=buildString {
             append("%PDF-1.4\n%");append("x".repeat(20000));append('\n')
@@ -66,28 +56,29 @@ class FinanceBackendDeviceTest {
             listOf("<< /Type /Catalog /Pages 2 0 R >>","<< /Type /Pages /Kids [3 0 R] /Count 1 >>","<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>").forEachIndexed { index,body -> offsets+=length;append("${index+1} 0 obj\n$body\nendobj\n") }
             val xref=length;append("xref\n0 4\n0000000000 65535 f \n");offsets.forEach {append(it.toString().padStart(10,'0'));append(" 00000 n \n")};append("trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n$xref\n%%EOF\n")
         }.toByteArray(Charsets.US_ASCII)
-        assertTrue(pdf.size>16384)
-        val client=OkHttpClient.Builder().followRedirects(false).followSslRedirects(false).build()
-        val epoch=model.api.request(session.scope.server,session.token,"sync/status").getString("sync_epoch")
-        val ids=mutableListOf<String>()
-        fun upload(operation:JSONObject,bytes:ByteArray,mime:String):Pair<Int,JSONObject> {
-            val body=MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("operation",operation.toString()).addFormDataPart("file","transport.bin",bytes.toRequestBody(mime.toMediaType())).build()
-            return client.newCall(Request.Builder().url(session.scope.server+"attachments").header("Accept","application/json").header("Authorization","Bearer ${session.token}").post(body).build()).execute().use {it.code to JSONObject(it.body!!.string())}
-        }
-        listOf("image/png" to png,"application/pdf" to pdf).forEachIndexed { index,(mime,bytes) ->
-            val id=UUID.randomUUID().toString();ids+=id
-            val sha=MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") {"%02x".format(it)}
-            val payload=JSONObject().put("owner_type","expense").put("owner_id",expenseId).put("owner_version",1).put("original_name","DEVICE PROOF — ${f.getString("fixture_id")}.${if(index==0) "png" else "pdf"}").put("mime",mime).put("bytes",bytes.size).put("sha256",sha)
-            val operation=JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("operation_id",UUID.randomUUID().toString()).put("entity_id",id).put("entity_type","expense_attachment").put("action","create").put("base_version",JSONObject.NULL).put("payload",payload)
-            val (status,receipt)=upload(operation,bytes,mime);assertEquals(receipt.toString(),201,status);assertEquals(id,receipt.getJSONObject("data").getString("id"));assertFalse(receipt.getJSONObject("data").has("path"));assertFalse(receipt.getJSONObject("data").has("url"))
-            val replay=upload(operation,bytes,mime);assertEquals(201,replay.first);assertEquals(com.inofarm.jogja.core.contracts.WireContract.hash(receipt),com.inofarm.jogja.core.contracts.WireContract.hash(replay.second))
-            client.newCall(Request.Builder().url(session.scope.server+"attachments/$id/content").header("Authorization","Bearer ${session.token}").build()).execute().use {response ->
-                assertEquals(200,response.code);assertEquals("nosniff",response.header("X-Content-Type-Options"));assertTrue(response.header("Cache-Control")!!.contains("no-store"));assertArrayEquals(bytes,response.body!!.bytes())
-            }
+        assertTrue(pdf.size>16384);return listOf("png" to png,"pdf" to pdf)
+    }
+    private suspend fun verifyPrivateAttachments(proof:JSONObject):List<String> {
+        val model=runtime();val session=model.vault.current!!;val saved=proof.getJSONArray("attachment_operations")
+        val ids=(0 until saved.length()).map {saved.getJSONObject(it).getString("entity_id")}
+        rule.waitUntil(20000) {ids.all {model.store.record(session.scope.key,it)?.syncState==com.inofarm.jogja.core.contracts.SyncState.ACCEPTED}}
+        ids.forEachIndexed {index,id ->
+            val stored=saved.getJSONObject(index);val op=model.store.outbox(session.scope.key).single {it.id==stored.getString("operation_id")}
+            assertEquals(stored.getString("hash"),op.hash);assertEquals(stored.getString("blob_id"),op.blobId)
+            val expected=privateTestFiles()[index].second
+            val replay=model.api.upload(session.scope.server,session.token,op.envelope) {model.files.open(session.scope.key,op.blobId!!)}
+            assertEquals(id,replay.getJSONObject("data").getString("id"));assertEquals(1,replay.getInt("version"));assertFalse(replay.getJSONObject("data").has("path"));assertFalse(replay.getJSONObject("data").has("url"))
+            val second=model.api.upload(session.scope.server,session.token,op.envelope) {model.files.open(session.scope.key,op.blobId!!)}
+            assertEquals(com.inofarm.jogja.core.contracts.WireContract.hash(replay),com.inofarm.jogja.core.contracts.WireContract.hash(second))
+            var downloaded:ByteArray?=null
+            model.api.download(session.scope.server,session.token,id,expected.size.toLong()) {downloaded=it.readBytes()};assertArrayEquals(expected,downloaded)
+            val local=model.attachments.download(session,model.vault.generation,model.store.record(session.scope.key,id)!!)
+            assertNotEquals(op.blobId,local.id);assertArrayEquals(expected,model.files.open(session.scope.key,local.id).use {it.readBytes()})
+            assertEquals(op.blobId,model.store.outbox(session.scope.key).single {it.id==op.id}.blobId)
             assertEquals(1,model.api.request(session.scope.server,session.token,"attachments/$id/audit").getJSONArray("data").length())
             if(index==1) {
-                val third=JSONObject(operation.toString()).put("operation_id",UUID.randomUUID().toString()).put("entity_id",UUID.randomUUID().toString())
-                val rejected=upload(third,bytes,mime);assertEquals(409,rejected.first);assertEquals("attachment_limit_reached",rejected.second.getString("code"))
+                val third=JSONObject(op.envelope.toString()).put("operation_id",UUID.randomUUID().toString()).put("entity_id",UUID.randomUUID().toString())
+                try {model.api.upload(session.scope.server,session.token,third) {model.files.open(session.scope.key,op.blobId!!)};fail("Configured file cap must hold")} catch(error:FinanceApiFailure) {assertEquals(409,error.status);assertEquals("attachment_limit_reached",error.code)}
             }
         }
         return ids
@@ -119,8 +110,23 @@ class FinanceBackendDeviceTest {
         val op=model.store.outbox(session.scope.key).single {it.id==proof.getString("payment_op")};assertEquals(proof.getString("payment_hash"),op.hash)
         val receipt=model.api.request(session.scope.server,session.token,"expenses","POST",op.envelope);assertEquals(1,receipt.getInt("version"));assertEquals("100.01",receipt.getJSONObject("data").getString("amount"))
         val allocation=model.store.record(session.scope.key,proof.getString("allocation_id"))!!;assertEquals("60,01",allocation.body.getJSONObject("_local_form").getString("amount"))
+        val parent=model.store.record(session.scope.key,proof.getString("expense_id"))!!
+        val policy=model.attachments.policy(session,model.vault.generation,parent)
+        assertTrue(policy.toString(),policy.getBoolean("configured"));assertEquals(32768,policy.getInt("max_bytes"));assertEquals(2,policy.getInt("max_files"))
+        val attachmentDrafts=privateTestFiles().map {(extension,bytes) ->
+            val source=File(context.cacheDir,"device-proof-${f.getString("fixture_id")}.$extension");source.writeBytes(bytes)
+            try {model.attachments.importUri(session,model.vault.generation,parent,android.net.Uri.fromFile(source),"DEVICE PROOF — ${f.getString("fixture_id")}.$extension")} finally {assertTrue(source.delete())}
+        }
         val editor=financeEditor();rule.runOnIdle {editor.open(allocation)}
         financialOfflineBarrier(f,"allocation")
+        val attachmentOperations=org.json.JSONArray()
+        attachmentDrafts.forEach {draft ->
+            model.attachments.queue(session,model.vault.generation,draft.id)
+            val queuedFile=model.store.outbox(session.scope.key).single {it.entityId==draft.id}
+            assertEquals("QUEUED",queuedFile.state)
+            attachmentOperations.put(JSONObject().put("entity_id",draft.id).put("operation_id",queuedFile.id).put("hash",queuedFile.hash).put("blob_id",queuedFile.blobId))
+        }
+        proof.put("attachment_operations",attachmentOperations)
         rule.onNodeWithTag("expense-review").performScrollTo().performClick();rule.onNodeWithTag("expense-queue").performScrollTo().performClick()
         rule.waitUntil(10000) {model.store.outbox(session.scope.key).any {it.entityId==allocation.id}}
         val queued=model.store.outbox(session.scope.key).single {it.entityId==allocation.id};assertEquals("QUEUED",queued.state)
@@ -136,7 +142,7 @@ class FinanceBackendDeviceTest {
         val receipt=model.api.request(session.scope.server,session.token,"cost-allocations","POST",op.envelope);assertEquals(1,receipt.getInt("version"));assertEquals("60.01",receipt.getJSONObject("data").getString("amount"))
         val balance=model.api.request(session.scope.server,session.token,"expenses/${proof.getString("expense_id")}/availability").getJSONObject("data")
         assertEquals("60.01",balance.getString("allocated_amount"));assertEquals("40.00",balance.getString("available_amount"));assertEquals(1,balance.getInt("expense_version"));assertEquals(2,balance.getInt("version"))
-        val attachmentIds=verifyPrivateAttachments(f,proof.getString("expense_id"))
+        val attachmentIds=verifyPrivateAttachments(proof)
         rule.onNodeWithTag("finance-tab-4").performClick();rule.onNodeWithTag("expense-history-kind").performClick();rule.onNodeWithTag("expense-history-kind-option-cost_allocation").performScrollTo().performClick()
         rule.waitUntil(15000) {rule.onAllNodesWithTag("finance-record-${op.entityId}").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-${op.entityId}").performScrollTo().performClick()
         rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(15000) {rule.onAllNodesWithText("Pencatatan · versi 1").fetchSemanticsNodes().isNotEmpty()}

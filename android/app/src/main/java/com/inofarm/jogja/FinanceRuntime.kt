@@ -15,6 +15,9 @@ import com.inofarm.jogja.feature.history.HistoryRepository
 import com.inofarm.jogja.feature.harvest.HarvestRepository
 import com.inofarm.jogja.core.contracts.OperationalKind
 import com.inofarm.jogja.feature.expenses.FinancialEntryRepository
+import com.inofarm.jogja.core.files.EncryptedAttachmentStore
+import com.inofarm.jogja.core.sync.AttachmentTransfer
+import com.inofarm.jogja.feature.attachments.AttachmentRepository
 
 /** One database/session generation per application process, shared across activity recreation. */
 class InofarmApplication:Application() {
@@ -26,7 +29,9 @@ class FinanceDependencies(application:Application) {
     val vault=FinanceSessionVault(application,cipher)
     val store=LocalFinanceStore(FinanceDatabase(application),cipher)
     val api=FinanceHttpApi(BuildConfig.DEBUG)
-    val sync=FinanceSyncCoordinator(api,vault,store)
+    val files=EncryptedAttachmentStore(application)
+    val sync=FinanceSyncCoordinator(api,vault,store,AttachmentTransfer(store,files))
+    val attachments=AttachmentRepository(application,vault,store,api,files)
     val auth=AuthRepository(api,vault,store)
     val activities=ActivityRepository(vault,store)
     val context=ContextRepository(vault,store,sync)
@@ -53,4 +58,6 @@ class FinanceRuntime(application:Application):AndroidViewModel(application) {
     val financialEntry get()=dependencies.financialEntry
     val expenseHistory get()=dependencies.expenseHistory
     val allocationHistory get()=dependencies.allocationHistory
+    val files get()=dependencies.files
+    val attachments get()=dependencies.attachments
 }

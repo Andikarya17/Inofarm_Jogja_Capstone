@@ -14,11 +14,14 @@ import java.util.UUID
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import com.inofarm.jogja.core.contracts.AttachmentContract
+import com.inofarm.jogja.core.contracts.AttachmentBytes
 
 data class LocalRecord(val id: String, val kind: String, val greenhouseId: String, val revision: Long, val baseVersion: Long?, val serverVersion: Long?,
     val body: JSONObject, val serverBody: JSONObject?, val latestOperationId: String?, val syncState: SyncState, val error: JSONObject?)
-data class QueuedOperation(val id: String, val entityId: String, val revision: Long, val envelope: JSONObject, val hash: String, val state: String, val attempts: Int, val error: JSONObject?)
-data class LocalHistoryFilter(val groupId:String?=null,val type:String?=null,val from:String?=null,val until:String?=null,val recordState:String?=null,val greenhouseId:String?=null,val groups:Set<String>?=null,val seasonId:String?=null,val expenseId:String?=null)
+data class QueuedOperation(val id: String, val entityId: String, val revision: Long, val envelope: JSONObject, val hash: String, val state: String, val attempts: Int, val error: JSONObject?,val blobId:String?=null)
+data class LocalHistoryFilter(val groupId:String?=null,val type:String?=null,val from:String?=null,val until:String?=null,val recordState:String?=null,val greenhouseId:String?=null,val groups:Set<String>?=null,val seasonId:String?=null,val expenseId:String?=null,val ownerId:String?=null)
+data class LocalBlob(val id:String,val entityId:String,val kind:String,val greenhouseId:String,val state:String,val body:JSONObject)
 data class LocalDetail(val record:LocalRecord,val pending:List<QueuedOperation>,val archives:List<JSONObject>)
 
 /** Blocking DAO. Repository invokes it on Dispatchers.IO. Every query binds account/server scope. */
@@ -40,7 +43,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     private fun Cursor.record(scope: String) = LocalRecord(string("entity_id"),string("kind"),string("greenhouse_id"),long("revision"),nullableLong("base_version"),nullableLong("server_version"),
         decode(scope,string("body"))!!,decode(scope,nullableString("server_body")),nullableString("latest_operation_id"),SyncState.valueOf(string("sync_state")),decode(scope,nullableString("error")))
     private fun Cursor.operation(scope: String) = QueuedOperation(string("operation_id"),string("entity_id"),long("local_revision"),decode(scope,string("envelope"))!!,
-        string("canonical_hash"),string("state"),getInt(getColumnIndexOrThrow("attempts")),decode(scope,nullableString("error")))
+        string("canonical_hash"),string("state"),getInt(getColumnIndexOrThrow("attempts")),decode(scope,nullableString("error")),nullableString("blob_id"))
 
     fun initialize(scope: String, epoch: String, role: UserRole) = transaction { connection ->
         WireContract.uuid(epoch)
@@ -57,9 +60,9 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             connection.update("scope_metadata",values("epoch" to epoch,"role" to role.wire),"scope=?",arrayOf(scope))
         }
         if(role == UserRole.WORKER) {
-            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','harvest','activity_audit','harvest_audit','harvest_balance')",arrayOf(scope))
+            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','harvest','activity_audit','harvest_audit','harvest_balance','activity_attachment','harvest_attachment','activity_attachment_policy','harvest_attachment_policy','activity_attachment_audit','harvest_attachment_audit')",arrayOf(scope))
             val reason=encrypt(scope,JSONObject().put("message","Peran saat ini tidak mengizinkan perubahan pengelola. Antrean tetap disimpan untuk ditinjau."))
-            connection.execSQL("UPDATE outbox SET state='SCOPE_REVOKED',error=? WHERE scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW') AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=? AND kind NOT IN ('activity','harvest'))",arrayOf(reason,scope,scope))
+            connection.execSQL("UPDATE outbox SET state='SCOPE_REVOKED',error=? WHERE scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW') AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=? AND kind NOT IN ('activity','harvest','activity_attachment','harvest_attachment'))",arrayOf(reason,scope,scope))
         }
     }
     fun epoch(scope: String): String? = db.rawQuery("SELECT epoch FROM scope_metadata WHERE scope=?",arrayOf(scope)).use { if(it.moveToFirst()) it.getString(0) else null }
@@ -77,7 +80,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             "group_id" to (form?.optString("group_id") ?: body.optString("planting_group_id")).takeIf {it.isNotBlank()},
             "record_state" to body.optString("record_state","active"),"occurred_millis" to runCatching {OffsetDateTime.parse(timestamp).toInstant().toEpochMilli()}.getOrNull(),
             "season_id" to (form?.optString("season_id") ?: body.optString("season_id")).takeIf {it.isNotBlank()},
-            "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"indexed" to 1)
+            "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"owner_id" to body.optString("owner_id").takeIf {it.isNotBlank()},"indexed" to 1)
     }
     private fun ensureIndexed(scope:String)=transaction {
         while(true) {
@@ -94,6 +97,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         for((column,value) in listOf("group_id" to filter.groupId,"activity_type" to filter.type,"record_state" to filter.recordState)) if(value!=null) {where.append(" AND $column=?");args.add(value)}
         filter.greenhouseId?.let {where.append(" AND greenhouse_id=?");args.add(it)}
         filter.expenseId?.let {where.append(" AND expense_id=?");args.add(it)}
+        filter.ownerId?.let {where.append(" AND owner_id=?");args.add(it)}
         filter.seasonId?.let {season ->
             if(kind=="expense") {where.append(" AND entity_id IN (SELECT expense_id FROM local_records WHERE scope=? AND kind='cost_allocation' AND season_id=? AND record_state='active')");args.add(scope);args.add(season)}
             else {where.append(" AND season_id=?");args.add(season)}
@@ -109,11 +113,11 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     private fun requireKind(scope:String,kind:String) {
         val role=db.rawQuery("SELECT role FROM scope_metadata WHERE scope=?",arrayOf(scope)).use {if(it.moveToFirst()) it.getString(0) else null}
-        require(role=="manager" || kind in setOf("activity","harvest","activity_audit","harvest_audit","harvest_balance","greenhouses","varieties","units","materials","grades","seasons","planting_groups","schedules","targets")) {"Data ini hanya untuk pengelola."}
+        require(role=="manager" || kind in setOf("activity","harvest","activity_audit","harvest_audit","harvest_balance","greenhouses","varieties","units","materials","grades","seasons","planting_groups","schedules","targets","activity_attachment","harvest_attachment","activity_attachment_policy","harvest_attachment_policy","activity_attachment_audit","harvest_attachment_audit")) {"Data ini hanya untuk pengelola."}
     }
     private fun requireMutationKind(scope:String,kind:String) {
         requireKind(scope,kind)
-        if(kind !in setOf("activity","harvest")) {
+        if(kind !in setOf("activity","harvest","activity_attachment","harvest_attachment")) {
             val role=db.rawQuery("SELECT role FROM scope_metadata WHERE scope=?",arrayOf(scope)).use {if(it.moveToFirst()) it.getString(0) else null}
             require(role=="manager") {"Perubahan ini hanya untuk pengelola."}
         }
@@ -134,15 +138,86 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         requireKind(scope,kind)
         return db.rawQuery("SELECT body FROM cached_records WHERE scope=? AND kind=? AND entity_id=? AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)",arrayOf(scope,kind,id,scope)).use {if(it.moveToFirst()) decode(scope,it.getString(0)) else null}
     }
+    fun blob(scope:String,id:String):LocalBlob? = db.rawQuery("SELECT * FROM local_blobs WHERE scope=? AND blob_id=?",arrayOf(scope,id)).use {rows ->
+        if(!rows.moveToFirst()) null else {
+            val kind=rows.string("kind");requireKind(scope,kind)
+            LocalBlob(rows.string("blob_id"),rows.string("entity_id"),kind,rows.string("greenhouse_id"),rows.string("state"),decode(scope,rows.string("body"))!!)
+        }
+    }
+    fun blobsFor(scope:String,id:String):List<LocalBlob> {
+        val record=record(scope,id) ?: return emptyList();require(record.greenhouseId in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        return db.rawQuery("SELECT blob_id FROM local_blobs WHERE scope=? AND entity_id=? ORDER BY updated_at DESC,blob_id",arrayOf(scope,id)).use {rows -> buildList {while(rows.moveToNext()) add(blob(scope,rows.getString(0))!!)}}
+    }
+    fun beginAttachmentCopy(scope:String,id:String,gh:String,kind:String,body:JSONObject,blobId:String,source:JSONObject):LocalRecord=transaction {
+        require(kind in AttachmentContract.kinds);requireMutationKind(scope,kind);WireContract.uuid(blobId)
+        require(record(scope,id)==null) {"Lampiran sudah ada. Pilih berkas sebagai lampiran baru."}
+        val draft=JSONObject(body.toString()).put("_local_blob_id",blobId).put("_copy_state","COPYING")
+        val saved=persistDraft(scope,id,gh,draft,null,kind=kind)
+        db.insertOrThrow("local_blobs",null,values("scope" to scope,"blob_id" to blobId,"entity_id" to id,"kind" to kind,"greenhouse_id" to gh,"state" to "COPYING","body" to encrypt(scope,source),"updated_at" to System.currentTimeMillis()))
+        saved
+    }
+    fun finishAttachmentCopy(scope:String,blobId:String,metadata:AttachmentBytes):LocalRecord=transaction {
+        val blob=blob(scope,blobId) ?: error("Salinan berkas tidak ditemukan.");require(blob.state in setOf("COPYING","FAILED")) {"Salinan siap tidak dapat ditimpa."}
+        val record=record(scope,blob.entityId)!!;if(blob.body.optString("copy_mode")!="download") require(record.latestOperationId==null) {"Salinan telah terikat pengajuan."}
+        val details=JSONObject(blob.body.toString()).apply {metadata.json().keys().forEach {key -> put(key,metadata.json().get(key))}}
+        db.update("local_blobs",values("state" to "READY","body" to encrypt(scope,details),"updated_at" to System.currentTimeMillis()),"scope=? AND blob_id=?",arrayOf(scope,blobId))
+        if(blob.body.optString("copy_mode")=="download") {
+            require(AttachmentBytes.parse(blob.body)==metadata) {"Unduhan tidak cocok dengan metadata diterima."}
+            return@transaction record
+        }
+        val body=JSONObject(record.body.toString()).apply {metadata.json().keys().forEach {key -> put(key,metadata.json().get(key))}}.put("_copy_state","READY")
+        val patch=values("body" to encrypt(scope,body),"revision" to record.revision+1,"error" to null,"updated_at" to System.currentTimeMillis());patch.putAll(indexValues(body))
+        db.update("local_records",patch,"scope=? AND entity_id=?",arrayOf(scope,record.id));record(scope,record.id)!!
+    }
+    fun failAttachmentCopy(scope:String,blobId:String,message:String)=transaction {
+        val blob=blob(scope,blobId) ?: return@transaction;require(blob.state!="READY")
+        val details=JSONObject(blob.body.toString()).put("copy_error",message)
+        db.update("local_blobs",values("state" to "FAILED","body" to encrypt(scope,details),"updated_at" to System.currentTimeMillis()),"scope=? AND blob_id=?",arrayOf(scope,blobId))
+        if(blob.body.optString("copy_mode")=="download") return@transaction
+        val record=record(scope,blob.entityId)!!
+        db.update("local_records",values("body" to encrypt(scope,JSONObject(record.body.toString()).put("_copy_state","FAILED")),"error" to encrypt(scope,JSONObject().put("message",message))),"scope=? AND entity_id=?",arrayOf(scope,record.id))
+    }
+    fun cacheAttachmentPolicy(scope:String,ownerId:String,kind:String,gh:String,policy:JSONObject)=transaction {
+        require(kind in AttachmentContract.kinds);requireKind(scope,kind);require(gh in visibleGreenhouses(scope))
+        db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind+"_policy","entity_id" to ownerId,"greenhouse_id" to gh,"version" to policy.getLong("owner_version"),"tombstone" to 0,"body" to encrypt(scope,policy)),SQLiteDatabase.CONFLICT_REPLACE)
+    }
+    fun beginAttachmentDownload(scope:String,id:String,blobId:String):LocalBlob=transaction {
+        val record=record(scope,id) ?: error("Metadata berkas belum tersimpan.")
+        require(record.kind in AttachmentContract.kinds && record.serverBody!=null && record.greenhouseId in visibleGreenhouses(scope))
+        WireContract.uuid(blobId)
+        val metadata=AttachmentBytes.parse(record.serverBody).json().put("copy_mode","download")
+        db.insertOrThrow("local_blobs",null,values("scope" to scope,"blob_id" to blobId,"entity_id" to id,"kind" to record.kind,"greenhouse_id" to record.greenhouseId,"state" to "COPYING","body" to encrypt(scope,metadata),"updated_at" to System.currentTimeMillis()))
+        blob(scope,blobId)!!
+    }
+    fun retryAttachment(scope:String,operationId:String)=transaction {
+        val op=db.rawQuery("SELECT * FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,operationId)).use {if(it.moveToFirst()) it.operation(scope) else null} ?: error("Pengajuan tidak ditemukan.")
+        require(op.envelope.getString("entity_type") in AttachmentContract.kinds && op.state=="REJECTED" && op.error?.optString("code") in setOf("attachment_configuration_missing","attachment_limit_reached","season_closed","local_attachment_unavailable")) {"Penolakan ini perlu tinjauan lain."}
+        require(op.envelope.getString("sync_epoch")==epoch(scope)) {"Epoch perlu rekonsiliasi."}
+        val row=record(scope,op.entityId)!!;requireMutationKind(scope,row.kind);require(row.greenhouseId in visibleGreenhouses(scope))
+        db.update("outbox",values("state" to "QUEUED","next_attempt_at" to 0L,"error" to null),"scope=? AND operation_id=?",arrayOf(scope,op.id))
+        if(row.revision==op.revision) db.update("local_records",values("sync_state" to "QUEUED","error" to null),"scope=? AND entity_id=?",arrayOf(scope,row.id))
+    }
+    fun reviewAttachmentParent(scope:String,id:String,parentVersion:Long,expectedRevision:Long,blobId:String):LocalRecord=transaction {
+        val row=record(scope,id) ?: error("Lampiran tidak ditemukan.");require(row.kind in AttachmentContract.kinds && row.revision==expectedRevision && parentVersion>0 && row.baseVersion==null)
+        val pending=pending(scope,id)
+        require(pending.isEmpty() || pending.all {it.state=="REJECTED" && it.error?.optString("code")=="parent_version_conflict"}) {"Pengajuan lama belum dapat diganti."}
+        archive(scope,row,"review_attachment_parent_version")
+        db.update("outbox",values("state" to "SUPERSEDED"),"scope=? AND entity_id=? AND state='REJECTED'",arrayOf(scope,id))
+        val body=JSONObject(row.body.toString()).put("owner_version",parentVersion)
+        val saved=persistDraft(scope,id,row.greenhouseId,body,row.revision,kind=row.kind)
+        val payload=JSONObject().put("owner_type",body.getString("owner_type")).put("owner_id",body.getString("owner_id")).put("owner_version",parentVersion)
+        AttachmentBytes.parse(body).json().let {data -> data.keys().forEach {payload.put(it,data.get(it))}}
+        putQueued(scope,saved,"create",payload,blobId)
+    }
     fun cacheAudit(scope:String,id:String,gh:String,body:JSONObject,kind:String="activity_audit")=transaction {
-        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit","activity_attachment_audit","harvest_attachment_audit","expense_attachment_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
         db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to 1L,
             "tombstone" to 0,"body" to encrypt(scope,body)),SQLiteDatabase.CONFLICT_REPLACE)
     }
     fun outbox(scope: String, limit: Int = 100): List<QueuedOperation> {
         require(limit in 1..1000)
         return db.rawQuery("""SELECT * FROM outbox WHERE scope=? AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=?
-            AND (kind IN ('activity','harvest') OR EXISTS(SELECT 1 FROM scope_metadata WHERE scope=? AND role='manager')))
+            AND (kind IN ('activity','harvest','activity_attachment','harvest_attachment') OR EXISTS(SELECT 1 FROM scope_metadata WHERE scope=? AND role='manager')))
             ORDER BY created_at DESC,operation_id LIMIT ?""",arrayOf(scope,scope,scope,limit.toString())).use {rows -> buildList {while(rows.moveToNext()) add(rows.operation(scope))}}
     }
     private fun persistDraft(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long?, editingBaseVersion:Long?=null,kind:String="activity"): LocalRecord {
@@ -170,7 +245,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         requireMutationKind(scope,kind)
         persistDraft(scope,id,gh,body,expectedRevision,editingBaseVersion,kind)
     }
-    fun saveAndQueue(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long? = null, editingBaseVersion:Long?=null,replaceValidationRejected:Boolean=false,kind:String="activity",queuePayload:JSONObject?=null): LocalRecord = transaction {
+    fun saveAndQueue(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long? = null, editingBaseVersion:Long?=null,replaceValidationRejected:Boolean=false,kind:String="activity",queuePayload:JSONObject?=null,blobId:String?=null): LocalRecord = transaction {
         require(record(scope,id)?.syncState !in setOf(SyncState.EPOCH_REVIEW,SyncState.SCOPE_REVOKED)) { "Catatan ditahan untuk rekonsiliasi atau penugasan. Draf tetap disimpan." }
         val pending=pending(scope,id)
         if(replaceValidationRejected) {
@@ -180,18 +255,27 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         } else require(pending.isEmpty()) { "Operasi sebelumnya masih menunggu atau perlu ditinjau. Simpan draf dulu." }
         val saved = persistDraft(scope,id,gh,body,expectedRevision,editingBaseVersion,kind)
         afterRecordWrite()
-        putQueued(scope,saved,if(saved.baseVersion==null) "create" else "update",queuePayload ?: body)
+        putQueued(scope,saved,if(saved.baseVersion==null) "create" else "update",queuePayload ?: body,blobId)
     }
-    private fun putQueued(scope:String,saved:LocalRecord,action:String,payload:JSONObject):LocalRecord {
+    private fun putQueued(scope:String,saved:LocalRecord,action:String,payload:JSONObject,blobId:String?=null):LocalRecord {
         requireMutationKind(scope,saved.kind)
         require(saved.greenhouseId in visibleGreenhouses(scope) && saved.syncState !in setOf(SyncState.SCOPE_REVOKED,SyncState.EPOCH_REVIEW)) {"Draf tersimpan lokal; penugasan atau epoch perlu ditinjau sebelum pengiriman."}
         require((action=="create" && saved.baseVersion==null) || (action!="create" && (saved.baseVersion ?: 0)>0)) {"Versi dasar operasi tidak sesuai."}
+        if(saved.kind in AttachmentContract.kinds) {
+            require(action in setOf("create","cancel")) {"Berkas immutable; penggantian memerlukan lampiran baru."}
+            if(action=="create") {
+                val blob=blobId?.let {blob(scope,it)} ?: error("Salinan berkas belum terikat pada pengajuan.")
+                require(blob.entityId==saved.id && blob.kind==saved.kind && blob.greenhouseId==saved.greenhouseId && blob.state=="READY") {"Salinan berkas belum siap atau milik catatan lain."}
+                val metadata=AttachmentBytes.parse(blob.body)
+                require(metadata==AttachmentBytes.parse(payload)) {"Metadata pengajuan tidak cocok dengan salinan yang ditinjau."}
+            } else require(db.rawQuery("SELECT role FROM scope_metadata WHERE scope=?",arrayOf(scope)).use {it.moveToFirst() && it.getString(0)=="manager"}) {"Pembatalan lampiran hanya untuk pengelola."}
+        } else require(blobId==null)
         val operationId=UUID.randomUUID().toString()
         val operation=JSONObject().put("schema_version","2").put("sync_epoch",epoch(scope) ?: error("Epoch server belum dikenal."))
             .put("operation_id",operationId).put("entity_id",saved.id).put("entity_type",saved.kind).put("action",action)
             .put("base_version",saved.baseVersion ?: JSONObject.NULL).put("payload",JSONObject(payload.toString()))
         db.insertOrThrow("outbox",null,values("scope" to scope,"operation_id" to operationId,"entity_id" to saved.id,"local_revision" to saved.revision,
-            "envelope" to encrypt(scope,operation),"canonical_hash" to WireContract.hash(operation),"state" to "QUEUED","created_at" to System.currentTimeMillis()))
+            "envelope" to encrypt(scope,operation),"canonical_hash" to WireContract.hash(operation),"state" to "QUEUED","created_at" to System.currentTimeMillis(),"blob_id" to blobId))
         db.update("local_records",values("latest_operation_id" to operationId,"sync_state" to "QUEUED","error" to null),"scope=? AND entity_id=?",arrayOf(scope,saved.id))
         return record(scope,saved.id)!!
     }
@@ -314,7 +398,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             if(version > old) {
                 db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to version,
                     "tombstone" to if(row.getBoolean("tombstone")) 1 else 0,"body" to encrypt(scope,row.getJSONObject("data"))),SQLiteDatabase.CONFLICT_REPLACE)
-                if(kind in setOf("activity","harvest","expense","cost_allocation") || existing!=null) {
+                if(kind in setOf("activity","harvest","expense","cost_allocation") || kind in AttachmentContract.kinds || existing!=null) {
                     val local=existing;val body=row.getJSONObject("data")
                     if(local == null) {
                         val data=values("scope" to scope,"entity_id" to id,"kind" to kind,"greenhouse_id" to gh,"revision" to 1L,

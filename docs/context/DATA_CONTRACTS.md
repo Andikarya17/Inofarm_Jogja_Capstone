@@ -44,7 +44,7 @@ Index minimal: assignment(user,greenhouse,active), season(greenhouse,status), gr
 
 ## 3. Sinkronisasi
 
-Schema9 lampiran privat sudah executable di backend; [kontrak lampiran](../../contracts/v2/ATTACHMENTS.md) dan OpenAPI menetapkan envelope metadata, multipart binary, akses privat, receipt/audit/feed dan parent-version review. Private path internal tidak masuk DTO publik. Konfigurasi produksi Q07 tetap belum ditetapkan; durable file drafts/queue Android menyusul.
+Schema9 lampiran privat sudah executable di backend; [kontrak lampiran](../../contracts/v2/ATTACHMENTS.md) dan OpenAPI menetapkan envelope metadata, multipart binary, akses privat, receipt/audit/feed dan parent-version review. Private path internal tidak masuk DTO publik. Android SQLite6 menyediakan draft/salinan terenkripsi dan immutable file/outbox binding; pemilih/review/pratinjau UI menyusul. Konfigurasi produksi Q07 tetap belum ditetapkan.
 
 Envelope usulan: `operation_id`, `entity_id`, `entity_type`, `action=create|update|cancel`, `base_version`, `schema_version`, `sync_epoch`, `payload`. UUID operation dibuat sekali saat enqueue; retry byte/canonical equivalent memakai ID yang sama. Koreksi baru memakai ID baru dengan versi terbaru. Identitas actor diperoleh server.
 

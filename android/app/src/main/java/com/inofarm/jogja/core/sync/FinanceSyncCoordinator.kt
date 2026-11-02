@@ -13,11 +13,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.IOException
+import com.inofarm.jogja.core.contracts.AttachmentContract
+import com.inofarm.jogja.core.contracts.LocalAttachmentFailure
 
 data class SyncOutcome(val accepted: Int, val message: String)
 
 /** Foreground coordinator. Queue and retry timestamps survive process death; no background scheduler dependency. */
-class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: FinanceSessionVault, private val store: LocalFinanceStore) {
+class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: FinanceSessionVault, private val store: LocalFinanceStore,private val attachments:AttachmentTransfer?=null) {
     private val mutex=Mutex()
     suspend fun run(): SyncOutcome = withContext(Dispatchers.IO) {
         if(!mutex.tryLock()) return@withContext SyncOutcome(0,"Sinkronisasi sedang berjalan.")
@@ -52,10 +54,17 @@ class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: Fin
                         store.mark(session.scope.key,op,SyncState.REJECTED,JSONObject().put("code","unsupported_operation").put("message",it.message))
                         return@withContext SyncOutcome(accepted,"Jenis antrean perlu ditinjau. Isinya tetap disimpan.")
                     }
-                    val result=api.request(session.scope.server,session.token,route.path,route.method,op.envelope)
+                    val result=if(op.envelope.getString("entity_type") in AttachmentContract.kinds && op.envelope.getString("action")=="create") {
+                        (attachments ?: throw LocalAttachmentFailure("Pengiriman berkas belum tersedia; salinan dan operasi tetap disimpan.")).upload(api,session,op)
+                    } else api.request(session.scope.server,session.token,route.path,route.method,op.envelope)
                     if(!vault.matches(ticket,session.scope)) return@withContext SyncOutcome(accepted,"Sesi berubah; respons lama diabaikan.")
                     store.acknowledge(session.scope.key,op.id,result);accepted++
                 } catch(cancelled: CancellationException) { throw cancelled }
+                catch(error:LocalAttachmentFailure) {
+                    if(!vault.matches(ticket,session.scope)) return@withContext SyncOutcome(accepted,"Sesi berubah.")
+                    store.mark(session.scope.key,op,SyncState.REJECTED,JSONObject().put("code","local_attachment_unavailable").put("message",error.message))
+                    return@withContext SyncOutcome(accepted,error.message ?: "Salinan berkas perlu ditinjau.")
+                }
                 catch(error: FinanceApiFailure) {
                     if(!vault.matches(ticket,session.scope)) return@withContext SyncOutcome(accepted,"Sesi berubah.")
                     val state=RetryPolicy.state(error)
