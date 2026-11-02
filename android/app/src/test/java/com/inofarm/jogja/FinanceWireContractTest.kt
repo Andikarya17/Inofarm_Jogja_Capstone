@@ -26,4 +26,13 @@ class FinanceWireContractTest {
         val item=fixture.getJSONObject("operation").getJSONObject("payload").getJSONArray("items").getJSONObject(0)
         assertEquals(10,item.getInt("fruit_count"));assertEquals("15.250000",item.getString("weight_kg"))
     }
+    @Test fun expenseAndAllocationFixturesMatchIndependentHashesAndMoneyStrings() {
+        for(kind in listOf("expense","cost-allocation")) {
+            val fixture=JSONObject(File("../../contracts/v2/fixtures/$kind-operation.json").readText())
+            val op=fixture.getJSONObject("operation")
+            assertEquals(fixture.getString("canonical_sha256"),WireContract.hash(op))
+            assertTrue(op.getJSONObject("payload").get("amount") is String)
+            assertEquals(op.getJSONObject("payload").getString("amount"),WireContract.decimal(op.getJSONObject("payload").getString("amount"),2).toPlainString())
+        }
+    }
 }

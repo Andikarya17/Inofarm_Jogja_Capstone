@@ -33,6 +33,9 @@ def inspect(value):
             inspect(child)
 
 inspect(api)
+unicode_fixture = json.loads((root / 'fixtures/canonical-unicode.json').read_text(encoding='utf-8'))
+unicode_canonical = json.dumps(unicode_fixture['value'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+assert hashlib.sha256(unicode_canonical.encode()).hexdigest() == unicode_fixture['canonical_sha256']
 harvest_schema = json.loads((root / 'harvest-operation.schema.json').read_text(encoding='utf-8'))
 Draft202012Validator.check_schema(harvest_schema)
 harvest_validator = Draft202012Validator(harvest_schema, format_checker=FormatChecker())

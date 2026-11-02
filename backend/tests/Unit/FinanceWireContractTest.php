@@ -47,4 +47,9 @@ class FinanceWireContractTest extends TestCase
             $this->assertSame($fixture['operation']['payload']['amount'], DecimalValue::parse($fixture['operation']['payload']['amount'], 2));
         }
     }
+    public function test_unicode_and_control_escapes_match_independent_utf8_hash(): void
+    {
+        $fixture = json_decode(file_get_contents(__DIR__.'/../../../contracts/v2/fixtures/canonical-unicode.json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame($fixture['canonical_sha256'], CanonicalJson::hash($fixture['value']));
+    }
 }

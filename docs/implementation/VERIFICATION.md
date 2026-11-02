@@ -1,3 +1,7 @@
+## Canonical UTF-8 — 30 Oktober 2026 WIB
+
+Branch `codex/finance-canonical-unicode`, base `3e2caf1`. Contract JVM6/native4/PHP5cases PASS; independent UTF-8/control/literal escape golden hashes and immutable mismatch queue hold verified. [Evidence](../migration/finance-20261029/evidence/20261030-CANONICAL_UNICODE.md) separates native-entry work in progress from this fix. No schema/dependency/server mutation changes.
+
 ## FIN09 backend payment/allocation — 30 Oktober 2026 WIB
 
 Branch `codex/finance-expenses`, base `49efd66`. Backend67tests/1151assertions PASS, isolated guard4/12 PASS. Two independent PHP/MySQL processes competing for source budget across two seasons reconcile to one accepted allocation. [Evidence](../migration/finance-20261029/evidence/FIN09-backend.md) and [contract](../../contracts/v2/EXPENSES.md). Additive schema6; native entry/private proof and full FIN09 acceptance remain open.
