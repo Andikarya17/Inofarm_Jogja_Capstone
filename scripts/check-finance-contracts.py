@@ -142,3 +142,11 @@ for path,value in [('sync_epoch','bad'),('actor_id','client-cannot-select-actor'
     sample=json.loads(json.dumps(recovery['request']));sample[path]=value
     assert not review_validator.is_valid(sample)
 print('FIN15 historical envelope hash, typed review/missing-receipt schema and forged actor rejection: PASS')
+
+status_validator=Draft202012Validator({'$ref':'#/components/schemas/SyncStatusPublic','components':api['components']},format_checker=wire_formats)
+status={'schema_version':'2','sync_epoch':'11111111-1111-4111-8111-111111111111','user':{'id':'22222222-2222-4222-8222-222222222222','name':'Akun sintetis','role':'worker','version':1}}
+status_validator.validate(status)
+for key,value in [('role','owner'),('id','invalid'),('version',0),('password','forbidden')]:
+    bad=json.loads(json.dumps(status));bad['user'][key]=value
+    assert not status_validator.is_valid(bad)
+print('FIN16 sync profile: public identity, role, version and credential exclusion PASS')

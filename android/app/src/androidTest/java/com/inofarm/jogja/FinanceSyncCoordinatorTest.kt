@@ -104,4 +104,36 @@ class FinanceSyncCoordinatorTest {
         assertEquals(original.envelope.toString(),held.envelope.toString());assertEquals("REJECTED",held.state)
         assertEquals("canonical_hash_mismatch",held.error!!.getString("code"))
     }
+    @Test fun currentProfileDemotionHoldsManagerQueueBeforeAnyMutation()=runBlocking {
+        vault.save(vault.generation,vault.current!!.copy(role=UserRole.MANAGER))
+        store.initialize(scope.key,epoch,UserRole.MANAGER)
+        val id=UUID.randomUUID().toString()
+        store.saveAndQueue(scope.key,id,gh,JSONObject().put("notes","Manager queue"),kind="expense")
+        var mutations=0
+        val api=object:FinanceApi {
+            override fun validateBase(base:String)=base
+            override suspend fun request(base:String,token:String?,path:String,method:String,body:JSONObject?,query:Map<String,String>):JSONObject=when(path) {
+                "sync/status" -> JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("user",JSONObject().put("id",scope.accountId).put("name","Nama baru").put("role","worker"))
+                "sync/changes" -> page()
+                else -> {mutations++;error("Manager operation must be held after demotion")}
+            }
+        }
+        FinanceSyncCoordinator(api,vault,store).run()
+        assertEquals(UserRole.WORKER,vault.current!!.role);assertEquals("Nama baru",vault.sessions.value!!.name);assertEquals(0,mutations)
+        helper.readableDatabase.rawQuery("SELECT state FROM outbox WHERE entity_id=?",arrayOf(id)).use {assertTrue(it.moveToFirst());assertEquals("SCOPE_REVOKED",it.getString(0))}
+        vault.save(vault.generation,vault.current!!.copy(role=UserRole.MANAGER));store.initialize(scope.key,epoch,UserRole.MANAGER)
+        assertNotNull(store.record(scope.key,id))
+    }
+    @Test fun foreignProfileCannotChangeLocalRoleOrSendTheQueue()=runBlocking {
+        queue();var pulls=0
+        val api=object:FinanceApi {
+            override fun validateBase(base:String)=base
+            override suspend fun request(base:String,token:String?,path:String,method:String,body:JSONObject?,query:Map<String,String>):JSONObject {
+                if(path!="sync/status") pulls++
+                return JSONObject().put("sync_epoch",epoch).put("user",JSONObject().put("id",UUID.randomUUID().toString()).put("name","Foreign").put("role","manager"))
+            }
+        }
+        assertTrue(runCatching {FinanceSyncCoordinator(api,vault,store).run()}.isFailure)
+        assertEquals(UserRole.WORKER,vault.current!!.role);assertEquals(0,pulls);assertEquals("QUEUED",store.outbox(scope.key).single().state)
+    }
 }

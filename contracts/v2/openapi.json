@@ -996,7 +996,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SyncStatusPublic"
                 }
               }
             }
@@ -17924,6 +17924,53 @@
           "operation"
         ],
         "additionalProperties": false
+      },
+      "SyncStatusPublic": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "sync_epoch",
+          "user"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "2"
+          },
+          "sync_epoch": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "role",
+              "version"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "role": {
+                "enum": [
+                  "worker",
+                  "manager"
+                ]
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
       }
     }
   }
