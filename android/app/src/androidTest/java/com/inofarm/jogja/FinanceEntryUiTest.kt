@@ -226,9 +226,9 @@ class FinanceEntryUiTest {
         choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
         rule.onNodeWithTag(if(harvest) "harvest-new" else "finance-new").performScrollTo().performClick()
     }
-    private fun readyText(text:String):SemanticsNodeInteraction {
-        rule.waitUntil(10000) {rule.onAllNodesWithText(text).fetchSemanticsNodes().size==1}
-        return rule.onNodeWithText(text)
+    private fun readyText(text:String,substring:Boolean=false):SemanticsNodeInteraction {
+        rule.waitUntil(10000) {rule.onAllNodesWithText(text,substring=substring).fetchSemanticsNodes().size==1}
+        return rule.onNodeWithText(text,substring=substring)
     }
     private fun readyNode(tag:String):SemanticsNodeInteraction {
         rule.waitUntil(10000) {rule.onAllNodesWithTag(tag).fetchSemanticsNodes().size==1}
@@ -608,7 +608,7 @@ class FinanceEntryUiTest {
         assertEquals("0.01",runtime().store.record(session.scope.key,id)!!.body.getString("total_amount"));assertEquals(op.hash,runtime().store.outbox(session.scope.key).single {it.id==op.id}.hash)
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","sale")
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
-        rule.onNodeWithTag("sale-accepted-total").performScrollTo().assertTextContains("0,01",substring=true)
+        readyNode("sale-accepted-total").performScrollTo().assertTextContains("0,01",substring=true)
         readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
     }
     @Test fun saleRejectedSourceReviewRetainsOldOperationAndRequiresNewExplicitCorrection() {
@@ -670,7 +670,7 @@ class FinanceEntryUiTest {
         financialForm(true);fillAllocation(source);queueFinancial();val allocationId=acceptedFinancial("cost_allocation")
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","cost_allocation")
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$allocationId").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$allocationId").performScrollTo().performClick()
-        rule.onNodeWithText("Sisa untuk alokasi:",substring=true).performScrollTo().assertTextContains("40,00",substring=true)
+        readyText("Sisa untuk alokasi:",substring=true).performScrollTo().assertTextContains("40,00",substring=true)
         assertEquals(2,financePosts.get());assertEquals(original.id,runtime().store.outbox(session.scope.key).first {it.entityId==source}.id)
     }
     @Test fun rejectedAllocationRequiresExplicitReviewAndKeepsOriginalEnvelope() {
