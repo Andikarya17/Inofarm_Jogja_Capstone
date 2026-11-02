@@ -4,6 +4,7 @@ Dokumen ini melengkapi context pack FIN00 yang provenance dan arsipnya diverifik
 
 | Task | Status | Bukti / batas |
 |---|---|---|
+| FIN16 integration flow/tooling | PASS engineering lokal / acceptance PARTIAL | Worker→manager finance→immutable export→cancel→worker denial **1 MySQL/52 assertions PASS**; runner dan matriks U01–21/KNF01–08 tersedia. [Hasil/gate lengkap](../migration/finance-20261029/FIN16_ACCEPTANCE.md). UAT/pentest/perangkat sasaran tetap belum disahkan. |
 | FIN16 MIME security | PASS lokal | Patch symfony/mime8.1.7→8.1.10 saja;25 backend/416 assertions pada upload/export/recovery+header injection,platform PASS,audit0. [Evidence](../migration/finance-20261029/evidence/FIN16-security-dependency.md). Bukan pentest berizin. |
 | FIN16 admin validation | PASS lokal | Normalisasi SQL boolean, validasi tanggal/UUID/email/satuan dan filter reference per GH.77 JVM/lint0;8 device pada320dp/font200%. [Evidence](../migration/finance-20261029/evidence/FIN16-admin-validation.md). |
 | FIN16 profil/background + regresi | PASS engineering lokal / acceptance PARTIAL | Current profile sebelum send, native persisted JobScheduler,134 MySQL/2137 assertions,76 JVM/lint0,66 device/84.892s;30 local saves pada1.000rows max22.7395ms. [Evidence/batas](../migration/finance-20261029/evidence/FIN16-sync.md). OS dispatch/physical/UAT/pentest belum dibuktikan. |
