@@ -1,16 +1,16 @@
 # FIN17 — instalasi dan penggunaan v2
 
-Checkpoint2 November2026. Branch terbaru **`codex/finance-cutover-docs`** memuat seluruh dependency FIN01–15 Cruelasss dan lanjutan FIN16/17. Main masih baseline lama. [Hasil engineering/gate](FIN16_ACCEPTANCE.md), [cutover/rollback](FIN17_CUTOVER.md), [status implementasi](../../context/IMPLEMENTATION_STATUS.md), [kontrak executable](../../../contracts/v2/README.md). FIN17 dokumen/tooling tersedia; penerimaan dan cutover produksi belum disahkan.
+Checkpoint2 November2026. Branch terbaru **`codex/finance-cutover-docs`** memuat seluruh dependency FIN01–15 Cruelasss dan lanjutan FIN16/17. Checkpoint tersebut kini telah masuk GitHub **`main`** melalui PR #1–38; [evidence integrasi](MAIN_INTEGRATION_20261102.md). [Hasil engineering/gate](FIN16_ACCEPTANCE.md), [cutover/rollback](FIN17_CUTOVER.md), [status implementasi](../../context/IMPLEMENTATION_STATUS.md), [kontrak executable](../../../contracts/v2/README.md). FIN17 dokumen/tooling tersedia; penerimaan dan cutover produksi belum disahkan.
 
 ## Ambil source dan dependency
 
 ```powershell
-git clone --branch codex/finance-cutover-docs https://github.com/Andikarya17/Inofarm_Jogja_Capstone.git Inofarm
+git clone --branch main https://github.com/Andikarya17/Inofarm_Jogja_Capstone.git Inofarm
 Set-Location -LiteralPath Inofarm
 git status --short
 ```
 
-Checkout existing: periksa status/diff dahulu, fetch remote GitHub aktual, kemudian switch/pull fast-forward branch tersebut. Jangan reset/stash/delete kerja sendiri atau mengandalkan main. `origin` checkout penulis adalah GitLab, **`github`** adalah GitHub; clone baru umumnya `origin` GitHub. Tidak perlu mengambil setiap branch dependency satu per satu.
+Checkout existing: periksa status/diff dahulu, fetch remote GitHub aktual, kemudian switch/pull fast-forward branch tersebut. Gunakan `main` GitHub untuk hasil integrasi. Jangan reset/stash/delete kerja sendiri. `origin` checkout penulis adalah GitLab, **`github`** adalah GitHub; clone baru umumnya `origin` GitHub. Tidak perlu mengambil setiap branch dependency satu per satu.
 
 Lingkungan run baru: Windows/PowerShell7, PHP8.5.11 dengan BCMath/PDO MySQL/fileinfo/mbstring/GD/DOM sesuai composer.lock, MySQL8.0.30, Java25.0.4, Gradle9.3.1/AGP9.1.1, SDK/build-tools37. Gunakan lockfile; `composer check-platform-reqs` menentukan extension wajib. Tidak perlu Node/React, PlatformIO, firmware, ESP32, sensor atau credential DB di Android. PHP minimal mengikuti dependency lock (Symfony MIME8.1.10 membutuhkan PHP≥8.4.1); jangan menyimpulkan PHP8.3 kompatibel dari framework saja.
 
