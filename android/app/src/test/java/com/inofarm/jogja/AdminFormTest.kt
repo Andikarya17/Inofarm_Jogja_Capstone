@@ -7,8 +7,9 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AdminFormTest {
+    private val id="11111111-1111-4111-8111-111111111111"
     @Test fun groupDraftRetainsRawInputAndRequiresValidDatesAndIntegerPopulation() {
-        val draft=AdminForm(AdminResource.GROUP,values=mapOf("name" to "Kelompok A","season_id" to "s","variety_id" to "v","population" to "","sowing_date" to "2026-11-02","transplant_date" to ""))
+        val draft=AdminForm(AdminResource.GROUP,values=mapOf("name" to "Kelompok A","season_id" to id,"variety_id" to id,"population" to "","sowing_date" to "2026-11-02","transplant_date" to ""))
         assertTrue(runCatching {draft.payload()}.isFailure)
         assertEquals("",AdminForm.parse(draft.json()).values["population"])
         val payload=draft.copy(values=draft.values+("population" to "0")).payload()
@@ -23,7 +24,7 @@ class AdminFormTest {
         assertEquals("2026-11-02T00:00:00Z",payload.getString("effective_from"));assertFalse(payload.has("planting_group_id"))
     }
     @Test fun userPasswordsNeverEnterDraftAndUpdateEmailIsImmutable() {
-        val form=AdminForm(AdminResource.USER,values=mapOf("greenhouse_id" to "gh","name" to "Pekerja","email" to "worker@example.invalid","role" to "worker"))
+        val form=AdminForm(AdminResource.USER,values=mapOf("greenhouse_id" to id,"name" to "Pekerja","email" to "worker@example.invalid","role" to "worker"))
         val password="synthetic-passphrase-only"
         assertEquals(password,form.payload(password).getString("password"));assertFalse(form.json().toString().contains(password))
         assertTrue(runCatching {form.payload()}.isFailure)
@@ -35,5 +36,12 @@ class AdminFormTest {
         assertTrue(runCatching {form.payload()}.isFailure)
         assertEquals(setOf("reason"),form.copy(values=mapOf("reason" to "Review selesai")).payload().keys().asSequence().toSet())
         assertEquals(4L,AdminForm.parse(form.json()).version)
+    }
+    @Test fun greenhouseSqlBooleanIsNormalizedAndInvalidDatesAreRejectedLocally() {
+        val form=AdminForm.edit(AdminResource.GREENHOUSE,JSONObject().put("id",id).put("version",1).put("name","GH").put("active",1))
+        assertTrue(form.copy(values=form.values+("reason" to "Koreksi nama")).payload().getBoolean("active"))
+        val season=AdminForm(AdminResource.SEASON,values=mapOf("name" to "Musim","greenhouse_id" to id,"start_date" to "2026-11-02","end_date" to "2026-11-01"))
+        assertTrue(runCatching {season.payload()}.isFailure)
+        assertTrue(runCatching {season.copy(values=season.values+("greenhouse_id" to "invalid")).payload()}.isFailure)
     }
 }

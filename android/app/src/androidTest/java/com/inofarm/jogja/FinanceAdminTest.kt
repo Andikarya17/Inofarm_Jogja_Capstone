@@ -82,4 +82,19 @@ class FinanceAdminTest {
         assertTrue(runCatching {repository().prepare(session,vault.generation,form(),"",JSONObject())}.isFailure)
         assertFalse(repository().read(session,vault.generation).has("pending"));assertTrue(attempts.isEmpty())
     }
+    @Test fun referenceListKeepsPaginationButFiltersGroupsToTheSelectedGreenhouse()=runBlocking {
+        val gh=UUID.randomUUID().toString();val group=UUID.randomUUID().toString()
+        val transport=object:FinanceApi {
+            override fun validateBase(base:String)=base
+            override suspend fun request(base:String,token:String?,path:String,method:String,body:JSONObject?,query:Map<String,String>):JSONObject {
+                return if(path=="planting-groups") {
+                    assertEquals(gh,query["greenhouse_id"])
+                    JSONObject().put("data",org.json.JSONArray().put(JSONObject().put("id",group))).put("next_cursor",JSONObject.NULL)
+                } else JSONObject().put("data",org.json.JSONArray().put(JSONObject().put("id","a").put("planting_group_id",group)).put(JSONObject().put("id","b").put("planting_group_id",UUID.randomUUID().toString()))).put("next_cursor","next-page")
+            }
+        }
+        val repo=AdminRepository(context,vault,store,transport,AndroidPayloadCipher(),name+"-admin")
+        val page=repo.list(session,vault.generation,AdminResource.TARGET,gh)
+        assertEquals(1,page.getJSONArray("data").length());assertEquals("a",page.getJSONArray("data").getJSONObject(0).getString("id"));assertEquals("next-page",page.getString("next_cursor"))
+    }
 }
