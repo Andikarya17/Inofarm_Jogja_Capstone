@@ -11,6 +11,8 @@
 
 FIN08 menambah payload outbox terpisah dari raw local form dalam transaksi yang sama, kind harvest/audit/balance scoped, dan reviewable rejection `harvest_in_use` khusus panen. Riwayat activity dan harvest mempunyai instance ViewModel/filter/selection sendiri, memakai guards/archive/receipt yang sama. Lihat [kontrak panen](HARVEST.md).
 
+30 Oktober: logout menunggu flush snapshot editor terbaru sebelum melepas kredensial; failure mempertahankan sesi, snapshot identik tidak membuat koreksi baru. Retention dapat menyimpan isian sendiri pada GH yang sebelumnya dikenal setelah assignment dicabut, dengan SCOPE_REVOKED; itu tidak memberi akses baca scope atau izin enqueue. Unknown GH ditolak. Preferensi kredensial harus berhasil disimpan/dihapus sebelum state generation diubah. [Evidence](../../docs/migration/finance-20261029/evidence/20261030-DRAFT_LOGOUT.md).
+
 `-PfinanceApp` memilih minSdk29 dan suffix debug/profile `.finance`, endpoint debug configurable `inofarmFinanceDebugApiUrl` (default emulator port8000/api/v2). Build default tetap launcher legacy. FIN06 menghubungkan launcher finance, bukan mengganti APK pengguna. Native build+lint tidak membuktikan dukungan API29 device; device saat ini API37.
 
 Verification runner `scripts/test-finance-android.ps1 -JavaHome ...`: core instrumentation, phase prepare→force-stop test app→verify di proses kedua, dan storage timings. Tidak memakai pm clear/uninstall data aplikasi pengguna. Database test dengan nama UUID/prefix tersendiri dibersihkan setelah uji. Timing mengukur DAO encrypted transaction, bukan seluruh input/UI/KNF02 final.

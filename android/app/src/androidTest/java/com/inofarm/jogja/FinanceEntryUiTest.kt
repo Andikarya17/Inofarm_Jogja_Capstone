@@ -37,7 +37,7 @@ import android.content.res.Configuration
 /** Device UI + real HTTP transport, synthetic dispatcher. MySQL integration is a separate test. */
 class FinanceEntryUiTest {
     @get:Rule val rule=createAndroidComposeRule<MainActivity>()
-    private val server=MockWebServer();private val offline=AtomicBoolean(false);private val posts=AtomicInteger()
+    private val server=MockWebServer();private val offline=AtomicBoolean(false);private val posts=AtomicInteger();private val logoutPosts=AtomicInteger()
     private val receipts=ConcurrentHashMap<String,JSONObject>()
     private val conflictNext=AtomicBoolean(false)
     private val harvestReceipts=ConcurrentHashMap<String,JSONObject>();private val harvestPosts=AtomicInteger();private val harvestConflictNext=AtomicBoolean(false);private val harvestUseNext=AtomicBoolean(false)
@@ -58,7 +58,7 @@ class FinanceEntryUiTest {
                 if(path.startsWith("harvests/") && path.endsWith("/audit")) return harvestAudit(path,response)
                 return when(path) {
                     "auth/login" -> { val isManager=JSONObject(request.body.readUtf8()).getString("email").startsWith("manager");response.setBody(JSONObject().put("token",if(isManager) "manager-fixture" else "worker-fixture").put("expires_at","2030-01-01T00:00:00Z").put("user",JSONObject().put("id",if(isManager) manager else worker).put("name",if(isManager) "Pengelola sintetis" else "Pekerja sintetis").put("role",if(isManager) "manager" else "worker")).toString()) }
-                    "auth/logout" -> response.setResponseCode(204)
+                    "auth/logout" -> {logoutPosts.incrementAndGet();response.setResponseCode(204)}
                     "sync/status" -> response.setBody(JSONObject().put("schema_version","2").put("sync_epoch",epoch).toString())
                     "sync/changes" -> response.setBody(page().toString())
                     "sync/operations" -> {
@@ -68,14 +68,16 @@ class FinanceEntryUiTest {
                             val remoteId=UUID.randomUUID().toString();receipts[remoteId]=JSONObject().put("operation_id",remoteId).put("entity_id",id).put("version",2).put("data",remote)
                             response.setResponseCode(409).setBody(JSONObject().put("code","version_conflict").put("message","Versi telah berubah.").put("current_version",2).put("current_data",remote).toString())
                         } else {
-                            val receipt=receipts.getOrPut(key) {
-                                posts.incrementAndGet()
+                            var created=false
+                            val receipt=receipts.computeIfAbsent(key) {
+                                created=true
                                 val previous=receipts.values.filter {it.getString("entity_id")==id}.maxByOrNull {it.getInt("version")}
                                 val version=(previous?.getInt("version") ?: 0)+1
                                 val data=if(op.getString("action")=="cancel") JSONObject(previous!!.getJSONObject("data").toString()).put("record_state","cancelled") else JSONObject(op.getJSONObject("payload").toString()).put("record_state","active")
                                 JSONObject().put("operation_id",key).put("entity_id",id).put("version",version)
                                     .put("data",data.put("id",id).put("version",version).put("recorded_by",previous?.getJSONObject("data")?.optString("recorded_by") ?: if(request.getHeader("Authorization").orEmpty().contains("manager-fixture")) manager else worker))
                             }
+                            if(created) posts.incrementAndGet()
                             response.setResponseCode(if(op.getString("action")=="create") 201 else 200).setBody(receipt.toString())
                         }
                     }
@@ -127,8 +129,9 @@ class FinanceEntryUiTest {
             val remoteId=UUID.randomUUID().toString();harvestReceipts[remoteId]=JSONObject().put("operation_id",remoteId).put("entity_id",id).put("version",2).put("data",remote)
             return response.setResponseCode(409).setBody(JSONObject().put("code","version_conflict").put("message","Versi panen berubah.").put("current_version",2).put("current_data",remote).toString())
         }
-        val receipt=harvestReceipts.getOrPut(key) {
-            harvestPosts.incrementAndGet();val version=(previous?.getInt("version") ?: 0)+1
+        var created=false
+        val receipt=harvestReceipts.computeIfAbsent(key) {
+            created=true;val version=(previous?.getInt("version") ?: 0)+1
             val payload=op.getJSONObject("payload");assertFalse(payload.has("_local_form"))
             val data=if(op.getString("action")=="cancel") JSONObject(previous!!.getJSONObject("data").toString()).put("record_state","cancelled") else JSONObject(payload.toString()).put("record_state","active")
             val items=data.getJSONArray("items");repeat(items.length()) {index -> val item=items.getJSONObject(index);assertTrue(item.get("fruit_count") is Int)
@@ -138,6 +141,7 @@ class FinanceEntryUiTest {
                 .put("reference_snapshot",JSONObject().put("age",JSONObject().put("hss",29).put("hst",JSONObject.NULL).put("status","available").put("reasons",JSONArray().put("HST belum berlaku sebelum pindah tanam."))))
             JSONObject().put("operation_id",key).put("entity_id",id).put("version",version).put("data",data)
         }
+        if(created) harvestPosts.incrementAndGet()
         return response.setResponseCode(if(op.getString("action")=="create") 201 else 200).setBody(receipt.toString())
     }
     private fun harvestAudit(path:String,response:MockResponse):MockResponse {
@@ -356,6 +360,66 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("harvest-save-draft").performScrollTo();capture("finance-harvest-landscape-ime.png");rule.onNodeWithTag("harvest-save-draft").assertIsDisplayed();hideKeyboard()
         rule.onNodeWithTag("harvest-save-draft").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-3").fetchSemanticsNodes().isNotEmpty()}
         rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_PORTRAIT}
+    }
+    private fun editorSnapshotLogout(harvest:Boolean) {
+        lateinit var runtime:FinanceRuntime;rule.runOnIdle {runtime=ViewModelProvider(rule.activity)[FinanceRuntime::class.java]}
+        val session=runtime.vault.current!!
+        val id=UUID.randomUUID().toString();val latest="Isian terakhir sebelum logout $id"
+        val record=if(harvest) {
+            val draft=com.inofarm.jogja.feature.harvest.domain.HarvestDraft(id=id,greenhouseId=gh,groupId=group,notes="Draf lama",items=listOf(com.inofarm.jogja.feature.harvest.domain.HarvestLine(gradeId=gradeA,fruitCount="",weightKg="belum")))
+            val old=runtime.store.saveDraft(session.scope.key,id,gh,draft.localJson(),kind="harvest")
+            // Deterministically leave the newest editor snapshot ahead of disk, without a timer race.
+            val memory=old.copy(body=draft.copy(notes=latest).localJson())
+            rule.runOnIdle {ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.harvest.HarvestViewModel::class.java].open(memory)}
+            memory
+        } else {
+            val draft=com.inofarm.jogja.feature.activities.domain.ActivityDraft(id=id,greenhouseId=gh,groupId=group,notes="Draf lama")
+            val old=runtime.store.saveDraft(session.scope.key,id,gh,draft.localJson())
+            val memory=old.copy(body=draft.copy(notes=latest).localJson())
+            rule.runOnIdle {ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.activities.ActivityViewModel::class.java].open(memory)}
+            memory
+        }
+        assertEquals("Draf lama",runtime.store.record(session.scope.key,id)!!.body.getString("notes"))
+        rule.waitUntil(10000) {rule.onAllNodesWithTag(if(harvest) "harvest-notes" else "finance-notes").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-logout").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
+        assertEquals(latest,runtime.store.record(session.scope.key,id)!!.body.getString("notes"));assertTrue(runtime.store.outbox(session.scope.key).isEmpty())
+        login("worker@example.invalid");rule.onNodeWithTag(if(harvest) "finance-tab-3" else "finance-tab-2").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-edit").performScrollTo().performClick();rule.onNodeWithTag(if(harvest) "harvest-notes" else "finance-notes").performScrollTo().assertTextContains(latest)
+        if(harvest) rule.onNodeWithTag("harvest-weight-0").performScrollTo().assertTextContains("belum")
+        assertEquals(record.id,id)
+    }
+    @Test fun logoutFlushesLatestActivityEditorSnapshotBeforeClearingCredentials() {editorSnapshotLogout(false)}
+    @Test fun logoutFlushesIncompleteHarvestEditorSnapshotBeforeClearingCredentials() {editorSnapshotLogout(true)}
+    private fun unchangedAcceptedEditorLogout(harvest:Boolean) {
+        val id=if(harvest) {
+            fillHarvest("Panen diterima tanpa edit");queueHarvest();rule.waitUntil(10000) {harvestPosts.get()==1}
+            val id=harvestReceipts.values.single().getString("entity_id")
+            rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick();id
+        } else createAccepted("Kegiatan diterima tanpa edit")
+        lateinit var runtime:FinanceRuntime;rule.runOnIdle {runtime=ViewModelProvider(rule.activity)[FinanceRuntime::class.java]}
+        val session=runtime.vault.current!!;val before=runtime.store.record(session.scope.key,id)!!
+        rule.onNodeWithTag("finance-edit").performScrollTo().performClick();rule.onNodeWithTag("finance-logout").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
+        val after=runtime.store.record(session.scope.key,id)!!
+        assertEquals(before.revision,after.revision);assertEquals(com.inofarm.jogja.core.contracts.SyncState.ACCEPTED,after.syncState)
+        assertEquals(before.serverVersion,after.serverVersion);assertEquals(1,runtime.store.outbox(session.scope.key).size)
+    }
+    @Test fun logoutDoesNotCreateAnUnchangedActivityCorrection() {unchangedAcceptedEditorLogout(false)}
+    @Test fun logoutDoesNotCreateAnUnchangedHarvestCorrection() {unchangedAcceptedEditorLogout(true)}
+    @Test fun failedLogoutFlushKeepsSessionThroughRecreationAndDoesNotRevokeServerToken() {
+        lateinit var runtime:FinanceRuntime;lateinit var auth:com.inofarm.jogja.feature.auth.AuthViewModel
+        rule.runOnIdle {runtime=ViewModelProvider(rule.activity)[FinanceRuntime::class.java];auth=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.auth.AuthViewModel::class.java]}
+        val session=runtime.vault.current!!;val generation=runtime.vault.generation;val originalRequests=logoutPosts.get()
+        val entered=kotlinx.coroutines.CompletableDeferred<Unit>();val release=kotlinx.coroutines.CompletableDeferred<Unit>()
+        rule.runOnIdle {auth.logout {entered.complete(Unit);release.await();throw java.io.IOException("Synthetic local persistence failure")}}
+        rule.waitUntil(10000) {entered.isCompleted};rule.onNodeWithText("Menyimpan isian terakhir sebelum keluar…").assertExists()
+        Espresso.pressBack();assertEquals(session,runtime.vault.current);assertEquals(generation,runtime.vault.generation)
+        rule.activityRule.scenario.recreate();rule.onNodeWithText("Menyimpan isian terakhir sebelum keluar…").assertExists();assertEquals(originalRequests,logoutPosts.get())
+        release.complete(Unit);rule.waitUntil(10000) {rule.onAllNodesWithText("Belum keluar").fetchSemanticsNodes().isNotEmpty()}
+        assertEquals(session,runtime.vault.current);assertEquals(generation,runtime.vault.generation);assertEquals(originalRequests,logoutPosts.get())
+        rule.onNodeWithText("Kembali ke isian").performClick();rule.onNodeWithTag("finance-logout").assertExists()
     }
     @Test fun narrowAndLandscapeAtTwoHundredPercentKeepSaveReachableWithKeyboard() {
         chooseContext()

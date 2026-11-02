@@ -84,10 +84,26 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     LaunchedEffect(harvestState.changed,harvestHistoryState.changed) {if((harvestState.changed>0 || harvestHistoryState.changed>0) && authState.session!=null) {activities.reload();context.refresh()} }
     val pending=activityState.queue.firstOrNull { it.state=="QUEUED" }?.id
     LaunchedEffect(pending,authState.session?.scope?.key) { if(pending!=null && authState.session!=null) context.refresh() }
+    val logout:()->Unit={
+        val session=auth.state.value.session
+        if(session!=null) {
+            activities.pauseAutosave();harvest.pauseAutosave()
+            val draft=activities.state.value.draft;val harvestDraft=harvest.state.value.draft;val ticket=runtime.vault.generation
+            auth.logout {
+                check(runtime.vault.matches(ticket,session.scope)) {"Sesi berubah sebelum penyimpanan."}
+                draft?.let {runtime.activities.flush(session,ticket,it)}
+                harvestDraft?.let {runtime.harvest.flush(session,ticket,it)}
+                check(runtime.vault.matches(ticket,session.scope)) {"Sesi berubah selama penyimpanan."}
+            }
+        }
+    }
+    BackHandler(authState.loading && authState.session!=null) { /* Wait for the bounded local persistence boundary. */ }
     Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
         if(authState.session==null) FinanceLogin(authState,auth::login)
-        else key(authState.session!!.scope.key) { FinanceHome(authState.session!!,contextState,activityState,context::refresh,auth::logout,activities,historyState,history,harvestState,harvest,harvestHistoryState,harvestHistory) }
+        else if(authState.loading) Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Spacer(Modifier.height(16.dp));Text("Menyimpan isian terakhir sebelum keluar…")}
+        else key(authState.session!!.scope.key) { FinanceHome(authState.session!!,contextState,activityState,context::refresh,logout,activities,historyState,history,harvestState,harvest,harvestHistoryState,harvestHistory) }
     }
+    if(authState.session!=null && !authState.loading && authState.error!=null) AlertDialog(onDismissRequest=auth::clearError,title={Text("Belum keluar")},text={Text(authState.error!!)},confirmButton={TextButton(onClick=auth::clearError) {Text("Kembali ke isian")}})
 }
 
 @Composable private fun FinanceLogin(state:AuthUiState,onLogin:(String,String,String)->Unit) {
@@ -122,22 +138,24 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
 @Composable private fun FinanceHome(session:FinanceSession,context:CultivationUiState,activity:ActivityUiState,onSync:()->Unit,onLogout:()->Unit,vm:ActivityViewModel,history:HistoryUiState,historyVm:HistoryViewModel,
     harvest:HarvestUiState,harvestVm:HarvestViewModel,harvestHistory:HistoryUiState,harvestHistoryVm:HistoryViewModel) {
     var tab by rememberSaveable { mutableStateOf(0) };var gh by rememberSaveable { mutableStateOf<String?>(null) };var season by rememberSaveable { mutableStateOf<String?>(null) };var group by rememberSaveable { mutableStateOf<String?>(null) }
+    val writing=activity.busy || harvest.busy || history.busy || harvestHistory.busy
     val keyboard=LocalSoftwareKeyboardController.current;val ime=WindowInsets.ime.getBottom(LocalDensity.current)>0
     LaunchedEffect(context.greenhouses.map { it.getString("id") }) { if(gh!=null && context.greenhouses.none { it.getString("id")==gh }) { gh=null;season=null;group=null } }
-    BackHandler(activity.draft!=null || harvest.draft!=null || history.selected!=null || harvestHistory.selected!=null || tab!=0) {
-        when { ime -> keyboard?.hide();activity.draft!=null && activity.reviewing -> vm.backToForm();activity.draft!=null -> vm.saveAndClose();harvest.draft!=null && harvest.reviewing -> harvestVm.backToForm();harvest.draft!=null -> harvestVm.saveAndClose();history.comparison!=null -> historyVm.closeComparison();history.selected!=null -> historyVm.close();harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison();harvestHistory.selected!=null -> harvestHistoryVm.close();else -> tab=0 }
+    BackHandler(writing || activity.draft!=null || harvest.draft!=null || history.selected!=null || harvestHistory.selected!=null || tab!=0) {
+        when { writing -> Unit;ime -> keyboard?.hide();activity.draft!=null && activity.reviewing -> vm.backToForm();activity.draft!=null -> vm.saveAndClose();harvest.draft!=null && harvest.reviewing -> harvestVm.backToForm();harvest.draft!=null -> harvestVm.saveAndClose();history.comparison!=null -> historyVm.closeComparison();history.selected!=null -> historyVm.close();harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison();harvestHistory.selected!=null -> harvestHistoryVm.close();else -> tab=0 }
     }
     Scaffold(contentWindowInsets=WindowInsets.safeDrawing,topBar={ Column(Modifier.statusBarsPadding().padding(horizontal=16.dp,vertical=8.dp)) {
         if(ime && (activity.draft!=null || harvest.draft!=null)) {
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(if(harvest.draft!=null) "Catat panen" else "Catat kegiatan",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={keyboard?.hide();if(harvest.draft!=null) harvestVm.saveAndClose() else vm.saveAndClose()}) {Text("Simpan draf")} }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(if(harvest.draft!=null) "Catat panen" else "Catat kegiatan",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={keyboard?.hide();if(harvest.draft!=null) harvestVm.saveAndClose() else vm.saveAndClose()},enabled=!writing) {Text("Simpan draf")} }
         } else {
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text("Inofarm",style=MaterialTheme.typography.titleLarge);Text("${session.name} · ${if(session.role==UserRole.WORKER) "Pekerja" else "Pengelola"}",style=MaterialTheme.typography.bodySmall) };TextButton(onClick=onLogout,modifier=Modifier.testTag("finance-logout")) {Text("Keluar")} }
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text("Inofarm",style=MaterialTheme.typography.titleLarge);Text("${session.name} · ${if(session.role==UserRole.WORKER) "Pekerja" else "Pengelola"}",style=MaterialTheme.typography.bodySmall) };TextButton(onClick=onLogout,enabled=!writing,modifier=Modifier.testTag("finance-logout")) {Text("Keluar")} }
         if(session.expired()) Notice("Sesi berakhir. Masuk kembali dengan akun yang sama untuk mengirim antrean. Draf tetap dapat disimpan.",true)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text("Pencatatan manual",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium);TextButton(onClick=onSync,enabled=!context.loading,modifier=Modifier.testTag("finance-sync")) {Text(if(context.loading) "Memeriksa…" else "Sinkronkan")} }
         }
     } },bottomBar={ if(activity.draft==null && harvest.draft==null && history.selected==null && harvestHistory.selected==null) NavigationBar { listOf("Beranda","Antrean","Kegiatan","Panen").forEachIndexed { index,label -> NavigationBarItem(selected=tab==index,onClick={tab=index},icon={Text(listOf("⌂","↻","≡","▦")[index])},label={Text(label)},modifier=Modifier.testTag("finance-tab-$index")) } } }) { padding ->
         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding().padding(horizontal=16.dp).widthIn(max=900.dp)) {
             when {
+                activity.busy || harvest.busy -> Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Text("Menyimpan isian ke perangkat…")}
                 activity.draft!=null -> if(activity.reviewing) ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue) else ActivityForm(activity,context,vm)
                 harvest.draft!=null -> if(harvest.reviewing) HarvestReview(harvest.draft,context,harvest.busy,harvestVm::backToForm,harvestVm::queue) else HarvestForm(harvest,context,harvestVm)
                 history.selected!=null -> HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()})

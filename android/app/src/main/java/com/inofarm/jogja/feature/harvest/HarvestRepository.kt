@@ -16,9 +16,15 @@ class HarvestValidationFailure(val fields:Map<String,String>,val baseVersion:Lon
 class HarvestRepository(val vault:FinanceSessionVault,private val store:LocalFinanceStore) {
     private val writes=Mutex()
     suspend fun snapshot(session:FinanceSession)=withContext(Dispatchers.IO) { HarvestRecords(store.records(session.scope.key,1000,kind="harvest"),store.outbox(session.scope.key,1000)) }
-    suspend fun save(session:FinanceSession,ticket:Long,draft:HarvestDraft,queue:Boolean)=withContext(Dispatchers.IO) { writes.withLock {
+    suspend fun flush(session:FinanceSession,ticket:Long,draft:HarvestDraft)=save(session,ticket,draft,false,onlyIfChanged=true)
+    suspend fun save(session:FinanceSession,ticket:Long,draft:HarvestDraft,queue:Boolean,onlyIfChanged:Boolean=false)=withContext(Dispatchers.IO) { writes.withLock {
         check(vault.matches(ticket,session.scope)) { "Sesi berubah." }
         val existing=store.record(session.scope.key,draft.id)
+        if(!queue && onlyIfChanged && existing!=null) {
+            val known=existing.baseVersion ?: existing.serverVersion
+            val stored=runCatching {HarvestDraft.from(existing.id,existing.greenhouseId,existing.body,known)}.getOrNull()
+            if(stored==draft.copy(baseVersion=draft.baseVersion ?: known)) return@withLock existing
+        }
         if(queue) {
             val effective=draft.copy(baseVersion=draft.baseVersion ?: existing?.baseVersion)
             val errors=effective.validation()

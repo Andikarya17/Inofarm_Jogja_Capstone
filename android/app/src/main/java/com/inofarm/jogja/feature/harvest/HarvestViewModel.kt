@@ -52,6 +52,7 @@ class HarvestViewModel(private val repository:HarvestRepository):ViewModel() {
     }
     fun review() { val draft=state.value.draft ?: return;val errors=draft.validation();mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty()) }
     fun backToForm() { mutable.value=state.value.copy(reviewing=false) }
+    fun pauseAutosave() {saveJob?.cancel();saveJob=null}
     fun saveAndClose() { val draft=state.value.draft ?: return;saveJob?.cancel();viewModelScope.launch { save(draft,false,true) } }
     fun queue() { val draft=state.value.draft ?: return;val errors=draft.validation();if(errors.isNotEmpty()) { mutable.value=state.value.copy(errors=errors,reviewing=false);return };saveJob?.cancel();viewModelScope.launch { save(draft,true,true) } }
     private suspend fun save(draft:HarvestDraft,queue:Boolean,close:Boolean) {
