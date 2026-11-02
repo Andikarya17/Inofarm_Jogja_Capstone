@@ -12,7 +12,7 @@
 
 PowerShell AST parse PASS. Changed Markdown local links **198 diperiksa PASS**, context checker **269links/8archive hashes/KF14/KNF8/U21 PASS** sebelum penambahan evidence ini. `git diff --check` PASS. Runbook dicocokkan dengan source command signatures,config,Android metadata,schema dan dua SOP PDF serta proposal49–50/55–57; tidak mengklaim fresh OS install. Composer install/platform check dan backend guarded fresh schema lewat PHPUnit sudah diuji pada FIN16; actual restore FIN15 adalah evidence historis, tidak dijalankan ulang untuk dokumentasi.
 
-Runtime packaging dilakukan sesudah source committed agar manifest mempunyai provenance clean commit; hasil terukur ditambahkan setelah command selesai. Tidak mengulang backend/device suites untuk perubahan dokumentasi dan packager.
+Runtime packaging **PASS** dari clean commit `ad5a5686`: `package-finance.ps1 -JavaHome <JDK25>` membangun finance APK (38tasks up-to-date,1s), memeriksa aapt2 package `.finance`,minSdk29,debug, lalu menghasilkan `output/finance/finance-review-ad5a5686-20261102-192221.zip` (**11.126.691bytes**). APK SHA256 `775351e91daff54eaf5377105b4d31195e4cedac39b505e4724fbeabce483289`. Independent Python zipfile/hashlib memeriksa tepat4entries,manifest,APK SHA dan seluruh SHA256SUMS: PASS. Artefak/log tetap ignored; server/credential/data tidak dibundel. Commit setelahnya hanya menambahkan evidence ini; APK memuat source runtime yang sama. Tidak mengulang backend/device suites untuk perubahan dokumentasi dan packager.
 
 ## Gate yang belum terpenuhi
 
