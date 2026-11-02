@@ -142,18 +142,38 @@ if ($mode === 'verify') {
     if (DB::table('change_feed')->where('entity_type', 'expense_balance')->where('entity_id', $expense->balance_id)->where('audience', 'manager')->count() !== 2) {
         throw new RuntimeException('Financial balance feed did not match source and allocation mutations.');
     }
+    $attachments = DB::table('record_attachments')->whereIn('greenhouse_id', $greenhouses)->get();
+    $privateRoot = dirname(__DIR__).'/tmp/finance-device-blobs-'.$fixture['fixture_id'];
+    if ($attachments->count() !== 2 || $attachments->pluck('mime')->sort()->values()->all() !== ['application/pdf', 'image/png']) {
+        throw new RuntimeException('Expected actual private PNG and PDF metadata.');
+    }
+    foreach ($attachments as $attachment) {
+        $blob = $privateRoot.'/blobs/'.substr($attachment->sha256, 0, 2).'/'.$attachment->sha256;
+        if ($attachment->owner_type !== 'expense' || $attachment->owner_id !== $expense->id || $attachment->owner_version !== 1 || $attachment->recorded_by !== $manager->id
+            || $attachment->version !== 1 || $attachment->record_state !== 'active' || ! str_starts_with($attachment->original_name, 'DEVICE PROOF — '.$fixture['fixture_id'])
+            || ! is_file($blob) || filesize($blob) !== $attachment->bytes || hash_file('sha256', $blob) !== $attachment->sha256
+            || ($attachment->mime === 'application/pdf' && $attachment->bytes <= 16384)) {
+            throw new RuntimeException('Actual private file, parent/version, actor or hash did not reconcile.');
+        }
+        foreach (['audit_logs', 'change_feed', 'sync_operations'] as $table) {
+            if (DB::table($table)->where('entity_id', $attachment->id)->count() !== 1) {throw new RuntimeException('Attachment replay duplicated '.$table);}
+        }
+        if (! DB::table('entity_identities')->where('entity_id', $attachment->id)->where('entity_type', 'expense_attachment')->exists()) {throw new RuntimeException('Attachment identity was not reserved.');}
+    }
     if (Illuminate\Support\Facades\Artisan::call('inofarm:finance-identities', ['--json' => true]) !== 0) {
         throw new RuntimeException('Read-only identity preflight did not reconcile the actual device graph.');
     }
-    echo 'PASS: MySQL inofarm_test activity1/version1/ledger1; harvest1/version2/cancelled/items2/snapshots2/ledger2/balance feed4; payment100.01/version1/allocation60.01/version1/counter60.01/balance version2/feed2; manager actor and one financial audit/receipt/feed per entity after offline/process restart/replay.'.PHP_EOL;
+    echo 'PASS: MySQL inofarm_test activity1/version1/ledger1; harvest1/version2/cancelled/items2/snapshots2/ledger2/balance feed4; payment100.01/version1/allocation60.01/version1/counter60.01/balance version2/feed2; private PNG/PDF2 and verified hashes, one financial/file audit/receipt/feed per entity after replay.'.PHP_EOL;
     exit(0);
 }
 if ($mode !== 'cleanup') {
     throw new RuntimeException('Use create, verify or cleanup.');
 }
+$privateFiles = DB::table('record_attachments')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->get();
 DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
     $registryIds = [...DB::table('change_feed')->whereIn('greenhouse_id', $greenhouses)->pluck('entity_id')->all(),
         ...DB::table('greenhouse_assignments')->whereIn('greenhouse_id', $greenhouses)->pluck('id')->all(), ...$actors->pluck('public_id')->all()];
+    DB::table('record_attachments')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
     DB::table('entity_identities')->whereIn('entity_id', array_unique($registryIds))->delete();
     $expenses = DB::table('expenses')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->select('id');
     DB::table('cost_allocations')->whereIn('expense_id', $expenses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
@@ -183,5 +203,20 @@ DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
         $actor->delete();
     }
 });
+$privateRoot = dirname(__DIR__).'/tmp/finance-device-blobs-'.$fixture['fixture_id'];
+foreach ($privateFiles as $attachment) {
+    if (! preg_match('/^[0-9a-f]{64}$/D', $attachment->sha256)) {throw new RuntimeException('Unsafe synthetic blob identity.');}
+    $directory = $privateRoot.'/blobs/'.substr($attachment->sha256, 0, 2);
+    $blob = $directory.'/'.$attachment->sha256;
+    if (is_file($blob)) {
+        if (hash_file('sha256', $blob) !== $attachment->sha256) {throw new RuntimeException('Synthetic file changed; refusing cleanup.');}
+        unlink($blob);
+    }
+    if (is_dir($directory) && count(scandir($directory)) === 2) {rmdir($directory);}
+}
+// No recursive delete: preserve any unexpected/orphan file for inspection.
+foreach ([$privateRoot.'/blobs', $privateRoot.'/staging', $privateRoot] as $directory) {
+    if (is_dir($directory) && count(scandir($directory)) === 2) {rmdir($directory);}
+}
 unlink($path);
 echo 'Only this synthetic fixture UUID/actor rows and ignored manifest cleaned; no reset or user database operation.'.PHP_EOL;

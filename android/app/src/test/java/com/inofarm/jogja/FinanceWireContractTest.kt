@@ -5,6 +5,8 @@ import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
+import java.security.MessageDigest
+import java.util.Base64
 
 class FinanceWireContractTest {
     @Test fun sharedFixtureMatchesIndependentHashAndReorderedKeys() {
@@ -34,5 +36,13 @@ class FinanceWireContractTest {
             assertTrue(op.getJSONObject("payload").get("amount") is String)
             assertEquals(op.getJSONObject("payload").getString("amount"),WireContract.decimal(op.getJSONObject("payload").getString("amount"),2).toPlainString())
         }
+    }
+    @Test fun attachmentFixtureBindsCanonicalMetadataAndBinaryHash() {
+        val fixture=JSONObject(File("../../contracts/v2/fixtures/attachment-operation.json").readText())
+        val operation=fixture.getJSONObject("operation");val payload=operation.getJSONObject("payload")
+        val bytes=Base64.getDecoder().decode(fixture.getString("fixture_file_base64"))
+        assertEquals(fixture.getString("canonical_sha256"),WireContract.hash(operation))
+        assertEquals(bytes.size,payload.getInt("bytes"))
+        assertEquals(payload.getString("sha256"),MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") {"%02x".format(it)})
     }
 }

@@ -29,6 +29,13 @@ return [
     */
 
     'disks' => [
+        'finance_private' => [
+            'driver' => 'local',
+            'root' => env('FINANCE_PRIVATE_ROOT', storage_path('app/private/finance-v2')),
+            'serve' => false,
+            'throw' => true,
+            'visibility' => 'private',
+        ],
 
         'local' => [
             'driver' => 'local',

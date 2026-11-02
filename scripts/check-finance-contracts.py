@@ -1,5 +1,6 @@
 """Read-only v2 JSON Schema/fixture/reference check; requires jsonschema in authoring runtime."""
 import hashlib
+import base64
 import json
 from pathlib import Path
 
@@ -63,4 +64,18 @@ for kind in ('expense', 'cost-allocation'):
         sample = json.loads(json.dumps(financial_fixture['operation']))
         sample['payload']['amount'] = invalid
         assert not financial_validator.is_valid(sample), (kind, invalid)
-print('PASS: activity/harvest/expense/allocation schemas, fixtures, decimal/integer rejection, SHA256 and local OpenAPI refs')
+attachment_schema = json.loads((root / 'attachment-operation.schema.json').read_text(encoding='utf-8'))
+Draft202012Validator.check_schema(attachment_schema)
+attachment_validator = Draft202012Validator(attachment_schema, format_checker=FormatChecker())
+attachment_fixture = json.loads((root / 'fixtures/attachment-operation.json').read_text(encoding='utf-8'))
+attachment_validator.validate(attachment_fixture['operation'])
+binary = base64.b64decode(attachment_fixture['fixture_file_base64'], validate=True)
+assert len(binary) == attachment_fixture['operation']['payload']['bytes']
+assert hashlib.sha256(binary).hexdigest() == attachment_fixture['operation']['payload']['sha256']
+encoded = json.dumps(attachment_fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+assert hashlib.sha256(encoded.encode()).hexdigest() == attachment_fixture['canonical_sha256']
+for field, invalid in [('bytes', 1.5), ('bytes', True), ('bytes', 0), ('bytes', 33554433), ('owner_version', '1'), ('owner_type', 'activity'), ('original_name', '../bad.png')]:
+    sample = json.loads(json.dumps(attachment_fixture['operation']))
+    sample['payload'][field] = invalid
+    assert not attachment_validator.is_valid(sample), (field, invalid)
+print('PASS: activity/harvest/expense/allocation/attachment schemas, binary and operation goldens, typed rejection and local OpenAPI refs')

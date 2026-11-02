@@ -6,6 +6,8 @@
 
 Base URL environment configurable, kandidat `/api/v2/`; HTTPS produksi. Auth bearer Sanctum dapat dipertahankan dengan policy baru. JSON decimal berupa string; UUID canonical; dates YYYY-MM-DD, timestamps ISO8601 offset. List cursor/limit bounded dengan stable order dan scope; batas dipilih/didokumentasikan, rekomendasi10KB SOP bukan otomatis seluruh kontrak upload. Pisahkan upload binary dan JSON. Semua mutation menyertakan operation_id/base_version bila applicable; jalur normal dan sync harus memakai domain service/idempotensi yang sama.
 
+Subset lampiran executable schema9 memakai `GET attachments/policy`, `POST attachments` multipart operation+file, list/detail/audit, `GET attachments/{id}/content` dan reasoned cancel. Tabel di bawah tetap rancangan awal; nama download aktual adalah content. [Kontrak lampiran](../../../contracts/v2/ATTACHMENTS.md) membekukan scope, MIME/extension/hash, cap concurrent, replay dan private storage. Q07 konfigurasi produksi belum ditetapkan; native file queue/UI masih berikutnya.
+
 Response error: `code`, `message`, `field_errors`, `request_id`, opsional `current_version` dan `reasons`. 401 sesi, 403 kewenangan, 404 absent/tak boleh diungkap sesuai policy, 409 version/operation conflict, 422 validation/domain, 413 ukuran, 429 rate limit. Jangan kirim stacktrace/SQL/token. API tidak mempercayai actor, role, total, sold_balance atau scope payload.
 
 ## Resource/action map

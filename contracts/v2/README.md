@@ -1,6 +1,6 @@
 # Kontrak core v2 — FIN01
 
-Baseline source `9da5b30`; branch awal `codex/finance-contracts`. Proposal SHA256 telah diperiksa cocok pada 29 Oktober 2026. Kontrak executable berkembang dari auth/context/activity/sync hingga panen dan [pengeluaran/alokasi](EXPENSES.md). Upload, aset, penjualan, evaluasi dan recovery masih ditambahkan per modul; rancangan API_V2 bukan bukti route yang belum diimplementasikan. FIN01 keseluruhan tetap parsial.
+Baseline source `9da5b30`; branch awal `codex/finance-contracts`. Proposal SHA256 telah diperiksa cocok pada 29 Oktober 2026. Kontrak executable berkembang dari auth/context/activity/sync hingga panen, [pengeluaran/alokasi](EXPENSES.md) dan [lampiran privat backend](ATTACHMENTS.md). Aset, penjualan, evaluasi dan recovery masih ditambahkan per modul; rancangan API_V2 bukan bukti route yang belum diimplementasikan. FIN01 keseluruhan tetap parsial.
 
 ## Wire dan angka
 
@@ -9,7 +9,7 @@ Baseline source `9da5b30`; branch awal `codex/finance-contracts`. Proposal SHA25
 - Entity UUID global lintas jenis v2, termasuk inline children/balances; collision409 generik, accepted replay tetap utuh. [Registry/backfill contract](IDENTITIES.md) membedakannya dari namespace operation/epoch dan legacy.
 - Q10 disetujui pengguna pada chat pelaksanaan: IDR, nominal DECIMAL(20,2), kuantitas/harga DECIMAL(20,6), HALF_UP pada total transaksi. Input yang melebihi skala/range ditolak, tidak dibulatkan diam-diam. JSON angka desimal selalu string, Kotlin BigDecimal, PHP BCMath. Pembulatan line vs total: subtotal diperhitungkan presisi penuh, total transaksi dibulatkan sekali; detail formula modul akan dibekukan sebelum implementasinya. Tidak ada default nilai bisnis.
 - Error `{code,message,field_errors,request_id,reasons,current_version?}`. 401 `authentication_required`; 403 `access_denied`; 404 `not_found`; 409 `version_conflict`, `operation_conflict`, `epoch_mismatch`, `season_closed`; 422 `validation_failed`; 429 `rate_limited`. Semua alasan dan field errors dipertahankan. Error internal tidak mengekspos SQL/trace.
-- Request JSON max 16 KiB existing tetap berlaku. Satu operasi per request; pagination default 50, maximum 100. Upload terpisah pada FIN09/14, belum tersedia.
+- Request JSON max16KiB tetap berlaku. Satu operasi per request; pagination default50, maximum100. Upload multipart terpisah membatasi metadata16KiB dan binary sesuai policy yang belum ditetapkan untuk produksi; lihat kontrak lampiran.
 
 ## State dan operasi
 

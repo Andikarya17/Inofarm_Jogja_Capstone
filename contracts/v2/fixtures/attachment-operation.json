@@ -1,0 +1,22 @@
+{
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "20000000-0000-4000-8000-000000000001",
+    "operation_id": "20000000-0000-4000-8000-000000000002",
+    "entity_id": "20000000-0000-4000-8000-000000000003",
+    "entity_type": "expense_attachment",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "owner_type": "expense",
+      "owner_id": "20000000-0000-4000-8000-000000000004",
+      "owner_version": 1,
+      "original_name": "Bukti transaksi — sintetis.png",
+      "mime": "image/png",
+      "bytes": 68,
+      "sha256": "fc38a84fdffa1b41f1fe8298f3f7532f6d9ee3b67388c21fd70dfebf78948026"
+    }
+  },
+  "canonical_sha256": "fcc265cfbe99b2a115a4d830f6e3eb9c7fc8658d0c2c86261c1c101a9e1b6d46",
+  "fixture_file_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j0ioAAAAASUVORK5CYII="
+}
