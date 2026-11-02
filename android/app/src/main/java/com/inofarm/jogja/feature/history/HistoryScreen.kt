@@ -175,5 +175,5 @@ import java.time.LocalDate
 }
 
 @Composable internal fun RecordFacts(record:LocalRecord,session:FinanceSession,context:CultivationUiState,kind:OperationalKind) {
-    when(kind) {OperationalKind.ACTIVITY -> ActivityFacts(record,session,context);OperationalKind.HARVEST -> HarvestFacts(record,session,context);OperationalKind.EXPENSE,OperationalKind.COST_ALLOCATION -> FinancialFacts(record,context);OperationalKind.SALE -> com.inofarm.jogja.feature.sales.SaleFacts(record,context)}
+    when(kind) {OperationalKind.ACTIVITY -> ActivityFacts(record,session,context);OperationalKind.HARVEST -> HarvestFacts(record,session,context);OperationalKind.EXPENSE,OperationalKind.COST_ALLOCATION -> FinancialFacts(record,context);OperationalKind.ASSET,OperationalKind.DEPRECIATION -> com.inofarm.jogja.feature.assets.AssetFacts(record);OperationalKind.SALE -> com.inofarm.jogja.feature.sales.SaleFacts(record,context)}
 }

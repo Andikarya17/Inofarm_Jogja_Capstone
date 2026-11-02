@@ -123,11 +123,29 @@ class FinanceAttachmentTest {
         val draft=draft();repo().policy(session,vault.generation,store.record(scope.key,parentId)!!);repo().queue(session,vault.generation,draft.id)
         val original=store.next(scope.key)!!
         helper.close()
-        // Only this owned synthetic DB: remove the sole schema7 addition to construct schema6.
+        // Reconstruct only this owned synthetic schema6 DB without later tables/columns.
+        // Copy ciphertext and immutable hashes verbatim; this also runs on API29 SQLite.
         require(name.startsWith("finance-test-files-"))
-        context.openOrCreateDatabase(name,0,null).use {old ->old.execSQL("DROP TABLE local_attachment_forms");old.version=6}
+        val tables=linkedMapOf<String,Pair<String,List<android.content.ContentValues>>>()
+        val indexes=mutableListOf<String>()
+        context.openOrCreateDatabase(name,0,null).use {old ->
+            old.rawQuery("SELECT name,sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('android_metadata','local_attachment_forms')",null).use {schema ->while(schema.moveToNext()) {
+                val table=schema.getString(0);val sql=schema.getString(1).replace(Regex(",\\s*asset_id TEXT"),"");val rows=mutableListOf<android.content.ContentValues>()
+                old.rawQuery("SELECT * FROM $table",null).use {data ->while(data.moveToNext()) {val values=android.content.ContentValues();data.columnNames.forEachIndexed {index,column ->if(column!="asset_id") {when(data.getType(index)) {
+                    android.database.Cursor.FIELD_TYPE_NULL->values.putNull(column)
+                    android.database.Cursor.FIELD_TYPE_INTEGER->values.put(column,data.getLong(index))
+                    android.database.Cursor.FIELD_TYPE_FLOAT->values.put(column,data.getDouble(index))
+                    android.database.Cursor.FIELD_TYPE_BLOB->values.put(column,data.getBlob(index))
+                    else->values.put(column,data.getString(index))
+                }}};rows.add(values)}};tables[table]=sql to rows
+            }}
+            old.rawQuery("SELECT sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL AND name!='local_asset_parent'",null).use {cursor ->while(cursor.moveToNext()) indexes.add(cursor.getString(0))}
+        }
+        assertTrue(context.deleteDatabase(name))
+        context.openOrCreateDatabase(name,0,null).use {legacy ->legacy.beginTransaction();try {tables.forEach {(table,snapshot) ->legacy.execSQL(snapshot.first);snapshot.second.forEach {legacy.insertOrThrow(table,null,it)}};indexes.forEach(legacy::execSQL);legacy.version=6;legacy.setTransactionSuccessful()} finally {legacy.endTransaction()}}
+
         helper=FinanceDatabase(context,name);store=LocalFinanceStore(helper,AndroidPayloadCipher())
-        assertEquals(7,helper.readableDatabase.version);val upgraded=store.next(scope.key)!!
+        assertEquals(FinanceDatabase.VERSION,helper.readableDatabase.version);val upgraded=store.next(scope.key)!!
         assertEquals(original.hash,upgraded.hash);assertEquals(original.blobId,upgraded.blobId)
         store.initialize(scope.key,epoch,UserRole.MANAGER)
         store.saveAttachmentForm(scope.key,draft.id,JSONObject().put("reason","Alasan mentah — belum diajukan"))
