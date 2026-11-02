@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\V2\ActivityController;
 use App\Http\Controllers\V2\AuthController;
+use App\Http\Controllers\V2\ChangeFeedController;
 use App\Http\Controllers\V2\ContextController;
 use App\Http\Controllers\V2\MasterController;
 use App\Http\Controllers\V2\ReferenceController;
@@ -16,6 +18,14 @@ Route::prefix('v2')->group(function () {
         Route::get('greenhouses', [ContextController::class, 'greenhouses']);
         Route::get('greenhouses/{id}', [ContextController::class, 'greenhouse'])->whereUuid('id');
         Route::get('sync/status', SyncStatusController::class);
+        Route::post('sync/operations', [ActivityController::class, 'sync']);
+        Route::get('sync/changes', ChangeFeedController::class);
+        Route::get('activities', [ActivityController::class, 'index']);
+        Route::get('activities/{id}', [ActivityController::class, 'show'])->whereUuid('id');
+        Route::post('activities', [ActivityController::class, 'store']);
+        Route::patch('activities/{id}', [ActivityController::class, 'update'])->whereUuid('id');
+        Route::post('activities/{id}/cancel', [ActivityController::class, 'cancel'])->whereUuid('id');
+        Route::get('activities/{id}/audit', [ActivityController::class, 'audit'])->whereUuid('id');
         Route::get('users', [UserController::class, 'index']);
         Route::post('users', [UserController::class, 'store']);
         Route::patch('users/{id}', [UserController::class, 'update'])->whereUuid('id');

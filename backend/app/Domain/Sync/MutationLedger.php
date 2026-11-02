@@ -6,6 +6,7 @@ use App\Domain\Contracts\CanonicalJson;
 use App\Domain\Contracts\DomainFailure;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Laravel\Sanctum\PersonalAccessToken;
 
 final class MutationLedger
 {
@@ -16,6 +17,11 @@ final class MutationLedger
     {
         return DB::transaction(function () use ($sessionActor, $operation, $authorize, $execute) {
             $state = DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();
+            $token = $sessionActor->currentAccessToken();
+            if ($token instanceof PersonalAccessToken) {
+                abort_unless(DB::table('personal_access_tokens')->where('id', $token->id)
+                    ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->exists(), 401, 'Sesi telah dicabut atau berakhir.');
+            }
             $actor = User::findOrFail($sessionActor->id);
             abort_unless($actor->active && in_array($actor->role, ['worker', 'manager'], true), 403, 'Hak akses akun telah berubah.');
             $authorize($actor);
