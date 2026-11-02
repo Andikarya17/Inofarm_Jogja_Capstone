@@ -1,17 +1,20 @@
 <?php
 
 use App\Domain\Activities\ActivityService;
-use App\Domain\Contracts\DomainFailure;
-use App\Domain\Harvest\HarvestService;
-use App\Domain\Finance\CostAllocationService;
-use App\Domain\Finance\SaleService;
 use App\Domain\Attachments\AttachmentService;
 use App\Domain\Attachments\UploadedEvidence;
-use Illuminate\Http\UploadedFile;
+use App\Domain\Contracts\DomainFailure;
+use App\Domain\Finance\AssetService;
+use App\Domain\Finance\CostAllocationService;
+use App\Domain\Finance\ExpenseService;
+use App\Domain\Finance\SaleService;
+use App\Domain\Harvest\HarvestService;
 use App\Models\User;
 use App\Support\TestDatabaseGuard;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 // Dedicated child process. Never boot a database before the guard.
 putenv('APP_ENV=testing');
@@ -40,6 +43,8 @@ try {
         'harvest' => HarvestService::class,
         'cost_allocation' => CostAllocationService::class,
         'sale' => SaleService::class,
+        'asset', 'depreciation_allocation' => AssetService::class,
+        'expense' => ExpenseService::class,
         'expense_attachment' => AttachmentService::class,
         default => throw new InvalidArgumentException('Unsupported synthetic race kind.'),
     };
@@ -55,6 +60,8 @@ try {
     $result = ['status' => 'accepted', 'version' => $receipt['body']['version']];
 } catch (DomainFailure $e) {
     $result = ['status' => $e->domainCode, 'version' => $e->currentVersion];
+} catch (HttpExceptionInterface $e) {
+    $result = ['status' => 'http_'.$e->getStatusCode()];
 } catch (Throwable $e) {
     $result = ['status' => 'error', 'class' => $e::class];
 }

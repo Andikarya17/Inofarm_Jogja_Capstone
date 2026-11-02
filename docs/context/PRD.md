@@ -1,5 +1,10 @@
 # PRD: pencatatan operasional dan evaluasi keuangan greenhouse
 
+## Lanjutan FIN11 — 30 Oktober 2026
+
+Backend/schema11 aset dan alokasi penyusutan manual serta pratinjau Kotlin telah ditambahkan dan diuji. [Evidence FIN11](../migration/finance-20261029/evidence/FIN11-backend.md) memuat konvensi numerik, hasil dan batas. Native form/outbox/device FIN11 dan FIN12–17 belum selesai; FIN10 checkpoint tidak diulang. Proposal asli ditunda oleh pengguna, bukan dianggap telah diverifikasi. Tidak mengubah nilai produksi atau menutup gate handover.
+
+
 Versi target 29 Oktober 2026. Sumber P/U/G/S didefinisikan di [SOURCES](../migration/finance-20261029/SOURCES.md). KF/KNF di bawah menggunakan nomor **proposal baru**, tidak setara dengan KF IoT lama. Implementasi bertahap tersedia sesuai [status/evidence](IMPLEMENTATION_STATUS.md); [audit](../migration/finance-20261029/AUDIT_COMPARISON.md) adalah baseline sebelum perubahan executable.
 
 ## 1. Tujuan dan cakupan

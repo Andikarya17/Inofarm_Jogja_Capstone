@@ -1,5 +1,10 @@
 # Architecture: kondisi aktual dan target
 
+## Lanjutan FIN11 — 30 Oktober 2026
+
+Backend/schema11 aset dan alokasi penyusutan manual serta pratinjau Kotlin telah ditambahkan dan diuji. [Evidence FIN11](../migration/finance-20261029/evidence/FIN11-backend.md) memuat konvensi numerik, hasil dan batas. Native form/outbox/device FIN11 dan FIN12–17 belum selesai; FIN10 checkpoint tidak diulang. Proposal asli ditunda oleh pengguna, bukan dianggap telah diverifikasi. Tidak mengubah nilai produksi atau menutup gate handover.
+
+
 ## Baseline sebelum implementasi, diperiksa 29 Oktober 2026
 
 `android/`: Kotlin/Compose native, `com.inofarm.jogja`, OwnerApp/OwnerViewModel, repository/OkHttp/JSON, SessionStore dan cache baca file terenkripsi. Dashboard sensor, riwayat event, konfigurasi, pekerja/shift. Tidak ada database lokal transaksi/outbox pada dependency/source yang diinventarisasi.
