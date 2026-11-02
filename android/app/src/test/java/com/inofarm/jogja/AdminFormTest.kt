@@ -1,0 +1,39 @@
+package com.inofarm.jogja
+
+import com.inofarm.jogja.feature.admin.AdminForm
+import com.inofarm.jogja.feature.admin.AdminResource
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Test
+
+class AdminFormTest {
+    @Test fun groupDraftRetainsRawInputAndRequiresValidDatesAndIntegerPopulation() {
+        val draft=AdminForm(AdminResource.GROUP,values=mapOf("name" to "Kelompok A","season_id" to "s","variety_id" to "v","population" to "","sowing_date" to "2026-11-02","transplant_date" to ""))
+        assertTrue(runCatching {draft.payload()}.isFailure)
+        assertEquals("",AdminForm.parse(draft.json()).values["population"])
+        val payload=draft.copy(values=draft.values+("population" to "0")).payload()
+        assertEquals(0,payload.getInt("population"));assertTrue(payload.isNull("transplant_date"))
+    }
+    @Test fun referenceRoundtripKeepsMissingDifferentFromZeroAndNormalizesServerTimestamp() {
+        val row=JSONObject().put("id","id").put("version",3).put("activity_type","nutrition").put("parameter","manual_ppm").put("unit","ppm")
+            .put("effective_from","2026-11-02T00:00:00.000000Z").put("effective_until",JSONObject.NULL).put("target_value","0").put("minimum",JSONObject.NULL).put("maximum",JSONObject.NULL).put("tolerance",JSONObject.NULL).put("active",true)
+        val draft=AdminForm.edit(AdminResource.TARGET,row).let {it.copy(values=it.values+("reason" to "Koreksi"))}
+        val payload=draft.payload()
+        assertEquals("0",payload.getString("target_value"));assertTrue(payload.isNull("minimum"))
+        assertEquals("2026-11-02T00:00:00Z",payload.getString("effective_from"));assertFalse(payload.has("planting_group_id"))
+    }
+    @Test fun userPasswordsNeverEnterDraftAndUpdateEmailIsImmutable() {
+        val form=AdminForm(AdminResource.USER,values=mapOf("greenhouse_id" to "gh","name" to "Pekerja","email" to "worker@example.invalid","role" to "worker"))
+        val password="synthetic-passphrase-only"
+        assertEquals(password,form.payload(password).getString("password"));assertFalse(form.json().toString().contains(password))
+        assertTrue(runCatching {form.payload()}.isFailure)
+        val updated=AdminForm.edit(AdminResource.USER,JSONObject().put("id","u").put("version",1).put("greenhouse_id","gh").put("name","Pekerja").put("email","old@example.invalid").put("role","worker").put("active",true))
+        assertFalse(updated.fields.any {it.key=="email"});assertTrue(updated.fields.any {it.key=="greenhouse_id"})
+    }
+    @Test fun closeSeasonOnlySubmitsReasonAndRetainsVersion() {
+        val form=AdminForm.edit(AdminResource.SEASON,JSONObject().put("id","s").put("version",4),"close")
+        assertTrue(runCatching {form.payload()}.isFailure)
+        assertEquals(setOf("reason"),form.copy(values=mapOf("reason" to "Review selesai")).payload().keys().asSequence().toSet())
+        assertEquals(4L,AdminForm.parse(form.json()).version)
+    }
+}

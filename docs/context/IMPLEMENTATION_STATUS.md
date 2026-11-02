@@ -4,6 +4,7 @@ Dokumen ini melengkapi context pack FIN00 yang provenance dan arsipnya diverifik
 
 | Task | Status | Bukti / batas |
 |---|---|---|
+| FIN16 administrasi native | PASS core lokal / integrasi berlanjut | Editor akun/master/assignment/jadwal/target + encrypted draft/idempotent pending journal; 76 JVM/lint0,31 storage/sync/admin device +2 UI/font200%. [Evidence/batas](../migration/finance-20261029/evidence/FIN16-admin.md). UAT/perangkat fisik/pentest/cutover belum disahkan. |
 | FIN15 recovery | PASS core lokal |132 backend/2127 assertions;72 JVM/lint0;33 device;3 real phases/OS reboot/root UI + separate MySQL restore53 tables123 rows73FK2 snapshots1PNG + independent checker PASS. Q08 produksi/UAT/pentest/fisik tetap terbuka, push ditunda. [Evidence](../migration/finance-20261029/evidence/FIN15.md). |
 | FIN14 ekspor | PASS core lokal |126 backend/2021 assertions; final7/119;72 JVM/lint0;5 device; real PDF/CSV+SQL via ADB reverse PASS; typed artifacts/all-page render. NAT emulator intermittently terputus, physical/UAT/pentest/reviewer tetap terbuka; push ditunda. [Evidence](../migration/finance-20261029/evidence/FIN14-backend.md). |
 | FIN13 investasi | PASS core lokal |119 backend/1906 assertions;259 oracle; dua PHP/MySQL races;66 JVM/lint0;8 device +3 real API/two OS reboot phases + SQL reconciliation. Root focus1PASS; cancelled-only history fix +17 device regression PASS; FIN14 ekspor berikutnya, push ditunda. [Backend](../migration/finance-20261029/evidence/FIN13-backend.md), [native](../migration/finance-20261029/evidence/FIN13-native.md). |

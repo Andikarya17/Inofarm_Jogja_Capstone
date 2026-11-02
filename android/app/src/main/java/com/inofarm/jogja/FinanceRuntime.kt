@@ -35,6 +35,7 @@ class FinanceDependencies(application:Application) {
     val attachments=AttachmentRepository(application,vault,store,api,files)
     val viewer=AttachmentViewer(application,vault,store,files)
     val auth=AuthRepository(api,vault,store)
+    val admin=com.inofarm.jogja.feature.admin.AdminRepository(application,vault,store,api,cipher)
     val activities=ActivityRepository(vault,store)
     val context=ContextRepository(vault,store,sync)
     val history=HistoryRepository(vault,store,api)
@@ -61,6 +62,7 @@ class FinanceRuntime(application:Application):AndroidViewModel(application) {
     val api get()=dependencies.api
     val sync get()=dependencies.sync
     val auth get()=dependencies.auth
+    val admin get()=dependencies.admin
     val activities get()=dependencies.activities
     val context get()=dependencies.context
     val history get()=dependencies.history
