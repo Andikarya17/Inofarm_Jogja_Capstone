@@ -52,7 +52,11 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         else {
             if(previous != epoch) {
                 connection.update("outbox",values("state" to "EPOCH_REVIEW"),"scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED')",arrayOf(scope))
-                connection.update("local_records",values("sync_state" to "EPOCH_REVIEW"),"scope=?",arrayOf(scope))
+                connection.execSQL("""INSERT OR IGNORE INTO local_record_revisions(scope,entity_id,revision,kind,greenhouse_id,body,server_body,base_version,server_version,resolution,saved_at)
+                    SELECT scope,entity_id,revision,kind,greenhouse_id,body,server_body,base_version,server_version,'restore_epoch_changed',? FROM local_records WHERE scope=?""",arrayOf<Any>(System.currentTimeMillis(),scope))
+                val cached=encrypt(scope,JSONObject().put("code","restore_cached_copy").put("message","Salinan server lama diarsipkan; menunggu pembacaan titik pemulihan."))
+                connection.update("local_records",values("error" to cached),"scope=? AND sync_state='ACCEPTED'",arrayOf(scope))
+                connection.update("local_records",values("sync_state" to "EPOCH_REVIEW","server_version" to null,"server_body" to null,"base_version" to null),"scope=?",arrayOf(scope))
                 connection.delete("cached_records","scope=?",arrayOf(scope))
                 connection.delete("scope_access","scope=?",arrayOf(scope))
                 connection.update("scope_metadata",values("pull_cursor" to null,"visible_greenhouses" to "[]"),"scope=?",arrayOf(scope))
@@ -423,9 +427,15 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         while(rows.moveToNext() && result==null) {val op=rows.operation(scope);if(runCatching {requireMutationKind(scope,op.envelope.getString("entity_type"))}.isSuccess) result=op}
         result
     }
-    fun acknowledge(scope: String, id: String, receipt: JSONObject) = transaction {
+    fun acknowledge(scope: String, id: String, receipt: JSONObject, historicalReview:JSONObject?=null) = transaction {
         val op = db.rawQuery("SELECT * FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,id)).use { if(it.moveToFirst()) it.operation(scope) else null } ?: error("Operasi ACK tidak ditemukan.")
-        require(op.envelope.getString("sync_epoch") == epoch(scope)) { "ACK berasal dari epoch lama; rekonsiliasi diperlukan." }
+        if(historicalReview==null) require(op.envelope.getString("sync_epoch") == epoch(scope)) { "ACK berasal dari epoch lama; rekonsiliasi diperlukan." }
+        else {
+            require(op.state in setOf("EPOCH_REVIEW","ACCEPTED") && record(scope,op.entityId)?.syncState==SyncState.EPOCH_REVIEW && op.envelope.getString("sync_epoch")!=epoch(scope))
+            require(historicalReview.getString("sync_epoch")==epoch(scope) && historicalReview.getString("state")=="receipt_found")
+            require(historicalReview.getString("operation_id")==id && historicalReview.getString("entity_id")==op.entityId && historicalReview.getString("request_hash")==op.hash && WireContract.hash(op.envelope)==op.hash)
+            require(WireContract.hash(historicalReview.getJSONObject("receipt"))==WireContract.hash(receipt))
+        }
         require(receipt.getString("operation_id") == id && receipt.getString("entity_id") == op.entityId && receipt.getLong("version") > 0) { "Identitas ACK tidak cocok." }
         val authoritative = receipt.getJSONObject("data"); require(authoritative.getString("id") == op.entityId)
         val version = receipt.getLong("version")
@@ -435,10 +445,15 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         val patch = values()
         if(version >= (current.serverVersion ?: 0)) { patch.put("server_version",version);patch.put("server_body",encrypt(scope,authoritative)) }
         if(current.latestOperationId == id && version>=(current.baseVersion ?: 0)) patch.put("base_version",version)
-        if(current.revision == op.revision && current.latestOperationId == id && version >= (current.serverVersion ?: 0)) {
+        val keepRecoveredCache=historicalReview!=null && current.error?.optString("code")=="restore_cached_copy" && WireContract.hash(current.body)!=WireContract.hash(authoritative)
+        if(keepRecoveredCache && current.latestOperationId==id) {patch.put("sync_state","LOCAL");patch.putNull("error")}
+        else if(current.revision == op.revision && current.latestOperationId == id && version >= (current.serverVersion ?: 0)) {
             patch.put("body",encrypt(scope,authoritative));patch.put("sync_state","ACCEPTED");patch.put("base_version",version);patch.putNull("error")
             patch.putAll(indexValues(authoritative))
-        } else if(current.latestOperationId == id && current.revision != op.revision && current.syncState != SyncState.EPOCH_REVIEW) patch.put("sync_state","LOCAL")
+        } else if(current.latestOperationId == id && current.revision != op.revision && (current.syncState != SyncState.EPOCH_REVIEW || historicalReview!=null)) patch.put("sync_state","LOCAL")
+        else if(historicalReview!=null && current.latestOperationId==id && current.revision==op.revision && current.serverBody!=null && (current.serverVersion ?: 0)>version) {
+            patch.put("body",encrypt(scope,current.serverBody));patch.put("sync_state","ACCEPTED");patch.put("base_version",current.serverVersion);patch.putNull("error")
+        }
         if(patch.size() > 0) db.update("local_records",patch,"scope=? AND entity_id=?",arrayOf(scope,op.entityId))
     }
     fun mark(scope: String, op: QueuedOperation, state: SyncState, error: JSONObject, nextAttemptAt: Long = 0) = transaction {
@@ -491,7 +506,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
                     }
                     else if(version > (local.serverVersion ?: 0)) {
                         val patch=values("server_version" to version,"server_body" to encrypt(scope,body))
-                        if(local.syncState == SyncState.ACCEPTED) {patch.put("body",encrypt(scope,body));patch.put("base_version",version);patch.putAll(indexValues(body))}
+                        if(local.syncState == SyncState.ACCEPTED || (local.syncState==SyncState.EPOCH_REVIEW && local.error?.optString("code")=="restore_cached_copy" && pending(scope,id).isEmpty() && WireContract.hash(local.body)==WireContract.hash(body))) {patch.put("body",encrypt(scope,body));patch.put("base_version",version);patch.put("sync_state","ACCEPTED");patch.putNull("error");patch.putAll(indexValues(body))}
                         db.update("local_records",patch,"scope=? AND entity_id=?",arrayOf(scope,id))
                     }
                 }

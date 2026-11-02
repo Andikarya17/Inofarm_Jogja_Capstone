@@ -2,6 +2,8 @@
 
 Baseline source `9da5b30`; branch awal `codex/finance-contracts`. Proposal SHA256 telah diperiksa cocok pada 29 Oktober 2026. Kontrak executable berkembang dari auth/context/activity/sync hingga panen, [pengeluaran/alokasi](EXPENSES.md), [lampiran privat](ATTACHMENTS.md) dan [penjualan lunas backend](SALES.md). Aset, evaluasi dan recovery masih ditambahkan per modul; rancangan API_V2 bukan bukti route yang belum diimplementasikan. FIN01 keseluruhan tetap parsial.
 
+FIN15 menambahkan [recovery privat dan rekonsiliasi](RECOVERY.md): system-wide capability terpisah, backup manual tanpa default jadwal/retensi, restore apply hanya target testing terisolasi dengan guard. Android meninjau receipt lama; missing tetap ditahan. Bukan izin restore produksi.
+
 ## Wire dan angka
 
 - Role wire `worker` (pekerja), `manager` (pengelola). Role legacy owner/leader tidak dikonversi otomatis. Setiap role v2, termasuk manager, memerlukan assignment greenhouse eksplisit. Tidak ada akses global implisit.

@@ -1,5 +1,9 @@
 # Implementation plan migrasi proposal terbaru
 
+## FIN15 — 2 November 2026
+
+FIN15 core PASS lokal:132 backend/2127 assertions,72 JVM/lint0,33 device cases;3 real phases sebelum backup→OS reboot→reconcile+MainActivity history PASS. Actual restore53 tables123 rows73FK2 snapshots1PNG dan14 exact decimal totals cocok; independent package/device-hash checker PASS. Missing blob dan populated target ditolak, source tetap, fixture/mapping/process milik runner dibersihkan. Pengguna membatasi sampai FIN15; FIN16 integrasi/UAT/pentest dan FIN17 cutover/handover belum dijalankan. [Kontrak](../../contracts/v2/RECOVERY.md), [evidence/batas](../migration/finance-20261029/evidence/FIN15.md). Commit lokal per fitur; push tetap ditunda pengguna.
+
 ## FIN14 — 2 November 2026
 
 FIN14 core PASS lokal: backend126 regression/2021 assertions; final focus7/119;72 JVM/lint0;5 device cases serta real API29 PDF/CSV sebelum/sesudah koreksi sumber + SQL reconciliation melalui ADB reverse PASS. Seluruh halaman PDF sintetis dan typed CSV diperiksa. Scope pengguna berhenti pada FIN14; FIN15 backup/restore, FIN16 regresi/UAT/pentest dan FIN17 handover belum dikerjakan pada task ini. [Evidence/batas](../migration/finance-20261029/evidence/FIN14-backend.md), [kontrak](../../contracts/v2/REPORT_EXPORT.md). Commit lokal per fitur; push ditunda pengguna.

@@ -25,6 +25,7 @@ final class EntityIdentity
         'activity_attachment' => ['record_attachments', 'id', ['owner_type' => 'activity']],
         'harvest_attachment' => ['record_attachments', 'id', ['owner_type' => 'harvest']],
         'expense_attachment' => ['record_attachments', 'id', ['owner_type' => 'expense']],
+        'backup_run' => ['backup_runs', 'id'], 'restore_run' => ['restore_runs', 'id'],
     ];
 
     /** Includes historical root IDs even if an external writer removed a physical row. */

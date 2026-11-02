@@ -4,6 +4,8 @@
 
 FIN14 executable menyediakan `GET report-exports/{id}/{pdf|csv}?expected_snapshot_hash={sha256}` untuk snapshot laporan accepted. Current manager/GH/token/epoch diperiksa ulang sebelum delivery; respons privat mencantumkan hash snapshot, SHA byte dan panjang berkas. PDF/CSV tidak menghitung ulang sumber. [Kontrak ekspor](../../../contracts/v2/REPORT_EXPORT.md), [evidence dan batas jaringan emulator](evidence/FIN14-backend.md).
 
+FIN15 executable menambahkan recovery/policy, recovery/backups list/create/detail/preflight, recovery/restores audit history dan sync/reconcile. Kapabilitas backup sistem server-configured/current manager; tidak ada HTTP restore apply produksi. [Kontrak](../../../contracts/v2/RECOVERY.md), [status/evidence](evidence/FIN15.md).
+
 ## Konvensi
 
 Base URL environment configurable, kandidat `/api/v2/`; HTTPS produksi. Auth bearer Sanctum dapat dipertahankan dengan policy baru. JSON decimal berupa string; UUID canonical; dates YYYY-MM-DD, timestamps ISO8601 offset. List cursor/limit bounded dengan stable order dan scope; batas dipilih/didokumentasikan, rekomendasi10KB SOP bukan otomatis seluruh kontrak upload. Pisahkan upload binary dan JSON. Semua mutation menyertakan operation_id/base_version bila applicable; jalur normal dan sync harus memakai domain service/idempotensi yang sama.
