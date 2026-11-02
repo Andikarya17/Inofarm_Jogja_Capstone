@@ -1316,6 +1316,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -1409,7 +1419,7 @@
             }
           }
         ],
-        "description": "Tanggal inklusif kalender WIB. Scope diperiksa server; pembatalan tetap dalam riwayat. Cursor diteruskan dengan filter yang sama."
+        "description": "Tanggal inklusif kalender WIB. Scope diperiksa server; pembatalan tetap dalam riwayat. Cursor diteruskan dengan filter yang sama. DTO memakai accepted revision snapshot UUID/version setelah parent/scope diotorisasi pada read boundary yang diserialkan dengan mutation. Snapshot hilang/ambigu tidak diganti child terkini; gagal500 record_snapshot_missing."
       },
       "post": {
         "operationId": "activity_create",
@@ -1585,8 +1595,19 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        }
+        },
+        "description": " DTO memakai accepted revision snapshot UUID/version setelah parent/scope diotorisasi pada read boundary yang diserialkan dengan mutation. Snapshot hilang/ambigu tidak diganti child terkini; gagal500 record_snapshot_missing."
       },
       "patch": {
         "operationId": "activity_update",
@@ -4242,6 +4263,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -4322,7 +4353,7 @@
             }
           }
         ],
-        "description": "Tanggal inklusif kalender WIB. Scope diperiksa server; pembatalan tetap dalam riwayat. Cursor diteruskan dengan filter yang sama."
+        "description": "Tanggal inklusif kalender WIB. Scope diperiksa server; pembatalan tetap dalam riwayat. Cursor diteruskan dengan filter yang sama. DTO memakai accepted revision snapshot UUID/version setelah parent/scope diotorisasi pada read boundary yang diserialkan dengan mutation. Snapshot hilang/ambigu tidak diganti child terkini; gagal500 record_snapshot_missing."
       },
       "post": {
         "operationId": "harvest_create",
@@ -4498,8 +4529,19 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        }
+        },
+        "description": " DTO memakai accepted revision snapshot UUID/version setelah parent/scope diotorisasi pada read boundary yang diserialkan dengan mutation. Snapshot hilang/ambigu tidak diganti child terkini; gagal500 record_snapshot_missing."
       },
       "patch": {
         "operationId": "harvest_update",
@@ -5117,7 +5159,8 @@
             "format": "uuid"
           },
           "recorded_by_name": {
-            "type": "string"
+            "type": "string",
+            "description": "Nama creator pada saat revisi diterima; snapshot historis."
           },
           "record_state": {
             "enum": [
@@ -5372,7 +5415,8 @@
             "format": "uuid"
           },
           "recorded_by_name": {
-            "type": "string"
+            "type": "string",
+            "description": "Nama creator pada saat revisi diterima; snapshot historis."
           },
           "record_state": {
             "enum": [

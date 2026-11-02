@@ -4,6 +4,8 @@ namespace App\Http\Controllers\V2;
 
 use App\Domain\Activities\ActivityService;
 use App\Domain\Cultivation\MasterService;
+use App\Domain\Sync\AcceptedSnapshot;
+use App\Domain\Sync\ScopedRead;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -17,36 +19,38 @@ final class ActivityController extends Controller
         $input = $request->validate(['planting_group_id' => 'nullable|uuid', 'activity_type' => 'nullable|in:nutrition,spray,general,stage',
             'greenhouse_id' => 'nullable|uuid', 'season_id' => 'nullable|uuid', 'record_state' => 'nullable|in:active,cancelled',
             'from' => 'nullable|date_format:Y-m-d', 'until' => 'nullable|date_format:Y-m-d'.($request->filled('from') ? '|after_or_equal:from' : ''), 'limit' => 'sometimes|integer|min:1|max:100', 'cursor' => 'nullable|string|max:512']);
-        $q = $service->scope($request->user());
-        foreach (['planting_group_id', 'activity_type', 'record_state'] as $key) {
-            if (isset($input[$key])) {
-                $q->where($key, $input[$key]);
+        return app(ScopedRead::class)->run($request, function (User $actor) use ($request, $service, $masters, $input) {
+            $q = $service->scope($actor);
+            foreach (['planting_group_id', 'activity_type', 'record_state'] as $key) {
+                if (isset($input[$key])) {
+                    $q->where($key, $input[$key]);
+                }
             }
-        }
-        if (isset($input['season_id']) || isset($input['greenhouse_id'])) {
-            $groups = $masters->scope($request->user(), 'planting_groups')->select('id');
-            if (isset($input['season_id'])) {
-                $groups->where('season_id', $input['season_id']);
+            if (isset($input['season_id']) || isset($input['greenhouse_id'])) {
+                $groups = $masters->scope($actor, 'planting_groups')->select('id');
+                if (isset($input['season_id'])) {
+                    $groups->where('season_id', $input['season_id']);
+                }
+                if (isset($input['greenhouse_id'])) {
+                    $groups->whereIn('season_id', DB::table('seasons')->select('id')->where('greenhouse_id', $input['greenhouse_id']));
+                }
+                $q->whereIn('planting_group_id', $groups);
             }
-            if (isset($input['greenhouse_id'])) {
-                $groups->whereIn('season_id', DB::table('seasons')->select('id')->where('greenhouse_id', $input['greenhouse_id']));
+            if (isset($input['from'])) {
+                $q->where('occurred_at', '>=', CarbonImmutable::parse($input['from'], 'Asia/Jakarta')->utc()->format('Y-m-d H:i:s'));
             }
-            $q->whereIn('planting_group_id', $groups);
-        }
-        if (isset($input['from'])) {
-            $q->where('occurred_at', '>=', CarbonImmutable::parse($input['from'], 'Asia/Jakarta')->utc()->format('Y-m-d H:i:s'));
-        }
-        if (isset($input['until'])) {
-            $q->where('occurred_at', '<', CarbonImmutable::parse($input['until'], 'Asia/Jakarta')->addDay()->utc()->format('Y-m-d H:i:s'));
-        }
-        $page = $q->orderByDesc('occurred_at')->orderByDesc('id')->cursorPaginate((int) ($input['limit'] ?? 50));
+            if (isset($input['until'])) {
+                $q->where('occurred_at', '<', CarbonImmutable::parse($input['until'], 'Asia/Jakarta')->addDay()->utc()->format('Y-m-d H:i:s'));
+            }
+            $page = $q->orderByDesc('occurred_at')->orderByDesc('id')->cursorPaginate((int) ($input['limit'] ?? 50));
 
-        return ['data' => collect($page->items())->map(fn ($row) => $service->publicRow($row)), 'next_cursor' => $page->nextCursor()?->encode()];
+            return ['data' => collect($page->items())->map(fn ($row) => app(AcceptedSnapshot::class)->read('activity', $row)), 'next_cursor' => $page->nextCursor()?->encode()];
+        });
     }
 
     public function show(Request $request, string $id, ActivityService $service)
     {
-        return $service->publicRow($service->scope($request->user())->where('id', $id)->first() ?? abort(404));
+        return app(ScopedRead::class)->run($request, fn (User $actor) => app(AcceptedSnapshot::class)->read('activity', $service->scope($actor)->where('id', $id)->first() ?? abort(404)));
     }
 
     public function store(Request $request, ActivityService $service)
@@ -74,17 +78,19 @@ final class ActivityController extends Controller
 
     public function audit(Request $request, string $id, ActivityService $service)
     {
-        $service->scope($request->user())->where('id', $id)->first() ?? abort(404);
         $input = $request->validate(['cursor' => 'nullable|integer|min:0', 'limit' => 'sometimes|integer|min:1|max:100']);
-        $limit = (int) ($input['limit'] ?? 50);
-        $rows = DB::table('audit_logs')->where('entity_type', 'activity')->where('entity_id', $id)->where('id', '>', $input['cursor'] ?? 0)->orderBy('id')->limit($limit + 1)->get();
+        return app(ScopedRead::class)->run($request, function (User $actor) use ($service, $id, $input) {
+            $service->scope($actor)->where('id', $id)->first() ?? abort(404);
+            $limit = (int) ($input['limit'] ?? 50);
+            $rows = DB::table('audit_logs')->where('entity_type', 'activity')->where('entity_id', $id)->where('id', '>', $input['cursor'] ?? 0)->orderBy('id')->limit($limit + 1)->get();
 
-        return ['data' => $rows->take($limit)->map(function ($row) {
-            $actor = User::findOrFail($row->actor_id);
+            return ['data' => $rows->take($limit)->map(function ($row) {
+                $actor = User::findOrFail($row->actor_id);
 
-            return ['id' => $row->id, 'actor_id' => $actor->public_id, 'actor_name' => $actor->name, 'action' => $row->action, 'version' => $row->version,
-                'reason' => $row->reason, 'changes' => json_decode($row->changes, true, flags: JSON_THROW_ON_ERROR), 'server_at' => CarbonImmutable::parse($row->server_at, 'UTC')->toISOString()];
-        })->values(), 'next_cursor' => $rows->count() > $limit ? (string) $rows[$limit - 1]->id : null];
+                return ['id' => $row->id, 'actor_id' => $actor->public_id, 'actor_name' => $actor->name, 'action' => $row->action, 'version' => $row->version,
+                    'reason' => $row->reason, 'changes' => json_decode($row->changes, true, flags: JSON_THROW_ON_ERROR), 'server_at' => CarbonImmutable::parse($row->server_at, 'UTC')->toISOString()];
+            })->values(), 'next_cursor' => $rows->count() > $limit ? (string) $rows[$limit - 1]->id : null];
+        });
     }
 
     private function perform(Request $request, ActivityService $service, string $action, ?string $id = null)

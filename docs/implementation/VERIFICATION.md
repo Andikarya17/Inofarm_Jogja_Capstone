@@ -1,3 +1,7 @@
+## Consistent operational reads — 30 Oktober 2026 WIB
+
+Branch `codex/finance-consistent-reads`, base `763cd7f`. Backend59tests/967assertions PASS after isolated guard4/12. Accepted revision projection and actor/token/scope boundary verified by controlled interleave and a second guarded MySQL connection. [Evidence](../migration/finance-20261029/evidence/20261030-CONSISTENT_READS.md) distinguishes these from two-process/throughput/device claims. No schema/Android/API v1 changes.
+
 ## Draft logout boundary — 30 Oktober 2026 WIB
 
 Branch `codex/finance-draft-logout`, base `bb3d864`. Android27unit/39instrumentation/0lint errors dan real guarded offline/restart/replay/manager cancel/old ACK phases2 PASS. Latest editor flushed before credentials clear; failure retains session through recreation/Back; unchanged accepted editor not converted into correction. [Evidence](../migration/finance-20261029/evidence/20261030-DRAFT_LOGOUT.md) includes environment/fixture failures and limits. Backend/API/schema unchanged.
