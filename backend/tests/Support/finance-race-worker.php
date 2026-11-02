@@ -4,6 +4,7 @@ use App\Domain\Activities\ActivityService;
 use App\Domain\Contracts\DomainFailure;
 use App\Domain\Harvest\HarvestService;
 use App\Domain\Finance\CostAllocationService;
+use App\Domain\Finance\SaleService;
 use App\Domain\Attachments\AttachmentService;
 use App\Domain\Attachments\UploadedEvidence;
 use Illuminate\Http\UploadedFile;
@@ -38,6 +39,7 @@ try {
         'activity' => ActivityService::class,
         'harvest' => HarvestService::class,
         'cost_allocation' => CostAllocationService::class,
+        'sale' => SaleService::class,
         'expense_attachment' => AttachmentService::class,
         default => throw new InvalidArgumentException('Unsupported synthetic race kind.'),
     };

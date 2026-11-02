@@ -56,6 +56,8 @@ Pull paginated cursor dengan upsert version-aware dan tombstones. Account/server
 
 ## 4. Rumus evaluasi musim (proposal Tabel 2.7)
 
+FIN10 backend executable: [penjualan lunas](../../contracts/v2/SALES.md) schema10 menghitung produk rincian presisi12, membulatkan total transaksi sekali ke IDR20,2 dan merekonsiliasi counter panen dengan rincian sale+header aktif. TR evaluasi akan menjumlah posted totals transaksi aktif sesuai konvensi ini; native form/history/outbox penjualan masih berikutnya.
+
 - D=(A-S)/n, n>0, 0<=S<=A. Alokasi berdasarkan waktu/proporsi yang disepakati; D×proporsi/jumlah musim setara hanya bila asumsi musim setara berlaku. Jangan menganggap semua musim setara secara default.
 - TC=FC+VC; TR=sum(q_j×p_j), hanya penjualan lunas aktif; L=TR-TC.
 - R/C=TR/TC dan B/C sederhana=L/TC=R/C-1, hanya TC>0. Label B/C bukan discounted benefit-cost ratio.

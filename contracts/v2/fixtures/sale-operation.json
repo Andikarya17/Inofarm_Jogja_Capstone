@@ -1,0 +1,38 @@
+{
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "30000000-0000-4000-8000-000000000001",
+    "operation_id": "30000000-0000-4000-8000-000000000002",
+    "entity_id": "30000000-0000-4000-8000-000000000003",
+    "entity_type": "sale",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "season_id": "30000000-0000-4000-8000-000000000004",
+      "paid_at": "2026-10-30T09:00:00+07:00",
+      "payment_status": "paid",
+      "customer_name": "Pembeli sintetis",
+      "notes": "Penjualan — pembulatan total sekali",
+      "items": [
+        {
+          "id": "30000000-0000-4000-8000-000000000010",
+          "harvest_item_id": "30000000-0000-4000-8000-000000000020",
+          "quantity_kg": "1.000000",
+          "price_per_kg": "0.004000"
+        },
+        {
+          "id": "30000000-0000-4000-8000-000000000011",
+          "harvest_item_id": "30000000-0000-4000-8000-000000000021",
+          "quantity_kg": "1.000000",
+          "price_per_kg": "0.004000"
+        }
+      ]
+    }
+  },
+  "canonical_sha256": "83376df1db2b0bf93f61945ef067bf78e3029c95008c5c65b251470dda3e8429",
+  "expected": {
+    "total_amount": "0.01",
+    "exact_total": "0.008000000000",
+    "total_weight_kg": "2.000000"
+  }
+}

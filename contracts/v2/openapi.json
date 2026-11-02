@@ -7319,6 +7319,690 @@
           }
         }
       }
+    },
+    "/sales": {
+      "get": {
+        "operationId": "list_sale",
+        "summary": "Riwayat sales (pengelola)",
+        "parameters": [
+          {
+            "name": "greenhouse_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "season_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "record_state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "active",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "description": "Read boundary scoped; accepted snapshots. Tanggal inklusif WIB memakai paid_at pada sales, created_at pada cost-allocations.",
+        "responses": {
+          "200": {
+            "description": "Berhasil; pengelola dalam assignment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleHistoryPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create_sale",
+        "summary": "create sales (pengelola)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "sale-operation.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Berhasil; pengelola dalam assignment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "get_sale",
+        "summary": "Detail accepted sales",
+        "responses": {
+          "200": {
+            "description": "Berhasil; pengelola dalam assignment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalePublic"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "update_sale",
+        "summary": "update sales (pengelola)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "sale-operation.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil; pengelola dalam assignment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/{id}/cancel": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "cancel_sale",
+        "summary": "cancel sales (pengelola)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "sale-operation.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil; pengelola dalam assignment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/{id}/audit": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "audit_sale",
+        "summary": "Audit sales",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil; pengelola dalam assignment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleAuditPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8909,6 +9593,333 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 2147483647
+          }
+        }
+      },
+      "SaleReceipt": {
+        "type": "object",
+        "required": [
+          "operation_id",
+          "entity_id",
+          "version",
+          "committed_at",
+          "data"
+        ],
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entity_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SalePublic"
+          }
+        }
+      },
+      "SaleHistoryPage": {
+        "type": "object",
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SalePublic"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SaleAuditEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "actor_id",
+          "actor_name",
+          "action",
+          "version",
+          "reason",
+          "changes",
+          "server_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "actor_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actor_name": {
+            "type": "string",
+            "description": "Nama akun saat audit dibaca; ID actor stabil."
+          },
+          "action": {
+            "enum": [
+              "create",
+              "update",
+              "cancel"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "server_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "changes": {
+            "type": "object",
+            "required": [
+              "before",
+              "after"
+            ],
+            "properties": {
+              "before": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SalePublic"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "after": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SalePublic"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "SaleAuditPage": {
+        "type": "object",
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleAuditEntry"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SaleItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "harvest_item_id",
+          "quantity_kg",
+          "price_per_kg",
+          "sale_id",
+          "harvest_id",
+          "harvest_version",
+          "grade_id",
+          "grade_name",
+          "exact_amount",
+          "active"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "harvest_item_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "quantity_kg": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$"
+          },
+          "price_per_kg": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$"
+          },
+          "sale_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "harvest_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "harvest_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "grade_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "grade_name": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "exact_amount": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,27})\\.[0-9]{12}$"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SalePublic": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "season_id",
+          "paid_at",
+          "payment_status",
+          "customer_name",
+          "notes",
+          "items",
+          "id",
+          "greenhouse_id",
+          "recorded_by",
+          "recorded_by_name",
+          "record_state",
+          "version",
+          "created_at",
+          "updated_at",
+          "currency",
+          "season_name",
+          "season_version",
+          "total_amount",
+          "total_weight_kg",
+          "exact_total",
+          "rounding"
+        ],
+        "properties": {
+          "season_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "paid_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "payment_status": {
+            "const": "paid"
+          },
+          "customer_name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/SaleItem"
+            }
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "greenhouse_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "recorded_by": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "recorded_by_name": {
+            "type": "string"
+          },
+          "record_state": {
+            "enum": [
+              "active",
+              "cancelled"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currency": {
+            "const": "IDR"
+          },
+          "season_name": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "season_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total_amount": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+          },
+          "total_weight_kg": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,13})\\.[0-9]{6}$"
+          },
+          "exact_total": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,27})\\.[0-9]{12}$"
+          },
+          "rounding": {
+            "const": "HALF_UP_TRANSACTION"
           }
         }
       }

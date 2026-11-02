@@ -9,6 +9,7 @@ final class HarvestBalance
 {
     public function publicRow(object $item, object $harvest): array
     {
+        $this->assertConsistent($item);
         $active = $item->active && $harvest->record_state === 'active';
 
         return ['id' => $item->id, 'harvest_id' => $harvest->id, 'planting_group_id' => $harvest->planting_group_id,
@@ -19,8 +20,18 @@ final class HarvestBalance
 
     public function assertWeight(object $item, string $newWeight): void
     {
+        $this->assertConsistent($item);
         if (bccomp($newWeight, $item->sold_weight_kg, 6) < 0) {
             throw new DomainFailure('harvest_in_use', 'Bobot panen tidak boleh lebih kecil dari bobot yang sudah digunakan penjualan. Selesaikan transaksi terkait melalui pengelola sebelum koreksi atau pembatalan.');
+        }
+    }
+
+    public function assertConsistent(object $item): void
+    {
+        $actual = DB::table('sale_items')->join('sales', 'sales.id', '=', 'sale_items.sale_id')->where('sale_items.harvest_item_id', $item->id)
+            ->where('sale_items.active', true)->where('sales.record_state', 'active')->sum('sale_items.quantity_kg');
+        if (bccomp((string) $actual, $item->sold_weight_kg, 6) !== 0) {
+            throw new DomainFailure('harvest_balance_inconsistent', 'Saldo penjualan dan rincian aktif tidak cocok. Pengiriman ditahan untuk rekonsiliasi pengelola.', 500);
         }
     }
 

@@ -79,3 +79,15 @@ for field, invalid in [('bytes', 1.5), ('bytes', True), ('bytes', 0), ('bytes', 
     sample['payload'][field] = invalid
     assert not attachment_validator.is_valid(sample), (field, invalid)
 print('PASS: activity/harvest/expense/allocation/attachment schemas, binary and operation goldens, typed rejection and local OpenAPI refs')
+sale_schema = json.loads((root / 'sale-operation.schema.json').read_text(encoding='utf-8'))
+Draft202012Validator.check_schema(sale_schema)
+sale_validator = Draft202012Validator(sale_schema, format_checker=FormatChecker())
+sale = json.loads((root / 'fixtures/sale-operation.json').read_text(encoding='utf-8'))
+sale_validator.validate(sale['operation'])
+encoded = json.dumps(sale['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+assert hashlib.sha256(encoded.encode()).hexdigest() == sale['canonical_sha256']
+for key, value in [('quantity_kg', '0'), ('quantity_kg', '0.000000'), ('quantity_kg', 1.5), ('price_per_kg', '1e2'), ('price_per_kg', '0.0000001')]:
+    invalid = json.loads(json.dumps(sale['operation']))
+    invalid['payload']['items'][0][key] = value
+    assert not sale_validator.is_valid(invalid), (key, value)
+print('PASS: paid-sale schema and independent multiline HALF_UP operation golden')

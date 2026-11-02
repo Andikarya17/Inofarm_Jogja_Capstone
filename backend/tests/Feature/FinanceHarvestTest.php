@@ -134,8 +134,9 @@ class FinanceHarvestTest extends FinanceTestCase
         $payload = $this->payload($ctx);
         $op = $this->operation('harvest', $payload);
         $this->postJson('/api/v2/harvests', $op)->assertCreated();
-        // Deliberately synthetic usage: proves the FIN08 guard, not an implemented sale.
-        DB::table('harvest_items')->where('id', $payload['items'][0]['id'])->update(['sold_weight_kg' => '5', 'balance_version' => 2]);
+        // FIN10 replaces the earlier counter-only fixture with an accepted paid sale.
+        $this->asUser($ctx['manager'])->postJson('/api/v2/sales', $this->operation('sale', ['season_id' => $ctx['season']['id'], 'paid_at' => '2026-10-30T09:00:00+07:00', 'payment_status' => 'paid', 'customer_name' => '', 'notes' => 'Pemakaian sintetis',
+            'items' => [['id' => (string) Str::uuid(), 'harvest_item_id' => $payload['items'][0]['id'], 'quantity_kg' => '5', 'price_per_kg' => '10000']]]))->assertCreated();
         $tooSmall = $this->correction($payload);
         $tooSmall['items'][0]['weight_kg'] = '4.999999';
         $this->patchJson('/api/v2/harvests/'.$op['entity_id'], $this->operation('harvest', $tooSmall, 'update', $op['entity_id'], 1))->assertConflict()->assertJsonPath('code', 'harvest_in_use');
