@@ -89,6 +89,24 @@ class FinanceInvestmentTest {
         val before=store.next(session.scope.key)!!;assertEquals(1,before.envelope.getJSONObject("payload").getInt("expected_scenario_version"));helper.close();helper=FinanceDatabase(context,name);store=LocalFinanceStore(helper,FixtureCipher())
         val after=store.next(session.scope.key)!!;assertEquals(before.id,after.id);assertEquals(before.hash,after.hash);val saved=store.record(session.scope.key,draft.id)!!;assertEquals(draft,InvestmentReportDraft.from(draft.id,gh,saved.body));assertEquals(SyncState.QUEUED,saved.syncState);assertNull(saved.serverVersion)
     }
+    @Test fun freshCancelledOnlyCacheRemainsHistoryWithCurrentRoleAndScopeGuards()=runBlocking {
+        val cancelled=JSONObject(scenario.toString()).put("record_state","cancelled").put("version",2)
+        store.applyPull(session.scope.key,page(JSONArray().put(row(InvestmentContract.SCENARIO,cancelled).put("tombstone",true))))
+        assertNull(store.record(session.scope.key,cancelled.getString("id")))
+        val records=repository.records(session,InvestmentContract.SCENARIO,gh,null,0);assertEquals(1,records.size)
+        assertEquals("cancelled",records.single().body.getString("record_state"));assertEquals(2L,records.single().serverVersion)
+        assertEquals(1,repository.records(session,InvestmentContract.SCENARIO,gh,null,0).size);assertTrue(store.outbox(session.scope.key).isEmpty())
+        store.initialize(session.scope.key,epoch,UserRole.WORKER);assertThrows(IllegalArgumentException::class.java) {store.record(session.scope.key,cancelled.getString("id"))}
+        store.initialize(session.scope.key,epoch,UserRole.MANAGER);store.applyPull(session.scope.key,page(access=false));assertTrue(repository.records(session,InvestmentContract.SCENARIO,gh,null,0).isEmpty())
+    }
+    @Test fun cancelledPullAndHydrationNeverOverwriteAnExistingRawDraft()=runBlocking {
+        val draft=InvestmentScenarioDraft.from(scenario.getString("id"),gh,scenario,null).copy(name="Isian lokal α belum diterima",initial="1,")
+        repository.flushScenario(session,vault.generation,draft)
+        val cancelled=JSONObject(scenario.toString()).put("record_state","cancelled").put("version",2)
+        store.applyPull(session.scope.key,page(JSONArray().put(row(InvestmentContract.SCENARIO,cancelled).put("tombstone",true))))
+        repository.records(session,InvestmentContract.SCENARIO,gh,null,0)
+        val raw=store.record(session.scope.key,draft.id)!!.body.getJSONObject("_local_form");assertEquals(draft.name,raw.getString("name"));assertEquals("1,",raw.getString("initial"));assertTrue(store.outbox(session.scope.key).isEmpty())
+    }
     @Test fun largeTextFormPreservesInvalidInputAndYearsOutsideHorizon() {
         click("investment-new");scroll("investment-name");rule.onNodeWithTag("investment-name").performTextReplacement("  Skenario α  ");Espresso.closeSoftKeyboard()
         scroll("investment-horizon");rule.onNodeWithTag("investment-horizon").performTextReplacement("2");Espresso.closeSoftKeyboard();scroll("investment-flow-2");rule.onNodeWithTag("investment-flow-2").performTextReplacement("-0,001");Espresso.closeSoftKeyboard()

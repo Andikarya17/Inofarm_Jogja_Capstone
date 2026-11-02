@@ -1,5 +1,10 @@
 # Implementation plan migrasi proposal terbaru
 
+## Perbaikan histori FIN13 — 2 November 2026
+
+Cancelled-only fresh-cache history kini dipertahankan dengan typed hydration/current scope; raw draft tidak ditimpa. APK/unit66 dan device17PASS (10 investasi +7 evaluasi musim). [Evidence](../migration/finance-20261029/evidence/20261102-CANCELLED_SCENARIO_HISTORY.md). Gap terkait ditutup lokal. Berikutnya FIN14; push ditunda pengguna, FIN15–17 di luar scope.
+
+
 ## Lanjutan FIN13 — 2 November 2026
 
 FIN13 backend/math PASS lokal; native critical acceptance PASS lokal. Checkpoint dipublikasikan sekarang. Berikutnya tutup follow-up cancelled-only fresh-cache history, lalu FIN14 snapshot-identical PDF/CSV/private download. Instruksi terbaru pengguna: langsung commit/push checkpoint terakhir dan jelaskan langkah berikutnya; FIN14 ekspor berikutnya, FIN15–17 di luar scope saat ini. [Evidence dan batas verifikasi](../migration/finance-20261029/evidence/FIN13-backend.md).

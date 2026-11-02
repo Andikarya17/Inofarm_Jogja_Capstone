@@ -1,5 +1,10 @@
 # Gap analysis baseline 29 Oktober 2026
 
+## Perbaikan histori FIN13 — 2 November 2026
+
+Cancelled-only fresh-cache history kini dipertahankan dengan typed hydration/current scope; raw draft tidak ditimpa. APK/unit66 dan device17PASS (10 investasi +7 evaluasi musim). [Evidence](../migration/finance-20261029/evidence/20261102-CANCELLED_SCENARIO_HISTORY.md). Gap terkait ditutup lokal. Berikutnya FIN14; push ditunda pengguna, FIN15–17 di luar scope.
+
+
 ## Lanjutan FIN13 — 2 November 2026
 
 Gap backend investasi ditutup lokal dengan119/1906 regression,259 independent numeric oracle, typed contracts dan dua real process races. Native/build/lifecycle/reboot masih terbuka. Gate UAT/pentest/fisik/recovery/reviewer tidak diklaim selesai. [Evidence dan batas verifikasi](../migration/finance-20261029/evidence/FIN13-backend.md).

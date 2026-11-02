@@ -23,3 +23,6 @@ Final root-navigation/recreation/logout focus **1 PASS,16.992s**, `tmp/fin13-roo
 
 
 Follow-up visible from final source review: generic hydration currently filters cached tombstones; a cancelled investment scenario received only into cache on a fresh profile can be omitted from the local scenario list. Backend annual/audit history and immutable reports remain intact. Add typed cancelled-scenario cache hydration and a fresh-profile fixture before treating all history acceptance complete. This commit is a tested core checkpoint with this explicit follow-up. Context checker also retains one pre-existing missing image link in docs/implementation/UI_REDESIGN.md (`output/liquid-glass-implementation/comparisons/all-nine.png`); contract, staged secret/compatibility and whitespace checks pass.
+
+
+Resolved follow-up: cancelled-only fresh-cache history repaired and17 device cases PASS on separate bug branch. [Evidence](20261102-CANCELLED_SCENARIO_HISTORY.md). Earlier finding above is retained as checkpoint history. Push deferred by user.
