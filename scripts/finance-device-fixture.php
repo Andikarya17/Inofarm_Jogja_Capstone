@@ -95,7 +95,7 @@ if ($mode === 'verify') {
     if (DB::table('activity_reference_snapshots')->where('activity_id', $id)->count() !== 1) {
         throw new RuntimeException('Snapshot count mismatch.');
     }
-    $harvests = DB::table('harvests')->whereIn('planting_group_id', $groups)->get();
+    $harvests = DB::table('harvests')->whereIn('planting_group_id', $groups)->where('notes', 'DEVICE HARVEST OFFLINE '.$fixture['fixture_id'])->get();
     if ($harvests->count() !== 1 || $harvests[0]->version !== 2 || $harvests[0]->record_state !== 'cancelled' || $harvests[0]->notes !== 'DEVICE HARVEST OFFLINE '.$fixture['fixture_id']) {
         throw new RuntimeException('Expected one accepted then manager-cancelled synthetic harvest, version2.');
     }
@@ -160,10 +160,19 @@ if ($mode === 'verify') {
         }
         if (! DB::table('entity_identities')->where('entity_id', $attachment->id)->where('entity_type', 'expense_attachment')->exists()) {throw new RuntimeException('Attachment identity was not reserved.');}
     }
+    $source = DB::table('harvests')->whereIn('planting_group_id', $groups)->where('notes', 'DEVICE SALE HARVEST '.$fixture['fixture_id'])->first();
+    $sales = DB::table('sales')->whereIn('greenhouse_id', $greenhouses)->get();
+    if (!$source || $source->version !== 1 || $source->record_state !== 'active' || $source->recorded_by !== $actors->firstWhere('public_id', $fixture['worker_id'])->id
+        || $sales->count() !== 1 || $sales[0]->version !== 2 || $sales[0]->record_state !== 'cancelled' || $sales[0]->total_amount !== '0.01' || $sales[0]->total_weight_kg !== '2.000000'
+        || $sales[0]->notes !== 'DEVICE SALE '.$fixture['fixture_id'] || $sales[0]->recorded_by !== $manager->id) {throw new RuntimeException('Actual worker harvest/manager sale did not reconcile.');}
+    $saleItems = DB::table('sale_items')->where('sale_id', $sales[0]->id)->get();$sourceItems = DB::table('harvest_items')->where('harvest_id', $source->id)->get();
+    if ($saleItems->count() !== 2 || $sourceItems->count() !== 2 || $saleItems->contains(fn ($line) => $line->quantity_kg !== '1.000000' || $line->price_per_kg !== '0.004000')
+        || $sourceItems->contains(fn ($item) => $item->sold_weight_kg !== '0.000000' || $item->weight_kg !== '5.000000' || $item->balance_version !== 3)) {throw new RuntimeException('Sale line products/source release did not reconcile.');}
+    foreach (['audit_logs', 'sync_operations', 'change_feed'] as $table) {if (DB::table($table)->where('entity_type', 'sale')->where('entity_id', $sales[0]->id)->count() !== 2) {throw new RuntimeException('Sale exact replay/cancel ledger mismatch.');}}
     if (Illuminate\Support\Facades\Artisan::call('inofarm:finance-identities', ['--json' => true]) !== 0) {
         throw new RuntimeException('Read-only identity preflight did not reconcile the actual device graph.');
     }
-    echo 'PASS: MySQL inofarm_test activity1/version1/ledger1; harvest1/version2/cancelled/items2/snapshots2/ledger2/balance feed4; payment100.01/version1/allocation60.01/version1/counter60.01/balance version2/feed2; private PNG/PDF2 and verified hashes, one financial/file audit/receipt/feed per entity after replay.'.PHP_EOL;
+    echo 'PASS: MySQL inofarm_test activity1/version1/ledger1; harvest1/version2/cancelled/items2/snapshots2/ledger2/balance feed4; payment100.01/version1/allocation60.01/version1/counter60.01/balance version2/feed2; paid sale cancelled/version2/items2/total0.01 and restored harvest counters; private PNG/PDF2 and verified hashes, one financial/file audit/receipt/feed per entity after replay.'.PHP_EOL;
     exit(0);
 }
 if ($mode !== 'cleanup') {
@@ -171,9 +180,11 @@ if ($mode !== 'cleanup') {
 }
 $privateFiles = DB::table('record_attachments')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->get();
 DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
+    $ownedSales = DB::table('sales')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->pluck('id')->all();
     $registryIds = [...DB::table('change_feed')->whereIn('greenhouse_id', $greenhouses)->pluck('entity_id')->all(),
-        ...DB::table('greenhouse_assignments')->whereIn('greenhouse_id', $greenhouses)->pluck('id')->all(), ...$actors->pluck('public_id')->all()];
+        ...DB::table('greenhouse_assignments')->whereIn('greenhouse_id', $greenhouses)->pluck('id')->all(), ...$actors->pluck('public_id')->all(), ...DB::table('sale_items')->whereIn('sale_id', $ownedSales)->pluck('id')->all()];
     DB::table('record_attachments')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
+    DB::table('sale_items')->whereIn('sale_id', $ownedSales)->delete();DB::table('sales')->whereIn('id', $ownedSales)->delete();
     DB::table('entity_identities')->whereIn('entity_id', array_unique($registryIds))->delete();
     $expenses = DB::table('expenses')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->select('id');
     DB::table('cost_allocations')->whereIn('expense_id', $expenses)->whereIn('recorded_by', $actors->pluck('id'))->delete();

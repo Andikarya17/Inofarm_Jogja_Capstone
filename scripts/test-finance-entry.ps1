@@ -129,6 +129,26 @@ try {
     $financeVerifyLog=Join-Path $outputDirectory 'device-finance-verify.txt'
     $financeVerifyProcess=Start-Process -FilePath $adb -ArgumentList @('shell','am','instrument','-w','-r','-e','class','com.inofarm.jogja.FinanceBackendDeviceTest#replayAllocationAndReviewFinancialScopeAndAudit','-e','devicePhase','finance-verify','com.inofarm.jogja.finance.test/androidx.test.runner.AndroidJUnitRunner') -WindowStyle Hidden -PassThru -RedirectStandardOutput $financeVerifyLog -RedirectStandardError (Join-Path $outputDirectory 'device-finance-verify.stderr.txt')
     Assert-Instrumentation $financeVerifyProcess $financeVerifyLog
+    foreach($step in @(
+        @{Name='sale-source';Method='queueSaleHarvestWithBackendOffline';Phase='sale-source-queue'},
+        @{Name='sale';Method='replayHarvestThenQueueSaleWithBackendOffline';Phase='sale-queue'}
+    )) {
+        $phaseLog=Join-Path $outputDirectory ('device-'+$step.Name+'.txt')
+        $phaseProcess=Start-Process -FilePath $adb -ArgumentList @('shell','am','instrument','-w','-r','-e','class',('com.inofarm.jogja.FinanceBackendDeviceTest#'+$step.Method),'-e','devicePhase',$step.Phase,'com.inofarm.jogja.finance.test/androidx.test.runner.AndroidJUnitRunner') -WindowStyle Hidden -PassThru -RedirectStandardOutput $phaseLog -RedirectStandardError (Join-Path $outputDirectory ('device-'+$step.Name+'.stderr.txt'))
+        $deadline=[DateTime]::UtcNow.AddSeconds(90)
+        do {
+            $ready=& $adb shell cat ('/sdcard/Android/data/com.inofarm.jogja.finance/files/finance-'+$step.Name+'-ready.txt') 2>$null
+            if($LASTEXITCODE -eq 0 -and ($ready -join '').Trim() -eq $fixture.fixture_id) {break}
+            if($phaseProcess.HasExited -or [DateTime]::UtcNow -gt $deadline) {throw "Device did not reach $($step.Name) offline barrier."}
+            Start-Sleep -Milliseconds 200
+        } while($true)
+        Stop-TestApi;Assert-Instrumentation $phaseProcess $phaseLog
+        & $adb shell am force-stop com.inofarm.jogja.finance
+        Start-TestApi
+    }
+    $saleLog=Join-Path $outputDirectory 'device-sale-verify.txt'
+    $saleProcess=Start-Process -FilePath $adb -ArgumentList @('shell','am','instrument','-w','-r','-e','class','com.inofarm.jogja.FinanceBackendDeviceTest#replaySaleAuditCancelAndWorkerScope','-e','devicePhase','sale-verify','com.inofarm.jogja.finance.test/androidx.test.runner.AndroidJUnitRunner') -WindowStyle Hidden -PassThru -RedirectStandardOutput $saleLog -RedirectStandardError (Join-Path $outputDirectory 'device-sale-verify.stderr.txt')
+    Assert-Instrumentation $saleProcess $saleLog
     & $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') verify
     if($LASTEXITCODE -ne 0) {throw 'MySQL verification failed.'}
 } finally {
@@ -137,4 +157,4 @@ try {
         if($fixtureCreated -and (Test-Path -LiteralPath $manifest)) {& $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') cleanup;if($LASTEXITCODE -ne 0) {throw 'Synthetic fixture cleanup failed.'}}
     } finally {foreach($key in $attachmentEnv.Keys) {[Environment]::SetEnvironmentVariable($key,$attachmentEnv[$key],'Process')}}
 }
-Write-Output 'PASS: guarded MySQL/Laravel five device phases: worker activity + multi-grade harvest offline/restart/replay/manager cancel/old ACK; manager payment + allocation each offline/process restart/exact receipt; native encrypted PNG/PDF copies + bound offline outbox/process restart/multipart replay/encrypted download/hash/cap/worker denial. No user DB or legacy app data reset; production file policy unchanged.'
+Write-Output 'PASS: guarded MySQL/Laravel eight device phases: worker activity + multi-grade harvest offline/restart/replay/manager cancel/old ACK; manager payment + allocation each offline/process restart/exact receipt; native encrypted PNG/PDF copies + bound offline outbox/process restart/multipart replay/encrypted download/hash/cap/worker denial. Paid sale multi-source/aggregate rounding/offline restart/replay/audit/cancel/worker denial verified. No user DB or legacy app data reset; production file policy unchanged.'

@@ -16,7 +16,7 @@ data class FinancialDraft(val id:String=UUID.randomUUID().toString(),val kind:Re
     val date:String=if(kind==RecordKind.EXPENSE) LocalDate.now(ManualTime.WIB).toString() else "",val time:String=if(kind==RecordKind.EXPENSE) LocalTime.now(ManualTime.WIB).format(DateTimeFormatter.ofPattern("HH:mm")) else "",
     val expenseId:String="",val seasonId:String="",val costClass:String="",val basis:String="",val reason:String="",val baseVersion:Long?=null,
     val replaceValidationRejected:Boolean=false,val lockedParents:Boolean=false) {
-    init {require(kind.financial)}
+    init {require(kind in setOf(RecordKind.EXPENSE,RecordKind.COST_ALLOCATION))}
     fun paidAt()=ManualTime.encode(date,time)
     fun validation():Map<String,String> = buildMap {
         if(runCatching {WireContract.uuid(greenhouseId)}.isFailure) put("greenhouse","Pilih greenhouse.")

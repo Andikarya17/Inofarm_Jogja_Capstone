@@ -29,7 +29,7 @@ private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",n
 private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} · ${row.optString("notes").ifBlank {"Pembayaran operasi"}} · ${timeLabel(row.optString("paid_at"))}"
 
 @Composable fun FinancialHub(session:FinanceSession,context:CultivationUiState,entry:FinancialEntryViewModel,
-    expense:HistoryUiState,expenseVm:HistoryViewModel,allocation:HistoryUiState,allocationVm:HistoryViewModel,queue:List<QueuedOperation>) {
+    expense:HistoryUiState,expenseVm:HistoryViewModel,allocation:HistoryUiState,allocationVm:HistoryViewModel,queue:List<QueuedOperation>,sales:com.inofarm.jogja.feature.sales.SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel) {
     var gh by rememberSaveable {mutableStateOf("")};var selected by rememberSaveable {mutableStateOf(RecordKind.EXPENSE.wire)}
     LaunchedEffect(context.greenhouses.map {it.optString("id")}) {if(gh.isNotBlank() && context.greenhouses.none {it.optString("id")==gh}) gh=""}
     val kind=RecordKind.entries.single {it.wire==selected}
@@ -39,9 +39,10 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} �
             OutlinedButton(onClick={entry.new(RecordKind.EXPENSE,gh)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("expense-new")) {Text("Catat pengeluaran")}
             OutlinedButton(onClick={entry.new(RecordKind.COST_ALLOCATION,gh)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("allocation-new")) {Text("Alokasikan biaya")}
         }
-        Choice("Riwayat keuangan",selected,listOf(option(RecordKind.EXPENSE.wire,"Pembayaran aktual"),option(RecordKind.COST_ALLOCATION.wire,"Alokasi biaya musim")),"expense-history-kind") {selected=it}
-        Box(Modifier.weight(1f)) {key(kind) {HistoryScreen(session,context,if(kind==RecordKind.EXPENSE) expense else allocation,if(kind==RecordKind.EXPENSE) expenseVm else allocationVm,queue,
-            onEdit={record,replace -> entry.open(record,replace);if(kind==RecordKind.EXPENSE) expenseVm.close() else allocationVm.close()},kind=kind)}}
+        OutlinedButton(onClick={sales.new(gh)},enabled=gh.isNotBlank(),modifier=Modifier.fillMaxWidth().testTag("sale-new")) {Text("Catat penjualan lunas")}
+        Choice("Riwayat keuangan",selected,listOf(option(RecordKind.EXPENSE.wire,"Pembayaran aktual"),option(RecordKind.COST_ALLOCATION.wire,"Alokasi biaya musim"),option(RecordKind.SALE.wire,"Penjualan lunas")),"expense-history-kind") {selected=it}
+        Box(Modifier.weight(1f)) {key(kind) {HistoryScreen(session,context,when(kind) {RecordKind.EXPENSE -> expense;RecordKind.SALE -> saleHistory;else -> allocation},when(kind) {RecordKind.EXPENSE -> expenseVm;RecordKind.SALE -> saleHistoryVm;else -> allocationVm},queue,
+            onEdit={record,replace -> if(kind==RecordKind.SALE) {sales.open(record,replace);saleHistoryVm.close()} else {entry.open(record,replace);if(kind==RecordKind.EXPENSE) expenseVm.close() else allocationVm.close()}},kind=kind)}}
     }
 }
 

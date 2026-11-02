@@ -46,6 +46,7 @@ class FinanceEntryUiTest {
     private val epoch=UUID.randomUUID().toString();private val worker=UUID.randomUUID().toString();private val manager=UUID.randomUUID().toString()
     private val gh=UUID.randomUUID().toString();private val season=UUID.randomUUID().toString();private val group=UUID.randomUUID().toString()
     private val unit=UUID.randomUUID().toString();private val materialA=UUID.randomUUID().toString();private val materialB=UUID.randomUUID().toString()
+    private val saleRejectNext=AtomicBoolean(false)
     private val category=UUID.randomUUID().toString();private val financeReceipts=ConcurrentHashMap<String,JSONObject>();private val financeKinds=ConcurrentHashMap<String,String>();private val financePosts=AtomicInteger()
     @Before fun prepare() {
         assertTrue(rule.activity.packageName.endsWith(".finance"))
@@ -55,8 +56,8 @@ class FinanceEntryUiTest {
                 if(offline.get()) return MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
                 val path=request.requestUrl!!.encodedPath.substringAfter("/api/v2/")
                 val response=MockResponse().setHeader("Content-Type","application/json")
-                if((path.startsWith("expenses") || path.startsWith("cost-allocations")) && request.method in setOf("POST","PATCH")) return financeMutation(request,response)
-                if((path.startsWith("expenses/") || path.startsWith("cost-allocations/")) && path.endsWith("/audit")) return financeAudit(path,response)
+                if((path.startsWith("expenses") || path.startsWith("cost-allocations") || path.startsWith("sales")) && request.method in setOf("POST","PATCH")) return financeMutation(request,response)
+                if((path.startsWith("expenses/") || path.startsWith("cost-allocations/") || path.startsWith("sales/")) && path.endsWith("/audit")) return financeAudit(path,response)
                 if(path.startsWith("harvests") && request.method in setOf("POST","PATCH")) return harvestMutation(request,response)
                 if(path.startsWith("harvests/") && path.endsWith("/audit")) return harvestAudit(path,response)
                 return when(path) {
@@ -130,7 +131,8 @@ class FinanceEntryUiTest {
         harvestReceipts.values.forEach {receipt -> row("harvest",receipt.getString("entity_id"),JSONObject(receipt.getJSONObject("data").toString()))}
         harvestReceipts.values.groupBy {it.getString("entity_id")}.values.forEach {versions -> val receipt=versions.maxBy {it.getInt("version")};val data=receipt.getJSONObject("data");val items=data.getJSONArray("items")
             repeat(items.length()) {index -> val item=items.getJSONObject(index);val active=data.getString("record_state")=="active"
-                row("harvest_balance",item.getString("id"),JSONObject().put("version",receipt.getInt("version")).put("harvest_id",receipt.getString("entity_id")).put("harvest_version",receipt.getInt("version")).put("active",active).put("weight_kg",item.getString("weight_kg")).put("sold_weight_kg","0.000000").put("available_weight_kg",if(active) item.getString("weight_kg") else "0.000000"))}
+                val sold=financeReceipts.values.filter {financeKinds[it.getString("entity_id")]=="sale"}.groupBy {it.getString("entity_id")}.values.map {it.maxBy {r -> r.getInt("version")}.getJSONObject("data")}.filter {it.optString("record_state")=="active"}.fold(java.math.BigDecimal.ZERO) {sum,sale -> val lines=sale.getJSONArray("items");sum+(0 until lines.length()).map {lines.getJSONObject(it)}.filter {it.getString("harvest_item_id")==item.getString("id")}.fold(java.math.BigDecimal.ZERO) {subtotal,line -> subtotal+java.math.BigDecimal(line.getString("quantity_kg"))}}
+                row("harvest_balance",item.getString("id"),JSONObject().put("version",receipt.getInt("version")+financeReceipts.values.count {financeKinds[it.getString("entity_id")]=="sale"}).put("harvest_id",receipt.getString("entity_id")).put("harvest_version",receipt.getInt("version")).put("active",active).put("weight_kg",item.getString("weight_kg")).put("sold_weight_kg",sold.setScale(6).toPlainString()).put("available_weight_kg",if(active) (java.math.BigDecimal(item.getString("weight_kg"))-sold).setScale(6).toPlainString() else "0.000000"))}
         }
         return JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("scope",JSONArray().put(JSONObject().put("id",gh).put("active",true))).put("data",rows).put("next_cursor","fixture").put("has_more",false)
     }
@@ -139,7 +141,8 @@ class FinanceEntryUiTest {
         val op=JSONObject(request.body.readUtf8());val key=op.getString("operation_id");val id=op.getString("entity_id");val kind=op.getString("entity_type");val action=op.getString("action")
         financeReceipts[key]?.let {return response.setResponseCode(if(action=="create") 201 else 200).setBody(it.toString())}
         val previous=financeReceipts.values.filter {it.getString("entity_id")==id}.maxByOrNull {it.getInt("version")}
-        val payload=op.getJSONObject("payload");assertFalse(payload.has("_local_form"));if(action!="cancel") assertTrue(payload.get("amount") is String)
+        val payload=op.getJSONObject("payload");assertFalse(payload.has("_local_form"));if(action!="cancel" && kind!="sale") assertTrue(payload.get("amount") is String)
+        if(kind=="sale" && action!="cancel" && saleRejectNext.compareAndSet(true,false)) return response.setResponseCode(409).setBody("{\"code\":\"harvest_exceeded\",\"message\":\"Saldo sumber berubah pada server sintetis.\"}")
         if(kind=="cost_allocation" && action!="cancel") {
             val source=financeReceipts.values.filter {it.getString("entity_id")==payload.getString("expense_id")}.maxBy {it.getInt("version")}.getJSONObject("data")
             val others=financeReceipts.values.filter {financeKinds[it.getString("entity_id")]=="cost_allocation" && it.getString("entity_id")!=id}.groupBy {it.getString("entity_id")}.values
@@ -150,7 +153,13 @@ class FinanceEntryUiTest {
         val version=(previous?.getInt("version") ?: 0)+1
         val data=if(action=="cancel") JSONObject(previous!!.getJSONObject("data").toString()).put("record_state","cancelled") else JSONObject(payload.toString()).put("record_state","active")
         data.remove("reason");data.put("id",id).put("version",version).put("currency","IDR").put("recorded_by",manager).put("recorded_by_name","Pengelola sintetis")
-            .put("created_at","2026-10-30T00:00:00+07:00").put("updated_at","2026-10-30T00:00:00+07:00").put("amount",java.math.BigDecimal(data.getString("amount")).setScale(2).toPlainString())
+            .put("created_at","2026-10-30T00:00:00+07:00").put("updated_at","2026-10-30T00:00:00+07:00")
+        if(kind!="sale") data.put("amount",java.math.BigDecimal(data.getString("amount")).setScale(2).toPlainString())
+        else {
+            val lines=data.getJSONArray("items");var exact=java.math.BigDecimal.ZERO;var weight=java.math.BigDecimal.ZERO
+            repeat(lines.length()) {index -> val line=lines.getJSONObject(index);val q=java.math.BigDecimal(line.getString("quantity_kg"));val price=java.math.BigDecimal(line.getString("price_per_kg"));exact=exact+q*price;weight=weight+q;line.put("quantity_kg",q.setScale(6).toPlainString()).put("price_per_kg",price.setScale(6).toPlainString()).put("grade_name","Grade penjualan sintetis").put("harvest_version",1)}
+            data.put("total_amount",exact.setScale(2,java.math.RoundingMode.HALF_UP).toPlainString()).put("total_weight_kg",weight.setScale(6).toPlainString()).put("exact_total",exact.setScale(12).toPlainString())
+        }
         if(kind=="expense") data.put("balance_id",previous?.getJSONObject("data")?.optString("balance_id") ?: UUID.randomUUID().toString()).put("category_name","Kategori biaya sintetis").put("category_version",1)
         else data.put("season_name","Musim UI sintetis").put("season_version",1)
         financeKinds[id]=kind
@@ -550,6 +559,57 @@ class FinanceEntryUiTest {
     }
     private fun managerLogin() {
         rule.onNodeWithTag("finance-logout").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()};login("manager@example.invalid")
+    }
+    private fun saleFormWithSources():List<String> {
+        fillHarvest("Sumber penjualan UI",true)
+        rule.onNodeWithTag("harvest-weight-1").performScrollTo().performTextReplacement("5");hideKeyboard();queueHarvest()
+        rule.waitUntil(10000) {harvestPosts.get()==1}
+        val sources=harvestReceipts.values.single().getJSONObject("data").getJSONArray("items").let {rows -> (0 until rows.length()).map {rows.getJSONObject(it).getString("id")}}
+        managerLogin();rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.onNodeWithTag("sale-new").performClick()
+        choose("sale-season",season)
+        sources.forEachIndexed {index,id ->
+            if(index>0) rule.onNodeWithTag("sale-add").performScrollTo().performClick()
+            choose("sale-source-$index",id);rule.onNodeWithTag("sale-quantity-$index").performScrollTo().performTextReplacement("1")
+            rule.onNodeWithTag("sale-price-$index").performScrollTo().performTextReplacement("0,004");hideKeyboard()
+        }
+        rule.onNodeWithTag("sale-paid").performScrollTo().performClick();return sources
+    }
+    @Test fun saleOfflineDraftRecreationExactTotalAndAuditUseDedicatedFlow() {
+        saleFormWithSources();offline.set(true)
+        rule.activityRule.scenario.recreate();rule.onNodeWithTag("sale-price-0").performScrollTo().assertTextContains("0,004")
+        rule.onNodeWithTag("sale-review").performScrollTo().performClick();rule.onNodeWithTag("sale-queue").performScrollTo().performClick()
+        val session=runtime().vault.current!!
+        rule.waitUntil(10000) {runtime().store.outbox(session.scope.key).any {it.envelope.optString("entity_type")=="sale"}}
+        val op=runtime().store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="sale"};assertEquals("QUEUED",op.state)
+        offline.set(false);rule.onNodeWithTag("finance-sync").performClick();val id=acceptedFinancial("sale")
+        assertEquals("0.01",runtime().store.record(session.scope.key,id)!!.body.getString("total_amount"));assertEquals(op.hash,runtime().store.outbox(session.scope.key).single {it.id==op.id}.hash)
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","sale")
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.onNodeWithTag("sale-accepted-total").performScrollTo().assertTextContains("0,01",substring=true)
+        rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
+    }
+    @Test fun saleRejectedSourceReviewRetainsOldOperationAndRequiresNewExplicitCorrection() {
+        saleFormWithSources();saleRejectNext.set(true)
+        rule.onNodeWithTag("sale-review").performScrollTo().performClick();rule.onNodeWithTag("sale-queue").performScrollTo().performClick()
+        val session=runtime().vault.current!!;rule.waitUntil(15000) {runtime().store.outbox(session.scope.key).any {it.error?.optString("code")=="harvest_exceeded"}}
+        val original=runtime().store.outbox(session.scope.key).single {it.error?.optString("code")=="harvest_exceeded"}
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","sale")
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-${original.entityId}").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-${original.entityId}").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("history-fix-rejected").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("history-fix-rejected").performScrollTo().performClick()
+        rule.onNodeWithTag("sale-quantity-0").performScrollTo().performTextReplacement("0,5");hideKeyboard()
+        rule.onNodeWithTag("sale-review").performScrollTo().performClick();rule.onNodeWithTag("sale-queue").performScrollTo().performClick();acceptedFinancial("sale")
+        val operations=runtime().store.outbox(session.scope.key).filter {it.entityId==original.entityId};assertEquals(2,operations.size)
+        assertEquals("SUPERSEDED",operations.single {it.id==original.id}.state);assertEquals(original.hash,operations.single {it.id==original.id}.hash)
+    }
+    @Test fun logoutPreservesLatestIncompleteSaleWithoutInventingPaymentConfirmation() {
+        managerLogin();val session=runtime().vault.current!!
+        lateinit var editor:com.inofarm.jogja.feature.sales.SaleEntryViewModel
+        rule.runOnIdle {editor=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.sales.SaleEntryViewModel::class.java];editor.new(gh);editor.edit {it.copy(date="belum",items=listOf(com.inofarm.jogja.feature.sales.SaleLine(quantity="1,2,3",price="")))};editor.pauseAutosave()}
+        val draft=editor.state.value.draft!!
+        rule.onNodeWithTag("finance-logout").performClick();rule.waitUntil(10000) {runtime().vault.current==null}
+        val saved=runtime().store.record(session.scope.key,draft.id)!!;val raw=saved.body.getJSONObject("_local_form")
+        assertEquals("belum",raw.getString("date"));assertFalse(raw.getBoolean("paid"));assertEquals("1,2,3",raw.getJSONArray("items").getJSONObject(0).getString("quantity"));assertTrue(runtime().store.outbox(session.scope.key).isEmpty())
     }
     private fun financialForm(allocation:Boolean=false) {
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh)

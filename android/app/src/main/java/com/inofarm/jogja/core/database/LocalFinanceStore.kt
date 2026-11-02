@@ -223,7 +223,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         putQueued(scope,saved,"create",payload,blobId)
     }
     fun cacheAudit(scope:String,id:String,gh:String,body:JSONObject,kind:String="activity_audit")=transaction {
-        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit","activity_attachment_audit","harvest_attachment_audit","expense_attachment_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit","sale_audit","activity_attachment_audit","harvest_attachment_audit","expense_attachment_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
         db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to 1L,
             "tombstone" to 0,"body" to encrypt(scope,body)),SQLiteDatabase.CONFLICT_REPLACE)
     }
@@ -411,7 +411,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             if(version > old) {
                 db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to version,
                     "tombstone" to if(row.getBoolean("tombstone")) 1 else 0,"body" to encrypt(scope,row.getJSONObject("data"))),SQLiteDatabase.CONFLICT_REPLACE)
-                if(kind in setOf("activity","harvest","expense","cost_allocation") || kind in AttachmentContract.kinds || existing!=null) {
+                if(kind in setOf("activity","harvest","expense","cost_allocation","sale") || kind in AttachmentContract.kinds || existing!=null) {
                     val local=existing;val body=row.getJSONObject("data")
                     if(local == null) {
                         val data=values("scope" to scope,"entity_id" to id,"kind" to kind,"greenhouse_id" to gh,"revision" to 1L,
