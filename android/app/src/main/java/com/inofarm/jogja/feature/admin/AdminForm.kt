@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature.admin
 
+import com.inofarm.jogja.core.contracts.WireContract
 import org.json.JSONObject
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -72,10 +73,21 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
                 field.type=="date" -> LocalDate.parse(value).toString()
                 field.type=="timestamp" -> OffsetDateTime.parse(value).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"))
                 field.type=="decimal" -> value.replace(',','.').also {require(it.matches(Regex("[0-9]+(\\.[0-9]+)?"))) {"${field.label} harus angka tanpa pemisah ribuan."}}
-                else -> value.also {require(field.choices.isEmpty() || it in field.choices) {"Pilihan ${field.label} tidak sah."}}
+                else -> value.also {
+                    require(field.choices.isEmpty() || it in field.choices) {"Pilihan ${field.label} tidak sah."}
+                    if(field.source!=null) WireContract.uuid(it)
+                    val maximum=when(field.key) {"name" -> 150;"email" -> 254;"reason" -> 1000;else -> 2000}
+                    require(it.length<=maximum) {"${field.label} maksimal $maximum karakter."}
+                }
             })
         }
+        listOf("start_date" to "end_date","sowing_date" to "transplant_date").forEach {(from,until) ->
+            if(has(from) && has(until) && !isNull(until)) require(getString(until)>=getString(from)) {"Tanggal akhir/pindah tidak boleh sebelum tanggal mulai/semai."}
+        }
+        if(has("effective_from") && has("effective_until") && !isNull("effective_until")) require(OffsetDateTime.parse(getString("effective_until")).toInstant()>OffsetDateTime.parse(getString("effective_from")).toInstant()) {"Akhir berlaku harus sesudah awal."}
+        if(resource==AdminResource.TARGET) require((getString("parameter")=="manual_ppm" && getString("unit")=="ppm") || (getString("parameter")=="manual_ph" && getString("unit")=="pH")) {"Satuan harus sesuai parameter PPM/pH."}
         if(resource==AdminResource.USER) {
+            if(version==null) require(getString("email").matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))) {"Format email belum sesuai."}
             require(version!=null || password.length>=12) {"Password akun baru minimal 12 karakter."}
             if(password.isNotEmpty()) {require(password.length in 12..256);put("password",password)}
         }
@@ -88,7 +100,11 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
         }
         fun edit(resource:AdminResource,row:JSONObject,action:String="update"):AdminForm {
             val form=AdminForm(resource,row.getString("id"),row.getLong("version"),action)
-            return form.copy(values=form.fields.associate {field -> field.key to if(field.key=="reason" || row.isNull(field.key)) "" else row.get(field.key).toString()})
+            return form.copy(values=form.fields.associate {field -> field.key to when {
+                field.key=="reason" || row.isNull(field.key) -> ""
+                field.type=="boolean" -> when(row.get(field.key).toString()) {"1","true" -> "true";"0","false" -> "false";else -> error("Status aktif server tidak sah.")}
+                else -> row.get(field.key).toString()
+            }})
         }
     }
 }

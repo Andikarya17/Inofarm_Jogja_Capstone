@@ -35,7 +35,14 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
         val query=mutableMapOf("limit" to "100")
         if(resource !in setOf(AdminResource.SCHEDULE,AdminResource.TARGET) && !greenhouse.isNullOrBlank()) query["greenhouse_id"]=greenhouse
         cursor?.let {query["cursor"]=it}
-        api.request(session.scope.server,session.token,resource.path,query=query).also {current(session,ticket)}
+        val page=api.request(session.scope.server,session.token,resource.path,query=query)
+        current(session,ticket)
+        if(resource in setOf(AdminResource.SCHEDULE,AdminResource.TARGET) && !greenhouse.isNullOrBlank()) {
+            val groups=options(session,ticket,"planting-groups",greenhouse).map {it.getString("id")}.toSet()
+            val rows=page.getJSONArray("data")
+            page.put("data",org.json.JSONArray((0 until rows.length()).map(rows::getJSONObject).filter {it.getString("planting_group_id") in groups}))
+        }
+        page
     }
     suspend fun options(session:FinanceSession,ticket:Long,source:String,greenhouse:String?):List<JSONObject> {
         val resource=AdminResource.entries.single {it.path==source}
