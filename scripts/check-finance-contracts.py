@@ -48,4 +48,16 @@ for invalid in (1.5, 'NaN', '1,5', '1e2'):
     sample = json.loads(json.dumps(fixture['operation']))
     sample['payload']['manual_ph'] = invalid
     assert not validator.is_valid(sample)
-print('PASS: activity/harvest schemas, fixtures, decimal/integer rejection, SHA256 and local OpenAPI refs')
+for kind in ('expense', 'cost-allocation'):
+    financial_schema = json.loads((root / f'{kind}-operation.schema.json').read_text(encoding='utf-8'))
+    Draft202012Validator.check_schema(financial_schema)
+    financial_validator = Draft202012Validator(financial_schema, format_checker=FormatChecker())
+    financial_fixture = json.loads((root / f'fixtures/{kind}-operation.json').read_text(encoding='utf-8'))
+    financial_validator.validate(financial_fixture['operation'])
+    body = json.dumps(financial_fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+    assert hashlib.sha256(body.encode()).hexdigest() == financial_fixture['canonical_sha256']
+    for invalid in (None, 0, 1.25, True, '', '-0', '-1', '1e2', '1,00', '1.001', '1000000000000000000'):
+        sample = json.loads(json.dumps(financial_fixture['operation']))
+        sample['payload']['amount'] = invalid
+        assert not financial_validator.is_valid(sample), (kind, invalid)
+print('PASS: activity/harvest/expense/allocation schemas, fixtures, decimal/integer rejection, SHA256 and local OpenAPI refs')

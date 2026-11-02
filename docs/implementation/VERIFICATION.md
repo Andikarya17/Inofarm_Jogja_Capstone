@@ -1,3 +1,7 @@
+## FIN09 backend payment/allocation — 30 Oktober 2026 WIB
+
+Branch `codex/finance-expenses`, base `49efd66`. Backend67tests/1151assertions PASS, isolated guard4/12 PASS. Two independent PHP/MySQL processes competing for source budget across two seasons reconcile to one accepted allocation. [Evidence](../migration/finance-20261029/evidence/FIN09-backend.md) and [contract](../../contracts/v2/EXPENSES.md). Additive schema6; native entry/private proof and full FIN09 acceptance remain open.
+
 ## Consistent operational reads — 30 Oktober 2026 WIB
 
 Branch `codex/finance-consistent-reads`, base `763cd7f`. Backend59tests/967assertions PASS after isolated guard4/12. Accepted revision projection and actor/token/scope boundary verified by controlled interleave and a second guarded MySQL connection. [Evidence](../migration/finance-20261029/evidence/20261030-CONSISTENT_READS.md) distinguishes these from two-process/throughput/device claims. No schema/Android/API v1 changes.

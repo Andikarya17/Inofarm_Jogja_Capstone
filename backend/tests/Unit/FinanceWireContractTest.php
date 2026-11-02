@@ -38,4 +38,13 @@ class FinanceWireContractTest extends TestCase
         $this->assertSame(10, $fixture['operation']['payload']['items'][0]['fruit_count']);
         $this->assertSame('15.250000', $fixture['operation']['payload']['items'][0]['weight_kg']);
     }
+
+    public function test_expense_and_allocation_share_independent_hash_and_money_wire_scale(): void
+    {
+        foreach (['expense', 'cost-allocation'] as $kind) {
+            $fixture = json_decode(file_get_contents(__DIR__.'/../../../contracts/v2/fixtures/'.$kind.'-operation.json'), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertSame($fixture['canonical_sha256'], CanonicalJson::hash($fixture['operation']));
+            $this->assertSame($fixture['operation']['payload']['amount'], DecimalValue::parse($fixture['operation']['payload']['amount'], 2));
+        }
+    }
 }

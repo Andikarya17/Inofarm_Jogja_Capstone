@@ -1,0 +1,20 @@
+{
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "10000000-0000-4000-8000-000000000004",
+    "operation_id": "10000000-0000-4000-8000-000000000020",
+    "entity_id": "10000000-0000-4000-8000-000000000010",
+    "entity_type": "expense",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "greenhouse_id": "10000000-0000-4000-8000-000000000001",
+      "category_id": "10000000-0000-4000-8000-000000000002",
+      "paid_at": "2026-10-30T00:30:00+07:00",
+      "amount": "100.01",
+      "payment_kind": "operating",
+      "notes": "Pembayaran sintetis — bukan nilai produksi"
+    }
+  },
+  "canonical_sha256": "f9dc523af2dd455ea172b1e488dea8d2aa8e3843b31f3da12518fc775cb676af"
+}
