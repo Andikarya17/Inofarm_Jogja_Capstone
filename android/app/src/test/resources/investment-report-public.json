@@ -1,0 +1,662 @@
+{
+  "preview": {
+    "greenhouse_id": "3f413e61-79ce-4151-a5ab-6492a7da296f",
+    "season_id": null,
+    "scenario_id": "1fefba76-160a-45e2-a22d-a058663c1b50",
+    "scenario_version": 1,
+    "scope": {
+      "greenhouse": {
+        "id": "3f413e61-79ce-4151-a5ab-6492a7da296f",
+        "name": "GH sintetis",
+        "active": true,
+        "version": 1,
+        "created_at": "2026-11-01T19:17:04.000000Z",
+        "updated_at": "2026-11-01T19:17:04.000000Z"
+      },
+      "scenario": {
+        "id": "1fefba76-160a-45e2-a22d-a058663c1b50",
+        "name": "Skenario sintetis terpisah dari laba musim",
+        "notes": "Fixture bukan data usaha mitra",
+        "version": 1,
+        "base_date": "2026-01-01",
+        "created_at": "2026-11-01T19:17:04.000000Z",
+        "updated_at": "2026-11-01T19:17:04.000000Z",
+        "recorded_by": "8e0dd7ab-2959-4dea-a29c-bc0930b327f2",
+        "discount_rate": "0.10000000",
+        "horizon_years": 2,
+        "recorded_by_name": "Akun sintetis",
+        "payback_convention": "interpolation"
+      }
+    },
+    "formula_version": "annual-relative-rational-bisection-v1",
+    "currency": "IDR",
+    "timezone": "Asia/Jakarta",
+    "report_state": "provisional",
+    "review_note": "Tinjauan sumber skenario sintetis",
+    "source_count": 3,
+    "sources_hash": "c1e27a9fb5a239a4ebdc7035ce656f1d4c272d969f6ec31c2a0dcd363f672146",
+    "source_summary": {
+      "actual": 1,
+      "projection": 2,
+      "unknown": 0
+    },
+    "metrics": {
+      "NPV": {
+        "formula": "-I0 + sum(CFt / (1+r)^t)",
+        "unit": "IDR",
+        "status": "available",
+        "value": "4132231.40",
+        "display_scale": 2,
+        "rounding": "HALF_UP",
+        "exact_fraction": {
+          "numerator": "5000000000000000000000000",
+          "denominator": "1210000000000000000"
+        },
+        "reasons": [],
+        "inputs": {
+          "initial_outlay": "100000000.00",
+          "annual_cash_flows": [
+            "60000000.00",
+            "60000000.00"
+          ],
+          "discount_rate": "0.10000000",
+          "horizon_years": 2,
+          "payback_convention": "interpolation"
+        },
+        "assumptions": [
+          "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+          "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+        ],
+        "calculation_detail": {
+          "method": "exact-rational-half-up-v1"
+        }
+      },
+      "IRR": {
+        "formula": "root(-I0 + sum(CFt/(1+IRR)^t))",
+        "unit": "percent",
+        "status": "available",
+        "value": "13.06623863",
+        "display_scale": 8,
+        "rounding": "HALF_UP",
+        "exact_fraction": null,
+        "reasons": [
+          "IRR merupakan pendekatan numerik dalam batas interval solver, bukan pecahan eksak."
+        ],
+        "inputs": {
+          "initial_outlay": "100000000.00",
+          "annual_cash_flows": [
+            "60000000.00",
+            "60000000.00"
+          ],
+          "discount_rate": "0.10000000",
+          "horizon_years": 2,
+          "payback_convention": "interpolation"
+        },
+        "assumptions": [
+          "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+          "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+        ],
+        "calculation_detail": {
+          "method": "conventional-horner-decimal80-bisection-v1",
+          "precision": 80,
+          "iterations": 48,
+          "max_iterations": 256,
+          "bracket_expansions": 0,
+          "tolerance_fraction": "0.00000000000001",
+          "lower_rate_fraction": "0.13066238629180304542387602850794792175297315438068540984772880619857460260391234",
+          "upper_rate_fraction": "0.13066238629181015085123362950980663299564893563068540949245743831852450966835021",
+          "rate_fraction": "0.13066238629180659813755482900887727737431104500568540967009312225854955613613127",
+          "converged": true
+        }
+      },
+      "PP": {
+        "formula": "first recovery of cumulative CFt against I0",
+        "unit": "year",
+        "status": "available",
+        "value": "1.66666667",
+        "display_scale": 8,
+        "rounding": "HALF_UP",
+        "exact_fraction": {
+          "numerator": "10000000000",
+          "denominator": "6000000000"
+        },
+        "reasons": [],
+        "inputs": {
+          "initial_outlay": "100000000.00",
+          "annual_cash_flows": [
+            "60000000.00",
+            "60000000.00"
+          ],
+          "discount_rate": "0.10000000",
+          "horizon_years": 2,
+          "payback_convention": "interpolation"
+        },
+        "assumptions": [
+          "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+          "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+        ],
+        "calculation_detail": {
+          "convention": "interpolation",
+          "recovery_year": 2,
+          "negative_after_recovery": false
+        }
+      },
+      "DPP": {
+        "formula": "first recovery of cumulative CFt/(1+r)^t against I0",
+        "unit": "year",
+        "status": "available",
+        "value": "1.91666667",
+        "display_scale": 8,
+        "rounding": "HALF_UP",
+        "exact_fraction": {
+          "numerator": "115000000000000000000000000",
+          "denominator": "60000000000000000000000000"
+        },
+        "reasons": [],
+        "inputs": {
+          "initial_outlay": "100000000.00",
+          "annual_cash_flows": [
+            "60000000.00",
+            "60000000.00"
+          ],
+          "discount_rate": "0.10000000",
+          "horizon_years": 2,
+          "payback_convention": "interpolation"
+        },
+        "assumptions": [
+          "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+          "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+        ],
+        "calculation_detail": {
+          "convention": "interpolation",
+          "recovery_year": 2,
+          "negative_after_recovery": false
+        }
+      }
+    },
+    "assumptions": [
+      "Input aktual/proyeksi adalah pernyataan pengelola dengan basis tercatat; periksa kesesuaiannya terhadap bukti bisnis.",
+      "Tahun dihitung relatif tanggal acuan; arus kas pada akhir periode tahunan, investasi awal sekali pada tahun0.",
+      "Kas neto tidak dihitung otomatis dari laba musim atau penyusutan. Realisasi nilai sisa harus dinyatakan dalam CF akhir jika digunakan.",
+      "Indikator merupakan analisis input skenario, bukan rekomendasi kelayakan otomatis; konvensi waktu pengembalian dipilih eksplisit."
+    ]
+  },
+  "receipt": {
+    "operation_id": "0db6c5fa-947b-40fd-b145-f6994e91dcbb",
+    "entity_id": "d4c82fbd-8ebd-44cb-a981-17c68696d836",
+    "version": 1,
+    "committed_at": "2026-11-01T19:17:04.752315Z",
+    "data": {
+      "id": "d4c82fbd-8ebd-44cb-a981-17c68696d836",
+      "kind": "investment_report",
+      "scope": {
+        "scenario": {
+          "id": "1fefba76-160a-45e2-a22d-a058663c1b50",
+          "name": "Skenario sintetis terpisah dari laba musim",
+          "notes": "Fixture bukan data usaha mitra",
+          "version": 1,
+          "base_date": "2026-01-01",
+          "created_at": "2026-11-01T19:17:04.000000Z",
+          "updated_at": "2026-11-01T19:17:04.000000Z",
+          "recorded_by": "8e0dd7ab-2959-4dea-a29c-bc0930b327f2",
+          "discount_rate": "0.10000000",
+          "horizon_years": 2,
+          "recorded_by_name": "Akun sintetis",
+          "payback_convention": "interpolation"
+        },
+        "greenhouse": {
+          "id": "3f413e61-79ce-4151-a5ab-6492a7da296f",
+          "name": "GH sintetis",
+          "active": true,
+          "version": 1,
+          "created_at": "2026-11-01T19:17:04.000000Z",
+          "updated_at": "2026-11-01T19:17:04.000000Z"
+        }
+      },
+      "metrics": {
+        "PP": {
+          "unit": "year",
+          "value": "1.66666667",
+          "inputs": {
+            "discount_rate": "0.10000000",
+            "horizon_years": 2,
+            "initial_outlay": "100000000.00",
+            "annual_cash_flows": [
+              "60000000.00",
+              "60000000.00"
+            ],
+            "payback_convention": "interpolation"
+          },
+          "status": "available",
+          "formula": "first recovery of cumulative CFt against I0",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [
+            "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+            "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+          ],
+          "display_scale": 8,
+          "exact_fraction": {
+            "numerator": "10000000000",
+            "denominator": "6000000000"
+          },
+          "calculation_detail": {
+            "convention": "interpolation",
+            "recovery_year": 2,
+            "negative_after_recovery": false
+          }
+        },
+        "DPP": {
+          "unit": "year",
+          "value": "1.91666667",
+          "inputs": {
+            "discount_rate": "0.10000000",
+            "horizon_years": 2,
+            "initial_outlay": "100000000.00",
+            "annual_cash_flows": [
+              "60000000.00",
+              "60000000.00"
+            ],
+            "payback_convention": "interpolation"
+          },
+          "status": "available",
+          "formula": "first recovery of cumulative CFt/(1+r)^t against I0",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [
+            "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+            "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+          ],
+          "display_scale": 8,
+          "exact_fraction": {
+            "numerator": "115000000000000000000000000",
+            "denominator": "60000000000000000000000000"
+          },
+          "calculation_detail": {
+            "convention": "interpolation",
+            "recovery_year": 2,
+            "negative_after_recovery": false
+          }
+        },
+        "IRR": {
+          "unit": "percent",
+          "value": "13.06623863",
+          "inputs": {
+            "discount_rate": "0.10000000",
+            "horizon_years": 2,
+            "initial_outlay": "100000000.00",
+            "annual_cash_flows": [
+              "60000000.00",
+              "60000000.00"
+            ],
+            "payback_convention": "interpolation"
+          },
+          "status": "available",
+          "formula": "root(-I0 + sum(CFt/(1+IRR)^t))",
+          "reasons": [
+            "IRR merupakan pendekatan numerik dalam batas interval solver, bukan pecahan eksak."
+          ],
+          "rounding": "HALF_UP",
+          "assumptions": [
+            "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+            "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+          ],
+          "display_scale": 8,
+          "exact_fraction": null,
+          "calculation_detail": {
+            "method": "conventional-horner-decimal80-bisection-v1",
+            "converged": true,
+            "precision": 80,
+            "iterations": 48,
+            "rate_fraction": "0.13066238629180659813755482900887727737431104500568540967009312225854955613613127",
+            "max_iterations": 256,
+            "bracket_expansions": 0,
+            "tolerance_fraction": "0.00000000000001",
+            "lower_rate_fraction": "0.13066238629180304542387602850794792175297315438068540984772880619857460260391234",
+            "upper_rate_fraction": "0.13066238629181015085123362950980663299564893563068540949245743831852450966835021"
+          }
+        },
+        "NPV": {
+          "unit": "IDR",
+          "value": "4132231.40",
+          "inputs": {
+            "discount_rate": "0.10000000",
+            "horizon_years": 2,
+            "initial_outlay": "100000000.00",
+            "annual_cash_flows": [
+              "60000000.00",
+              "60000000.00"
+            ],
+            "payback_convention": "interpolation"
+          },
+          "status": "available",
+          "formula": "-I0 + sum(CFt / (1+r)^t)",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [
+            "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+            "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+          ],
+          "display_scale": 2,
+          "exact_fraction": {
+            "numerator": "5000000000000000000000000",
+            "denominator": "1210000000000000000"
+          },
+          "calculation_detail": {
+            "method": "exact-rational-half-up-v1"
+          }
+        }
+      },
+      "version": 1,
+      "currency": "IDR",
+      "timezone": "Asia/Jakarta",
+      "season_id": null,
+      "created_at": "2026-11-01T19:17:04.745686Z",
+      "assumptions": [
+        "Input aktual/proyeksi adalah pernyataan pengelola dengan basis tercatat; periksa kesesuaiannya terhadap bukti bisnis.",
+        "Tahun dihitung relatif tanggal acuan; arus kas pada akhir periode tahunan, investasi awal sekali pada tahun0.",
+        "Kas neto tidak dihitung otomatis dari laba musim atau penyusutan. Realisasi nilai sisa harus dinyatakan dalam CF akhir jika digunakan.",
+        "Indikator merupakan analisis input skenario, bukan rekomendasi kelayakan otomatis; konvensi waktu pengembalian dipilih eksplisit."
+      ],
+      "recorded_by": "8e0dd7ab-2959-4dea-a29c-bc0930b327f2",
+      "review_note": "Tinjauan sumber skenario sintetis",
+      "scenario_id": "1fefba76-160a-45e2-a22d-a058663c1b50",
+      "generated_at": "2026-11-01T19:17:04.745686Z",
+      "report_state": "provisional",
+      "source_count": 3,
+      "sources_hash": "c1e27a9fb5a239a4ebdc7035ce656f1d4c272d969f6ec31c2a0dcd363f672146",
+      "greenhouse_id": "3f413e61-79ce-4151-a5ab-6492a7da296f",
+      "source_summary": {
+        "actual": 1,
+        "unknown": 0,
+        "projection": 2
+      },
+      "formula_version": "annual-relative-rational-bisection-v1",
+      "recorded_by_name": "Akun sintetis",
+      "scenario_version": 1,
+      "snapshot_hash": "3d5d0544316279612a87bdef67686ef351e4e326ee4f808bdf8070817c592e76"
+    }
+  },
+  "full": {
+    "id": "d4c82fbd-8ebd-44cb-a981-17c68696d836",
+    "kind": "investment_report",
+    "scope": {
+      "scenario": {
+        "id": "1fefba76-160a-45e2-a22d-a058663c1b50",
+        "name": "Skenario sintetis terpisah dari laba musim",
+        "notes": "Fixture bukan data usaha mitra",
+        "version": 1,
+        "base_date": "2026-01-01",
+        "created_at": "2026-11-01T19:17:04.000000Z",
+        "updated_at": "2026-11-01T19:17:04.000000Z",
+        "recorded_by": "8e0dd7ab-2959-4dea-a29c-bc0930b327f2",
+        "discount_rate": "0.10000000",
+        "horizon_years": 2,
+        "recorded_by_name": "Akun sintetis",
+        "payback_convention": "interpolation"
+      },
+      "greenhouse": {
+        "id": "3f413e61-79ce-4151-a5ab-6492a7da296f",
+        "name": "GH sintetis",
+        "active": true,
+        "version": 1,
+        "created_at": "2026-11-01T19:17:04.000000Z",
+        "updated_at": "2026-11-01T19:17:04.000000Z"
+      }
+    },
+    "metrics": {
+      "PP": {
+        "unit": "year",
+        "value": "1.66666667",
+        "inputs": {
+          "discount_rate": "0.10000000",
+          "horizon_years": 2,
+          "initial_outlay": "100000000.00",
+          "annual_cash_flows": [
+            "60000000.00",
+            "60000000.00"
+          ],
+          "payback_convention": "interpolation"
+        },
+        "status": "available",
+        "formula": "first recovery of cumulative CFt against I0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [
+          "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+          "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+        ],
+        "display_scale": 8,
+        "exact_fraction": {
+          "numerator": "10000000000",
+          "denominator": "6000000000"
+        },
+        "calculation_detail": {
+          "convention": "interpolation",
+          "recovery_year": 2,
+          "negative_after_recovery": false
+        }
+      },
+      "DPP": {
+        "unit": "year",
+        "value": "1.91666667",
+        "inputs": {
+          "discount_rate": "0.10000000",
+          "horizon_years": 2,
+          "initial_outlay": "100000000.00",
+          "annual_cash_flows": [
+            "60000000.00",
+            "60000000.00"
+          ],
+          "payback_convention": "interpolation"
+        },
+        "status": "available",
+        "formula": "first recovery of cumulative CFt/(1+r)^t against I0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [
+          "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+          "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+        ],
+        "display_scale": 8,
+        "exact_fraction": {
+          "numerator": "115000000000000000000000000",
+          "denominator": "60000000000000000000000000"
+        },
+        "calculation_detail": {
+          "convention": "interpolation",
+          "recovery_year": 2,
+          "negative_after_recovery": false
+        }
+      },
+      "IRR": {
+        "unit": "percent",
+        "value": "13.06623863",
+        "inputs": {
+          "discount_rate": "0.10000000",
+          "horizon_years": 2,
+          "initial_outlay": "100000000.00",
+          "annual_cash_flows": [
+            "60000000.00",
+            "60000000.00"
+          ],
+          "payback_convention": "interpolation"
+        },
+        "status": "available",
+        "formula": "root(-I0 + sum(CFt/(1+IRR)^t))",
+        "reasons": [
+          "IRR merupakan pendekatan numerik dalam batas interval solver, bukan pecahan eksak."
+        ],
+        "rounding": "HALF_UP",
+        "assumptions": [
+          "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+          "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+        ],
+        "display_scale": 8,
+        "exact_fraction": null,
+        "calculation_detail": {
+          "method": "conventional-horner-decimal80-bisection-v1",
+          "converged": true,
+          "precision": 80,
+          "iterations": 48,
+          "rate_fraction": "0.13066238629180659813755482900887727737431104500568540967009312225854955613613127",
+          "max_iterations": 256,
+          "bracket_expansions": 0,
+          "tolerance_fraction": "0.00000000000001",
+          "lower_rate_fraction": "0.13066238629180304542387602850794792175297315438068540984772880619857460260391234",
+          "upper_rate_fraction": "0.13066238629181015085123362950980663299564893563068540949245743831852450966835021"
+        }
+      },
+      "NPV": {
+        "unit": "IDR",
+        "value": "4132231.40",
+        "inputs": {
+          "discount_rate": "0.10000000",
+          "horizon_years": 2,
+          "initial_outlay": "100000000.00",
+          "annual_cash_flows": [
+            "60000000.00",
+            "60000000.00"
+          ],
+          "payback_convention": "interpolation"
+        },
+        "status": "available",
+        "formula": "-I0 + sum(CFt / (1+r)^t)",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [
+          "I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.",
+          "Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi."
+        ],
+        "display_scale": 2,
+        "exact_fraction": {
+          "numerator": "5000000000000000000000000",
+          "denominator": "1210000000000000000"
+        },
+        "calculation_detail": {
+          "method": "exact-rational-half-up-v1"
+        }
+      }
+    },
+    "sources": [
+      {
+        "data": {
+          "basis": "Pengeluaran awal dinyatakan manual satu kali",
+          "amount": "100000000.00",
+          "at_date": "2026-01-01",
+          "source_kind": "actual",
+          "source_reference": "Rekap investasi sintetis"
+        },
+        "kind": "initial_outlay",
+        "year": 0,
+        "known": true,
+        "version": 1,
+        "source_key": "initial_outlay",
+        "scenario_id": "1fefba76-160a-45e2-a22d-a058663c1b50"
+      },
+      {
+        "data": {
+          "year": 1,
+          "basis": "Kas neto tahunan sintetis",
+          "amount": "60000000.00",
+          "timing": "end_of_annual_period",
+          "period_end": "2027-01-01",
+          "source_kind": "projection",
+          "period_start": "2026-01-01",
+          "source_reference": "Proyeksi1"
+        },
+        "kind": "annual_cash_flow",
+        "year": 1,
+        "known": true,
+        "version": 1,
+        "source_key": "year:1",
+        "scenario_id": "1fefba76-160a-45e2-a22d-a058663c1b50"
+      },
+      {
+        "data": {
+          "year": 2,
+          "basis": "Tanpa penambahan nilai sisa otomatis",
+          "amount": "60000000.00",
+          "timing": "end_of_annual_period",
+          "period_end": "2028-01-01",
+          "source_kind": "projection",
+          "period_start": "2027-01-01",
+          "source_reference": "Proyeksi2"
+        },
+        "kind": "annual_cash_flow",
+        "year": 2,
+        "known": true,
+        "version": 1,
+        "source_key": "year:2",
+        "scenario_id": "1fefba76-160a-45e2-a22d-a058663c1b50"
+      }
+    ],
+    "version": 1,
+    "currency": "IDR",
+    "timezone": "Asia/Jakarta",
+    "season_id": null,
+    "created_at": "2026-11-01T19:17:04.745686Z",
+    "assumptions": [
+      "Input aktual/proyeksi adalah pernyataan pengelola dengan basis tercatat; periksa kesesuaiannya terhadap bukti bisnis.",
+      "Tahun dihitung relatif tanggal acuan; arus kas pada akhir periode tahunan, investasi awal sekali pada tahun0.",
+      "Kas neto tidak dihitung otomatis dari laba musim atau penyusutan. Realisasi nilai sisa harus dinyatakan dalam CF akhir jika digunakan.",
+      "Indikator merupakan analisis input skenario, bukan rekomendasi kelayakan otomatis; konvensi waktu pengembalian dipilih eksplisit."
+    ],
+    "recorded_by": "8e0dd7ab-2959-4dea-a29c-bc0930b327f2",
+    "review_note": "Tinjauan sumber skenario sintetis",
+    "scenario_id": "1fefba76-160a-45e2-a22d-a058663c1b50",
+    "generated_at": "2026-11-01T19:17:04.745686Z",
+    "report_state": "provisional",
+    "source_count": 3,
+    "sources_hash": "c1e27a9fb5a239a4ebdc7035ce656f1d4c272d969f6ec31c2a0dcd363f672146",
+    "greenhouse_id": "3f413e61-79ce-4151-a5ab-6492a7da296f",
+    "source_summary": {
+      "actual": 1,
+      "unknown": 0,
+      "projection": 2
+    },
+    "formula_version": "annual-relative-rational-bisection-v1",
+    "recorded_by_name": "Akun sintetis",
+    "scenario_version": 1
+  },
+  "scenario": {
+    "id": "1fefba76-160a-45e2-a22d-a058663c1b50",
+    "greenhouse_id": "3f413e61-79ce-4151-a5ab-6492a7da296f",
+    "version": 1,
+    "record_state": "active",
+    "name": "Skenario sintetis terpisah dari laba musim",
+    "base_date": "2026-01-01",
+    "horizon_years": 2,
+    "initial_outlay": "100000000.00",
+    "initial_source": {
+      "kind": "actual",
+      "basis": "Pengeluaran awal dinyatakan manual satu kali",
+      "reference": "Rekap investasi sintetis"
+    },
+    "discount_rate": "0.10000000",
+    "payback_convention": "interpolation",
+    "cash_flows": [
+      {
+        "year": 1,
+        "amount": "60000000.00",
+        "source_kind": "projection",
+        "source_reference": "Proyeksi1",
+        "basis": "Kas neto tahunan sintetis"
+      },
+      {
+        "year": 2,
+        "amount": "60000000.00",
+        "source_kind": "projection",
+        "source_reference": "Proyeksi2",
+        "basis": "Tanpa penambahan nilai sisa otomatis"
+      }
+    ],
+    "notes": "Fixture bukan data usaha mitra",
+    "source_provenance": "declared_complete",
+    "completeness": "evaluation_ready",
+    "recorded_by": "8e0dd7ab-2959-4dea-a29c-bc0930b327f2",
+    "recorded_by_name": "Akun sintetis",
+    "created_at": "2026-11-01T19:17:04.000000Z",
+    "updated_at": "2026-11-01T19:17:04.000000Z"
+  }
+}

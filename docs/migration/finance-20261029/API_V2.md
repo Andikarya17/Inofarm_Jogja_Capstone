@@ -71,3 +71,10 @@ DTO roundtrip Kotlin/PHP, decimal null/0/overflow/locale, malformed UUID/time/en
 ## FIN12 — 2 November 2026
 
 Manager assigned-GH: POST season-reports/preview, GET season-reports/preview/sources, POST season-reports immutable create, GET season-reports, GET reports/{id}, GET reports/{id}/sources. Source/formula hash mengikat review; current role/scope mendahului replay/read. Tidak ada update/cancel laporan diterima. Kontrak authoritative: [SEASON_EVALUATION](../../../contracts/v2/SEASON_EVALUATION.md) dan OpenAPI executable. [Evidence/batas acceptance](evidence/FIN12-backend.md).
+
+
+## FIN13 — 2 November 2026
+
+Manager assigned-GH: GET/POST investment-scenarios, GET/PATCH investment-scenarios/{id}, POST investment-scenarios/{id}/cancel, GET investment-scenarios/{id}/audit. Nullable inputs tetap unknown; annual list1..horizon wajib struktural. Scenario version dan annual value objects append-only; current authorization sebelum receipt replay.
+
+POST investment-reports/preview; GET/POST investment-reports, GET investment-reports/{id}, GET investment-reports/{id}/sources. Immutable create hanya dari source/formula/scenario version yang ditinjau. Laporan tidak memiliki update/delete/cancel. Endpoint baca terpisah mempertahankan DTO season yang telah diterbitkan. Kontrak [INVESTMENT](../../../contracts/v2/INVESTMENT.md), OpenAPI/schema executable; [evidence backend](evidence/FIN13-backend.md). Native critical acceptance PASS lokal, termasuk dua OS reboot/SQL reconciliation; [batas native](evidence/FIN13-native.md). FIN14 ekspor belum tersedia.

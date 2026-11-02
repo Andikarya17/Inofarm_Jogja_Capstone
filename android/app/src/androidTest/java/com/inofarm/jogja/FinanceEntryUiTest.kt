@@ -865,4 +865,22 @@ class FinanceEntryUiTest {
         assertEquals("Aset sumber berubah",model.store.records(session.scope.key,kind="asset").single().body.getJSONObject("_local_form").getString("name"))
     }
 
+    @Test fun investmentWorkspaceRecreationAndLogoutKeepLatestIncompleteRawInput() {
+        readyNode("finance-logout").performClick();login("manager@example.invalid")
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);readyNode("investment-open").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("investment-list").fetchSemanticsNodes().isNotEmpty()}
+        fun scroll(tag:String) {rule.onNodeWithTag("investment-list").performScrollToNode(hasTestTag(tag))}
+        scroll("investment-new");rule.onNodeWithTag("investment-new").performClick();scroll("investment-name");rule.onNodeWithTag("investment-name").performTextReplacement("  Skenario root α  ");hideKeyboard()
+        scroll("investment-horizon");rule.onNodeWithTag("investment-horizon").performTextReplacement("2");hideKeyboard()
+        val model=runtime();val session=model.vault.current!!;val vm=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.investments.InvestmentViewModel::class.java];val id=vm.state.value.scenarioDraft!!.id
+        rule.activityRule.scenario.recreate();readyNode("investment-name").performScrollTo().assertTextContains("  Skenario root α  ")
+        scroll("investment-initial");rule.onNodeWithTag("investment-initial").performTextReplacement("1,");hideKeyboard();readyNode("finance-logout").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
+        val saved=model.store.record(session.scope.key,id)!!;assertEquals("1,",saved.body.getJSONObject("_local_form").getString("initial"));assertEquals("2",saved.body.getJSONObject("_local_form").getString("horizon"));assertNull(saved.serverVersion)
+        assertTrue(model.store.outbox(session.scope.key).none {it.entityId==id})
+        login("manager@example.invalid");rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);readyNode("investment-open").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("investment-record-$id").fetchSemanticsNodes().isNotEmpty()};scroll("investment-record-$id");rule.onNodeWithTag("investment-record-$id").performClick()
+        readyNode("investment-initial").performScrollTo().assertTextContains("1,")
+    }
+
 }

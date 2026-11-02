@@ -1,0 +1,43 @@
+{
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "70000000-0000-0000-0000-000000000002",
+    "operation_id": "70000000-0000-0000-0000-000000000003",
+    "entity_id": "70000000-0000-0000-0000-000000000004",
+    "entity_type": "investment_scenario",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "greenhouse_id": "70000000-0000-0000-0000-000000000001",
+      "name": "Skenario fixture sintetis",
+      "base_date": "2026-01-01",
+      "horizon_years": 2,
+      "initial_outlay": "100000000.00",
+      "initial_source": {
+        "kind": "actual",
+        "reference": "Fixture",
+        "basis": "Awal sekali"
+      },
+      "discount_rate": "0.10000000",
+      "payback_convention": "interpolation",
+      "cash_flows": [
+        {
+          "year": 1,
+          "amount": "60000000.00",
+          "source_kind": "projection",
+          "source_reference": "Fixture",
+          "basis": "Neto tahunan"
+        },
+        {
+          "year": 2,
+          "amount": "60000000.00",
+          "source_kind": "projection",
+          "source_reference": "Fixture",
+          "basis": "Neto tahunan"
+        }
+      ],
+      "notes": "Bukan data atau default produksi"
+    }
+  },
+  "canonical_sha256": "d064d4bd7b1f87ba5428b4d5c41db8f239e8d14628fc2ac2f0788b8fdce165b2"
+}

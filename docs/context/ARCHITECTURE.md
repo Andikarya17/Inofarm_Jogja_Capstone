@@ -1,5 +1,12 @@
 # Architecture: kondisi aktual dan target
 
+## Lanjutan FIN13 — 2 November 2026
+
+Schema13 scenario + append-only annual versions dan FK report snapshot; shared immutable integrity reader. Native SQLite9 additive scenario index/hydration dan repository/ViewModel/forms ditulis; diverifikasi lokal dengan APK/unit/device/dua reboot nyata. [Evidence dan batas verifikasi](../migration/finance-20261029/evidence/FIN13-backend.md).
+
+
+Native66 JVM/lint0,8 Android cases dan3 fase real HTTP/MySQL dengan dua OS reboot + SQL reconciliation PASS. [Evidence/batas native](../migration/finance-20261029/evidence/FIN13-native.md). FIN14 ekspor belum dimulai; checkpoint ini dipublikasikan atas instruksi terbaru pengguna.
+
 ## Lanjutan FIN12 — 2 November 2026
 
 Native critical acceptance: JVM59/lint0,7 clean device cases and real API29 offline→two OS reboots→immutable reports/source correction/worker403+SQL reconciliation PASS. Broader cross-screen popup/touch regression remains open. [Native evidence](../migration/finance-20261029/evidence/FIN12-native.md).

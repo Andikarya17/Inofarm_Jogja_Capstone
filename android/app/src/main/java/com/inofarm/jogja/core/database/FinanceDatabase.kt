@@ -7,7 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper
 class FinanceDatabase(context: Context, name: String = "inofarm_finance_v2.db") : SQLiteOpenHelper(context.applicationContext, name, null, VERSION) {
     init { setWriteAheadLoggingEnabled(true) }
     override fun onConfigure(db: SQLiteDatabase) { db.setForeignKeyConstraintsEnabled(true) }
-    override fun onCreate(db: SQLiteDatabase) { createVersionOne(db); migrateVersionTwo(db); migrateVersionThree(db); migrateVersionFour(db);migrateVersionFive(db);migrateVersionSix(db);migrateVersionSeven(db);migrateVersionEight(db) }
+    override fun onCreate(db: SQLiteDatabase) { createVersionOne(db); migrateVersionTwo(db); migrateVersionThree(db); migrateVersionFour(db);migrateVersionFive(db);migrateVersionSix(db);migrateVersionSeven(db);migrateVersionEight(db);migrateVersionNine(db) }
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         require(oldVersion in 1..VERSION && newVersion == VERSION) { "Versi database tidak didukung. Data dipertahankan." }
         if(oldVersion < 2) migrateVersionTwo(db)
@@ -17,10 +17,11 @@ class FinanceDatabase(context: Context, name: String = "inofarm_finance_v2.db") 
         if(oldVersion < 6) migrateVersionSix(db)
         if(oldVersion < 7) migrateVersionSeven(db)
         if(oldVersion < 8) migrateVersionEight(db)
+        if(oldVersion < 9) migrateVersionNine(db)
     }
     override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) { error("Downgrade database ditahan untuk melindungi draf.") }
     companion object {
-        const val VERSION = 8
+        const val VERSION = 9
         /** Kept executable for the migration test. No destructive recreate fallback. */
         fun createVersionOne(db: SQLiteDatabase) {
             db.execSQL("""CREATE TABLE scope_metadata(scope TEXT PRIMARY KEY, epoch TEXT NOT NULL, role TEXT NOT NULL, visible_greenhouses TEXT NOT NULL, last_synced_at INTEGER)""")
@@ -74,6 +75,11 @@ class FinanceDatabase(context: Context, name: String = "inofarm_finance_v2.db") 
         private fun migrateVersionEight(db:SQLiteDatabase) {
             db.execSQL("ALTER TABLE local_records ADD COLUMN asset_id TEXT")
             db.execSQL("CREATE INDEX local_asset_parent ON local_records(scope,kind,asset_id,season_id,record_state)")
+            db.execSQL("UPDATE local_records SET indexed=0")
+        }
+        private fun migrateVersionNine(db:SQLiteDatabase) {
+            db.execSQL("ALTER TABLE local_records ADD COLUMN scenario_id TEXT")
+            db.execSQL("CREATE INDEX local_investment_scenario ON local_records(scope,kind,scenario_id,updated_at)")
             db.execSQL("UPDATE local_records SET indexed=0")
         }
     }

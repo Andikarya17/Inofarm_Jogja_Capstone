@@ -113,3 +113,21 @@ for name,body in [('SeasonReportPreview',public['preview']),('SeasonReportReceip
     Draft202012Validator({'$ref':'#/components/schemas/'+name,'components':api['components']},format_checker=wire_formats).validate(body)
 assert hashlib.sha256(json.dumps(public['full'],sort_keys=True,separators=(',', ':'),ensure_ascii=False).encode()).hexdigest()==public['receipt']['data']['snapshot_hash']
 print('FIN12 request and actual report snapshot contracts: PASS')
+
+# FIN13 separate typed DTOs preserve the narrower published FIN12 schemas.
+for kind in ['investment-scenario','investment-report']:
+    schema=json.loads((root/f'{kind}-operation.schema.json').read_text(encoding='utf-8'))
+    Draft202012Validator.check_schema(schema)
+    fixture=json.loads((root/f'fixtures/{kind}-operation.json').read_text(encoding='utf-8'))
+    validator=Draft202012Validator(schema,format_checker=wire_formats)
+    validator.validate(fixture['operation'])
+    assert hashlib.sha256(json.dumps(fixture['operation'],sort_keys=True,separators=(',', ':'),ensure_ascii=False).encode()).hexdigest()==fixture['canonical_sha256']
+    for key,value in [('horizon_years','2'),('horizon_years',True),('horizon_years',101),('initial_outlay',1.5),('initial_outlay','-1'),('discount_rate','-1.00000000'),('discount_rate','1e-2') ] if kind=='investment-scenario' else [('expected_scenario_version','1'),('expected_scenario_version',True),('expected_sources_hash','bad')]:
+        invalid=json.loads(json.dumps(fixture['operation']));invalid['payload'][key]=value
+        assert not validator.is_valid(invalid),(kind,key,value)
+public=json.loads((root/'fixtures/investment-report-public.json').read_text(encoding='utf-8'))
+for name,body in [('InvestmentReportPreview',public['preview']),('InvestmentReportReceipt',public['receipt']),('InvestmentScenarioPublic',public['scenario'])]+[('InvestmentReportSource',s) for s in public['full']['sources']]:
+    Draft202012Validator({'$ref':'#/components/schemas/'+name,'components':api['components']},format_checker=wire_formats).validate(body)
+assert hashlib.sha256(json.dumps(public['full'],sort_keys=True,separators=(',', ':'),ensure_ascii=False).encode()).hexdigest()==public['receipt']['data']['snapshot_hash']
+assert hashlib.sha256(json.dumps({k:public['full'][k] for k in ['scope','sources']},sort_keys=True,separators=(',', ':'),ensure_ascii=False).encode()).hexdigest()==public['receipt']['data']['sources_hash']
+print('FIN13 request goldens, actual scenario/report/source DTOs, independent frozen hashes: PASS')

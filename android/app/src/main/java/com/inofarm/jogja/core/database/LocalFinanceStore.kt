@@ -20,7 +20,7 @@ import com.inofarm.jogja.core.contracts.AttachmentBytes
 data class LocalRecord(val id: String, val kind: String, val greenhouseId: String, val revision: Long, val baseVersion: Long?, val serverVersion: Long?,
     val body: JSONObject, val serverBody: JSONObject?, val latestOperationId: String?, val syncState: SyncState, val error: JSONObject?)
 data class QueuedOperation(val id: String, val entityId: String, val revision: Long, val envelope: JSONObject, val hash: String, val state: String, val attempts: Int, val error: JSONObject?,val blobId:String?=null)
-data class LocalHistoryFilter(val groupId:String?=null,val type:String?=null,val from:String?=null,val until:String?=null,val recordState:String?=null,val greenhouseId:String?=null,val groups:Set<String>?=null,val seasonId:String?=null,val expenseId:String?=null,val ownerId:String?=null)
+data class LocalHistoryFilter(val groupId:String?=null,val type:String?=null,val from:String?=null,val until:String?=null,val recordState:String?=null,val greenhouseId:String?=null,val groups:Set<String>?=null,val seasonId:String?=null,val expenseId:String?=null,val ownerId:String?=null,val scenarioId:String?=null)
 data class LocalBlob(val id:String,val entityId:String,val kind:String,val greenhouseId:String,val state:String,val body:JSONObject)
 data class LocalDetail(val record:LocalRecord,val pending:List<QueuedOperation>,val archives:List<JSONObject>)
 
@@ -80,7 +80,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             "group_id" to (form?.optString("group_id") ?: body.optString("planting_group_id")).takeIf {it.isNotBlank()},
             "record_state" to body.optString("record_state","active"),"occurred_millis" to runCatching {OffsetDateTime.parse(timestamp).toInstant().toEpochMilli()}.getOrNull(),
             "season_id" to (form?.optString("season_id") ?: body.optString("season_id")).takeIf {it.isNotBlank()},
-            "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"asset_id" to (form?.optString("asset_id") ?: body.optString("asset_id")).takeIf {it.isNotBlank()},"owner_id" to body.optString("owner_id").takeIf {it.isNotBlank()},"indexed" to 1)
+            "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"asset_id" to (form?.optString("asset_id") ?: body.optString("asset_id")).takeIf {it.isNotBlank()},"scenario_id" to (form?.optString("scenario_id") ?: body.optString("scenario_id")).takeUnless {it.isBlank() || it=="null"},"owner_id" to body.optString("owner_id").takeIf {it.isNotBlank()},"indexed" to 1)
     }
     private fun ensureIndexed(scope:String)=transaction {
         while(true) {
@@ -98,6 +98,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         filter.greenhouseId?.let {where.append(" AND greenhouse_id=?");args.add(it)}
         filter.expenseId?.let {where.append(" AND expense_id=?");args.add(it)}
         filter.ownerId?.let {where.append(" AND owner_id=?");args.add(it)}
+        filter.scenarioId?.let {where.append(" AND scenario_id=?");args.add(it)}
         filter.seasonId?.let {season ->
             if(kind=="expense") {where.append(" AND entity_id IN (SELECT expense_id FROM local_records WHERE scope=? AND kind='cost_allocation' AND season_id=? AND record_state='active')");args.add(scope);args.add(season)}
             else if(kind=="asset") {where.append(" AND entity_id IN (SELECT asset_id FROM local_records WHERE scope=? AND kind='depreciation_allocation' AND season_id=? AND record_state='active')");args.add(scope);args.add(season)}
@@ -224,26 +225,31 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         putQueued(scope,saved,"create",payload,blobId)
     }
     fun cacheAudit(scope:String,id:String,gh:String,body:JSONObject,kind:String="activity_audit")=transaction {
-        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit","sale_audit","asset_audit","depreciation_allocation_audit","activity_attachment_audit","harvest_attachment_audit","expense_attachment_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit","sale_audit","asset_audit","depreciation_allocation_audit","activity_attachment_audit","harvest_attachment_audit","expense_attachment_audit","investment_scenario_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
         db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to 1L,
             "tombstone" to 0,"body" to encrypt(scope,body)),SQLiteDatabase.CONFLICT_REPLACE)
     }
     /** New report consumers also materialize accepted cache rows received by an older client. */
-    fun hydrateReportCache(scope:String)=transaction {
-        requireKind(scope,"season_report")
+    fun hydrateReportCache(scope:String,kind:String="season_report")=transaction {
+        require(kind in setOf("season_report","investment_scenario","investment_report"));requireKind(scope,kind)
         while(true) {
             val rows=db.rawQuery("""SELECT c.entity_id,c.greenhouse_id,c.version,c.body FROM cached_records c
                 LEFT JOIN local_records r ON r.scope=c.scope AND r.entity_id=c.entity_id
-                WHERE c.scope=? AND c.kind='season_report' AND c.tombstone=0 AND r.entity_id IS NULL
-                AND c.greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?) LIMIT 100""",arrayOf(scope,scope)).use {cursor ->buildList {
+                WHERE c.scope=? AND c.kind=? AND c.tombstone=0 AND r.entity_id IS NULL
+                AND c.greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?) LIMIT 100""",arrayOf(scope,kind,scope)).use {cursor ->buildList {
                 while(cursor.moveToNext()) add(listOf(cursor.getString(0),cursor.getString(1),cursor.getLong(2),cursor.getString(3)))
             }}
             if(rows.isEmpty()) break
             rows.forEach {row ->
                 val id=row[0] as String;val gh=row[1] as String;val version=row[2] as Long
-                val body=com.inofarm.jogja.core.contracts.SeasonReportContract.validate(decode(scope,row[3] as String)!!,true)
+                val decoded=decode(scope,row[3] as String)!!
+                val body=when(kind) {
+                    "season_report" -> com.inofarm.jogja.core.contracts.SeasonReportContract.validate(decoded,true)
+                    "investment_scenario" -> com.inofarm.jogja.core.contracts.InvestmentContract.scenario(decoded)
+                    else -> com.inofarm.jogja.core.contracts.InvestmentContract.report(decoded,true)
+                }
                 require(body.getString("id")==id && body.getString("greenhouse_id")==gh && body.getLong("version")==version)
-                val data=values("scope" to scope,"entity_id" to id,"kind" to "season_report","greenhouse_id" to gh,"revision" to 1L,
+                val data=values("scope" to scope,"entity_id" to id,"kind" to kind,"greenhouse_id" to gh,"revision" to 1L,
                     "base_version" to version,"server_version" to version,"body" to encrypt(scope,body),"server_body" to encrypt(scope,body),"sync_state" to "ACCEPTED","updated_at" to System.currentTimeMillis())
                 data.putAll(indexValues(body));db.insertOrThrow("local_records",null,data)
             }
@@ -269,11 +275,11 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             }}
         return count
     }
-    fun cacheReportSources(scope:String,id:String,gh:String,body:JSONObject)=transaction {
-        requireKind(scope,"season_report_sources");WireContract.uuid(id)
+    fun cacheReportSources(scope:String,id:String,gh:String,body:JSONObject,kind:String="season_report")=transaction {
+        require(kind in setOf("season_report","investment_report"));val sourceKind="${kind}_sources";requireKind(scope,sourceKind);WireContract.uuid(id)
         require(gh in visibleGreenhouses(scope));val row=record(scope,id) ?: error("Laporan belum tersimpan.")
-        require(row.kind=="season_report" && row.greenhouseId==gh)
-        db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to "season_report_sources","entity_id" to id,"greenhouse_id" to gh,
+        require(row.kind==kind && row.greenhouseId==gh)
+        db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to sourceKind,"entity_id" to id,"greenhouse_id" to gh,
             "version" to 1L,"tombstone" to 0,"body" to encrypt(scope,body)),SQLiteDatabase.CONFLICT_REPLACE)
     }
     fun outbox(scope: String, limit: Int = 100): List<QueuedOperation> {
@@ -357,14 +363,29 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         if(current.greenhouseId !in visibleGreenhouses(scope)) return@transaction null
         LocalDetail(current,pending(scope,id),archived(scope,id))
     }
-    fun queueAction(scope:String,id:String,gh:String,kind:String,body:JSONObject,payload:JSONObject,action:String,baseVersion:Long,expectedRevision:Long?=null):LocalRecord = transaction {
-        require(pending(scope,id).isEmpty()) {"Operasi sebelumnya masih menunggu atau perlu ditinjau."}
-        val old=record(scope,id)
-        require(old==null || old.syncState==SyncState.ACCEPTED) {"Selesaikan draf atau konflik sebelum tindakan ini."}
-        if(old!=null) archive(scope,old,action)
+    fun queueAction(scope:String,id:String,gh:String,kind:String,body:JSONObject,payload:JSONObject,action:String,baseVersion:Long,expectedRevision:Long?=null,replaceValidationRejected:Boolean=false):LocalRecord = transaction {
+        val outstanding=pending(scope,id);val old=record(scope,id)
+        if(replaceValidationRejected) {
+            require(kind=="investment_scenario" && action=="cancel" && outstanding.isNotEmpty() && outstanding.all {it.state=="REJECTED" && it.envelope.getString("action")==action && ReviewableRejections.mayReplace(kind,it.error?.optString("code"))}) {"Penolakan ini perlu rekonsiliasi lain."}
+            old?.let {archive(scope,it,"replace_reviewed_rejection")}
+            db.update("outbox",values("state" to "SUPERSEDED"),"scope=? AND entity_id=? AND state='REJECTED'",arrayOf(scope,id))
+        } else require(outstanding.isEmpty()) {"Operasi sebelumnya masih menunggu atau perlu ditinjau."}
+        val savedCancel=old!=null && kind=="investment_scenario" && action=="cancel" && old.body.has("_local_cancel") && old.serverBody!=null &&
+            old.syncState in setOf(SyncState.LOCAL,SyncState.REJECTED) && WireContract.hash(JSONObject(old.body.toString()).apply {remove("_local_cancel")})==WireContract.hash(old.serverBody)
+        require(old==null || old.syncState==SyncState.ACCEPTED || savedCancel) {"Selesaikan draf atau konflik sebelum tindakan ini."}
+        if(old!=null && !replaceValidationRejected) archive(scope,old,action)
         val saved=persistDraft(scope,id,gh,body,expectedRevision,baseVersion,kind)
         if(saved.baseVersion==null) db.update("local_records",values("base_version" to baseVersion,"server_version" to baseVersion,"server_body" to encrypt(scope,body)),"scope=? AND entity_id=?",arrayOf(scope,id))
         putQueued(scope,record(scope,id)!!,action,payload)
+    }
+    fun discardInvestmentCancel(scope:String,id:String,expectedRevision:Long):LocalRecord = transaction {
+        val current=record(scope,id) ?: error("Skenario tidak ditemukan.");requireMutationKind(scope,current.kind)
+        require(current.kind=="investment_scenario" && current.revision==expectedRevision && current.greenhouseId in visibleGreenhouses(scope) && pending(scope,id).isEmpty())
+        if(current.syncState==SyncState.ACCEPTED) return@transaction current
+        require(current.syncState==SyncState.LOCAL && current.body.has("_local_cancel") && current.serverBody!=null)
+        archive(scope,current,"discard_local_cancellation")
+        val patch=values("body" to encrypt(scope,current.serverBody),"revision" to current.revision+1,"base_version" to current.serverVersion,"sync_state" to "ACCEPTED","error" to null,"updated_at" to System.currentTimeMillis());patch.putAll(indexValues(current.serverBody))
+        db.update("local_records",patch,"scope=? AND entity_id=?",arrayOf(scope,id));record(scope,id)!!
     }
     fun resolveConflict(scope:String,id:String,reviewedVersion:Long,expectedRevision:Long,keepLocalPayload:JSONObject?):LocalRecord = transaction {
         val current=record(scope,id) ?: error("Catatan tidak ditemukan.")
