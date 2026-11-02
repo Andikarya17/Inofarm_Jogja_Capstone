@@ -66,3 +66,8 @@ Contoh menunjukkan wire shape, bukan payload lengkap yang pasti diterima: kebutu
 ## Contract-test checklist
 
 DTO roundtrip Kotlin/PHP, decimal null/0/overflow/locale, malformed UUID/time/enum, missing fields, foreign parent, assignment revoked, account switched, replay same/different content, base_version stale, closed season, race update/cancel, pages stable/tombstone, no finance in worker pull, unauthorized files/export, request/file limit, restore epoch mismatch. Contract fixture disimpan di repo tanpa data/credential nyata.
+
+
+## FIN12 — 2 November 2026
+
+Manager assigned-GH: POST season-reports/preview, GET season-reports/preview/sources, POST season-reports immutable create, GET season-reports, GET reports/{id}, GET reports/{id}/sources. Source/formula hash mengikat review; current role/scope mendahului replay/read. Tidak ada update/cancel laporan diterima. Kontrak authoritative: [SEASON_EVALUATION](../../../contracts/v2/SEASON_EVALUATION.md) dan OpenAPI executable. [Evidence/batas acceptance](evidence/FIN12-backend.md).

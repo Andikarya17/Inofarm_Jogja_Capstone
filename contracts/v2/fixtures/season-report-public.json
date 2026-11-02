@@ -1,0 +1,1001 @@
+{
+  "receipt": {
+    "operation_id": "c8265e34-890d-446e-83d9-595d93ea2626",
+    "entity_id": "7712aeb7-59c4-421b-a0f9-bb6b9f69ffef",
+    "version": 1,
+    "committed_at": "2026-11-01T12:43:14.391291Z",
+    "data": {
+      "id": "7712aeb7-59c4-421b-a0f9-bb6b9f69ffef",
+      "kind": "season_report",
+      "scope": {
+        "season": {
+          "id": "314168ea-b795-4ec0-bdcc-dd2f065eeb4d",
+          "name": "Musim sintetis",
+          "status": "open",
+          "version": 1,
+          "end_date": null,
+          "created_at": "2026-11-01T12:43:14.000000Z",
+          "start_date": "2026-10-01",
+          "updated_at": "2026-11-01T12:43:14.000000Z",
+          "greenhouse_id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea"
+        },
+        "greenhouse": {
+          "id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea",
+          "name": "GH sintetis",
+          "active": true,
+          "version": 1,
+          "created_at": "2026-11-01T12:43:13.000000Z",
+          "updated_at": "2026-11-01T12:43:13.000000Z"
+        }
+      },
+      "metrics": {
+        "L": {
+          "unit": "IDR",
+          "value": "4000000.00",
+          "inputs": {
+            "TC": "8000000.00",
+            "TR": "12000000.00"
+          },
+          "status": "available",
+          "formula": "L=TR-TC",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [],
+          "display_scale": 2,
+          "exact_fraction": {
+            "numerator": "400000000",
+            "denominator": "100"
+          }
+        },
+        "P": {
+          "unit": "IDR/kg",
+          "value": "30000.000000",
+          "inputs": {
+            "Q": "400.000000",
+            "TR": "12000000.00"
+          },
+          "status": "available",
+          "formula": "P=TR/Q; Q>0",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [],
+          "display_scale": 6,
+          "exact_fraction": {
+            "numerator": "12000000000000",
+            "denominator": "400000000"
+          }
+        },
+        "Q": {
+          "unit": "kg",
+          "value": "400.000000",
+          "inputs": {
+            "Q": "400.000000"
+          },
+          "status": "available",
+          "formula": "Q=sum(kg detail penjualan lunas aktif)",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [],
+          "display_scale": 6,
+          "exact_fraction": {
+            "numerator": "400000000",
+            "denominator": "1000000"
+          }
+        },
+        "BC": {
+          "unit": "ratio",
+          "value": "0.50000000",
+          "inputs": {
+            "TC": "8000000.00",
+            "TR": "12000000.00"
+          },
+          "status": "available",
+          "formula": "B/C sederhana=(TR-TC)/TC; TC>0",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [
+            "Rasio surplus terhadap biaya, bukan discounted benefit-cost."
+          ],
+          "display_scale": 8,
+          "exact_fraction": {
+            "numerator": "400000000",
+            "denominator": "800000000"
+          }
+        },
+        "FC": {
+          "unit": "IDR",
+          "value": "5000000.00",
+          "inputs": {
+            "FC": "5000000.00"
+          },
+          "status": "available",
+          "formula": "FC=alokasi FC aktif+alokasi penyusutan aktif",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [],
+          "display_scale": 2,
+          "exact_fraction": {
+            "numerator": "500000000",
+            "denominator": "100"
+          }
+        },
+        "RC": {
+          "unit": "ratio",
+          "value": "1.50000000",
+          "inputs": {
+            "TC": "8000000.00",
+            "TR": "12000000.00"
+          },
+          "status": "available",
+          "formula": "R/C=TR/TC; TC>0",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [],
+          "display_scale": 8,
+          "exact_fraction": {
+            "numerator": "1200000000",
+            "denominator": "800000000"
+          }
+        },
+        "TC": {
+          "unit": "IDR",
+          "value": "8000000.00",
+          "inputs": {
+            "FC": "5000000.00",
+            "VC": "3000000.00"
+          },
+          "status": "available",
+          "formula": "TC=FC+VC",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [],
+          "display_scale": 2,
+          "exact_fraction": {
+            "numerator": "800000000",
+            "denominator": "100"
+          }
+        },
+        "TR": {
+          "unit": "IDR",
+          "value": "12000000.00",
+          "inputs": {
+            "TR": "12000000.00"
+          },
+          "status": "available",
+          "formula": "TR=sum(total transaksi lunas aktif; HALF_UP per transaksi)",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [],
+          "display_scale": 2,
+          "exact_fraction": {
+            "numerator": "1200000000",
+            "denominator": "100"
+          }
+        },
+        "VC": {
+          "unit": "IDR",
+          "value": "3000000.00",
+          "inputs": {
+            "VC": "3000000.00"
+          },
+          "status": "available",
+          "formula": "VC=alokasi VC aktif",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [],
+          "display_scale": 2,
+          "exact_fraction": {
+            "numerator": "300000000",
+            "denominator": "100"
+          }
+        },
+        "BEP_Q": {
+          "unit": "kg",
+          "value": "266.666667",
+          "inputs": {
+            "Q": "400.000000",
+            "TC": "8000000.00",
+            "TR": "12000000.00"
+          },
+          "status": "available",
+          "formula": "BEP kuantitas biaya tercatat=TC*Q/TR; P>0",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [
+            "Total biaya tercatat dianggap tetap pada skenario perbandingan; harga tidak dibulatkan sebelum pembagian."
+          ],
+          "display_scale": 6,
+          "exact_fraction": {
+            "numerator": "320000000000000000",
+            "denominator": "1200000000000000"
+          }
+        },
+        "BEP_PRICE": {
+          "unit": "IDR/kg",
+          "value": "20000.000000",
+          "inputs": {
+            "Q": "400.000000",
+            "TC": "8000000.00"
+          },
+          "status": "available",
+          "formula": "BEP harga=TC/Q; Q>0",
+          "reasons": [],
+          "rounding": "HALF_UP",
+          "assumptions": [],
+          "display_scale": 6,
+          "exact_fraction": {
+            "numerator": "8000000000000",
+            "denominator": "400000000"
+          }
+        }
+      },
+      "version": 1,
+      "coverage": {
+        "costs": "complete",
+        "sales": "complete"
+      },
+      "currency": "IDR",
+      "timezone": "Asia/Jakarta",
+      "season_id": "314168ea-b795-4ec0-bdcc-dd2f065eeb4d",
+      "created_at": "2026-11-01T12:43:14.387339Z",
+      "assumptions": [
+        "Hanya revisi keuangan yang diterima server pada snapshot ini; draf dan antrean perangkat tidak masuk agregasi.",
+        "Biaya mencakup alokasi tercatat; pembayaran yang belum dialokasikan dapat belum tercakup dan perlu ditinjau pengelola.",
+        "Pernyataan lengkap dan jumlah antrean adalah tinjauan pengelola, bukan bukti semua transaksi/perangkat offline terdeteksi.",
+        "Pembelian aset dan catatan pemakaian bahan tidak menjadi pembayaran atau biaya musim kedua.",
+        "TR memakai total pembayaran lunas yang telah dibulatkan per transaksi sesuai kontrak; panen belum terjual bukan penerimaan.",
+        "Laporan adalah evaluasi manajerial dalam cakupan sistem, bukan kesimpulan kelayakan otomatis."
+      ],
+      "recorded_by": "7671b21e-15b2-44b9-8945-569c6e9fcbe4",
+      "review_note": "Tinjauan sintetis, bukan data usaha mitra.",
+      "generated_at": "2026-11-01T12:43:14.387339Z",
+      "report_state": "provisional",
+      "source_count": 7,
+      "sources_hash": "84575853f8ddab48cd6442572acc9a05708e142df24d2cd23c0a1b6618ccd172",
+      "greenhouse_id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea",
+      "source_counts": {
+        "FC": 2,
+        "VC": 1,
+        "sales": 1,
+        "cancelled": 0
+      },
+      "formula_version": "season-recorded-cash-rational-half-up-v1",
+      "recorded_by_name": "Akun sintetis",
+      "known_pending_count": 0,
+      "snapshot_hash": "6c0bc23c3f1424980368066e4430ac906b44b26c250f7d92a0bab2f5ad6b471f"
+    }
+  },
+  "full": {
+    "id": "7712aeb7-59c4-421b-a0f9-bb6b9f69ffef",
+    "kind": "season_report",
+    "scope": {
+      "season": {
+        "id": "314168ea-b795-4ec0-bdcc-dd2f065eeb4d",
+        "name": "Musim sintetis",
+        "status": "open",
+        "version": 1,
+        "end_date": null,
+        "created_at": "2026-11-01T12:43:14.000000Z",
+        "start_date": "2026-10-01",
+        "updated_at": "2026-11-01T12:43:14.000000Z",
+        "greenhouse_id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea"
+      },
+      "greenhouse": {
+        "id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea",
+        "name": "GH sintetis",
+        "active": true,
+        "version": 1,
+        "created_at": "2026-11-01T12:43:13.000000Z",
+        "updated_at": "2026-11-01T12:43:13.000000Z"
+      }
+    },
+    "metrics": {
+      "L": {
+        "unit": "IDR",
+        "value": "4000000.00",
+        "inputs": {
+          "TC": "8000000.00",
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "L=TR-TC",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 2,
+        "exact_fraction": {
+          "numerator": "400000000",
+          "denominator": "100"
+        }
+      },
+      "P": {
+        "unit": "IDR/kg",
+        "value": "30000.000000",
+        "inputs": {
+          "Q": "400.000000",
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "P=TR/Q; Q>0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 6,
+        "exact_fraction": {
+          "numerator": "12000000000000",
+          "denominator": "400000000"
+        }
+      },
+      "Q": {
+        "unit": "kg",
+        "value": "400.000000",
+        "inputs": {
+          "Q": "400.000000"
+        },
+        "status": "available",
+        "formula": "Q=sum(kg detail penjualan lunas aktif)",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 6,
+        "exact_fraction": {
+          "numerator": "400000000",
+          "denominator": "1000000"
+        }
+      },
+      "BC": {
+        "unit": "ratio",
+        "value": "0.50000000",
+        "inputs": {
+          "TC": "8000000.00",
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "B/C sederhana=(TR-TC)/TC; TC>0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [
+          "Rasio surplus terhadap biaya, bukan discounted benefit-cost."
+        ],
+        "display_scale": 8,
+        "exact_fraction": {
+          "numerator": "400000000",
+          "denominator": "800000000"
+        }
+      },
+      "FC": {
+        "unit": "IDR",
+        "value": "5000000.00",
+        "inputs": {
+          "FC": "5000000.00"
+        },
+        "status": "available",
+        "formula": "FC=alokasi FC aktif+alokasi penyusutan aktif",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 2,
+        "exact_fraction": {
+          "numerator": "500000000",
+          "denominator": "100"
+        }
+      },
+      "RC": {
+        "unit": "ratio",
+        "value": "1.50000000",
+        "inputs": {
+          "TC": "8000000.00",
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "R/C=TR/TC; TC>0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 8,
+        "exact_fraction": {
+          "numerator": "1200000000",
+          "denominator": "800000000"
+        }
+      },
+      "TC": {
+        "unit": "IDR",
+        "value": "8000000.00",
+        "inputs": {
+          "FC": "5000000.00",
+          "VC": "3000000.00"
+        },
+        "status": "available",
+        "formula": "TC=FC+VC",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 2,
+        "exact_fraction": {
+          "numerator": "800000000",
+          "denominator": "100"
+        }
+      },
+      "TR": {
+        "unit": "IDR",
+        "value": "12000000.00",
+        "inputs": {
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "TR=sum(total transaksi lunas aktif; HALF_UP per transaksi)",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 2,
+        "exact_fraction": {
+          "numerator": "1200000000",
+          "denominator": "100"
+        }
+      },
+      "VC": {
+        "unit": "IDR",
+        "value": "3000000.00",
+        "inputs": {
+          "VC": "3000000.00"
+        },
+        "status": "available",
+        "formula": "VC=alokasi VC aktif",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 2,
+        "exact_fraction": {
+          "numerator": "300000000",
+          "denominator": "100"
+        }
+      },
+      "BEP_Q": {
+        "unit": "kg",
+        "value": "266.666667",
+        "inputs": {
+          "Q": "400.000000",
+          "TC": "8000000.00",
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "BEP kuantitas biaya tercatat=TC*Q/TR; P>0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [
+          "Total biaya tercatat dianggap tetap pada skenario perbandingan; harga tidak dibulatkan sebelum pembagian."
+        ],
+        "display_scale": 6,
+        "exact_fraction": {
+          "numerator": "320000000000000000",
+          "denominator": "1200000000000000"
+        }
+      },
+      "BEP_PRICE": {
+        "unit": "IDR/kg",
+        "value": "20000.000000",
+        "inputs": {
+          "Q": "400.000000",
+          "TC": "8000000.00"
+        },
+        "status": "available",
+        "formula": "BEP harga=TC/Q; Q>0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 6,
+        "exact_fraction": {
+          "numerator": "8000000000000",
+          "denominator": "400000000"
+        }
+      }
+    },
+    "sources": [
+      {
+        "id": "8036a38e-5c35-49b5-9d37-a6f82fd6841a",
+        "data": {
+          "id": "8036a38e-5c35-49b5-9d37-a6f82fd6841a",
+          "cost": "30.00",
+          "name": "Aset sintetis",
+          "version": 1,
+          "residual": "0.00",
+          "created_at": "2026-11-01T12:43:14.000000Z",
+          "expense_id": "45b19c59-f9f4-4b22-b0c3-9f61d8513d2a",
+          "life_years": 3,
+          "updated_at": "2026-11-01T12:43:14.000000Z",
+          "recorded_by": "7671b21e-15b2-44b9-8945-569c6e9fcbe4",
+          "usage_basis": "Manual",
+          "record_state": "active",
+          "greenhouse_id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea",
+          "formula_version": "anniversary-cumulative-half-up-v1",
+          "in_service_date": "2026-01-01",
+          "recorded_by_name": "Akun sintetis"
+        },
+        "kind": "asset",
+        "role": "reference_only",
+        "reason": "Harga aset tidak ditambahkan lagi ke biaya musim; hanya alokasi penyusutannya.",
+        "version": 1,
+        "included": false,
+        "contribution": null
+      },
+      {
+        "id": "17c836d2-26e4-4490-b724-7dec1db457fb",
+        "data": {
+          "id": "17c836d2-26e4-4490-b724-7dec1db457fb",
+          "amount": "3000000.00",
+          "version": 1,
+          "currency": "IDR",
+          "season_id": "314168ea-b795-4ec0-bdcc-dd2f065eeb4d",
+          "cost_class": "VC",
+          "created_at": "2026-11-01T12:43:14.000000Z",
+          "expense_id": "1e09bf32-16a6-4488-9ea8-05a5de10ebf8",
+          "updated_at": "2026-11-01T12:43:14.000000Z",
+          "recorded_by": "7671b21e-15b2-44b9-8945-569c6e9fcbe4",
+          "season_name": "Musim sintetis",
+          "record_state": "active",
+          "season_version": 1,
+          "allocation_basis": "Dasar eksplisit sintetis",
+          "recorded_by_name": "Akun sintetis"
+        },
+        "kind": "cost_allocation",
+        "role": "season_transaction",
+        "reason": "Termasuk agregasi biaya/penjualan tercatat.",
+        "version": 1,
+        "included": true,
+        "contribution": {
+          "VC": "3000000.00"
+        }
+      },
+      {
+        "id": "2f5fb086-31a1-4482-a422-e800a3eea556",
+        "data": {
+          "id": "2f5fb086-31a1-4482-a422-e800a3eea556",
+          "amount": "4999990.00",
+          "version": 1,
+          "currency": "IDR",
+          "season_id": "314168ea-b795-4ec0-bdcc-dd2f065eeb4d",
+          "cost_class": "FC",
+          "created_at": "2026-11-01T12:43:14.000000Z",
+          "expense_id": "1e09bf32-16a6-4488-9ea8-05a5de10ebf8",
+          "updated_at": "2026-11-01T12:43:14.000000Z",
+          "recorded_by": "7671b21e-15b2-44b9-8945-569c6e9fcbe4",
+          "season_name": "Musim sintetis",
+          "record_state": "active",
+          "season_version": 1,
+          "allocation_basis": "Dasar eksplisit sintetis",
+          "recorded_by_name": "Akun sintetis"
+        },
+        "kind": "cost_allocation",
+        "role": "season_transaction",
+        "reason": "Termasuk agregasi biaya/penjualan tercatat.",
+        "version": 1,
+        "included": true,
+        "contribution": {
+          "FC": "4999990.00"
+        }
+      },
+      {
+        "id": "07229450-503a-4623-bf91-cee1ac65ae8b",
+        "data": {
+          "id": "07229450-503a-4623-bf91-cee1ac65ae8b",
+          "amount": "10.00",
+          "version": 1,
+          "asset_id": "8036a38e-5c35-49b5-9d37-a6f82fd6841a",
+          "season_id": "314168ea-b795-4ec0-bdcc-dd2f065eeb4d",
+          "created_at": "2026-11-01T12:43:14.000000Z",
+          "period_end": "2026-11-01",
+          "updated_at": "2026-11-01T12:43:14.000000Z",
+          "usage_year": 1,
+          "recorded_by": "7671b21e-15b2-44b9-8945-569c6e9fcbe4",
+          "year_budget": "10.00",
+          "period_start": "2026-10-01",
+          "record_state": "active",
+          "asset_version": 1,
+          "greenhouse_id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea",
+          "formula_version": "anniversary-cumulative-half-up-v1",
+          "usage_reference": "e1f94a4f-d082-4339-9cce-eaf912502b3b",
+          "allocation_basis": "Alokasi nominal disepakati sintetis",
+          "recorded_by_name": "Akun sintetis"
+        },
+        "kind": "depreciation_allocation",
+        "role": "season_transaction",
+        "reason": "Termasuk agregasi biaya/penjualan tercatat.",
+        "version": 1,
+        "included": true,
+        "contribution": {
+          "FC": "10.00"
+        }
+      },
+      {
+        "id": "1e09bf32-16a6-4488-9ea8-05a5de10ebf8",
+        "data": {
+          "id": "1e09bf32-16a6-4488-9ea8-05a5de10ebf8",
+          "notes": "Kas sumber, jangan dibebankan dua kali",
+          "amount": "7999990.00",
+          "paid_at": "2026-10-30T01:00:00.000000Z",
+          "version": 1,
+          "currency": "IDR",
+          "balance_id": "3d4eb07b-d45a-4478-9ba2-aae53a7e12be",
+          "created_at": "2026-11-01T12:43:14.000000Z",
+          "updated_at": "2026-11-01T12:43:14.000000Z",
+          "category_id": "1a6b0f48-3b2e-43bc-909f-afcadafe430d",
+          "recorded_by": "7671b21e-15b2-44b9-8945-569c6e9fcbe4",
+          "payment_kind": "operating",
+          "record_state": "active",
+          "category_name": "Sumber sintetis",
+          "greenhouse_id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea",
+          "category_version": 1,
+          "recorded_by_name": "Akun sintetis"
+        },
+        "kind": "expense",
+        "role": "reference_only",
+        "reason": "Pembayaran sumber saja; biaya masuk melalui alokasi, bukan pembayaran kedua.",
+        "version": 1,
+        "included": false,
+        "contribution": null
+      },
+      {
+        "id": "45b19c59-f9f4-4b22-b0c3-9f61d8513d2a",
+        "data": {
+          "id": "45b19c59-f9f4-4b22-b0c3-9f61d8513d2a",
+          "notes": "Kas sumber, jangan dibebankan dua kali",
+          "amount": "30.00",
+          "paid_at": "2026-10-30T01:00:00.000000Z",
+          "version": 1,
+          "currency": "IDR",
+          "balance_id": "d3231cb6-99c9-458f-a091-98f860d817da",
+          "created_at": "2026-11-01T12:43:14.000000Z",
+          "updated_at": "2026-11-01T12:43:14.000000Z",
+          "category_id": "1a6b0f48-3b2e-43bc-909f-afcadafe430d",
+          "recorded_by": "7671b21e-15b2-44b9-8945-569c6e9fcbe4",
+          "payment_kind": "asset_acquisition",
+          "record_state": "active",
+          "category_name": "Sumber sintetis",
+          "greenhouse_id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea",
+          "category_version": 1,
+          "recorded_by_name": "Akun sintetis"
+        },
+        "kind": "expense",
+        "role": "reference_only",
+        "reason": "Pembayaran sumber saja; biaya masuk melalui alokasi, bukan pembayaran kedua.",
+        "version": 1,
+        "included": false,
+        "contribution": null
+      },
+      {
+        "id": "5476bfea-c6e0-4670-8e7b-6022f113a677",
+        "data": {
+          "id": "5476bfea-c6e0-4670-8e7b-6022f113a677",
+          "items": [
+            {
+              "id": "a40bad31-d204-4b4b-8328-1ee113653bf9",
+              "active": true,
+              "sale_id": "5476bfea-c6e0-4670-8e7b-6022f113a677",
+              "grade_id": "e42bb57d-6c01-4312-90ed-9b5b555a05aa",
+              "grade_name": "Grade sintetis",
+              "harvest_id": "d66464ad-27fb-443b-8524-2824f91bc609",
+              "quantity_kg": "400.000000",
+              "exact_amount": "12000000.000000000000",
+              "price_per_kg": "30000.000000",
+              "harvest_item_id": "b6154456-f479-4981-bdb6-ccac750881d4",
+              "harvest_version": 1
+            }
+          ],
+          "notes": "Lunas sintetis",
+          "paid_at": "2026-10-30T02:00:00.000000Z",
+          "version": 1,
+          "currency": "IDR",
+          "rounding": "HALF_UP_TRANSACTION",
+          "season_id": "314168ea-b795-4ec0-bdcc-dd2f065eeb4d",
+          "created_at": "2026-11-01T12:43:14.000000Z",
+          "updated_at": "2026-11-01T12:43:14.000000Z",
+          "exact_total": "12000000.000000000000",
+          "recorded_by": "7671b21e-15b2-44b9-8945-569c6e9fcbe4",
+          "season_name": "Musim sintetis",
+          "record_state": "active",
+          "total_amount": "12000000.00",
+          "customer_name": "",
+          "greenhouse_id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea",
+          "payment_status": "paid",
+          "season_version": 1,
+          "total_weight_kg": "400.000000",
+          "recorded_by_name": "Akun sintetis"
+        },
+        "kind": "sale",
+        "role": "season_transaction",
+        "reason": "Termasuk agregasi biaya/penjualan tercatat.",
+        "version": 1,
+        "included": true,
+        "contribution": {
+          "Q": "400.000000",
+          "TR": "12000000.00"
+        }
+      }
+    ],
+    "version": 1,
+    "coverage": {
+      "costs": "complete",
+      "sales": "complete"
+    },
+    "currency": "IDR",
+    "timezone": "Asia/Jakarta",
+    "season_id": "314168ea-b795-4ec0-bdcc-dd2f065eeb4d",
+    "created_at": "2026-11-01T12:43:14.387339Z",
+    "assumptions": [
+      "Hanya revisi keuangan yang diterima server pada snapshot ini; draf dan antrean perangkat tidak masuk agregasi.",
+      "Biaya mencakup alokasi tercatat; pembayaran yang belum dialokasikan dapat belum tercakup dan perlu ditinjau pengelola.",
+      "Pernyataan lengkap dan jumlah antrean adalah tinjauan pengelola, bukan bukti semua transaksi/perangkat offline terdeteksi.",
+      "Pembelian aset dan catatan pemakaian bahan tidak menjadi pembayaran atau biaya musim kedua.",
+      "TR memakai total pembayaran lunas yang telah dibulatkan per transaksi sesuai kontrak; panen belum terjual bukan penerimaan.",
+      "Laporan adalah evaluasi manajerial dalam cakupan sistem, bukan kesimpulan kelayakan otomatis."
+    ],
+    "recorded_by": "7671b21e-15b2-44b9-8945-569c6e9fcbe4",
+    "review_note": "Tinjauan sintetis, bukan data usaha mitra.",
+    "generated_at": "2026-11-01T12:43:14.387339Z",
+    "report_state": "provisional",
+    "source_count": 7,
+    "sources_hash": "84575853f8ddab48cd6442572acc9a05708e142df24d2cd23c0a1b6618ccd172",
+    "greenhouse_id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea",
+    "source_counts": {
+      "FC": 2,
+      "VC": 1,
+      "sales": 1,
+      "cancelled": 0
+    },
+    "formula_version": "season-recorded-cash-rational-half-up-v1",
+    "recorded_by_name": "Akun sintetis",
+    "known_pending_count": 0
+  },
+  "preview": {
+    "scope": {
+      "season": {
+        "id": "314168ea-b795-4ec0-bdcc-dd2f065eeb4d",
+        "name": "Musim sintetis",
+        "status": "open",
+        "version": 1,
+        "end_date": null,
+        "created_at": "2026-11-01T12:43:14.000000Z",
+        "start_date": "2026-10-01",
+        "updated_at": "2026-11-01T12:43:14.000000Z",
+        "greenhouse_id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea"
+      },
+      "greenhouse": {
+        "id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea",
+        "name": "GH sintetis",
+        "active": true,
+        "version": 1,
+        "created_at": "2026-11-01T12:43:13.000000Z",
+        "updated_at": "2026-11-01T12:43:13.000000Z"
+      }
+    },
+    "metrics": {
+      "L": {
+        "unit": "IDR",
+        "value": "4000000.00",
+        "inputs": {
+          "TC": "8000000.00",
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "L=TR-TC",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 2,
+        "exact_fraction": {
+          "numerator": "400000000",
+          "denominator": "100"
+        }
+      },
+      "P": {
+        "unit": "IDR/kg",
+        "value": "30000.000000",
+        "inputs": {
+          "Q": "400.000000",
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "P=TR/Q; Q>0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 6,
+        "exact_fraction": {
+          "numerator": "12000000000000",
+          "denominator": "400000000"
+        }
+      },
+      "Q": {
+        "unit": "kg",
+        "value": "400.000000",
+        "inputs": {
+          "Q": "400.000000"
+        },
+        "status": "available",
+        "formula": "Q=sum(kg detail penjualan lunas aktif)",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 6,
+        "exact_fraction": {
+          "numerator": "400000000",
+          "denominator": "1000000"
+        }
+      },
+      "BC": {
+        "unit": "ratio",
+        "value": "0.50000000",
+        "inputs": {
+          "TC": "8000000.00",
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "B/C sederhana=(TR-TC)/TC; TC>0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [
+          "Rasio surplus terhadap biaya, bukan discounted benefit-cost."
+        ],
+        "display_scale": 8,
+        "exact_fraction": {
+          "numerator": "400000000",
+          "denominator": "800000000"
+        }
+      },
+      "FC": {
+        "unit": "IDR",
+        "value": "5000000.00",
+        "inputs": {
+          "FC": "5000000.00"
+        },
+        "status": "available",
+        "formula": "FC=alokasi FC aktif+alokasi penyusutan aktif",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 2,
+        "exact_fraction": {
+          "numerator": "500000000",
+          "denominator": "100"
+        }
+      },
+      "RC": {
+        "unit": "ratio",
+        "value": "1.50000000",
+        "inputs": {
+          "TC": "8000000.00",
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "R/C=TR/TC; TC>0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 8,
+        "exact_fraction": {
+          "numerator": "1200000000",
+          "denominator": "800000000"
+        }
+      },
+      "TC": {
+        "unit": "IDR",
+        "value": "8000000.00",
+        "inputs": {
+          "FC": "5000000.00",
+          "VC": "3000000.00"
+        },
+        "status": "available",
+        "formula": "TC=FC+VC",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 2,
+        "exact_fraction": {
+          "numerator": "800000000",
+          "denominator": "100"
+        }
+      },
+      "TR": {
+        "unit": "IDR",
+        "value": "12000000.00",
+        "inputs": {
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "TR=sum(total transaksi lunas aktif; HALF_UP per transaksi)",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 2,
+        "exact_fraction": {
+          "numerator": "1200000000",
+          "denominator": "100"
+        }
+      },
+      "VC": {
+        "unit": "IDR",
+        "value": "3000000.00",
+        "inputs": {
+          "VC": "3000000.00"
+        },
+        "status": "available",
+        "formula": "VC=alokasi VC aktif",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 2,
+        "exact_fraction": {
+          "numerator": "300000000",
+          "denominator": "100"
+        }
+      },
+      "BEP_Q": {
+        "unit": "kg",
+        "value": "266.666667",
+        "inputs": {
+          "Q": "400.000000",
+          "TC": "8000000.00",
+          "TR": "12000000.00"
+        },
+        "status": "available",
+        "formula": "BEP kuantitas biaya tercatat=TC*Q/TR; P>0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [
+          "Total biaya tercatat dianggap tetap pada skenario perbandingan; harga tidak dibulatkan sebelum pembagian."
+        ],
+        "display_scale": 6,
+        "exact_fraction": {
+          "numerator": "320000000000000000",
+          "denominator": "1200000000000000"
+        }
+      },
+      "BEP_PRICE": {
+        "unit": "IDR/kg",
+        "value": "20000.000000",
+        "inputs": {
+          "Q": "400.000000",
+          "TC": "8000000.00"
+        },
+        "status": "available",
+        "formula": "BEP harga=TC/Q; Q>0",
+        "reasons": [],
+        "rounding": "HALF_UP",
+        "assumptions": [],
+        "display_scale": 6,
+        "exact_fraction": {
+          "numerator": "8000000000000",
+          "denominator": "400000000"
+        }
+      }
+    },
+    "coverage": {
+      "costs": "complete",
+      "sales": "complete"
+    },
+    "currency": "IDR",
+    "timezone": "Asia/Jakarta",
+    "season_id": "314168ea-b795-4ec0-bdcc-dd2f065eeb4d",
+    "assumptions": [
+      "Hanya revisi keuangan yang diterima server pada snapshot ini; draf dan antrean perangkat tidak masuk agregasi.",
+      "Biaya mencakup alokasi tercatat; pembayaran yang belum dialokasikan dapat belum tercakup dan perlu ditinjau pengelola.",
+      "Pernyataan lengkap dan jumlah antrean adalah tinjauan pengelola, bukan bukti semua transaksi/perangkat offline terdeteksi.",
+      "Pembelian aset dan catatan pemakaian bahan tidak menjadi pembayaran atau biaya musim kedua.",
+      "TR memakai total pembayaran lunas yang telah dibulatkan per transaksi sesuai kontrak; panen belum terjual bukan penerimaan.",
+      "Laporan adalah evaluasi manajerial dalam cakupan sistem, bukan kesimpulan kelayakan otomatis."
+    ],
+    "review_note": "Tinjauan sintetis, bukan data usaha mitra.",
+    "report_state": "provisional",
+    "source_count": 7,
+    "sources_hash": "84575853f8ddab48cd6442572acc9a05708e142df24d2cd23c0a1b6618ccd172",
+    "greenhouse_id": "1febe4b5-2c94-4862-b2c9-f120f93ea4ea",
+    "source_counts": {
+      "FC": 2,
+      "VC": 1,
+      "sales": 1,
+      "cancelled": 0
+    },
+    "formula_version": "season-recorded-cash-rational-half-up-v1",
+    "known_pending_count": 0
+  }
+}

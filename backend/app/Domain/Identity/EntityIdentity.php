@@ -19,6 +19,7 @@ final class EntityIdentity
         'expense' => ['expenses', 'id'], 'expense_balance' => ['expenses', 'balance_id'], 'cost_allocation' => ['cost_allocations', 'id'],
         'sale' => ['sales', 'id'], 'sale_item' => ['sale_items', 'id'],
         'asset' => ['assets', 'id'], 'depreciation_allocation' => ['depreciation_allocations', 'id'],
+        'season_report' => ['report_snapshots', 'id', ['kind' => 'season_report']],
         'activity_attachment' => ['record_attachments', 'id', ['owner_type' => 'activity']],
         'harvest_attachment' => ['record_attachments', 'id', ['owner_type' => 'harvest']],
         'expense_attachment' => ['record_attachments', 'id', ['owner_type' => 'expense']],

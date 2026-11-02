@@ -8,6 +8,7 @@ use App\Domain\Finance\AssetService;
 use App\Domain\Finance\CostAllocationService;
 use App\Domain\Finance\ExpenseService;
 use App\Domain\Finance\SaleService;
+use App\Domain\Finance\SeasonReportService;
 use App\Domain\Harvest\HarvestService;
 use App\Models\User;
 use App\Support\TestDatabaseGuard;
@@ -43,12 +44,15 @@ try {
         'harvest' => HarvestService::class,
         'cost_allocation' => CostAllocationService::class,
         'sale' => SaleService::class,
+        'season_report' => SeasonReportService::class,
         'asset', 'depreciation_allocation' => AssetService::class,
         'expense' => ExpenseService::class,
         'expense_attachment' => AttachmentService::class,
         default => throw new InvalidArgumentException('Unsupported synthetic race kind.'),
     };
-    if ($service === AttachmentService::class) {
+    if ($service === SeasonReportService::class) {
+        $receipt = app($service)->create($actor, $input['operation']);
+    } elseif ($service === AttachmentService::class) {
         $fixture = $input['attachment_fixture'];
         config(['finance.attachments' => ['max_bytes' => 1024, 'max_files' => 1, 'allowed_mime_types' => ['image/png']], 'filesystems.disks.finance_private.root' => $fixture['private_root']]);
         $file = new UploadedFile($fixture['source'], 'fixture.png', 'image/png', null, true);

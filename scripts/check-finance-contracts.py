@@ -101,3 +101,15 @@ for resource in ['ExpensePublic', 'SalePublic']:
     for value in ['2026-10-30T01:00:00', '2026-13-30T01:00:00Z', 'not-a-date', 123]:
         assert not timestamp.is_valid(value), (resource, value)
 print('PASS: public payment UTC/fractional/offset timestamps and malformed rejections; request rules unchanged')
+
+# FIN12 additive request + actual server public snapshot fixture.
+report_schema=json.loads((root/'season-report-operation.schema.json').read_text(encoding='utf-8'))
+Draft202012Validator.check_schema(report_schema)
+report_fixture=json.loads((root/'fixtures/season-report-operation.json').read_text(encoding='utf-8'))
+Draft202012Validator(report_schema,format_checker=wire_formats).validate(report_fixture['operation'])
+assert hashlib.sha256(json.dumps(report_fixture['operation'],sort_keys=True,separators=(',', ':'),ensure_ascii=False).encode()).hexdigest()==report_fixture['canonical_sha256']
+public=json.loads((root/'fixtures/season-report-public.json').read_text(encoding='utf-8'))
+for name,body in [('SeasonReportPreview',public['preview']),('SeasonReportReceipt',public['receipt'])]:
+    Draft202012Validator({'$ref':'#/components/schemas/'+name,'components':api['components']},format_checker=wire_formats).validate(body)
+assert hashlib.sha256(json.dumps(public['full'],sort_keys=True,separators=(',', ':'),ensure_ascii=False).encode()).hexdigest()==public['receipt']['data']['snapshot_hash']
+print('FIN12 request and actual report snapshot contracts: PASS')
