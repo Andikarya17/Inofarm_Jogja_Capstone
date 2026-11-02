@@ -3,7 +3,6 @@ package com.inofarm.jogja.core.files
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.util.AtomicFile
 import androidx.core.content.FileProvider
 import com.inofarm.jogja.core.contracts.*

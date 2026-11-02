@@ -2,22 +2,18 @@ package com.inofarm.jogja.feature.activities
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.inofarm.jogja.core.database.LocalFinanceStore
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.database.QueuedOperation
 import com.inofarm.jogja.core.session.FinanceSession
-import com.inofarm.jogja.core.session.FinanceSessionVault
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.auth.userMessage
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
