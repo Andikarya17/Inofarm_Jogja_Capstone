@@ -12,6 +12,7 @@ use App\Http\Controllers\V2\InvestmentReportController;
 use App\Http\Controllers\V2\InvestmentScenarioController;
 use App\Http\Controllers\V2\MasterController;
 use App\Http\Controllers\V2\ReferenceController;
+use App\Http\Controllers\V2\ReportExportController;
 use App\Http\Controllers\V2\SaleController;
 use App\Http\Controllers\V2\SeasonReportController;
 use App\Http\Controllers\V2\SyncStatusController;
@@ -74,6 +75,7 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::patch('{financeResource}/{id}', [ExpenseController::class, 'update'])->whereIn('financeResource', ['expenses', 'cost-allocations'])->whereUuid('id');
         Route::post('{financeResource}/{id}/cancel', [ExpenseController::class, 'cancel'])->whereIn('financeResource', ['expenses', 'cost-allocations'])->whereUuid('id');
         Route::get('{financeResource}/{id}/audit', [ExpenseController::class, 'audit'])->whereIn('financeResource', ['expenses', 'cost-allocations'])->whereUuid('id');
+        Route::get('report-exports/{id}/{format}', ReportExportController::class)->whereUuid('id')->whereIn('format', ['pdf', 'csv']);
         Route::get('investment-scenarios', [InvestmentScenarioController::class, 'index']);
         Route::post('investment-scenarios', [InvestmentScenarioController::class, 'store']);
         Route::get('investment-scenarios/{id}', [InvestmentScenarioController::class, 'show'])->whereUuid('id');

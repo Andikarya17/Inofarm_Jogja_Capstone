@@ -51,6 +51,7 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
             }
         } else if(state.selected!=null) {
             val row=state.selected;val accepted=row.serverVersion!=null;val body=row.serverBody ?: row.body
+            if(accepted && row.kind==InvestmentContract.REPORT) item {com.inofarm.jogja.feature.exports.ReportExportActions(row)}
             item {Notice(if(accepted) {if(state.fresh) "Salinan telah diperiksa ke server pada sesi ini." else "Menampilkan salinan terakhir tersimpan. Pemeriksaan terbaru belum terkonfirmasi."} else "Catatan lokal belum diterima server.",!state.fresh);Text(row.syncState.label())}
             row.error?.let {item {ErrorReasons(it)}}
             if(row.kind==InvestmentContract.SCENARIO) {

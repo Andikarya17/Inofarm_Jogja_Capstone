@@ -1,5 +1,9 @@
 # Gap analysis baseline 29 Oktober 2026
 
+## FIN14 — 2 November 2026
+
+Gap FIN14 unduhan privat/immutable PDF-CSV, CSV formula injection, destination/cancel/error feedback ditutup lokal dengan backend7/119,72 JVM/lint0,5 device dan real API29+SQL reconciliation. Jalur NAT emulator10.0.2.2 intermittently memutus byte PDF; guard menolak berkas tidak lengkap. Acceptance nyata memakai sambungan ADB reverse; tidak diklaim bahwa NAT sudah pulih. Pre-existing symfony/mime CVE-2026-45070, satu tautan gambar dokumentasi legacy yang hilang, UAT/pentest/reviewer/perangkat fisik tetap terbuka. [Evidence/batas](../migration/finance-20261029/evidence/FIN14-backend.md), [kontrak](../../contracts/v2/REPORT_EXPORT.md). Commit lokal per fitur; push ditunda pengguna.
+
 ## Perbaikan histori FIN13 — 2 November 2026
 
 Cancelled-only fresh-cache history kini dipertahankan dengan typed hydration/current scope; raw draft tidak ditimpa. APK/unit66 dan device17PASS (10 investasi +7 evaluasi musim). [Evidence](../migration/finance-20261029/evidence/20261102-CANCELLED_SCENARIO_HISTORY.md). Gap terkait ditutup lokal. Berikutnya FIN14; push ditunda pengguna, FIN15–17 di luar scope.

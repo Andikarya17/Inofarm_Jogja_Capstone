@@ -1,5 +1,9 @@
 # Data contracts target v2
 
+## FIN14 — 2 November 2026
+
+FIN14 executable: GET report-exports/{id}/{pdf|csv}?expected_snapshot_hash={sha256}, hanya accepted season_report/investment_report. Respons private/no-store dengan Content-Length, X-Report-Snapshot-Hash dan X-Content-SHA256. Export metadata finance-snapshot-export-v1 ditambahkan tanpa mengubah frozen snapshot. CSV typed leaves/canonical json_value mempertahankan presisi dan formula-like display text diamankan. OpenAPI hanya menambah path ekspor; schema/path yang sudah dipublikasikan dipertahankan. [Evidence/batas](../migration/finance-20261029/evidence/FIN14-backend.md), [kontrak](../../contracts/v2/REPORT_EXPORT.md). Commit lokal per fitur; push ditunda pengguna.
+
 ## Perbaikan histori FIN13 — 2 November 2026
 
 Cancelled-only fresh-cache history kini dipertahankan dengan typed hydration/current scope; raw draft tidak ditimpa. APK/unit66 dan device17PASS (10 investasi +7 evaluasi musim). [Evidence](../migration/finance-20261029/evidence/20261102-CANCELLED_SCENARIO_HISTORY.md). Gap terkait ditutup lokal. Berikutnya FIN14; push ditunda pengguna, FIN15–17 di luar scope.

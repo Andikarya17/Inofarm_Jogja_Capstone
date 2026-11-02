@@ -30,10 +30,12 @@ interface FinanceApi {
     suspend fun request(base: String, token: String?, path: String, method: String = "GET", body: JSONObject? = null, query: Map<String,String> = emptyMap()): JSONObject
     suspend fun upload(base:String,token:String,envelope:JSONObject,source:()->InputStream):JSONObject = error("Transport lampiran belum tersedia.")
     suspend fun download(base:String,token:String,id:String,bytes:Long,consume:(InputStream)->Unit):Unit = error("Transport berkas belum tersedia.")
+    suspend fun exportReport(base:String,token:String,id:String,format:String,snapshotHash:String):ReportFile = error("Transport ekspor laporan belum tersedia.")
 }
 
 class FinanceHttpApi(private val allowHttp: Boolean, private val client: OkHttpClient = OkHttpClient.Builder()
     .connectTimeout(10,TimeUnit.SECONDS).readTimeout(20,TimeUnit.SECONDS).callTimeout(30,TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()) : FinanceApi {
+    override suspend fun exportReport(base:String,token:String,id:String,format:String,snapshotHash:String)=ReportExportTransport(client).fetch(validateBase(base),token,id,format,snapshotHash)
     override fun validateBase(base: String): String {
         val normalized=ApiClient({base},{null},allowHttp).validateBase(base)
         require(normalized.toHttpUrl().encodedPath.endsWith("/v2/")) { "Gunakan URL API operasional yang berakhir /v2/." }

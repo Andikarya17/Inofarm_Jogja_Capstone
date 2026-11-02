@@ -10989,6 +10989,171 @@
           }
         ]
       }
+    },
+    "/report-exports/{id}/{format}": {
+      "get": {
+        "operationId": "reportSnapshotExport",
+        "summary": "Download the exact immutable season or investment report",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Current manager/GH/session authorization before rendering and again before delivery. No public URL or server-selected filename input. Private/no-store. Numeric CSV strings preserved with typed JSON value; dangerous text escaped. Client bounded16MiB; PDF transfer deadline120s.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "pdf",
+                "csv"
+              ]
+            }
+          },
+          {
+            "name": "expected_snapshot_hash",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "description": "Hash of the accepted snapshot currently reviewed in the UI; never a request for live recalculation."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Original saved source versions, formula, filters, metrics, reasons and assumptions; integrity checked.",
+            "headers": {
+              "X-Report-Snapshot-Hash": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "X-Content-SHA256": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": "private, no-store"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "description": "Exact byte length of this generated file; transfer integrity is checked with X-Content-SHA256.",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured authorization, snapshot/epoch, validation, rate or integrity error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured authorization, snapshot/epoch, validation, rate or integrity error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured authorization, snapshot/epoch, validation, rate or integrity error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured authorization, snapshot/epoch, validation, rate or integrity error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured authorization, snapshot/epoch, validation, rate or integrity error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured authorization, snapshot/epoch, validation, rate or integrity error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Structured authorization, snapshot/epoch, validation, rate or integrity error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
