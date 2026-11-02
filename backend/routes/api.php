@@ -8,6 +8,8 @@ use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\WorkerController;
 use Illuminate\Support\Facades\Route;
 
+require __DIR__.'/api_v2.php';
+
 Route::prefix('v1')->group(function () {
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:20,1');
     Route::middleware(['auth:sanctum', 'owner', 'throttle:120,1'])->group(function () {
