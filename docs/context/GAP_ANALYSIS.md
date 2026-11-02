@@ -1,5 +1,9 @@
 # Gap analysis baseline 29 Oktober 2026
 
+## FIN15 — 2 November 2026
+
+Gap FIN15 backup+private files/signed manifest, staged restore verification, epoch hold/receipt review dan admin feedback ditutup lokal dengan132 backend/2127 assertions,33 device serta actual separate MySQL restore/reboot/root UI PASS. Copy lokal yang berbeda tetap ditahan atau menjadi LOCAL setelah explicit historical acknowledgement, tidak dianggap recovered/auto-replayed. Q08 jadwal/retensi/RPO/RTO/operator/key escrow dan produksi, physical-device/network/UAT/pentest/reviewer tetap terbuka; dataset kecil bukan production RTO/throughput. Satu tautan screenshot legacy hilang dan advisori symfony/mime lama tetap tercatat. [Kontrak](../../contracts/v2/RECOVERY.md), [evidence/batas](../migration/finance-20261029/evidence/FIN15.md). Commit lokal per fitur; push tetap ditunda pengguna.
+
 ## FIN14 — 2 November 2026
 
 Gap FIN14 unduhan privat/immutable PDF-CSV, CSV formula injection, destination/cancel/error feedback ditutup lokal dengan backend7/119,72 JVM/lint0,5 device dan real API29+SQL reconciliation. Jalur NAT emulator10.0.2.2 intermittently memutus byte PDF; guard menolak berkas tidak lengkap. Acceptance nyata memakai sambungan ADB reverse; tidak diklaim bahwa NAT sudah pulih. Pre-existing symfony/mime CVE-2026-45070, satu tautan gambar dokumentasi legacy yang hilang, UAT/pentest/reviewer/perangkat fisik tetap terbuka. [Evidence/batas](../migration/finance-20261029/evidence/FIN14-backend.md), [kontrak](../../contracts/v2/REPORT_EXPORT.md). Commit lokal per fitur; push ditunda pengguna.

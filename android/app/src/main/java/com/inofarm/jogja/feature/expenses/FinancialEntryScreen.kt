@@ -50,6 +50,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
             OutlinedButton(onClick={asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ASSET)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("asset-new")) {Text("Catat aset")}
             OutlinedButton(onClick={asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ALLOCATION)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("depreciation-new")) {Text("Alokasi penyusutan")}
         }
+        com.inofarm.jogja.feature.recovery.RecoveryBackupButton()
         OutlinedButton(onClick={investments.vm.show(gh)},modifier=Modifier.fillMaxWidth().testTag("investment-open")) {Text("Skenario dan evaluasi investasi")}
         Choice("Riwayat keuangan",selected,listOf(option(RecordKind.EXPENSE.wire,"Pembayaran aktual"),option(RecordKind.COST_ALLOCATION.wire,"Alokasi biaya musim"),option(RecordKind.SALE.wire,"Penjualan lunas"),option(RecordKind.ASSET.wire,"Aset"),option(RecordKind.DEPRECIATION.wire,"Alokasi penyusutan")),"expense-history-kind") {selected=it}
         }

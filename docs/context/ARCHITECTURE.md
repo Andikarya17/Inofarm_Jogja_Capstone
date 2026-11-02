@@ -1,5 +1,9 @@
 # Architecture: kondisi aktual dan target
 
+## FIN15 — 2 November 2026
+
+FIN15 menambah schema14 backup_runs/restore_runs dan runtime identity sources, tanpa mengubah migration1–13/map8 beku. Backup mengambil repeatable-read + finance commit-order lock, JSONL base64 lossless per tabel, signed manifest/checksums dan referenced private blobs. Default root berada di luar seluruh filesystem yang dilayani HTTP. CLI restore hanya fresh owned MySQL testing berbeda server UUID/datadir, import bound parameters dari trusted schema, reconcile sebelum epoch rotation/session invalidation. Android SQLite9 dipertahankan: arsip/pemisahan authoritative vs local copy dan review receipt terfence sesi/epoch; tidak re-ID/rebase/replay otomatis. [Kontrak](../../contracts/v2/RECOVERY.md), [evidence/batas](../migration/finance-20261029/evidence/FIN15.md). Commit lokal per fitur; push tetap ditunda pengguna.
+
 ## FIN14 — 2 November 2026
 
 FIN14 menambahkan ScopedRead → SavedReportStorage → ReportDocumentRenderer di backend, render di luar lock lalu pemeriksaan ulang token/manager/GH/epoch sebelum respons privat. Android memakai ReportExportTransport → ReportExportRepository → ACTION_CREATE_DOCUMENT; MIME/hash/byte length diverifikasi sebelum menulis URI. Dompdf3.1.6 pinned dengan remote/PHP/JavaScript disabled. Tidak ada migration baru; schema13 dan SQLite9 tetap. [Evidence/batas](../migration/finance-20261029/evidence/FIN14-backend.md), [kontrak](../../contracts/v2/REPORT_EXPORT.md). Commit lokal per fitur; push ditunda pengguna.

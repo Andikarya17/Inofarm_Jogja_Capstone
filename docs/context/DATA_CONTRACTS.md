@@ -1,5 +1,9 @@
 # Data contracts target v2
 
+## FIN15 — 2 November 2026
+
+FIN15 executable: recovery/policy, recovery/backups list/create/detail/preflight, recovery/restores history dan sync/reconcile. Backup seluruh sistem adalah current manager + explicit server UUID allowlist, bukan hak implisit assignment GH. App hanya menerima metadata/checksum, bukan paket/credential/path. Recovery manifest finance-recovery-v1 mengikat full table/schema/PK/next IDs/counts/hashes, exact totals, source epoch/server UUID dan private files; HMAC APP_KEY tidak dibundel. Preflight package_validated berbeda dari verified_isolated; missing receipt bukan bukti never-accepted. Seluruh published OpenAPI paths/schemas tetap, hanya additive recovery contracts. [Kontrak](../../contracts/v2/RECOVERY.md), [evidence/batas](../migration/finance-20261029/evidence/FIN15.md). Commit lokal per fitur; push tetap ditunda pengguna.
+
 ## FIN14 — 2 November 2026
 
 FIN14 executable: GET report-exports/{id}/{pdf|csv}?expected_snapshot_hash={sha256}, hanya accepted season_report/investment_report. Respons private/no-store dengan Content-Length, X-Report-Snapshot-Hash dan X-Content-SHA256. Export metadata finance-snapshot-export-v1 ditambahkan tanpa mengubah frozen snapshot. CSV typed leaves/canonical json_value mempertahankan presisi dan formula-like display text diamankan. OpenAPI hanya menambah path ekspor; schema/path yang sudah dipublikasikan dipertahankan. [Evidence/batas](../migration/finance-20261029/evidence/FIN14-backend.md), [kontrak](../../contracts/v2/REPORT_EXPORT.md). Commit lokal per fitur; push ditunda pengguna.

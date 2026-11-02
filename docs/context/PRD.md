@@ -1,5 +1,9 @@
 # PRD: pencatatan operasional dan evaluasi keuangan greenhouse
 
+## FIN15 — 2 November 2026
+
+FIN15 core PASS lokal: pengelola dengan kapabilitas operator sistem eksplisit dapat membuat cadangan manual privat, membaca status/riwayat dan memeriksa integritas paket. Riwayat drill restore terverifikasi tersedia di aplikasi. Setelah restore, operasi lama ditahan; receipt cocok diakui secara eksplisit tanpa replay, receipt hilang tetap memerlukan perbandingan manual. Isian maupun salinan lokal yang berbeda dari titik restore tetap disimpan. Q08 jadwal/retensi/RPO/RTO/operator produksi belum ditetapkan; tidak ada apply produksi melalui HTTP. [Kontrak](../../contracts/v2/RECOVERY.md), [evidence/batas](../migration/finance-20261029/evidence/FIN15.md). Commit lokal per fitur; push tetap ditunda pengguna.
+
 ## FIN14 — 2 November 2026
 
 FIN14 core tersedia dan PASS lokal: pengelola dapat mengunduh PDF/CSV dari laporan musim atau investasi yang sudah diterima server. Isi memakai snapshot yang sama dengan tampilan, termasuk sumber/versi, input, status, alasan dan asumsi; koreksi sumber tidak menghitung ulang laporan lama. Nilai belum diketahui tetap belum diketahui. Pemilihan tujuan Android, pembatalan dan kegagalan unduhan tidak mengklaim sukses palsu. [Evidence/batas](../migration/finance-20261029/evidence/FIN14-backend.md), [kontrak](../../contracts/v2/REPORT_EXPORT.md). Commit lokal per fitur; push ditunda pengguna.

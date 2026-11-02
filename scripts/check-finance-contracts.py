@@ -131,3 +131,14 @@ for name,body in [('InvestmentReportPreview',public['preview']),('InvestmentRepo
 assert hashlib.sha256(json.dumps(public['full'],sort_keys=True,separators=(',', ':'),ensure_ascii=False).encode()).hexdigest()==public['receipt']['data']['snapshot_hash']
 assert hashlib.sha256(json.dumps({k:public['full'][k] for k in ['scope','sources']},sort_keys=True,separators=(',', ':'),ensure_ascii=False).encode()).hexdigest()==public['receipt']['data']['sources_hash']
 print('FIN13 request goldens, actual scenario/report/source DTOs, independent frozen hashes: PASS')
+
+# FIN15 immutable historical envelope and explicit missing-receipt outcome.
+recovery=json.loads((root/'fixtures/recovery-review.json').read_text(encoding='utf-8'))
+for name,body in [('RecoveryReviewRequest',recovery['request']),('RecoveryReceiptReview',recovery['missing_response'])]:
+    Draft202012Validator({'$ref':'#/components/schemas/'+name,'components':api['components']},format_checker=wire_formats).validate(body)
+assert hashlib.sha256(json.dumps(recovery['request']['operation'],sort_keys=True,separators=(',', ':'),ensure_ascii=False).encode()).hexdigest()==recovery['operation_sha256']==recovery['missing_response']['request_hash']
+review_validator=Draft202012Validator({'$ref':'#/components/schemas/RecoveryReviewRequest','components':api['components']},format_checker=wire_formats)
+for path,value in [('sync_epoch','bad'),('actor_id','client-cannot-select-actor')]:
+    sample=json.loads(json.dumps(recovery['request']));sample[path]=value
+    assert not review_validator.is_valid(sample)
+print('FIN15 historical envelope hash, typed review/missing-receipt schema and forged actor rejection: PASS')
