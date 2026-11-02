@@ -18,7 +18,7 @@ import java.time.ZoneId
 data class LocalRecord(val id: String, val kind: String, val greenhouseId: String, val revision: Long, val baseVersion: Long?, val serverVersion: Long?,
     val body: JSONObject, val serverBody: JSONObject?, val latestOperationId: String?, val syncState: SyncState, val error: JSONObject?)
 data class QueuedOperation(val id: String, val entityId: String, val revision: Long, val envelope: JSONObject, val hash: String, val state: String, val attempts: Int, val error: JSONObject?)
-data class LocalHistoryFilter(val groupId:String?=null,val type:String?=null,val from:String?=null,val until:String?=null,val recordState:String?=null,val greenhouseId:String?=null,val groups:Set<String>?=null)
+data class LocalHistoryFilter(val groupId:String?=null,val type:String?=null,val from:String?=null,val until:String?=null,val recordState:String?=null,val greenhouseId:String?=null,val groups:Set<String>?=null,val seasonId:String?=null,val expenseId:String?=null)
 data class LocalDetail(val record:LocalRecord,val pending:List<QueuedOperation>,val archives:List<JSONObject>)
 
 /** Blocking DAO. Repository invokes it on Dispatchers.IO. Every query binds account/server scope. */
@@ -71,10 +71,13 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     fun record(scope: String, id: String): LocalRecord? = db.rawQuery("SELECT * FROM local_records WHERE scope=? AND entity_id=?",arrayOf(scope,id)).use { if(it.moveToFirst()) it.record(scope).also {row -> requireKind(scope,row.kind)} else null }
     private fun indexValues(body:JSONObject):ContentValues {
         val form=body.optJSONObject("_local_form")
-        val day=runCatching { if(form!=null) LocalDate.parse(form.getString("date")).toString() else OffsetDateTime.parse(body.getString("occurred_at")).atZoneSameInstant(ZoneId.of("Asia/Jakarta")).toLocalDate().toString() }.getOrNull()
+        val timestamp=listOf("occurred_at","paid_at","created_at").firstNotNullOfOrNull {key -> body.optString(key).takeUnless {it.isBlank() || it=="null"}}
+        val day=runCatching { if(form?.has("date")==true) LocalDate.parse(form.getString("date")).toString() else OffsetDateTime.parse(timestamp).atZoneSameInstant(ZoneId.of("Asia/Jakarta")).toLocalDate().toString() }.getOrNull()
         return values("occurred_date" to day,"activity_type" to (form?.optString("type") ?: body.optString("activity_type")).takeIf {it.isNotBlank()},
             "group_id" to (form?.optString("group_id") ?: body.optString("planting_group_id")).takeIf {it.isNotBlank()},
-            "record_state" to body.optString("record_state","active"),"occurred_millis" to runCatching {OffsetDateTime.parse(body.getString("occurred_at")).toInstant().toEpochMilli()}.getOrNull(),"indexed" to 1)
+            "record_state" to body.optString("record_state","active"),"occurred_millis" to runCatching {OffsetDateTime.parse(timestamp).toInstant().toEpochMilli()}.getOrNull(),
+            "season_id" to (form?.optString("season_id") ?: body.optString("season_id")).takeIf {it.isNotBlank()},
+            "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"indexed" to 1)
     }
     private fun ensureIndexed(scope:String)=transaction {
         while(true) {
@@ -90,6 +93,11 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         val args=mutableListOf(scope,scope,kind)
         for((column,value) in listOf("group_id" to filter.groupId,"activity_type" to filter.type,"record_state" to filter.recordState)) if(value!=null) {where.append(" AND $column=?");args.add(value)}
         filter.greenhouseId?.let {where.append(" AND greenhouse_id=?");args.add(it)}
+        filter.expenseId?.let {where.append(" AND expense_id=?");args.add(it)}
+        filter.seasonId?.let {season ->
+            if(kind=="expense") {where.append(" AND entity_id IN (SELECT expense_id FROM local_records WHERE scope=? AND kind='cost_allocation' AND season_id=? AND record_state='active')");args.add(scope);args.add(season)}
+            else {where.append(" AND season_id=?");args.add(season)}
+        }
         filter.groups?.let { groups ->
             require(groups.size<=1000)
             if(groups.isEmpty()) where.append(" AND 0=1") else {where.append(" AND group_id IN (${groups.joinToString(",") {"?"}})");args.addAll(groups)}
@@ -110,6 +118,10 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             require(role=="manager") {"Perubahan ini hanya untuk pengelola."}
         }
     }
+    fun allocationSeasons(scope:String,expenseId:String):Set<String> {
+        requireKind(scope,"cost_allocation");ensureIndexed(scope)
+        return db.rawQuery("SELECT DISTINCT season_id FROM local_records WHERE scope=? AND kind='cost_allocation' AND expense_id=? AND record_state='active' AND season_id IS NOT NULL AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)",arrayOf(scope,expenseId,scope)).use {rows -> buildSet {while(rows.moveToNext()) add(rows.getString(0))}}
+    }
     fun cached(scope: String, kind: String, greenhouse: String? = null, limit: Int = 100): List<JSONObject> {
         require(limit in 1..1000)
         requireKind(scope,kind)
@@ -123,7 +135,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         return db.rawQuery("SELECT body FROM cached_records WHERE scope=? AND kind=? AND entity_id=? AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)",arrayOf(scope,kind,id,scope)).use {if(it.moveToFirst()) decode(scope,it.getString(0)) else null}
     }
     fun cacheAudit(scope:String,id:String,gh:String,body:JSONObject,kind:String="activity_audit")=transaction {
-        require(kind in setOf("activity_audit","harvest_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
         db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to 1L,
             "tombstone" to 0,"body" to encrypt(scope,body)),SQLiteDatabase.CONFLICT_REPLACE)
     }
@@ -302,7 +314,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             if(version > old) {
                 db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to version,
                     "tombstone" to if(row.getBoolean("tombstone")) 1 else 0,"body" to encrypt(scope,row.getJSONObject("data"))),SQLiteDatabase.CONFLICT_REPLACE)
-                if(kind in setOf("activity","harvest") || existing!=null) {
+                if(kind in setOf("activity","harvest","expense","cost_allocation") || existing!=null) {
                     val local=existing;val body=row.getJSONObject("data")
                     if(local == null) {
                         val data=values("scope" to scope,"entity_id" to id,"kind" to kind,"greenhouse_id" to gh,"revision" to 1L,

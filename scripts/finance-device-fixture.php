@@ -40,7 +40,8 @@ if ($mode === 'create') {
             foreach (['A', 'B'] as $gradeName) {
                 $grades[] = $create('grades', ['greenhouse_id' => $gh['id'], 'name' => 'Grade '.$gradeName.' perangkat sintetis'])['id'];
             }
-            $contexts[] = ['greenhouse_id' => $gh['id'], 'season_id' => $season['id'], 'group_id' => $group['id'], 'variety_id' => $variety['id'], 'grade_ids' => $grades];
+            $category = $create('expense_categories', ['greenhouse_id' => $gh['id'], 'name' => 'Kategori biaya perangkat sintetis']);
+            $contexts[] = ['greenhouse_id' => $gh['id'], 'season_id' => $season['id'], 'group_id' => $group['id'], 'variety_id' => $variety['id'], 'grade_ids' => $grades, 'category_id' => $category['id']];
         }
         $create('greenhouse_assignments', ['greenhouse_id' => $contexts[0]['greenhouse_id'], 'user_id' => $worker->public_id, 'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
 
@@ -71,7 +72,8 @@ $manager = $actors->firstWhere('public_id', $fixture['manager_id']);
 foreach ($fixture['contexts'] as $context) {
     if (! DB::table('greenhouses')->where('id', $context['greenhouse_id'])->where('created_by', $manager->id)->exists()
         || ! DB::table('seasons')->where('id', $context['season_id'])->where('greenhouse_id', $context['greenhouse_id'])->exists()
-        || ! DB::table('planting_groups')->where('id', $context['group_id'])->where('season_id', $context['season_id'])->where('variety_id', $context['variety_id'])->exists()) {
+        || ! DB::table('planting_groups')->where('id', $context['group_id'])->where('season_id', $context['season_id'])->where('variety_id', $context['variety_id'])->exists()
+        || ! DB::table('expense_categories')->where('id', $context['category_id'])->where('greenhouse_id', $context['greenhouse_id'])->exists()) {
         throw new RuntimeException('Fixture context ownership/relations do not match; cleanup refused.');
     }
 }
@@ -112,13 +114,40 @@ if ($mode === 'verify') {
     if ($cancel->actor_id !== $manager->id || $cancel->reason !== 'DEVICE HARVEST CANCEL '.$fixture['fixture_id']) {
         throw new RuntimeException('Expected session-derived manager cancellation audit.');
     }
-    echo 'PASS: MySQL inofarm_test activity1/version1/ledger1; harvest1/version2/cancelled/items2/snapshots2/ledger2/balance feed4, exact count/kg and actor verified after replay/old ACK.'.PHP_EOL;
+    $expenses = DB::table('expenses')->whereIn('greenhouse_id', $greenhouses)->get();
+    if ($expenses->count() !== 1 || $expenses[0]->version !== 1 || $expenses[0]->record_state !== 'active' || $expenses[0]->amount !== '100.01'
+        || $expenses[0]->allocated_amount !== '60.01' || $expenses[0]->balance_version !== 2 || $expenses[0]->recorded_by !== $manager->id
+        || $expenses[0]->notes !== 'DEVICE EXPENSE — '.$fixture['fixture_id']) {
+        throw new RuntimeException('Actual payment/counter/actor did not match device proof.');
+    }
+    $expense = $expenses[0];
+    $allocations = DB::table('cost_allocations')->where('expense_id', $expense->id)->get();
+    if ($allocations->count() !== 1 || $allocations[0]->version !== 1 || $allocations[0]->amount !== '60.01' || $allocations[0]->cost_class !== 'VC'
+        || $allocations[0]->season_id !== $fixture['contexts'][0]['season_id'] || $allocations[0]->recorded_by !== $manager->id
+        || $allocations[0]->allocation_basis !== 'DEVICE ALLOCATION '.$fixture['fixture_id'] || $allocations[0]->record_state !== 'active'
+        || DB::table('cost_allocations')->where('expense_id', $expense->id)->where('record_state', 'active')->sum('amount') !== $expense->allocated_amount) {
+        throw new RuntimeException('Actual cost allocation did not reconcile with payment.');
+    }
+    foreach ([$expense->id, $allocations[0]->id] as $financialId) {
+        foreach (['audit_logs', 'change_feed', 'sync_operations'] as $table) {
+            if (DB::table($table)->where('entity_id', $financialId)->count() !== 1) {
+                throw new RuntimeException('Expected exactly one financial ledger row after replay.');
+            }
+        }
+    }
+    if (DB::table('change_feed')->where('entity_type', 'expense_balance')->where('entity_id', $expense->balance_id)->where('audience', 'manager')->count() !== 2) {
+        throw new RuntimeException('Financial balance feed did not match source and allocation mutations.');
+    }
+    echo 'PASS: MySQL inofarm_test activity1/version1/ledger1; harvest1/version2/cancelled/items2/snapshots2/ledger2/balance feed4; payment100.01/version1/allocation60.01/version1/counter60.01/balance version2/feed2; manager actor and one financial audit/receipt/feed per entity after offline/process restart/replay.'.PHP_EOL;
     exit(0);
 }
 if ($mode !== 'cleanup') {
     throw new RuntimeException('Use create, verify or cleanup.');
 }
 DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
+    $expenses = DB::table('expenses')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->select('id');
+    DB::table('cost_allocations')->whereIn('expense_id', $expenses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
+    DB::table('expenses')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
     $harvests = DB::table('harvests')->whereIn('planting_group_id', $groups)->select('id');
     foreach (['harvest_reference_snapshots', 'harvest_items'] as $table) {
         DB::table($table)->whereIn('harvest_id', $harvests)->delete();
@@ -136,6 +165,7 @@ DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
     DB::table('seasons')->whereIn('id', array_column($fixture['contexts'], 'season_id'))->delete();
     DB::table('varieties')->whereIn('id', array_column($fixture['contexts'], 'variety_id'))->delete();
     DB::table('grades')->whereIn('greenhouse_id', $greenhouses)->delete();
+    DB::table('expense_categories')->whereIn('greenhouse_id', $greenhouses)->delete();
     DB::table('greenhouse_assignments')->whereIn('greenhouse_id', $greenhouses)->delete();
     DB::table('greenhouses')->whereIn('id', $greenhouses)->delete();
     foreach ($actors as $actor) {

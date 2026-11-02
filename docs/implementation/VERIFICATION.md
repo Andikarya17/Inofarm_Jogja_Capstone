@@ -1,3 +1,7 @@
+## FIN09 native expense/allocation — 30 Oktober 2026 WIB
+
+Branch `codex/finance-expense-entry`, base `ac55dd8`. Android35unit/48instrumentation/0lint errors PASS; five real guarded Laravel/MySQL phases prove payment/allocation offline/process restart/exact receipt/source balance/audit/worker denial, retaining worker/harvest regression. SQLite5 preserves raw drafts/outbox/hash/cursor/archives. [Evidence](../migration/finance-20261029/evidence/FIN09-android.md) includes test corrections, visual QA and limits. Private proof/full FIN09/UAT remain open.
+
 ## Canonical UTF-8 — 30 Oktober 2026 WIB
 
 Branch `codex/finance-canonical-unicode`, base `3e2caf1`. Contract JVM6/native4/PHP5cases PASS; independent UTF-8/control/literal escape golden hashes and immutable mismatch queue hold verified. [Evidence](../migration/finance-20261029/evidence/20261030-CANONICAL_UNICODE.md) separates native-entry work in progress from this fix. No schema/dependency/server mutation changes.

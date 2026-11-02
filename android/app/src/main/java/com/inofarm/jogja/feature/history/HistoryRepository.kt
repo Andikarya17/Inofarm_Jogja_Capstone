@@ -11,6 +11,7 @@ import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.core.session.FinanceSessionVault
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.harvest.domain.HarvestDraft
+import com.inofarm.jogja.feature.expenses.FinancialDraft
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -61,10 +62,11 @@ class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFin
         val version=reviewed.serverVersion ?: error("Versi server belum tersedia.")
         val payload=if(keepLocal) {
             require(reason.isNotBlank() && reason.length<=1000) {"Alasan koreksi wajib, maksimal 1.000 karakter."}
-            require(policy in setOf("preserve","refresh")) {"Pilih kebijakan acuan historis."}
+            require(kind.financial || policy in setOf("preserve","refresh")) {"Pilih kebijakan acuan historis."}
             when(kind) {
                 OperationalKind.ACTIVITY -> ActivityDraft.from(reviewed.id,reviewed.greenhouseId,reviewed.body,version).copy(reason=reason,referencePolicy=policy).payload()
                 OperationalKind.HARVEST -> HarvestDraft.from(reviewed.id,reviewed.greenhouseId,reviewed.body,version).copy(reason=reason,referencePolicy=policy).payload()
+                OperationalKind.EXPENSE,OperationalKind.COST_ALLOCATION -> FinancialDraft.from(reviewed.id,kind,reviewed.greenhouseId,reviewed.body,version).copy(reason=reason).payload()
             }
         } else null
         store.resolveConflict(session.scope.key,reviewed.id,version,reviewed.revision,payload)
@@ -86,6 +88,15 @@ class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFin
     }
     suspend fun retryClosed(session:FinanceSession,ticket:Long,record:LocalRecord)=withContext(Dispatchers.IO) {
         check(session,ticket)
+        if(kind.financial) {
+            val form=record.body.optJSONObject("_local_form") ?: record.body
+            val seasons=if(kind==OperationalKind.COST_ALLOCATION) setOf(form.getString("season_id")) else store.allocationSeasons(session.scope.key,record.id)
+            require(seasons.isNotEmpty()) {"Musim terkait belum tersimpan lengkap. Sinkronkan dan tinjau kembali."}
+            seasons.forEach {id -> require(store.cachedOne(session.scope.key,"seasons",id)?.optString("status")=="open") {"Musim terkait masih ditutup atau belum tersimpan. Buka kembali dan sinkronkan dahulu."}}
+            val op=store.pendingFor(session.scope.key,record.id).singleOrNull {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"} ?: error("Operasi tertahan tidak ditemukan.")
+            store.retryClosedSeason(session.scope.key,op.id)
+            return@withContext
+        }
         val groupId=record.body.optJSONObject("_local_form")?.optString("group_id") ?: record.body.getString("planting_group_id")
         val group=store.cachedOne(session.scope.key,"planting_groups",groupId) ?: error("Kelompok belum tersedia. Sinkronkan dahulu.")
         val season=store.cachedOne(session.scope.key,"seasons",group.getString("season_id")) ?: error("Musim belum tersedia. Sinkronkan dahulu.")

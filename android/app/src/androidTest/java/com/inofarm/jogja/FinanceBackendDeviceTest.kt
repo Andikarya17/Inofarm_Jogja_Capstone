@@ -14,7 +14,7 @@ import org.junit.Test
 import java.io.File
 import java.io.IOException
 
-/** Real Laravel/MySQL integration in two explicitly selected instrumentation processes. */
+/** Real Laravel/MySQL integration in explicitly selected isolated instrumentation processes. */
 class FinanceBackendDeviceTest {
     @get:Rule val rule=createAndroidComposeRule<MainActivity>()
     private val context get()=InstrumentationRegistry.getInstrumentation().targetContext
@@ -34,6 +34,69 @@ class FinanceBackendDeviceTest {
     private fun choose(tag:String,id:String) {rule.onNodeWithTag(tag).performScrollTo().performClick();rule.onNodeWithTag("$tag-option-$id").performScrollTo().performClick()}
     private fun hideKeyboard() {rule.runOnIdle {(rule.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(rule.activity.window.decorView.windowToken,0)};rule.waitForIdle()}
     private fun runtime():FinanceRuntime {lateinit var runtime:FinanceRuntime;rule.runOnIdle {runtime=ViewModelProvider(rule.activity)[FinanceRuntime::class.java]};return runtime}
+    private fun financeEditor():com.inofarm.jogja.feature.expenses.FinancialEntryViewModel {lateinit var editor:com.inofarm.jogja.feature.expenses.FinancialEntryViewModel;rule.runOnIdle {editor=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.expenses.FinancialEntryViewModel::class.java]};return editor}
+    private fun financialOfflineBarrier(f:JSONObject,phase:String) {
+        file("finance-$phase-ready.txt").writeText(f.getString("fixture_id"))
+        val deadline=System.nanoTime()+90_000_000_000L
+        while(System.nanoTime()<deadline && (!file("finance-$phase-offline.txt").exists() || file("finance-$phase-offline.txt").readText().trim()!=f.getString("fixture_id"))) Thread.sleep(100)
+        assertTrue("Host did not stop the guarded API",file("finance-$phase-offline.txt").exists())
+        val model=runtime();val session=model.vault.current!!
+        try {runBlocking {model.api.request(session.scope.server,session.token,"sync/status")};fail("Financial offline precondition failed")} catch(expected:IOException) { /* The actual API transport is unavailable. */ }
+    }
+    @Test fun queueFinancialPaymentWithBackendOffline() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="payment-queue")
+        val f=fixture();login(f,"manager");val a=f.getJSONArray("contexts").getJSONObject(0)
+        rule.onNodeWithTag("finance-tab-4").performClick();rule.onNodeWithTag("expense-gh").performClick();rule.onNodeWithTag("expense-gh-option-${a.getString("greenhouse_id")}").performScrollTo().performClick()
+        rule.onNodeWithTag("expense-new").performClick();choose("expense-category",a.getString("category_id"));choose("expense-payment-kind","operating")
+        rule.onNodeWithTag("expense-date").performScrollTo().performTextReplacement("2026-10-30");rule.onNodeWithTag("expense-time").performScrollTo().performTextReplacement("08:12:34")
+        rule.onNodeWithTag("expense-amount").performScrollTo().performTextReplacement("100,01");rule.onNodeWithTag("expense-notes").performScrollTo().performTextReplacement("DEVICE EXPENSE — ${f.getString("fixture_id")}");hideKeyboard()
+        financialOfflineBarrier(f,"payment")
+        rule.onNodeWithTag("expense-review").performScrollTo().performClick();rule.onNodeWithTag("expense-queue").performScrollTo().performClick()
+        val model=runtime();val session=model.vault.current!!
+        rule.waitUntil(15000) {model.store.outbox(session.scope.key).any {it.envelope.getString("entity_type")=="expense"}}
+        val payment=model.store.outbox(session.scope.key).single {it.envelope.getString("entity_type")=="expense"};assertEquals("QUEUED",payment.state)
+        val editor=financeEditor()
+        rule.runOnIdle {editor.new(com.inofarm.jogja.core.contracts.RecordKind.COST_ALLOCATION,a.getString("greenhouse_id"));editor.edit {it.copy(expenseId=payment.entityId,seasonId=a.getString("season_id"),amount="60,01",costClass="VC",basis="DEVICE ALLOCATION ${f.getString("fixture_id")}")}}
+        val allocationId=editor.state.value.draft!!.id;rule.onNodeWithTag("expense-save-draft").performScrollTo().performClick()
+        rule.waitUntil(10000) {editor.state.value.draft==null && model.store.record(session.scope.key,allocationId)!=null}
+        assertTrue(model.store.outbox(session.scope.key).none {it.envelope.getString("entity_type")=="cost_allocation"})
+        file("finance-device-financial-proof.json").writeText(JSONObject().put("payment_pid",android.os.Process.myPid()).put("expense_id",payment.entityId).put("payment_op",payment.id).put("payment_hash",payment.hash).put("allocation_id",allocationId).toString())
+    }
+    @Test fun replayPaymentThenQueueAllocationWithBackendOffline():Unit=runBlocking {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="allocation-queue")
+        val f=fixture();val proof=JSONObject(file("finance-device-financial-proof.json").readText());assertNotEquals(proof.getInt("payment_pid"),android.os.Process.myPid())
+        val model=runtime();rule.waitUntil(15000) {model.vault.current!=null};val session=model.vault.current!!
+        rule.waitUntil(20000) {model.store.record(session.scope.key,proof.getString("expense_id"))?.syncState==com.inofarm.jogja.core.contracts.SyncState.ACCEPTED && model.store.cachedOne(session.scope.key,"expense",proof.getString("expense_id"))!=null}
+        val op=model.store.outbox(session.scope.key).single {it.id==proof.getString("payment_op")};assertEquals(proof.getString("payment_hash"),op.hash)
+        val receipt=model.api.request(session.scope.server,session.token,"expenses","POST",op.envelope);assertEquals(1,receipt.getInt("version"));assertEquals("100.01",receipt.getJSONObject("data").getString("amount"))
+        val allocation=model.store.record(session.scope.key,proof.getString("allocation_id"))!!;assertEquals("60,01",allocation.body.getJSONObject("_local_form").getString("amount"))
+        val editor=financeEditor();rule.runOnIdle {editor.open(allocation)}
+        financialOfflineBarrier(f,"allocation")
+        rule.onNodeWithTag("expense-review").performScrollTo().performClick();rule.onNodeWithTag("expense-queue").performScrollTo().performClick()
+        rule.waitUntil(10000) {model.store.outbox(session.scope.key).any {it.entityId==allocation.id}}
+        val queued=model.store.outbox(session.scope.key).single {it.entityId==allocation.id};assertEquals("QUEUED",queued.state)
+        proof.put("allocation_pid",android.os.Process.myPid()).put("allocation_op",queued.id).put("allocation_hash",queued.hash)
+        file("finance-device-financial-proof.json").writeText(proof.toString())
+    }
+    @Test fun replayAllocationAndReviewFinancialScopeAndAudit():Unit=runBlocking {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="finance-verify")
+        val f=fixture();val proof=JSONObject(file("finance-device-financial-proof.json").readText());assertNotEquals(proof.getInt("allocation_pid"),android.os.Process.myPid())
+        val model=runtime();rule.waitUntil(15000) {model.vault.current!=null};val session=model.vault.current!!
+        rule.waitUntil(20000) {model.store.record(session.scope.key,proof.getString("allocation_id"))?.syncState==com.inofarm.jogja.core.contracts.SyncState.ACCEPTED}
+        val op=model.store.outbox(session.scope.key).single {it.id==proof.getString("allocation_op")};assertEquals(proof.getString("allocation_hash"),op.hash)
+        val receipt=model.api.request(session.scope.server,session.token,"cost-allocations","POST",op.envelope);assertEquals(1,receipt.getInt("version"));assertEquals("60.01",receipt.getJSONObject("data").getString("amount"))
+        val balance=model.api.request(session.scope.server,session.token,"expenses/${proof.getString("expense_id")}/availability").getJSONObject("data")
+        assertEquals("60.01",balance.getString("allocated_amount"));assertEquals("40.00",balance.getString("available_amount"));assertEquals(1,balance.getInt("expense_version"));assertEquals(2,balance.getInt("version"))
+        rule.onNodeWithTag("finance-tab-4").performClick();rule.onNodeWithTag("expense-history-kind").performClick();rule.onNodeWithTag("expense-history-kind-option-cost_allocation").performScrollTo().performClick()
+        rule.waitUntil(15000) {rule.onAllNodesWithTag("finance-record-${op.entityId}").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-${op.entityId}").performScrollTo().performClick()
+        rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(15000) {rule.onAllNodesWithText("Pencatatan · versi 1").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-logout").performClick();login(f,"worker");val worker=model.vault.current!!
+        rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
+        try {model.api.request(worker.scope.server,worker.token,"expenses/${proof.getString("expense_id")}");fail("Worker financial read must be denied")} catch(error:FinanceApiFailure) {assertEquals(403,error.status)}
+        val changes=model.api.request(worker.scope.server,worker.token,"sync/changes").getJSONArray("data")
+        assertTrue((0 until changes.length()).none {changes.getJSONObject(it).getString("entity_type") in setOf("expense","expense_balance","cost_allocation","expense_categories")})
+        rule.onNodeWithTag("finance-logout").performClick()
+    }
 
     @Test fun queueWithBackendOffline() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="queue")

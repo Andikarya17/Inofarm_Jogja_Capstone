@@ -26,4 +26,11 @@ class OperationRouteTest {
         assertFalse(ReviewableRejections.mayReplace("activity","harvest_in_use"))
         for(code in listOf("entity_exists","operation_conflict","epoch_mismatch","season_closed")) assertFalse(ReviewableRejections.mayReplace("harvest",code))
     }
+    @Test fun financialRoutesRequireManagerAndOnlyReviewedBudgetRejectionsAreReplaceable() {
+        assertEquals(OperationRoute("expenses","POST"),OperationRoute.forOperation("expense","create",id,UserRole.MANAGER))
+        assertEquals(OperationRoute("cost-allocations/$id/cancel","POST"),OperationRoute.forOperation("cost_allocation","cancel",id,UserRole.MANAGER))
+        for(kind in listOf("expense","cost_allocation")) for(action in listOf("create","update","cancel")) assertThrows(IllegalArgumentException::class.java) {OperationRoute.forOperation(kind,action,id,UserRole.WORKER)}
+        assertTrue(ReviewableRejections.mayReplace("expense","expense_in_use"));assertTrue(ReviewableRejections.mayReplace("cost_allocation","allocation_exceeds_source"))
+        for(code in listOf("entity_exists","operation_conflict","epoch_mismatch","season_closed","expense_balance_mismatch")) assertFalse(ReviewableRejections.mayReplace("cost_allocation",code))
+    }
 }

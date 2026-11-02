@@ -30,6 +30,6 @@ Q04/Q05 belum disahkan: tidak auto-complete jadwal, tidak menetapkan stadia dari
 
 ## Verifikasi
 
-`scripts/check-finance-contracts.py` memvalidasi JSON Schema dan fixture activity/harvest/expense/allocation serta seluruh local refs OpenAPI. `FinanceWireContractTest` pada PHPUnit dan Android memeriksa hash lintas bahasa dan penolakan format angka; fixture finance baru diuji Python/PHP dahulu, Kotlin menyusul native editor. [Panen FIN08](HARVEST.md) memakai integer JSON untuk jumlah buah dan decimal string untuk bobot kg. Schema mendeskripsikan struktur; invariants lintas parent/role/saldo tetap diuji di service+MySQL, bukan dibuktikan oleh schema saja.
+`scripts/check-finance-contracts.py` memvalidasi JSON Schema dan fixture activity/harvest/expense/allocation serta seluruh local refs OpenAPI. `FinanceWireContractTest` pada PHPUnit dan Android memeriksa hash lintas bahasa dan penolakan format angka; fixture keuangan/Unicode juga dibaca JVM dan native API37. [Panen FIN08](HARVEST.md) memakai integer JSON untuk jumlah buah dan decimal string untuk bobot kg. Schema mendeskripsikan struktur; invariants lintas parent/role/saldo tetap diuji di service+MySQL, bukan dibuktikan oleh schema saja.
 
 Rujukan teknik diperiksa 29 Oktober 2026: [OpenAPI 3.1.1](https://spec.openapis.org/oas/v3.1.1.html), [Laravel Sanctum 13](https://laravel.com/framework/docs/13.x/sanctum). Tidak menambah dependency runtime.

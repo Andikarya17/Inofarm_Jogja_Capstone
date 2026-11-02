@@ -46,6 +46,7 @@ class FinanceEntryUiTest {
     private val epoch=UUID.randomUUID().toString();private val worker=UUID.randomUUID().toString();private val manager=UUID.randomUUID().toString()
     private val gh=UUID.randomUUID().toString();private val season=UUID.randomUUID().toString();private val group=UUID.randomUUID().toString()
     private val unit=UUID.randomUUID().toString();private val materialA=UUID.randomUUID().toString();private val materialB=UUID.randomUUID().toString()
+    private val category=UUID.randomUUID().toString();private val financeReceipts=ConcurrentHashMap<String,JSONObject>();private val financeKinds=ConcurrentHashMap<String,String>();private val financePosts=AtomicInteger()
     @Before fun prepare() {
         assertTrue(rule.activity.packageName.endsWith(".finance"))
         server.start()
@@ -54,13 +55,15 @@ class FinanceEntryUiTest {
                 if(offline.get()) return MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
                 val path=request.requestUrl!!.encodedPath.substringAfter("/api/v2/")
                 val response=MockResponse().setHeader("Content-Type","application/json")
+                if((path.startsWith("expenses") || path.startsWith("cost-allocations")) && request.method in setOf("POST","PATCH")) return financeMutation(request,response)
+                if((path.startsWith("expenses/") || path.startsWith("cost-allocations/")) && path.endsWith("/audit")) return financeAudit(path,response)
                 if(path.startsWith("harvests") && request.method in setOf("POST","PATCH")) return harvestMutation(request,response)
                 if(path.startsWith("harvests/") && path.endsWith("/audit")) return harvestAudit(path,response)
                 return when(path) {
                     "auth/login" -> { val isManager=JSONObject(request.body.readUtf8()).getString("email").startsWith("manager");response.setBody(JSONObject().put("token",if(isManager) "manager-fixture" else "worker-fixture").put("expires_at","2030-01-01T00:00:00Z").put("user",JSONObject().put("id",if(isManager) manager else worker).put("name",if(isManager) "Pengelola sintetis" else "Pekerja sintetis").put("role",if(isManager) "manager" else "worker")).toString()) }
                     "auth/logout" -> {logoutPosts.incrementAndGet();response.setResponseCode(204)}
                     "sync/status" -> response.setBody(JSONObject().put("schema_version","2").put("sync_epoch",epoch).toString())
-                    "sync/changes" -> response.setBody(page().toString())
+                    "sync/changes" -> response.setBody(page(request.getHeader("Authorization").orEmpty().contains("manager-fixture")).toString())
                     "sync/operations" -> {
                         val op=JSONObject(request.body.readUtf8());val key=op.getString("operation_id");val id=op.getString("entity_id")
                         if(op.getString("action")=="update" && conflictNext.compareAndSet(true,false)) {
@@ -103,7 +106,7 @@ class FinanceEntryUiTest {
         login("worker@example.invalid")
     }
     @After fun close() { server.shutdown() }
-    private fun page():JSONObject {
+    private fun page(managerAccess:Boolean=false):JSONObject {
         val rows=JSONArray()
         fun row(kind:String,id:String,data:JSONObject) { rows.put(JSONObject().put("sequence",rows.length()+1).put("entity_type",kind).put("entity_id",id).put("greenhouse_id",gh).put("version",data.optInt("version",1)).put("tombstone",false).put("data",data.put("id",id).put("version",data.optInt("version",1)))) }
         row("greenhouses",gh,JSONObject().put("name","GH UI sintetis").put("active",true))
@@ -112,6 +115,17 @@ class FinanceEntryUiTest {
         for((id,name) in listOf(gradeA to "Grade A sintetis",gradeB to "Grade B sintetis")) row("grades",id,JSONObject().put("greenhouse_id",gh).put("name",name).put("active",true))
         row("units",unit,JSONObject().put("greenhouse_id",gh).put("name","gram uji").put("active",true).put("dimension","mass"))
         for((id,name) in listOf(materialA to "Bahan A sintetis",materialB to "Bahan B sintetis")) row("materials",id,JSONObject().put("greenhouse_id",gh).put("name",name).put("active",true).put("dimension","mass"))
+        if(managerAccess) {
+            row("expense_categories",category,JSONObject().put("greenhouse_id",gh).put("name","Kategori biaya sintetis").put("active",true))
+            financeReceipts.values.forEach {receipt -> row(financeKinds.getValue(receipt.getString("entity_id")),receipt.getString("entity_id"),JSONObject(receipt.getJSONObject("data").toString()))}
+            financeReceipts.values.filter {financeKinds[it.getString("entity_id")]=="expense"}.groupBy {it.getString("entity_id")}.forEach {(_,versions) ->
+                val latest=versions.maxBy {it.getInt("version")};val source=latest.getJSONObject("data")
+                val allocations=financeReceipts.values.filter {financeKinds[it.getString("entity_id")]=="cost_allocation"}.groupBy {it.getString("entity_id")}.values.map {it.maxBy {r -> r.getInt("version")}.getJSONObject("data")}.filter {it.getString("expense_id")==source.getString("id") && it.optString("record_state")=="active"}
+                val used=allocations.fold(java.math.BigDecimal.ZERO) {sum,r -> sum+java.math.BigDecimal(r.getString("amount"))}.setScale(2)
+                row("expense_balance",source.getString("balance_id"),JSONObject().put("expense_id",source.getString("id")).put("expense_version",source.getInt("version")).put("version",financePosts.get()+1)
+                    .put("active",true).put("amount",source.getString("amount")).put("allocated_amount",used.toPlainString()).put("available_amount",java.math.BigDecimal(source.getString("amount")).subtract(used).setScale(2).toPlainString()))
+            }
+        }
         receipts.values.forEach { receipt -> row("activity",receipt.getString("entity_id"),JSONObject(receipt.getJSONObject("data").toString())) }
         harvestReceipts.values.forEach {receipt -> row("harvest",receipt.getString("entity_id"),JSONObject(receipt.getJSONObject("data").toString()))}
         harvestReceipts.values.groupBy {it.getString("entity_id")}.values.forEach {versions -> val receipt=versions.maxBy {it.getInt("version")};val data=receipt.getJSONObject("data");val items=data.getJSONArray("items")
@@ -119,6 +133,37 @@ class FinanceEntryUiTest {
                 row("harvest_balance",item.getString("id"),JSONObject().put("version",receipt.getInt("version")).put("harvest_id",receipt.getString("entity_id")).put("harvest_version",receipt.getInt("version")).put("active",active).put("weight_kg",item.getString("weight_kg")).put("sold_weight_kg","0.000000").put("available_weight_kg",if(active) item.getString("weight_kg") else "0.000000"))}
         }
         return JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("scope",JSONArray().put(JSONObject().put("id",gh).put("active",true))).put("data",rows).put("next_cursor","fixture").put("has_more",false)
+    }
+    private fun financeMutation(request:RecordedRequest,response:MockResponse):MockResponse {
+        if(!request.getHeader("Authorization").orEmpty().contains("manager-fixture")) return response.setResponseCode(403).setBody("{\"code\":\"access_denied\"}")
+        val op=JSONObject(request.body.readUtf8());val key=op.getString("operation_id");val id=op.getString("entity_id");val kind=op.getString("entity_type");val action=op.getString("action")
+        financeReceipts[key]?.let {return response.setResponseCode(if(action=="create") 201 else 200).setBody(it.toString())}
+        val previous=financeReceipts.values.filter {it.getString("entity_id")==id}.maxByOrNull {it.getInt("version")}
+        val payload=op.getJSONObject("payload");assertFalse(payload.has("_local_form"));if(action!="cancel") assertTrue(payload.get("amount") is String)
+        if(kind=="cost_allocation" && action!="cancel") {
+            val source=financeReceipts.values.filter {it.getString("entity_id")==payload.getString("expense_id")}.maxBy {it.getInt("version")}.getJSONObject("data")
+            val others=financeReceipts.values.filter {financeKinds[it.getString("entity_id")]=="cost_allocation" && it.getString("entity_id")!=id}.groupBy {it.getString("entity_id")}.values
+                .map {it.maxBy {r -> r.getInt("version")}.getJSONObject("data")}.filter {it.getString("expense_id")==source.getString("id") && it.optString("record_state")=="active"}
+            val used=others.fold(java.math.BigDecimal.ZERO) {sum,row -> sum+java.math.BigDecimal(row.getString("amount"))}
+            if(used+java.math.BigDecimal(payload.getString("amount"))>java.math.BigDecimal(source.getString("amount"))) return response.setResponseCode(409).setBody("{\"code\":\"allocation_exceeds_source\",\"message\":\"Jumlah alokasi melebihi sumber sintetis.\"}")
+        }
+        val version=(previous?.getInt("version") ?: 0)+1
+        val data=if(action=="cancel") JSONObject(previous!!.getJSONObject("data").toString()).put("record_state","cancelled") else JSONObject(payload.toString()).put("record_state","active")
+        data.remove("reason");data.put("id",id).put("version",version).put("currency","IDR").put("recorded_by",manager).put("recorded_by_name","Pengelola sintetis")
+            .put("created_at","2026-10-30T00:00:00+07:00").put("updated_at","2026-10-30T00:00:00+07:00").put("amount",java.math.BigDecimal(data.getString("amount")).setScale(2).toPlainString())
+        if(kind=="expense") data.put("balance_id",previous?.getJSONObject("data")?.optString("balance_id") ?: UUID.randomUUID().toString()).put("category_name","Kategori biaya sintetis").put("category_version",1)
+        else data.put("season_name","Musim UI sintetis").put("season_version",1)
+        financeKinds[id]=kind
+        val receipt=JSONObject().put("operation_id",key).put("entity_id",id).put("version",version).put("data",data)
+        financeReceipts[key]=receipt;financePosts.incrementAndGet()
+        return response.setResponseCode(if(action=="create") 201 else 200).setBody(receipt.toString())
+    }
+    private fun financeAudit(path:String,response:MockResponse):MockResponse {
+        val id=path.split('/')[1];val rows=JSONArray()
+        financeReceipts.values.filter {it.getString("entity_id")==id}.sortedBy {it.getInt("version")}.forEach {receipt -> rows.put(JSONObject().put("id",receipt.getInt("version"))
+            .put("actor_id",manager).put("actor_name","Pengelola sintetis").put("version",receipt.getInt("version")).put("action","create").put("reason","Audit biaya sintetis").put("server_at","2026-10-30T00:00:00+07:00")
+            .put("changes",JSONObject().put("before",JSONObject.NULL).put("after",receipt.getJSONObject("data"))))}
+        return response.setBody(JSONObject().put("data",rows).put("next_cursor",JSONObject.NULL).toString())
     }
     private fun harvestMutation(request:RecordedRequest,response:MockResponse):MockResponse {
         val op=JSONObject(request.body.readUtf8());assertEquals("harvest",op.getString("entity_type"));val id=op.getString("entity_id");val key=op.getString("operation_id")
@@ -163,7 +208,7 @@ class FinanceEntryUiTest {
         choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
         rule.onNodeWithTag(if(harvest) "harvest-new" else "finance-new").performScrollTo().performClick()
     }
-    private fun choose(tag:String,id:String) {rule.onNodeWithTag(tag).performScrollTo().performClick();rule.onNodeWithTag("$tag-option-$id").performScrollTo().performClick()}
+    private fun choose(tag:String,id:String) {val selector=rule.onNodeWithTag(tag);(if(tag in setOf("expense-gh","expense-history-kind")) selector else selector.performScrollTo()).performClick();rule.onNodeWithTag("$tag-option-$id").performScrollTo().performClick()}
     private fun hideKeyboard() {rule.runOnIdle { val input=rule.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager;input.hideSoftInputFromWindow(rule.activity.window.decorView.windowToken,0) };rule.waitForIdle()}
 
     @Test fun offlineQueueRecreationReconnectAndManagerHistoryKeepHonestStatus() {
@@ -420,6 +465,111 @@ class FinanceEntryUiTest {
         release.complete(Unit);rule.waitUntil(10000) {rule.onAllNodesWithText("Belum keluar").fetchSemanticsNodes().isNotEmpty()}
         assertEquals(session,runtime.vault.current);assertEquals(generation,runtime.vault.generation);assertEquals(originalRequests,logoutPosts.get())
         rule.onNodeWithText("Kembali ke isian").performClick();rule.onNodeWithTag("finance-logout").assertExists()
+    }
+    private fun managerLogin() {
+        rule.onNodeWithTag("finance-logout").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()};login("manager@example.invalid")
+    }
+    private fun financialForm(allocation:Boolean=false) {
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh)
+        rule.onNodeWithTag(if(allocation) "allocation-new" else "expense-new").performClick()
+    }
+    private fun fillPayment() {
+        choose("expense-category",category);choose("expense-payment-kind","operating")
+        rule.onNodeWithTag("expense-amount").performScrollTo().performTextReplacement("100,01")
+        rule.onNodeWithTag("expense-notes").performScrollTo().performTextReplacement("Pembayaran UI sintetis — tidak otomatis menjadi biaya musim")
+        hideKeyboard()
+    }
+    private fun fillAllocation(source:String,amount:String="60,01") {
+        choose("allocation-source",source);choose("allocation-season",season);choose("allocation-class","VC")
+        rule.onNodeWithTag("allocation-basis").performScrollTo().performTextReplacement("Nominal eksplisit untuk musim sintetis")
+        rule.onNodeWithTag("expense-amount").performScrollTo().performTextReplacement(amount);hideKeyboard()
+    }
+    private fun queueFinancial() {rule.onNodeWithTag("expense-review").performScrollTo().performClick();rule.onNodeWithTag("expense-queue").performScrollTo().performClick()}
+    private fun runtime()=ViewModelProvider(rule.activity)[FinanceRuntime::class.java]
+    private fun acceptedFinancial(kind:String):String {
+        rule.waitUntil(15000) {runtime().vault.current?.let {session -> runtime().store.records(session.scope.key,kind=kind).any {it.syncState==com.inofarm.jogja.core.contracts.SyncState.ACCEPTED}}==true}
+        val session=runtime().vault.current!!
+        return runtime().store.records(session.scope.key,kind=kind).first {it.syncState==com.inofarm.jogja.core.contracts.SyncState.ACCEPTED}.id
+    }
+    @Test fun financialOfflineDraftRecreationReceiptAllocationAndAuditKeepExactMoney() {
+        managerLogin();financialForm();fillPayment();offline.set(true);queueFinancial()
+        rule.waitUntil(10000) {runtime().store.outbox(runtime().vault.current!!.scope.key).isNotEmpty()}
+        val session=runtime().vault.current!!;val original=runtime().store.outbox(session.scope.key).single()
+        assertEquals(0,financePosts.get());rule.activityRule.scenario.recreate()
+        assertEquals(original.hash,runtime().store.outbox(session.scope.key).single().hash)
+        offline.set(false);Thread.sleep(1200);rule.onNodeWithTag("finance-sync").performClick()
+        val source=acceptedFinancial("expense");assertEquals("100.01",runtime().store.record(session.scope.key,source)!!.body.getString("amount"))
+        rule.onNodeWithTag("finance-tab-4").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$source").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-record-$source").performScrollTo().performClick();rule.onNodeWithTag("history-audit").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()};Espresso.pressBack()
+        financialForm(true);fillAllocation(source);queueFinancial();val allocationId=acceptedFinancial("cost_allocation")
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","cost_allocation")
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$allocationId").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$allocationId").performScrollTo().performClick()
+        rule.onNodeWithText("Sisa untuk alokasi:",substring=true).performScrollTo().assertTextContains("40,00",substring=true)
+        assertEquals(2,financePosts.get());assertEquals(original.id,runtime().store.outbox(session.scope.key).first {it.entityId==source}.id)
+    }
+    @Test fun rejectedAllocationRequiresExplicitReviewAndKeepsOriginalEnvelope() {
+        managerLogin();financialForm();fillPayment();queueFinancial();val source=acceptedFinancial("expense")
+        financialForm(true);fillAllocation(source,"101");queueFinancial()
+        val session=runtime().vault.current!!
+        rule.waitUntil(15000) {runtime().store.outbox(session.scope.key).any {it.error?.optString("code")=="allocation_exceeds_source"}}
+        val original=runtime().store.outbox(session.scope.key).single {it.error?.optString("code")=="allocation_exceeds_source"}
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","cost_allocation")
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-${original.entityId}").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-${original.entityId}").performScrollTo().performClick()
+        rule.onNodeWithTag("history-fix-rejected").performScrollTo().performClick();rule.onNodeWithTag("expense-amount").performScrollTo().performTextReplacement("60,01");hideKeyboard()
+        queueFinancial();acceptedFinancial("cost_allocation")
+        val operations=runtime().store.outbox(session.scope.key).filter {it.entityId==original.entityId}
+        assertEquals(2,operations.size);val old=operations.single {it.id==original.id};assertEquals("SUPERSEDED",old.state);assertEquals(original.hash,old.hash)
+        assertEquals(original.envelope.toString(),old.envelope.toString());assertEquals("ACCEPTED",operations.single {it.id!=original.id}.state)
+    }
+    @Test fun logoutFlushesLatestInvalidFinancialInputWithoutCreatingAnOperation() {
+        managerLogin();val session=runtime().vault.current!!
+        lateinit var editor:com.inofarm.jogja.feature.expenses.FinancialEntryViewModel
+        rule.runOnIdle {
+            editor=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.expenses.FinancialEntryViewModel::class.java]
+            editor.new(com.inofarm.jogja.core.contracts.RecordKind.EXPENSE,gh)
+            editor.edit {it.copy(amount="1,2,3",date="belum",notes="Input terbaru sebelum logout")};editor.pauseAutosave()
+        }
+        val draft=editor.state.value.draft!!;assertNull(runtime().store.record(session.scope.key,draft.id))
+        rule.onNodeWithTag("finance-logout").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
+        login("manager@example.invalid");val saved=runtime().store.record(session.scope.key,draft.id)!!
+        assertEquals("1,2,3",saved.body.getJSONObject("_local_form").getString("amount"));assertEquals("belum",saved.body.getJSONObject("_local_form").getString("date"))
+        assertTrue(runtime().store.outbox(session.scope.key).isEmpty());assertEquals(0,financePosts.get())
+    }
+    @Test fun unchangedAcceptedFinancialEditorLogoutDoesNotCreateCorrection() {
+        managerLogin();financialForm();fillPayment();queueFinancial();val id=acceptedFinancial("expense");val session=runtime().vault.current!!
+        val before=runtime().store.record(session.scope.key,id)!!
+        rule.runOnIdle {ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.expenses.FinancialEntryViewModel::class.java].open(before)}
+        rule.onNodeWithTag("finance-logout").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
+        login("manager@example.invalid");val after=runtime().store.record(session.scope.key,id)!!
+        assertEquals(before.revision,after.revision);assertEquals(com.inofarm.jogja.core.contracts.SyncState.ACCEPTED,after.syncState);assertEquals(1,runtime().store.outbox(session.scope.key).size)
+    }
+    @Test fun financialFormAtTwoHundredPercentKeepsSaveReachableWithImeAndLandscape() {
+        managerLogin();financialForm()
+        fun layout(narrow:Boolean) {
+            rule.runOnUiThread {
+                val model=runtime();val density=rule.activity.resources.displayMetrics.density
+                rule.activity.setContent {
+                    CompositionLocalProvider(LocalDensity provides Density(density,2f)) {
+                        InofarmTheme {
+                            Box(Modifier.fillMaxSize()) {
+                                Box((if(narrow) Modifier.width(320.dp) else Modifier.fillMaxWidth()).fillMaxHeight()) {FinanceRoot(model)}
+                            }
+                        }
+                    }
+                }
+            }
+            rule.waitForIdle()
+        }
+        layout(true);rule.onNodeWithTag("expense-notes").performScrollTo().performTextReplacement("Catatan pembayaran font 200 persen")
+        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-save-draft").performScrollTo().assertIsDisplayed()
+        File(rule.activity.getExternalFilesDir(null),"expense-narrow-ime.png").outputStream().use {rule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+        hideKeyboard();rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}
+        rule.waitUntil(10000) {rule.activity.resources.configuration.orientation==Configuration.ORIENTATION_LANDSCAPE};layout(false)
+        rule.onNodeWithTag("expense-notes").performScrollTo().assertTextContains("Catatan pembayaran font 200 persen");rule.onNodeWithTag("expense-notes").performTextReplacement("Landscape tetap dapat disimpan")
+        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-save-draft").performScrollTo().assertIsDisplayed()
+        File(rule.activity.getExternalFilesDir(null),"expense-landscape-ime.png").outputStream().use {rule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+        rule.onNodeWithTag("expense-save-draft").performClick();rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED}
     }
     @Test fun narrowAndLandscapeAtTwoHundredPercentKeepSaveReachableWithKeyboard() {
         chooseContext()
