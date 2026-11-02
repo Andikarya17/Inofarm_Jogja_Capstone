@@ -1,7 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <application android:name=".InofarmApplication" android:label="Inofarm Jogja" android:icon="@drawable/ic_inofarm" android:allowBackup="false" android:theme="@style/AppTheme" android:supportsRtl="true">
+        <service android:name=".core.sync.FinanceSyncJobService" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="true" />
         <provider android:name=".core.files.ScopedFinanceFileProvider" android:authorities="${applicationId}.finance-files" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/finance_file_paths" />
         </provider>

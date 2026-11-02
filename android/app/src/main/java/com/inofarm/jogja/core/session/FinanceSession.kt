@@ -61,6 +61,8 @@ data class FinanceSession(val scope: AccountScope, val token: String, val expire
 
 /** Only session credentials are cleared on logout. This class never deletes the local database. */
 class FinanceSessionVault(context: Context, private val cipher: PayloadCipher, preferenceName: String = "inofarm_finance_session_v2") {
+    private val mutable=kotlinx.coroutines.flow.MutableStateFlow<FinanceSession?>(null)
+    val sessions:kotlinx.coroutines.flow.StateFlow<FinanceSession?> get()=mutable
     private val preferences = context.applicationContext.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
     private val counter = AtomicLong()
     @Volatile private var snapshot: FinanceSession? = null
@@ -71,23 +73,27 @@ class FinanceSessionVault(context: Context, private val cipher: PayloadCipher, p
         if (!loaded) {
             snapshot = preferences.getString("session", null)?.let { FinanceSession.parse(JSONObject(cipher.decode("session-v2", it))) }
             loaded = true
+            mutable.value=snapshot
         }
         return snapshot
     }
     @Synchronized fun beginLogin(): Long {
         check(preferences.edit().remove("session").commit()) { "Sesi lama gagal dilepas dari perangkat." }
         snapshot = null; loaded = true
+        mutable.value=null
         return counter.incrementAndGet()
     }
     @Synchronized fun save(ticket: Long, session: FinanceSession): Boolean {
         if(ticket != generation) return false
         check(preferences.edit().putString("session", cipher.encode("session-v2", session.json().toString())).commit()) { "Sesi gagal disimpan." }
         snapshot = session; loaded = true
+        mutable.value=session
         return true
     }
     @Synchronized fun logout(): FinanceSession? {
         check(preferences.edit().remove("session").commit()) { "Sesi gagal dihapus dari perangkat." }
         val old = snapshot; counter.incrementAndGet(); snapshot = null; loaded = true
+        mutable.value=null
         return old
     }
     fun matches(ticket: Long, scope: AccountScope) = ticket == generation && snapshot?.scope == scope

@@ -26,7 +26,10 @@ fun userMessage(error:Throwable):String = when(error) {
 data class AuthUiState(val loading:Boolean=true,val session:FinanceSession?=null,val error:String?=null)
 class AuthViewModel(private val repository:AuthRepository):ViewModel() {
     private val mutable=MutableStateFlow(AuthUiState());val state=mutable.asStateFlow()
-    init { viewModelScope.launch { try { mutable.value=AuthUiState(false,repository.restore()) } catch(error:Exception) { mutable.value=AuthUiState(false,error="Sesi tersimpan belum dapat dibuka. Masuk kembali; database lokal tetap dipertahankan.") } } }
+    init { viewModelScope.launch {
+        try { mutable.value=AuthUiState(false,repository.restore()) } catch(error:Exception) { mutable.value=AuthUiState(false,error="Sesi tersimpan belum dapat dibuka. Masuk kembali; database lokal tetap dipertahankan.") }
+        repository.vault.sessions.collect {session -> if(state.value.session!=session) mutable.value=state.value.copy(session=session)}
+    } }
     fun login(base:String,email:String,password:String) {
         if(state.value.loading) return
         mutable.value=AuthUiState(loading=true)

@@ -34,7 +34,7 @@ class FinanceDependencies(application:Application) {
     val sync=FinanceSyncCoordinator(api,vault,store,AttachmentTransfer(store,files))
     val attachments=AttachmentRepository(application,vault,store,api,files)
     val viewer=AttachmentViewer(application,vault,store,files)
-    val auth=AuthRepository(api,vault,store)
+    val auth=AuthRepository(api,vault,store) {com.inofarm.jogja.core.sync.FinanceSyncSchedule.ensure(application)}
     val admin=com.inofarm.jogja.feature.admin.AdminRepository(application,vault,store,api,cipher)
     val activities=ActivityRepository(vault,store)
     val context=ContextRepository(vault,store,sync)

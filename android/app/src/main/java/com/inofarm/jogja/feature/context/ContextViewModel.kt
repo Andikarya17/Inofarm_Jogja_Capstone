@@ -23,8 +23,9 @@ class ContextViewModel(private val repository:ContextRepository):ViewModel() {
     private val mutable=MutableStateFlow(CultivationUiState());val state=mutable.asStateFlow();private var job:Job?=null
     private var boundScope:String?=null
     fun bind(session:FinanceSession?) {
-        if(boundScope==session?.scope?.key) return
-        boundScope=session?.scope?.key
+        val identity=session?.let {"${it.scope.key}:${it.role}"}
+        if(boundScope==identity) return
+        boundScope=identity
         job?.cancel();mutable.value=CultivationUiState()
         if(session!=null) job=viewModelScope.launch { loadLocal(session);synchronize() }
     }
@@ -38,7 +39,7 @@ class ContextViewModel(private val repository:ContextRepository):ViewModel() {
     private suspend fun synchronize() {
         val session=vault.current ?: return;val ticket=vault.generation
         mutable.value=state.value.copy(loading=true,message="Memeriksa server…")
-        try { val result=repository.synchronize();if(vault.matches(ticket,session.scope)) { mutable.value=state.value.copy(message=result.message);loadLocal(session) } }
+        try { val result=repository.synchronize();if(vault.matches(ticket,session.scope)) { mutable.value=state.value.copy(message=result.message);loadLocal(vault.current ?: session) } }
         catch(cancelled:CancellationException) { throw cancelled } catch(error:Exception) { if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error)) }
         finally { if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(loading=false) }
     }

@@ -12,8 +12,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.time.Instant
 
-class AuthRepository(private val api:FinanceApi, val vault:FinanceSessionVault,private val store:LocalFinanceStore) {
-    suspend fun restore() = withContext(Dispatchers.IO) { vault.restore() }
+class AuthRepository(private val api:FinanceApi, val vault:FinanceSessionVault,private val store:LocalFinanceStore,private val onSessionAvailable:()->Unit={}) {
+    suspend fun restore() = withContext(Dispatchers.IO) { vault.restore().also {if(it!=null) onSessionAvailable()} }
     suspend fun login(base:String,email:String,password:String):FinanceSession = withContext(Dispatchers.IO) {
         val normalized=api.validateBase(base);val ticket=vault.beginLogin()
         val result=api.request(normalized,null,"auth/login","POST",JSONObject().put("email",email.trim().lowercase()).put("password",password))
@@ -23,6 +23,7 @@ class AuthRepository(private val api:FinanceApi, val vault:FinanceSessionVault,p
         check(ticket==vault.generation) { "Sesi telah berubah." }
         store.initialize(session.scope.key,status.getString("sync_epoch"),session.role)
         check(vault.save(ticket,session)) { "Respons login lama diabaikan." }
+        onSessionAvailable()
         session
     }
     suspend fun logoutLocal() = withContext(Dispatchers.IO) { vault.logout() to vault.generation }

@@ -2,6 +2,7 @@ package com.inofarm.jogja.core.sync
 
 import com.inofarm.jogja.core.contracts.SyncState
 import com.inofarm.jogja.core.contracts.WireContract
+import com.inofarm.jogja.core.contracts.UserRole
 import com.inofarm.jogja.core.database.LocalFinanceStore
 import com.inofarm.jogja.core.network.FinanceApi
 import com.inofarm.jogja.core.network.FinanceApiFailure
@@ -18,7 +19,7 @@ import com.inofarm.jogja.core.contracts.LocalAttachmentFailure
 
 data class SyncOutcome(val accepted: Int, val message: String)
 
-/** Foreground coordinator. Queue and retry timestamps survive process death; no background scheduler dependency. */
+/** Shared foreground/job coordinator. Queue, retry timestamps and epoch holds survive process death. */
 class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: FinanceSessionVault, private val store: LocalFinanceStore,private val attachments:AttachmentTransfer?=null) {
     private val mutex=Mutex()
     suspend fun run(): SyncOutcome = withContext(Dispatchers.IO) {
@@ -26,12 +27,19 @@ class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: Fin
         var capturedSession: FinanceSession? = null
         var capturedTicket = -1L
         try {
-            val session=vault.current ?: return@withContext SyncOutcome(0,"Masuk untuk mengirim antrean akun ini.")
+            var session=vault.current ?: return@withContext SyncOutcome(0,"Masuk untuk mengirim antrean akun ini.")
             val ticket=vault.generation
             capturedSession=session;capturedTicket=ticket
             if(session.expired()) return@withContext SyncOutcome(0,"Sesi berakhir. Masuk kembali dengan akun yang sama; draf dan antrean tetap disimpan.")
             val status=api.request(session.scope.server,session.token,"sync/status")
             if(!vault.matches(ticket,session.scope)) return@withContext SyncOutcome(0,"Sesi berubah; respons lama diabaikan.")
+            require(status.optString("schema_version","2")=="2") {"Versi API tidak sesuai; pengiriman ditahan."}
+            status.optJSONObject("user")?.let {user ->
+                require(WireContract.uuid(user.getString("id"))==session.scope.accountId) {"Identitas profil server tidak cocok; pengiriman ditahan."}
+                val refreshed=session.copy(name=user.getString("name"),role=UserRole.parse(user.getString("role")))
+                if(refreshed!=session) check(vault.save(ticket,refreshed)) {"Sesi berubah; profil lama diabaikan."}
+                session=refreshed;capturedSession=refreshed
+            }
             store.initialize(session.scope.key,status.getString("sync_epoch"),session.role)
             store.resumeAuthentication(session.scope.key)
             pull(session,ticket)
