@@ -1,5 +1,11 @@
 # Decision register target baru
 
+## Keputusan pengguna 2 November2026 — penghapusan IoT dan dashboard manual
+
+Pengguna meminta pencatatan menjadi satu-satunya produk aktif, penghapusan source/runtime/tooling IoT dan prototipe monitoring setelah shared dependencies dipisahkan; tabel/migration/histori/provenance tetap. Finance menjadi default tanpa flag dengan identitas/penyimpanan finance dipertahankan. Ini otorisasi implementasi reversible, bukan deploy/drop/clear data/cutover.
+
+Pengukuran adalah kegiatan tersendiri tanpa bahan, EC mS/cm + PPM ppm wajib lengkap untuk submit, draft boleh parsial, pH manual/histori tetap. Tidak konversi, backfill nol, ambang/faktor agronomi. Dashboard tepat dua kartu dari satu record valid per GH/musim/kelompok: waktu ukur WIB hari ini→kemarin→sebelumnya; urutan occurred_at lalu UUID descending. Legacy EC tidak tersedia eksplisit; empty bukan0. Queued lengkap berlabel belum tersinkron; draft/cancel/rejected/conflict/hold dikecualikan. [Kontrak](../../../contracts/v2/MEASUREMENTS.md), [inventaris/AC](MANUAL_MEASUREMENTS_20261102.md).
+
 Status pelaksanaan: [IMPLEMENTATION_STATUS](../../context/IMPLEMENTATION_STATUS.md). Q10 angka disetujui pengguna saat pelaksanaan (IDR, nominal20,2, kuantitas/harga20,6, HALF_UP total); solver tetap belum disahkan. Pengguna juga mengoreksi publikasi ke remote GitHub `github`; otorisasi ini mengatasi tujuan GitLab operasional sebelumnya, bukan konfirmasi gate pengumpulan akademik. Baris audit FIN00 di bawah dipertahankan sebagai histori, bukan status executable terbaru.
 
 ## Keputusan aktif

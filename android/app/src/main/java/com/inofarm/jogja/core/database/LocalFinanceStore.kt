@@ -76,6 +76,24 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         if(!it.moveToFirst()) emptySet() else JSONArray(it.getString(0)).let { rows -> (0 until rows.length()).map(rows::getString).toSet() }
     }
     fun record(scope: String, id: String): LocalRecord? = db.rawQuery("SELECT * FROM local_records WHERE scope=? AND entity_id=?",arrayOf(scope,id)).use { if(it.moveToFirst()) it.record(scope).also {row -> requireKind(scope,row.kind)} else null }
+    /** Scan indexed candidates in bounded batches, independent of loaded history pages or the 1000-row UI cap. */
+    fun latestMeasurement(scope:String,gh:String,group:String,today:LocalDate):com.inofarm.jogja.feature.activities.domain.ManualMeasurement? = transaction {
+        ensureIndexed(scope)
+        var offset=0
+        while(true) {
+            val rows=db.rawQuery("""SELECT * FROM local_records r WHERE scope=? AND greenhouse_id=? AND group_id=? AND kind='activity'
+                AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)
+                AND sync_state IN ('ACCEPTED','QUEUED') AND record_state='active' AND occurred_date<=?
+                ORDER BY occurred_millis DESC,entity_id DESC LIMIT 100 OFFSET ?""",arrayOf(scope,gh,group,scope,today.toString(),offset.toString())).use {cursor -> buildList {while(cursor.moveToNext()) add(cursor.record(scope))}}
+            for(row in rows) {
+                val cancel=row.syncState==SyncState.QUEUED && row.latestOperationId?.let {id -> db.rawQuery("SELECT envelope FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,id)).use {c -> c.moveToFirst() && decode(scope,c.getString(0))?.optString("action")=="cancel"}}==true
+                if(!cancel) com.inofarm.jogja.feature.activities.domain.ManualMeasurement.from(row,today)?.let {return@transaction it}
+            }
+            if(rows.size<100) return@transaction null
+            offset+=rows.size
+        }
+        @Suppress("UNREACHABLE_CODE") null
+    }
     private fun indexValues(body:JSONObject):ContentValues {
         val form=body.optJSONObject("_local_form")
         val timestamp=listOf("occurred_at","paid_at","created_at").firstNotNullOfOrNull {key -> body.optString(key).takeUnless {it.isBlank() || it=="null"}}

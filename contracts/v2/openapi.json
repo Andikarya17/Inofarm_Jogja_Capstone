@@ -11997,6 +11997,38 @@
           }
         }
       }
+    },
+    "/measurements/latest": {
+      "get": {
+        "summary": "Pengukuran manual valid terbaru menurut occurred_at kalender WIB, scoped per kelompok",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "planting_group_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "data satu accepted activity atau null; EC histori boleh absent/null. occurred_at DESC, id DESC; future calendar day, skipped dan cancelled tidak dipilih."
+          },
+          "401": {
+            "description": "Sesi diperlukan"
+          },
+          "404": {
+            "description": "Kelompok di luar scope atau tidak ditemukan"
+          }
+        }
+      }
     }
   },
   "components": {

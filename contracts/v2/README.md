@@ -1,5 +1,7 @@
 # Kontrak core v2 — FIN01
 
+Lanjutan2 November2026: [EC/PPM manual dan dashboard](MEASUREMENTS.md), schema15 additive. Permintaan pengguna menggantikan kebijakan coexistence v1 dan pemilihan legacy dalam catatan historis di bawah. Tidak ada perubahan envelope/hash antrean historis.
+
 Checkpoint2 November2026 juga mencakup [aset](ASSETS.md), [evaluasi musim](SEASON_EVALUATION.md), [investasi](INVESTMENT.md), [ekspor](REPORT_EXPORT.md), [recovery](RECOVERY.md) serta [profil/background sync FIN16](BACKGROUND_SYNC.md). [Panduan install/run terbaru FIN17](../../docs/migration/finance-20261029/FIN17_INSTALL_RUN.md) dan [hasil/gate FIN16](../../docs/migration/finance-20261029/FIN16_ACCEPTANCE.md) mengatasi batas source historis pada uraian FIN01 berikut. OpenAPI dan schema/fixtures adalah kontrak executable, bukan persetujuan acceptance bisnis/produksi.
 
 Baseline source `9da5b30`; branch awal `codex/finance-contracts`. Proposal SHA256 telah diperiksa cocok pada 29 Oktober 2026. Kontrak executable berkembang dari auth/context/activity/sync hingga panen, [pengeluaran/alokasi](EXPENSES.md), [lampiran privat](ATTACHMENTS.md) dan [penjualan lunas backend](SALES.md). Aset, evaluasi dan recovery masih ditambahkan per modul; rancangan API_V2 bukan bukti route yang belum diimplementasikan. FIN01 keseluruhan tetap parsial.

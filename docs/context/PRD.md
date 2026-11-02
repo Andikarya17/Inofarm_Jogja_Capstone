@@ -1,5 +1,9 @@
 # PRD: pencatatan operasional dan evaluasi keuangan greenhouse
 
+## Perubahan pengguna2 November2026
+
+KF-04 diperluas dengan pengukuran EC mS/cm dan PPM ppm manual sebagai kegiatan tersendiri tanpa pemberian bahan; keduanya wajib saat submit, draf boleh parsial. pH manual dan histori tetap. Beranda memiliki tepat dua kartu EC/PPM dari satu catatan valid, kalender waktu ukur WIB hari ini→kemarin→sebelumnya, tanpa nol/rekaan atau campur scope. [Aturan lengkap dan state](../../contracts/v2/MEASUREMENTS.md). Tidak menghapus KF01–14, KNF01–08, U01–21. Instruksi ini mengatasi uraian legacy/coexistence di bawah.
+
 ## Lanjutan FIN16–17 — 2 November 2026
 
 Administrasi pengelola kini mempunyai form native akun/master/assignment/jadwal/target dengan durable encrypted draft dan review/retry eksplisit. Job network-aware memakai outbox existing; profil terkini diperiksa sebelum send. [FIN16 acceptance](../migration/finance-20261029/FIN16_ACCEPTANCE.md) tetap PARTIAL untuk UAT/pentest/perangkat sasaran; [FIN17 install/run](../migration/finance-20261029/FIN17_INSTALL_RUN.md) dan cutover gates tersedia. Tidak ada perubahan KF/KNF atau keputusan produksi baru.

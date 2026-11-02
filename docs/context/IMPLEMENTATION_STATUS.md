@@ -1,5 +1,9 @@
 # Status implementasi nyata — 2 November 2026
 
+## Pengukuran EC/PPM manual2 November2026
+
+Core pengukuran/dashboard PASS lokal pada branch `codex/manual-ec-ppm-dashboard`: schema15 additive, activity measurement tanpa bahan, raw draft/immutable outbox, read terbaru scoped/cache penuh dan dua kartu EC/PPM.142MySQL/2305assertions,80JVM,build/testAPK/lint0errors,30storage/sync device +1UI rerun PASS. [Evidence kegagalan/perbaikan dan batas](../migration/finance-20261029/evidence/20261102-MANUAL-MEASUREMENTS.md). Penghapusan IoT/default runtime dan E2E pasangan ke MySQL masih dilanjutkan; bukan cutover atau produk DONE. Keterangan baseline/default lama di bawah adalah historis.
+
 ## Audit cleanup 2 November 2026
 
 35 unused Kotlin imports removed; executable statements unchanged. Static diff check PASS; runtime build/lint/tests blocked by missing tooling. Context checker reports missing historical image. [Evidence and limits](../migration/finance-20261029/evidence/20261102-AUDIT-CLEANUP.md). No acceptance status upgraded.

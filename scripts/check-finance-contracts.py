@@ -13,6 +13,17 @@ Draft202012Validator.check_schema(schema)
 fixture = json.loads((root / 'fixtures/activity-operation.json').read_text(encoding='utf-8'))
 validator = Draft202012Validator(schema, format_checker=wire_formats)
 validator.validate(fixture['operation'])
+measurement = json.loads((root / 'fixtures/measurement-operation.json').read_text(encoding='utf-8'))
+validator.validate(measurement['operation'])
+assert hashlib.sha256(json.dumps(measurement['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest() == measurement['canonical_sha256']
+for key in ('manual_ec', 'manual_ppm'):
+    for invalid in (None, '', 'NaN', '-1', '1,2', '1e2', 1.25, '0.0000001'):
+        sample = json.loads(json.dumps(measurement['operation']))
+        sample['payload'][key] = invalid
+        assert not validator.is_valid(sample), (key, invalid)
+    sample = json.loads(json.dumps(measurement['operation']))
+    del sample['payload'][key]
+    assert not validator.is_valid(sample), key
 canonical = json.dumps(fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
 assert hashlib.sha256(canonical.encode()).hexdigest() == fixture['canonical_sha256']
 api = json.loads((root / 'openapi.json').read_text(encoding='utf-8'))

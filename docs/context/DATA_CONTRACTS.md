@@ -1,5 +1,7 @@
 # Data contracts target v2
 
+Perubahan2 November2026: [kontrak EC/PPM manual](../../contracts/v2/MEASUREMENTS.md), nullable EC schema15, tipe activity measurement dan read latest scoped, tanpa mengubah envelope wire2/hash antrean lama atau SQLite9. EC mS/cm dan PPM ppm tidak dikonversi.
+
 ## Lanjutan FIN16–17 — 2 November 2026
 
 GET sync/status sekarang membekukan `SyncStatusPublic` dengan user publik `{id,name,role,version}` selain schema_version/epoch; actor/token dibaca ulang di ScopedRead. Master/reference/user mutation tetap memakai envelope/version/receipt existing; admin journal mempertahankan exact request hash tanpa menyimpan password, retry perlu secret awal. [Kontrak](../../contracts/v2/BACKGROUND_SYNC.md), [batas acceptance](../migration/finance-20261029/FIN16_ACCEPTANCE.md). Tidak ada perubahan decimal/rumus/schema14/SQLite9.
