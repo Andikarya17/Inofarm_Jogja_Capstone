@@ -18,7 +18,7 @@ final class GreenhouseAccess
 
     public function query(User $actor): Builder
     {
-        return DB::table('greenhouses')->whereIn('id', $this->ids($actor))->where('active', true);
+        return DB::table('greenhouses')->whereIn('id', $this->ids($actor));
     }
 
     public function require(User $actor, string $id): object

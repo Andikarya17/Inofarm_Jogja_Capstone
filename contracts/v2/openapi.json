@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "Inofarm finance transition core",
-    "version": "2.0.0-core.1",
+    "version": "2.0.0-masters.1",
     "description": "Kontrak core dibekukan FIN01; route hanya tersedia setelah task implementasinya lulus. Keuangan dan administrasi lanjut per FIN03-15."
   },
   "servers": [
@@ -346,6 +346,85 @@
             }
           }
         }
+      },
+      "post": {
+        "operationId": "post_greenhouses_create",
+        "summary": "Versioned create greenhouses",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "greenhouses"
+                  },
+                  "action": {
+                    "const": "create"
+                  },
+                  "base_version": {
+                    "type": "null"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/greenhouses/{id}": {
@@ -435,6 +514,107 @@
             }
           }
         ]
+      },
+      "patch": {
+        "operationId": "patch_greenhouses_update",
+        "summary": "Versioned update greenhouses",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "greenhouses"
+                  },
+                  "action": {
+                    "const": "update"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "active",
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
       }
     },
     "/seasons": {
@@ -513,6 +693,107 @@
             }
           }
         }
+      },
+      "post": {
+        "operationId": "post_seasons_create",
+        "summary": "Versioned create seasons",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "seasons"
+                  },
+                  "action": {
+                    "const": "create"
+                  },
+                  "base_version": {
+                    "type": "null"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "start_date": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "end_date": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "greenhouse_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "start_date",
+                      "end_date",
+                      "greenhouse_id"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/planting-groups": {
@@ -582,6 +863,118 @@
           },
           "429": {
             "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_planting_groups_create",
+        "summary": "Versioned create planting-groups",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "planting_groups"
+                  },
+                  "action": {
+                    "const": "create"
+                  },
+                  "base_version": {
+                    "type": "null"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "variety_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "population": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 2147483647
+                      },
+                      "sowing_date": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "transplant_date": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "season_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "variety_id",
+                      "population",
+                      "sowing_date",
+                      "transplant_date",
+                      "season_id"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
             "content": {
               "application/json": {
                 "schema": {
@@ -999,6 +1392,1690 @@
             "schema": {
               "type": "string",
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        ]
+      }
+    },
+    "/varieties": {
+      "post": {
+        "operationId": "post_varieties_create",
+        "summary": "Versioned create varieties",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "varieties"
+                  },
+                  "action": {
+                    "const": "create"
+                  },
+                  "base_version": {
+                    "type": "null"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "greenhouse_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "greenhouse_id"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_varieties",
+        "summary": "Scoped paginated varieties",
+        "responses": {
+          "200": {
+            "description": "Scoped page"
+          }
+        }
+      }
+    },
+    "/varieties/{id}": {
+      "patch": {
+        "operationId": "patch_varieties_update",
+        "summary": "Versioned update varieties",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "varieties"
+                  },
+                  "action": {
+                    "const": "update"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "active",
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/grades": {
+      "post": {
+        "operationId": "post_grades_create",
+        "summary": "Versioned create grades",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "grades"
+                  },
+                  "action": {
+                    "const": "create"
+                  },
+                  "base_version": {
+                    "type": "null"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "greenhouse_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "greenhouse_id"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_grades",
+        "summary": "Scoped paginated grades",
+        "responses": {
+          "200": {
+            "description": "Scoped page"
+          }
+        }
+      }
+    },
+    "/grades/{id}": {
+      "patch": {
+        "operationId": "patch_grades_update",
+        "summary": "Versioned update grades",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "grades"
+                  },
+                  "action": {
+                    "const": "update"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "active",
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/units": {
+      "post": {
+        "operationId": "post_units_create",
+        "summary": "Versioned create units",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "units"
+                  },
+                  "action": {
+                    "const": "create"
+                  },
+                  "base_version": {
+                    "type": "null"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "dimension": {
+                        "enum": [
+                          "mass",
+                          "volume",
+                          "count"
+                        ]
+                      },
+                      "greenhouse_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "dimension",
+                      "greenhouse_id"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_units",
+        "summary": "Scoped paginated units",
+        "responses": {
+          "200": {
+            "description": "Scoped page"
+          }
+        }
+      }
+    },
+    "/units/{id}": {
+      "patch": {
+        "operationId": "patch_units_update",
+        "summary": "Versioned update units",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "units"
+                  },
+                  "action": {
+                    "const": "update"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "dimension": {
+                        "enum": [
+                          "mass",
+                          "volume",
+                          "count"
+                        ]
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "dimension",
+                      "active",
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/materials": {
+      "post": {
+        "operationId": "post_materials_create",
+        "summary": "Versioned create materials",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "materials"
+                  },
+                  "action": {
+                    "const": "create"
+                  },
+                  "base_version": {
+                    "type": "null"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "dimension": {
+                        "enum": [
+                          "mass",
+                          "volume",
+                          "count"
+                        ]
+                      },
+                      "greenhouse_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "dimension",
+                      "greenhouse_id"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_materials",
+        "summary": "Scoped paginated materials",
+        "responses": {
+          "200": {
+            "description": "Scoped page"
+          }
+        }
+      }
+    },
+    "/materials/{id}": {
+      "patch": {
+        "operationId": "patch_materials_update",
+        "summary": "Versioned update materials",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "materials"
+                  },
+                  "action": {
+                    "const": "update"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "dimension": {
+                        "enum": [
+                          "mass",
+                          "volume",
+                          "count"
+                        ]
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "dimension",
+                      "active",
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/expense-categories": {
+      "post": {
+        "operationId": "post_expense_categories_create",
+        "summary": "Versioned create expense-categories",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "expense_categories"
+                  },
+                  "action": {
+                    "const": "create"
+                  },
+                  "base_version": {
+                    "type": "null"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "greenhouse_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "greenhouse_id"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_expense_categories",
+        "summary": "Scoped paginated expense-categories",
+        "responses": {
+          "200": {
+            "description": "Scoped page"
+          }
+        }
+      }
+    },
+    "/expense-categories/{id}": {
+      "patch": {
+        "operationId": "patch_expense_categories_update",
+        "summary": "Versioned update expense-categories",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "expense_categories"
+                  },
+                  "action": {
+                    "const": "update"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "active",
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/seasons/{id}": {
+      "patch": {
+        "operationId": "patch_seasons_update",
+        "summary": "Versioned update seasons",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "seasons"
+                  },
+                  "action": {
+                    "const": "update"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "start_date": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "end_date": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "start_date",
+                      "end_date",
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/planting-groups/{id}": {
+      "patch": {
+        "operationId": "patch_planting_groups_update",
+        "summary": "Versioned update planting-groups",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "planting_groups"
+                  },
+                  "action": {
+                    "const": "update"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 150
+                      },
+                      "variety_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "population": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 2147483647
+                      },
+                      "sowing_date": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "transplant_date": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "variety_id",
+                      "population",
+                      "sowing_date",
+                      "transplant_date",
+                      "active",
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/assignments": {
+      "post": {
+        "operationId": "post_assignments_create",
+        "summary": "Versioned create assignments",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "greenhouse_assignments"
+                  },
+                  "action": {
+                    "const": "create"
+                  },
+                  "base_version": {
+                    "type": "null"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "effective_from": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "effective_until": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "greenhouse_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "user_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "effective_from",
+                      "effective_until",
+                      "greenhouse_id",
+                      "user_id"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_assignments",
+        "summary": "Scoped paginated assignments",
+        "responses": {
+          "200": {
+            "description": "Scoped page"
+          }
+        }
+      }
+    },
+    "/assignments/{id}": {
+      "patch": {
+        "operationId": "patch_assignments_update",
+        "summary": "Versioned update assignments",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "greenhouse_assignments"
+                  },
+                  "action": {
+                    "const": "update"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "effective_from": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "effective_until": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "active": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "effective_from",
+                      "effective_until",
+                      "active",
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/seasons/{id}/close": {
+      "post": {
+        "operationId": "post_seasons_close",
+        "summary": "Versioned close seasons",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "seasons"
+                  },
+                  "action": {
+                    "const": "close"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/seasons/{id}/reopen": {
+      "post": {
+        "operationId": "post_seasons_reopen",
+        "summary": "Versioned reopen seasons",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "seasons"
+                  },
+                  "action": {
+                    "const": "reopen"
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "reason"
+                    ]
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt mutation/audit/feed atomic"
+          },
+          "409": {
+            "description": "Konflik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         ]
