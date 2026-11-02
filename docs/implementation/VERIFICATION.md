@@ -1,3 +1,7 @@
+## FIN08 panen multi-grade — 29 Oktober 2026
+
+GitHub branch `codex/finance-harvest`, base `89c5026`. Backend54tests/913assertions; Android27unit/33instrumentation/0lint errors; real worker activity+harvest offline/process restart/replay→manager cancel→old ACK no downgrade PASS. Independent PHP/MySQL two-connection harvest/activity base1 races one accepted/one conflict/final2 PASS. [Evidence FIN08](../migration/finance-20261029/evidence/FIN08.md) memuat source quantities/ledger reconciliation dan batas; bukan workflow penjualan/oversell/UAT. Follow-up editor logout/read consistency/identity di GAP_ANALYSIS tetap harus ditangani sebelum handover.
+
 ## FIN07 riwayat dan resolusi konflik — 29 Oktober 2026
 
 Branch GitHub `codex/finance-history-conflicts`, dependency `e986eec`. Backend48tests/777assertions; Android21unit,0lint errors,26/26 focused instrumentation dalam satu run dan2 real guarded Laravel/MySQL device phases PASS. SQLite4 migration1/2/3 mempertahankan draf/outbox/cursor/arsip; local/server comparison membutuhkan reviewed version/revision. [Evidence FIN07](../migration/finance-20261029/evidence/FIN07.md) merinci koreksi race, fixture/test readiness, command dan batas; bukan acceptance produk. FIN08–17/UAT/pentest berikutnya.

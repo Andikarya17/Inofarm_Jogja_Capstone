@@ -48,3 +48,7 @@ Penjualan lunas, retur/rusak, dasar alokasi penyusutan, PP/DPP convention, toler
 ## Verifikasi audit
 
 Dilakukan: ekstraksi60 halaman, review narasi/tabel dan diagram utama, inventaris344 file non-ignored, inspeksi source lintas modul, archive8 file pre-edit dengan hash, penyusunan context/traceability. Pemeriksaan dokumen akhir dicatat di `docs/implementation/VERIFICATION.md`. Tidak menjalankan build/app/SQL/functional tests. Source/migration executable tetap lama, data pengguna tetap tidak disentuh.
+
+## Review implementasi sesudah FIN07/selama FIN08
+
+Status di atas tetap histori audit FIN00; hasil executable ada di IMPLEMENTATION_STATUS dan evidence per fitur. Tindak lanjut sebelum handover: flush edit terakhir yang masih menunggu debounce sebelum logout eksplisit; buktikan read konsisten header+child/version saat koreksi konkuren (controller panen sudah memakai read transaction, controller kegiatan masih perlu diselaraskan/diuji); tentukan identitas UUID lintas jenis untuk import/kompatibilitas (local pull sudah menolak collision, belum registry global backend). Catatan ini bukan izin purge draft atau auto-map legacy. Background scheduling, API29/perangkat fisik, UI end-to-end timings, UAT dan pentest tetap gate terpisah.

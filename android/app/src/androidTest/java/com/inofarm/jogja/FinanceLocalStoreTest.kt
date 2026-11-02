@@ -8,6 +8,8 @@ import com.inofarm.jogja.core.contracts.UserRole
 import com.inofarm.jogja.core.database.FinanceDatabase
 import com.inofarm.jogja.core.database.LocalFinanceStore
 import com.inofarm.jogja.core.database.LocalHistoryFilter
+import com.inofarm.jogja.feature.harvest.domain.HarvestDraft
+import com.inofarm.jogja.feature.harvest.domain.HarvestLine
 import com.inofarm.jogja.core.session.AndroidPayloadCipher
 import com.inofarm.jogja.core.session.PayloadCipher
 import org.json.JSONArray
@@ -212,6 +214,49 @@ class FinanceLocalStoreTest {
         assertThrows(IllegalArgumentException::class.java) {store.applyPull("account-a",page(JSONArray().put(remote(id,2,"Collision"))).put("next_cursor","bad-cursor"))}
         assertEquals("seasons",store.record("account-a",id)!!.kind);assertEquals("Musim asli",store.record("account-a",id)!!.body.getString("name"))
         assertEquals(cursor,store.pullCursor("account-a"));assertNull(store.cachedOne("account-a","activity",id))
+    }
+    @Test fun harvestRawLocalFormAndValidatedOutboxPayloadAreAtomicAndStaySeparate() {
+        val draft=HarvestDraft(greenhouseId=gh,groupId=UUID.randomUUID().toString(),items=listOf(HarvestLine(gradeId=UUID.randomUUID().toString(),fruitCount="10",weightKg="15,25")))
+        store.saveAndQueue("account-a",draft.id,gh,draft.localJson(),kind="harvest",queuePayload=draft.payload())
+        val op=store.next("account-a")!!
+        assertEquals("harvest",op.envelope.getString("entity_type"));assertFalse(op.envelope.getJSONObject("payload").has("_local_form"))
+        assertEquals("15.25",op.envelope.getJSONObject("payload").getJSONArray("items").getJSONObject(0).getString("weight_kg"))
+        assertEquals("15,25",store.record("account-a",draft.id)!!.body.getJSONObject("_local_form").getJSONArray("items").getJSONObject(0).getString("weight_kg"))
+        helper.close();helper=FinanceDatabase(context,name);store=LocalFinanceStore(helper,FixtureCipher())
+        assertEquals(op.hash,store.next("account-a")!!.hash)
+        assertTrue(store.records("account-a").isEmpty());assertEquals(draft.id,store.records("account-a",kind="harvest").single().id)
+        val data=JSONObject(draft.payload().toString()).put("id",draft.id).put("version",1).put("recorded_by",UUID.randomUUID().toString())
+        store.acknowledge("account-a",op.id,JSONObject().put("operation_id",op.id).put("entity_id",draft.id).put("version",1).put("data",data))
+        assertEquals(SyncState.ACCEPTED,store.record("account-a",draft.id)!!.syncState)
+    }
+    @Test fun workerCanReadScopedHarvestBalanceAndAuditCacheWithoutManagerData() {
+        val id=UUID.randomUUID().toString()
+        val data=JSONObject().put("id",id).put("version",1).put("available_weight_kg","0.000000")
+        val row=JSONObject().put("entity_type","harvest_balance").put("entity_id",id).put("greenhouse_id",gh).put("version",1).put("tombstone",false).put("data",data)
+        store.applyPull("account-a",page(JSONArray().put(row)))
+        assertEquals("0.000000",store.cachedOne("account-a","harvest_balance",id)!!.getString("available_weight_kg"))
+        store.cacheAudit("account-a",id,gh,JSONObject().put("data",JSONArray()).put("fetched_at",1),"harvest_audit")
+        assertNotNull(store.cachedOne("account-a","harvest_audit",id));assertNull(store.cachedOne("account-a","activity_audit",id))
+        assertThrows(IllegalArgumentException::class.java) {store.cacheAudit("account-a",id,gh,JSONObject(),"expense_audit")}
+        store.applyPull("account-a",page(scope=JSONArray()))
+        assertNull(store.cachedOne("account-a","harvest_balance",id));assertNull(store.cachedOne("account-a","harvest_audit",id))
+    }
+    @Test fun harvestUsedBalanceRejectionRequiresReviewAndNewOperationWithoutRewritingTheRejectedPayload() {
+        val draft=HarvestDraft(greenhouseId=gh,groupId=UUID.randomUUID().toString(),items=listOf(HarvestLine(gradeId=UUID.randomUUID().toString(),fruitCount="10",weightKg="15")))
+        val data=draft.payload().put("id",draft.id).put("version",1)
+        val row=JSONObject().put("entity_type","harvest").put("entity_id",draft.id).put("greenhouse_id",gh).put("version",1).put("tombstone",false).put("data",data)
+        store.applyPull("account-a",page(JSONArray().put(row)))
+        val old=store.record("account-a",draft.id)!!
+        store.saveAndQueue("account-a",draft.id,gh,draft.copy(baseVersion=1,reason="Koreksi sintetis").payload(),old.revision,1,kind="harvest")
+        val rejected=store.next("account-a")!!
+        store.mark("account-a",rejected,SyncState.REJECTED,JSONObject().put("code","harvest_in_use"))
+        val review=store.record("account-a",draft.id)!!
+        assertThrows(IllegalArgumentException::class.java) {store.saveAndQueue("account-a",draft.id,gh,draft.payload(),review.revision,1,kind="harvest")}
+        store.saveAndQueue("account-a",draft.id,gh,draft.copy(baseVersion=1,reason="Diperiksa ulang").payload(),review.revision,1,true,kind="harvest")
+        val next=store.next("account-a")!!
+        assertNotEquals(rejected.id,next.id);assertEquals(1L,next.envelope.getLong("base_version"))
+        assertEquals(rejected.hash,store.outbox("account-a").single {it.id==rejected.id}.hash)
+        assertEquals("SUPERSEDED",store.outbox("account-a").single {it.id==rejected.id}.state)
     }
     @Test fun migrationTwoToCurrentKeepsCursorDraftAndOutbox() {
         val migrationName="finance-test-migration-${UUID.randomUUID()}.db"

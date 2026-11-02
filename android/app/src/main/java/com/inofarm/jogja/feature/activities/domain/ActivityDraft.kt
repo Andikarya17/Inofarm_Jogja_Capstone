@@ -1,11 +1,11 @@
 package com.inofarm.jogja.feature.activities.domain
 
 import com.inofarm.jogja.core.contracts.WireContract
+import com.inofarm.jogja.core.cultivation.ManualTime
 import org.json.JSONArray
 import org.json.JSONObject
 import java.math.BigDecimal
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -44,10 +44,7 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
         if(baseVersion!=null && reason.isBlank()) put("reason","Koreksi memerlukan alasan.")
         if(reason.length>1000) put("reason","Alasan koreksi maksimal 1.000 karakter.")
     }
-    fun occurredAt(): String {
-        require(Regex("([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?").matches(time)) { "Jam harus HH:mm, detik opsional." }
-        return LocalDateTime.of(LocalDate.parse(date),LocalTime.parse(time)).atZone(WIB).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"))
-    }
+    fun occurredAt(): String = ManualTime.encode(date,time)
     fun payload(): JSONObject {
         require(validation().isEmpty()) { validation().values.joinToString("\n") }
         return JSONObject().put("planting_group_id",groupId).put("schedule_id",scheduleId ?: JSONObject.NULL).put("activity_type",type.wire).put("occurred_at",occurredAt())
@@ -61,7 +58,7 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
         .put("skipped",skipped).put("skipped_reason",skippedReason).put("notes",notes).put("schedule_id",scheduleId ?: JSONObject.NULL).put("reason",reason).put("reference_policy",referencePolicy).put("base_version",baseVersion ?: JSONObject.NULL).put("replace_validation_rejected",replaceValidationRejected)
         .put("materials",JSONArray().apply { materials.forEach { put(JSONObject().put("material_id",it.materialId).put("unit_id",it.unitId).put("quantity",it.quantity)) } }))
     companion object {
-        val WIB: ZoneId = ZoneId.of("Asia/Jakarta")
+        val WIB: ZoneId = ManualTime.WIB
         fun numeric(text: String): BigDecimal = WireContract.decimal(text.trim().replace(',','.'))
         fun from(id:String,gh:String,body:JSONObject,base:Long?):ActivityDraft {
             val local=body.optJSONObject("_local_form")

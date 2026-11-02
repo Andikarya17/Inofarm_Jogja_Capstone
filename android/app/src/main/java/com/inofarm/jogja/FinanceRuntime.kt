@@ -12,6 +12,8 @@ import com.inofarm.jogja.feature.auth.AuthRepository
 import com.inofarm.jogja.feature.activities.ActivityRepository
 import com.inofarm.jogja.feature.context.ContextRepository
 import com.inofarm.jogja.feature.history.HistoryRepository
+import com.inofarm.jogja.feature.harvest.HarvestRepository
+import com.inofarm.jogja.core.contracts.OperationalKind
 
 /** One database/session generation per application process, shared across activity recreation. */
 class InofarmApplication:Application() {
@@ -28,6 +30,8 @@ class FinanceDependencies(application:Application) {
     val activities=ActivityRepository(vault,store)
     val context=ContextRepository(vault,store,sync)
     val history=HistoryRepository(vault,store,api)
+    val harvest=HarvestRepository(vault,store)
+    val harvestHistory=HistoryRepository(vault,store,api,OperationalKind.HARVEST)
 }
 
 class FinanceRuntime(application:Application):AndroidViewModel(application) {
@@ -40,4 +44,6 @@ class FinanceRuntime(application:Application):AndroidViewModel(application) {
     val activities get()=dependencies.activities
     val context get()=dependencies.context
     val history get()=dependencies.history
+    val harvest get()=dependencies.harvest
+    val harvestHistory get()=dependencies.harvestHistory
 }

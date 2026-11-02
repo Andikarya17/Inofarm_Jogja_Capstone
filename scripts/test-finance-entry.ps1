@@ -105,4 +105,4 @@ try {
     Stop-TestApi
     if($fixtureCreated -and (Test-Path -LiteralPath $manifest)) {& $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') cleanup;if($LASTEXITCODE -ne 0) {throw 'Synthetic fixture cleanup failed.'}}
 }
-Write-Output 'PASS: real guarded MySQL/Laravel worker offline -> process restart -> receipt/replay -> manager history. No user DB or legacy app data reset.'
+Write-Output 'PASS: real guarded MySQL/Laravel worker activity + multi-grade harvest offline -> process restart -> receipts/replays -> manager review/cancel -> old ACK cannot downgrade. No user DB or legacy app data reset.'

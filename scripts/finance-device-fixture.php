@@ -36,7 +36,11 @@ if ($mode === 'create') {
             $variety = $create('varieties', ['greenhouse_id' => $gh['id'], 'name' => 'Varietas perangkat sintetis']);
             $season = $create('seasons', ['greenhouse_id' => $gh['id'], 'name' => 'Musim '.$name.' sintetis', 'start_date' => '2026-10-01', 'end_date' => null]);
             $group = $create('planting_groups', ['season_id' => $season['id'], 'variety_id' => $variety['id'], 'name' => 'Kelompok '.$name.' sintetis', 'population' => 10, 'sowing_date' => '2026-10-01', 'transplant_date' => null]);
-            $contexts[] = ['greenhouse_id' => $gh['id'], 'season_id' => $season['id'], 'group_id' => $group['id'], 'variety_id' => $variety['id']];
+            $grades = [];
+            foreach (['A', 'B'] as $gradeName) {
+                $grades[] = $create('grades', ['greenhouse_id' => $gh['id'], 'name' => 'Grade '.$gradeName.' perangkat sintetis'])['id'];
+            }
+            $contexts[] = ['greenhouse_id' => $gh['id'], 'season_id' => $season['id'], 'group_id' => $group['id'], 'variety_id' => $variety['id'], 'grade_ids' => $grades];
         }
         $create('greenhouse_assignments', ['greenhouse_id' => $contexts[0]['greenhouse_id'], 'user_id' => $worker->public_id, 'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
 
@@ -53,6 +57,9 @@ if ($fixture['database'] !== 'inofarm_test' || ! Str::isUuid($fixture['fixture_i
     throw new RuntimeException('Invalid synthetic provenance.');
 }
 $actors = User::whereIn('public_id', [$fixture['manager_id'], $fixture['worker_id']])->get();
+if ($actors->count() !== 2) {
+    throw new RuntimeException('Both synthetic fixture accounts must still exist before verification/cleanup.');
+}
 foreach ($actors as $actor) {
     if (! str_ends_with($actor->email, $fixture['fixture_id'].'@example.invalid')) {
         throw new RuntimeException('Refusing unrelated user rows.');
@@ -60,6 +67,14 @@ foreach ($actors as $actor) {
 }
 $groups = array_column($fixture['contexts'], 'group_id');
 $greenhouses = array_column($fixture['contexts'], 'greenhouse_id');
+$manager = $actors->firstWhere('public_id', $fixture['manager_id']);
+foreach ($fixture['contexts'] as $context) {
+    if (! DB::table('greenhouses')->where('id', $context['greenhouse_id'])->where('created_by', $manager->id)->exists()
+        || ! DB::table('seasons')->where('id', $context['season_id'])->where('greenhouse_id', $context['greenhouse_id'])->exists()
+        || ! DB::table('planting_groups')->where('id', $context['group_id'])->where('season_id', $context['season_id'])->where('variety_id', $context['variety_id'])->exists()) {
+        throw new RuntimeException('Fixture context ownership/relations do not match; cleanup refused.');
+    }
+}
 if ($mode === 'verify') {
     $activities = DB::table('activities')->whereIn('planting_group_id', $groups)->limit(10)->get();
     if ($activities->count() !== 1 || $activities[0]->notes !== 'DEVICE OFFLINE '.$fixture['fixture_id']) {
@@ -74,13 +89,41 @@ if ($mode === 'verify') {
     if (DB::table('activity_reference_snapshots')->where('activity_id', $id)->count() !== 1) {
         throw new RuntimeException('Snapshot count mismatch.');
     }
-    echo 'PASS: MySQL inofarm_test has exactly one device activity, version1, snapshot/audit/feed/receipt=1 each after HTTP replay.'.PHP_EOL;
+    $harvests = DB::table('harvests')->whereIn('planting_group_id', $groups)->get();
+    if ($harvests->count() !== 1 || $harvests[0]->version !== 2 || $harvests[0]->record_state !== 'cancelled' || $harvests[0]->notes !== 'DEVICE HARVEST OFFLINE '.$fixture['fixture_id']) {
+        throw new RuntimeException('Expected one accepted then manager-cancelled synthetic harvest, version2.');
+    }
+    $harvestId = $harvests[0]->id;
+    foreach (['audit_logs', 'change_feed', 'sync_operations'] as $table) {
+        if (DB::table($table)->where('entity_id', $harvestId)->count() !== 2) {
+            throw new RuntimeException('Expected exactly two harvest ledger rows in '.$table);
+        }
+    }
+    $items = DB::table('harvest_items')->where('harvest_id', $harvestId)->get();
+    $weights = $items->pluck('weight_kg')->sort()->values()->all();
+    $counts = $items->pluck('fruit_count')->sort()->values()->all();
+    if ($items->count() !== 2 || $weights !== ['0.000000', '4.500000'] || $counts !== [0, 3]
+        || $items->contains(fn ($item) => bccomp($item->sold_weight_kg, '0', 6) !== 0)
+        || DB::table('harvest_reference_snapshots')->where('harvest_id', $harvestId)->count() !== 2
+        || DB::table('change_feed')->where('entity_type', 'harvest_balance')->whereIn('entity_id', $items->pluck('id'))->count() !== 4) {
+        throw new RuntimeException('Harvest quantities, snapshots or balance feed did not reconcile.');
+    }
+    $cancel = DB::table('audit_logs')->where('entity_type', 'harvest')->where('entity_id', $harvestId)->where('action', 'cancel')->first();
+    if ($cancel->actor_id !== $manager->id || $cancel->reason !== 'DEVICE HARVEST CANCEL '.$fixture['fixture_id']) {
+        throw new RuntimeException('Expected session-derived manager cancellation audit.');
+    }
+    echo 'PASS: MySQL inofarm_test activity1/version1/ledger1; harvest1/version2/cancelled/items2/snapshots2/ledger2/balance feed4, exact count/kg and actor verified after replay/old ACK.'.PHP_EOL;
     exit(0);
 }
 if ($mode !== 'cleanup') {
     throw new RuntimeException('Use create, verify or cleanup.');
 }
 DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
+    $harvests = DB::table('harvests')->whereIn('planting_group_id', $groups)->select('id');
+    foreach (['harvest_reference_snapshots', 'harvest_items'] as $table) {
+        DB::table($table)->whereIn('harvest_id', $harvests)->delete();
+    }
+    DB::table('harvests')->whereIn('planting_group_id', $groups)->delete();
     $activities = DB::table('activities')->whereIn('planting_group_id', $groups)->select('id');
     foreach (['activity_materials', 'activity_reference_snapshots'] as $table) {
         DB::table($table)->whereIn('activity_id', $activities)->delete();
@@ -92,6 +135,7 @@ DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
     DB::table('planting_groups')->whereIn('id', $groups)->delete();
     DB::table('seasons')->whereIn('id', array_column($fixture['contexts'], 'season_id'))->delete();
     DB::table('varieties')->whereIn('id', array_column($fixture['contexts'], 'variety_id'))->delete();
+    DB::table('grades')->whereIn('greenhouse_id', $greenhouses)->delete();
     DB::table('greenhouse_assignments')->whereIn('greenhouse_id', $greenhouses)->delete();
     DB::table('greenhouses')->whereIn('id', $greenhouses)->delete();
     foreach ($actors as $actor) {

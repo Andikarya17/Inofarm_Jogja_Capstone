@@ -33,8 +33,19 @@ def inspect(value):
             inspect(child)
 
 inspect(api)
+harvest_schema = json.loads((root / 'harvest-operation.schema.json').read_text(encoding='utf-8'))
+Draft202012Validator.check_schema(harvest_schema)
+harvest_validator = Draft202012Validator(harvest_schema, format_checker=FormatChecker())
+harvest_fixture = json.loads((root / 'fixtures/harvest-operation.json').read_text(encoding='utf-8'))
+harvest_validator.validate(harvest_fixture['operation'])
+harvest_canonical = json.dumps(harvest_fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+assert hashlib.sha256(harvest_canonical.encode()).hexdigest() == harvest_fixture['canonical_sha256']
+for invalid in ('2', 1.5, True, -1, 2147483648):
+    sample = json.loads(json.dumps(harvest_fixture['operation']))
+    sample['payload']['items'][0]['fruit_count'] = invalid
+    assert not harvest_validator.is_valid(sample)
 for invalid in (1.5, 'NaN', '1,5', '1e2'):
     sample = json.loads(json.dumps(fixture['operation']))
     sample['payload']['manual_ph'] = invalid
     assert not validator.is_valid(sample)
-print('PASS: core schema, fixture, decimal rejection, SHA256 and local OpenAPI refs')
+print('PASS: activity/harvest schemas, fixtures, decimal/integer rejection, SHA256 and local OpenAPI refs')

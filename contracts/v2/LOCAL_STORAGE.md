@@ -9,6 +9,8 @@
 - Epoch baru menahan queue dan local records untuk review, menghapus hanya cache baca/cursor lama; draf/payload/operation ID/hash utuh. ACK epoch lama ditolak. Belum ada reconciliation otomatis/production restore.
 - 401 AUTH_REQUIRED;403/404 SCOPE_REVOKED;409 version CONFLICT;epoch EPOCH_REVIEW;closed/422 REJECTED;network/429/5xx QUEUED dengan retry timestamp exponential+Retry-After. Tidak auto-purge receipt/draft. Foreground sync terbatas50 operasi/100 halaman per run, bisa dilanjutkan; background scheduler belum diimplementasikan.
 
+FIN08 menambah payload outbox terpisah dari raw local form dalam transaksi yang sama, kind harvest/audit/balance scoped, dan reviewable rejection `harvest_in_use` khusus panen. Riwayat activity dan harvest mempunyai instance ViewModel/filter/selection sendiri, memakai guards/archive/receipt yang sama. Lihat [kontrak panen](HARVEST.md).
+
 `-PfinanceApp` memilih minSdk29 dan suffix debug/profile `.finance`, endpoint debug configurable `inofarmFinanceDebugApiUrl` (default emulator port8000/api/v2). Build default tetap launcher legacy. FIN06 menghubungkan launcher finance, bukan mengganti APK pengguna. Native build+lint tidak membuktikan dukungan API29 device; device saat ini API37.
 
 Verification runner `scripts/test-finance-android.ps1 -JavaHome ...`: core instrumentation, phase prepare→force-stop test app→verify di proses kedua, dan storage timings. Tidak memakai pm clear/uninstall data aplikasi pengguna. Database test dengan nama UUID/prefix tersendiri dibersihkan setelah uji. Timing mengukur DAO encrypted transaction, bukan seluruh input/UI/KNF02 final.

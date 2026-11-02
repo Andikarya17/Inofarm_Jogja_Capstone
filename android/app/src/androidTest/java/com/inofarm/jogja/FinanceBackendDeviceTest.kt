@@ -56,9 +56,22 @@ class FinanceBackendDeviceTest {
         hideKeyboard();rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("finance-tab-2").performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Menunggu pengiriman").fetchSemanticsNodes().isNotEmpty()}
-        val runtime=runtime();val session=runtime.vault.current!!;val op=runtime.store.outbox(session.scope.key).single()
+        rule.onNodeWithTag("finance-tab-0").performClick();rule.onNodeWithTag("harvest-new").performScrollTo().performClick()
+        repeat(2) {index ->
+            rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick();choose("harvest-grade-$index",a.getJSONArray("grade_ids").getString(index))
+            rule.onNodeWithTag("harvest-count-$index").performScrollTo().performTextReplacement(if(index==0) "3" else "0");hideKeyboard()
+            rule.onNodeWithTag("harvest-weight-$index").performScrollTo().performTextReplacement(if(index==0) "4,5" else "0");hideKeyboard()
+        }
+        rule.onNodeWithTag("harvest-notes").performScrollTo().performTextReplacement("DEVICE HARVEST OFFLINE ${f.getString("fixture_id")}");hideKeyboard()
+        rule.onNodeWithTag("harvest-review").performScrollTo().performClick();rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-3").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-tab-3").performClick()
+        val runtime=runtime();val session=runtime.vault.current!!
+        val op=runtime.store.outbox(session.scope.key).single {it.envelope.getString("entity_type")=="activity"}
+        val harvest=runtime.store.outbox(session.scope.key).single {it.envelope.getString("entity_type")=="harvest"}
         assertEquals("QUEUED",op.state)
-        file("finance-device-queued-proof.json").writeText(JSONObject().put("fixture_id",f.getString("fixture_id")).put("entity_id",op.entityId).put("operation_id",op.id).put("hash",op.hash).put("pid",android.os.Process.myPid()).toString())
+        assertEquals("QUEUED",harvest.state)
+        file("finance-device-queued-proof.json").writeText(JSONObject().put("fixture_id",f.getString("fixture_id")).put("entity_id",op.entityId).put("operation_id",op.id).put("hash",op.hash).put("pid",android.os.Process.myPid())
+            .put("harvest",JSONObject().put("entity_id",harvest.entityId).put("operation_id",harvest.id).put("hash",harvest.hash)).toString())
     }
     @Test fun reconnectReplayAndManagerReview():Unit=runBlocking {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="verify")
@@ -68,17 +81,38 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-tab-2").performClick()
         rule.waitUntil(20000) {rule.onAllNodesWithText("Diterima server").fetchSemanticsNodes().isNotEmpty()}
         val runtime=runtime();val worker=runtime.vault.current!!
+        rule.waitUntil(20000) {runtime.store.outbox(worker.scope.key).count {it.state=="ACCEPTED"}==2}
         val record=runtime.api.request(worker.scope.server,worker.token,"activities/${proof.getString("entity_id")}")
         assertEquals(f.getString("worker_id"),record.getString("recorded_by"));assertEquals(1,record.getInt("version"))
         try {runtime.api.request(worker.scope.server,worker.token,"greenhouses/${f.getJSONArray("contexts").getJSONObject(1).getString("greenhouse_id")}");fail("Cross GH must be denied")} catch(error:FinanceApiFailure) {assertEquals(404,error.status)}
-        val op=runtime.store.outbox(worker.scope.key).single();assertEquals(proof.getString("operation_id"),op.id);assertEquals(proof.getString("hash"),op.hash)
+        val op=runtime.store.outbox(worker.scope.key).single {it.entityId==proof.getString("entity_id")};assertEquals(proof.getString("operation_id"),op.id);assertEquals(proof.getString("hash"),op.hash)
         val replay=runtime.api.request(worker.scope.server,worker.token,"sync/operations","POST",op.envelope)
         assertEquals(op.id,replay.getString("operation_id"));assertEquals(1,replay.getInt("version"))
         assertEquals(1,runtime.api.request(worker.scope.server,worker.token,"activities/${op.entityId}/audit").getJSONArray("data").length())
+        val harvestProof=proof.getJSONObject("harvest")
+        val harvestOp=runtime.store.outbox(worker.scope.key).single {it.entityId==harvestProof.getString("entity_id")}
+        assertEquals(harvestProof.getString("operation_id"),harvestOp.id);assertEquals(harvestProof.getString("hash"),harvestOp.hash)
+        val harvest=runtime.api.request(worker.scope.server,worker.token,"harvests/${harvestOp.entityId}")
+        assertEquals(1,harvest.getInt("version"));assertEquals(2,harvest.getJSONArray("items").length());assertEquals(f.getString("worker_id"),harvest.getString("recorded_by"))
+        val firstGrade=(0 until 2).map {harvest.getJSONArray("items").getJSONObject(it)}.single {it.getString("grade_id")==f.getJSONArray("contexts").getJSONObject(0).getJSONArray("grade_ids").getString(0)}
+        assertEquals(3,firstGrade.getInt("fruit_count"));assertEquals("4.500000",firstGrade.getString("weight_kg"))
+        val harvestReplay=runtime.api.request(worker.scope.server,worker.token,"harvests","POST",harvestOp.envelope);assertEquals(1,harvestReplay.getInt("version"))
         rule.onNodeWithTag("finance-logout").performClick();login(f,"manager")
         rule.onNodeWithTag("finance-tab-2").performClick();rule.waitUntil(15000) {rule.onAllNodesWithText("DEVICE OFFLINE ${f.getString("fixture_id")}").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithText("DEVICE OFFLINE ${f.getString("fixture_id")}").performScrollTo().performClick()
         rule.onNodeWithText("Pencatat: Pekerja perangkat sintetis").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Kembali ke riwayat").performScrollTo().performClick();rule.onNodeWithTag("finance-tab-3").performClick()
+        rule.waitUntil(15000) {rule.onAllNodesWithText("DEVICE HARVEST OFFLINE ${f.getString("fixture_id")}").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithText("DEVICE HARVEST OFFLINE ${f.getString("fixture_id")}").performScrollTo().performClick()
+        rule.onNodeWithText("Pencatat: Pekerja perangkat sintetis").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("history-cancel").performScrollTo().performClick();rule.onNodeWithTag("history-action-reason").performTextReplacement("DEVICE HARVEST CANCEL ${f.getString("fixture_id")}");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
+        rule.waitUntil(15000) {rule.onAllNodesWithText("Dibatalkan").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-logout").performClick();login(f,"worker")
+        val currentWorker=runtime.vault.current!!
+        val oldReceipt=runtime.api.request(currentWorker.scope.server,currentWorker.token,"harvests","POST",harvestOp.envelope)
+        assertEquals(1,oldReceipt.getInt("version"));runtime.store.acknowledge(currentWorker.scope.key,harvestOp.id,oldReceipt)
+        val after=runtime.store.record(currentWorker.scope.key,harvestOp.entityId)!!
+        assertEquals(2L,after.serverVersion);assertEquals(2L,after.baseVersion);assertEquals("cancelled",after.body.getString("record_state"))
         rule.onNodeWithTag("finance-logout").performClick()
     }
 }

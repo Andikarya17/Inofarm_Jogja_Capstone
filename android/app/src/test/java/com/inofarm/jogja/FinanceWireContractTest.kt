@@ -20,4 +20,10 @@ class FinanceWireContractTest {
             assertThrows(IllegalArgumentException::class.java) { WireContract.decimal(it, 2) }
         }
     }
+    @Test fun sharedHarvestFixturePreservesIntegerAndDecimalWireTypes() {
+        val fixture=JSONObject(File("../../contracts/v2/fixtures/harvest-operation.json").readText())
+        assertEquals(fixture.getString("canonical_sha256"),WireContract.hash(fixture.getJSONObject("operation")))
+        val item=fixture.getJSONObject("operation").getJSONObject("payload").getJSONArray("items").getJSONObject(0)
+        assertEquals(10,item.getInt("fruit_count"));assertEquals("15.250000",item.getString("weight_kg"))
+    }
 }
