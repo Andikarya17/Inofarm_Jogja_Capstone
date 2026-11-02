@@ -1,5 +1,9 @@
 # Implementation plan migrasi proposal terbaru
 
+## Lanjutan FIN16–17 — 2 November 2026
+
+FIN16 engineering lokal lulus: administrasi native, background/profile sync, validation/filter fixes, MIME security patch, worker→manager→frozen-export integration dan runner terarah. FIN17 panduan install/package/cutover/rollback tersedia. [Matriks U01–21/KNF01–08](../migration/finance-20261029/FIN16_ACCEPTANCE.md) dan [gate FIN17](../migration/finance-20261029/FIN17_CUTOVER.md) membedakan implementasi dari acceptance. Instruksi terbaru user melanjutkan FIN16–17 dan mengotorisasi commit/push GitHub; batas FIN15/push ditunda pada catatan di bawah adalah historis.
+
 ## FIN15 — 2 November 2026
 
 FIN15 core PASS lokal:132 backend/2127 assertions,72 JVM/lint0,33 device cases;3 real phases sebelum backup→OS reboot→reconcile+MainActivity history PASS. Actual restore53 tables123 rows73FK2 snapshots1PNG dan14 exact decimal totals cocok; independent package/device-hash checker PASS. Missing blob dan populated target ditolak, source tetap, fixture/mapping/process milik runner dibersihkan. Pengguna membatasi sampai FIN15; FIN16 integrasi/UAT/pentest dan FIN17 cutover/handover belum dijalankan. [Kontrak](../../contracts/v2/RECOVERY.md), [evidence/batas](../migration/finance-20261029/evidence/FIN15.md). Commit lokal per fitur; push tetap ditunda pengguna.
