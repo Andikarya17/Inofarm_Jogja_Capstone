@@ -1,6 +1,8 @@
 # Master prompt implementasi rombak Inofarm
 
-Salin instruksi setelah garis pembatas ke chat implementasi dalam workspace ini. Disusun29 Oktober 2026 berdasarkan audit statis; aplikasi target belum diimplementasikan. Baca file konteks terbaru saat eksekusi.
+Salin instruksi setelah garis pembatas ke chat implementasi dalam workspace ini. Disusun29 Oktober 2026 berdasarkan audit statis, kemudian implementasi berjalan bertahap. Status FIN00 bukan status source saat ini.
+
+**Checkpoint30 Oktober 2026:** atas permintaan pengguna, pekerjaan dihentikan aman pada FIN10 dan dipublikasikan di GitHub. **Lanjutan dimulai FIN11 sampai FIN17**, dengan gap FIN01–10 tetap dicatat untuk integrasi. Baca [panduan serah terima](HANDOFF_FIN11_FIN17.md), [prompt lanjutan](CONTINUE_FIN11_FIN17.md), [status implementasi nyata](../../context/IMPLEMENTATION_STATUS.md) dan [keputusan aktif](DECISIONS.md). Gunakan folder clone lokal yang sebenarnya, bukan menyalin path mesin penulis. Kode saat checkpoint mengatasi kalimat historis “belum diimplementasikan” dalam audit lama.
 
 ---
 
@@ -149,4 +151,4 @@ Baca Q01–Q13: paid-only/return, cost/depreciation allocation, PP/DPP conventio
 
 Setiap update akhir laporkan task/branch, outcome nyata, files/reason, API/schema delta, tests+evidence, AC status, limitation/decision dan next step. Jika context habis/terhenti, simpan progress agar dapat dilanjutkan tanpa klaim DONE palsu. Jangan mengurangi scope diam-diam untuk cepat selesai.
 
-Mulai sekarang dari kondisi aktual dan FIN01, lanjutkan implementasi bertahap sesuai dependensi sampai scope yang dapat dikerjakan selesai, sambil menjaga data dan kerja pengguna.
+Saat melanjutkan checkpoint30 Oktober 2026, mulai dari kondisi aktual dan FIN11, lalu FIN12–FIN17 sesuai dependensi. Periksa gap FIN01–FIN10 untuk ditutup pada integrasi tanpa mengulang pekerjaan yang sudah selesai. Jaga data dan kerja pengguna.

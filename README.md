@@ -1,8 +1,10 @@
 # Inofarm: transisi operasional dan evaluasi keuangan
 
-Target aktif29Oktober2026: Kotlin + Jetpack Compose, Laravel REST, MySQL; pekerja/pengelola, pencatatan manual tanpa IoT, operasional dan keuangan. **Build default masih legacy; slice operasional v2 tersedia dengan -PfinanceApp.** Keuangan/panen/investasi/laporan/recovery masih tahap berikutnya, bukan fitur yang sudah selesai.
+Target aktif29Oktober2026: Kotlin + Jetpack Compose, Laravel REST, MySQL; pekerja/pengelola, pencatatan manual tanpa IoT, operasional dan keuangan. **Build default masih legacy; slice operasional v2 tersedia dengan -PfinanceApp.** Operasional, panen, pengeluaran/alokasi, lampiran privat, dan penjualan lunas sudah memiliki implementasi dan bukti uji bertahap. FIN11 aset/penyusutan sampai FIN17 cutover serta sejumlah gap integrasi belum selesai.
 
 Mulai dari [context pack](docs/context/README.md), [status implementasi nyata](docs/context/IMPLEMENTATION_STATUS.md), [master prompt](docs/migration/finance-20261029/MASTER_PROMPT.md). [Audit perbandingan](docs/migration/finance-20261029/AUDIT_COMPARISON.md) adalah baseline sebelum implementasi; subset kontrak executable di [contracts/v2](contracts/v2/README.md). Instruksi legacy di bawah bukan prosedur migrasi target.
+
+**Serah terima30 Oktober 2026:** gunakan branch GitHub `codex/finance-fin10-handoff` yang memuat seluruh dependency checkpoint; jangan mengandalkan main. Ikuti [cara clone/pull dan setup](docs/migration/finance-20261029/HANDOFF_FIN11_FIN17.md) dan berikan [prompt FIN11–FIN17](docs/migration/finance-20261029/CONTINUE_FIN11_FIN17.md) kepada agent teman. Master prompt ikut disertakan dalam branch tersebut.
 
 ## Mode uji operasional v2
 
