@@ -1,5 +1,9 @@
 # PRD: pencatatan operasional dan evaluasi keuangan greenhouse
 
+## Lanjutan FIN16–17 — 2 November 2026
+
+Administrasi pengelola kini mempunyai form native akun/master/assignment/jadwal/target dengan durable encrypted draft dan review/retry eksplisit. Job network-aware memakai outbox existing; profil terkini diperiksa sebelum send. [FIN16 acceptance](../migration/finance-20261029/FIN16_ACCEPTANCE.md) tetap PARTIAL untuk UAT/pentest/perangkat sasaran; [FIN17 install/run](../migration/finance-20261029/FIN17_INSTALL_RUN.md) dan cutover gates tersedia. Tidak ada perubahan KF/KNF atau keputusan produksi baru.
+
 ## FIN15 — 2 November 2026
 
 FIN15 core PASS lokal: pengelola dengan kapabilitas operator sistem eksplisit dapat membuat cadangan manual privat, membaca status/riwayat dan memeriksa integritas paket. Riwayat drill restore terverifikasi tersedia di aplikasi. Setelah restore, operasi lama ditahan; receipt cocok diakui secara eksplisit tanpa replay, receipt hilang tetap memerlukan perbandingan manual. Isian maupun salinan lokal yang berbeda dari titik restore tetap disimpan. Q08 jadwal/retensi/RPO/RTO/operator produksi belum ditetapkan; tidak ada apply produksi melalui HTTP. [Kontrak](../../contracts/v2/RECOVERY.md), [evidence/batas](../migration/finance-20261029/evidence/FIN15.md). Commit lokal per fitur; push tetap ditunda pengguna.

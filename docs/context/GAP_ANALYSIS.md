@@ -1,5 +1,9 @@
 # Gap analysis baseline 29 Oktober 2026
 
+## Lanjutan FIN16–17 — 2 November 2026
+
+Gap editor native akun/master/assignment/acuan, background registration, current profile dan advisory MIME telah ditangani; [hasil FIN16](../migration/finance-20261029/FIN16_ACCEPTANCE.md). Masih terbuka: actual background dispatch/Doze/reboot, full real-device E2E terbaru/API29/fisik, UAT/pentest berizin, end-to-end UI latency, selector operasional cache1000, Q07/Q08 dan SOP akademik. FIN17 install/package/cutover/rollback tersedia, bukan pelaksanaan produksi. Tabel FIN00 di bawah tetap audit historis.
+
 ## FIN15 — 2 November 2026
 
 Gap FIN15 backup+private files/signed manifest, staged restore verification, epoch hold/receipt review dan admin feedback ditutup lokal dengan132 backend/2127 assertions,33 device serta actual separate MySQL restore/reboot/root UI PASS. Copy lokal yang berbeda tetap ditahan atau menjadi LOCAL setelah explicit historical acknowledgement, tidak dianggap recovered/auto-replayed. Q08 jadwal/retensi/RPO/RTO/operator/key escrow dan produksi, physical-device/network/UAT/pentest/reviewer tetap terbuka; dataset kecil bukan production RTO/throughput. Satu tautan screenshot legacy hilang dan advisori symfony/mime lama tetap tercatat. [Kontrak](../../contracts/v2/RECOVERY.md), [evidence/batas](../migration/finance-20261029/evidence/FIN15.md). Commit lokal per fitur; push tetap ditunda pengguna.
