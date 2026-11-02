@@ -2,7 +2,7 @@
 
 ## Lanjutan FIN16–17 — 2 November 2026
 
-Panduan terbaru2 November2026: [instalasi/run FIN17](../migration/finance-20261029/FIN17_INSTALL_RUN.md), [matriks acceptance FIN16](../migration/finance-20261029/FIN16_ACCEPTANCE.md), dan [cutover/rollback/gate FIN17](../migration/finance-20261029/FIN17_CUTOVER.md). Checkpoint GitHub terbaru `codex/finance-cutover-docs` mencakup FIN11–15 Cruelasss dan lanjutan; main belum diubah.
+Panduan terbaru2 November2026: [instalasi/run FIN17](../migration/finance-20261029/FIN17_INSTALL_RUN.md), [matriks acceptance FIN16](../migration/finance-20261029/FIN16_ACCEPTANCE.md), dan [cutover/rollback/gate FIN17](../migration/finance-20261029/FIN17_CUTOVER.md). Seluruh 38 branch finance telah masuk GitHub `main` melalui PR #1–38 pada2 November2026. Isi hasil integrasi identik dengan checkpoint `e910f6e` yang diuji. [Hasil integrasi dan pengecualian branch legacy](../migration/finance-20261029/MAIN_INTEGRATION_20261102.md).
 
 Baseline kebutuhan: 29 Oktober 2026. Stack tetap Android native Kotlin + Jetpack Compose, Laravel REST API, MySQL. Ini menggantikan context pack IoT. [Status implementasi nyata](IMPLEMENTATION_STATUS.md) membedakan kontrak target, subset executable dan hasil uji terkini.
 

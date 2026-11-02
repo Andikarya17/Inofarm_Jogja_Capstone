@@ -4,6 +4,7 @@ Dokumen ini melengkapi context pack FIN00 yang provenance dan arsipnya diverifik
 
 | Task | Status | Bukti / batas |
 |---|---|---|
+| Integrasi GitHub main2 November | PASS engineering / bukan cutover |38 PR finance #1–38 merged tanpa konflik; tree main `a264751` identik dengan checkpoint `e910f6e`.139 MySQL/2193 assertions,77 JVM,build/lint/audit PASS. [Evidence dan branch legacy yang tidak digabung](../migration/finance-20261029/MAIN_INTEGRATION_20261102.md). |
 | FIN17 install/package/cutover docs | READY untuk review / cutover belum dilakukan | [Install/run](../migration/finance-20261029/FIN17_INSTALL_RUN.md), packager APK finance terpisah tanpa firmware, [gate dan rollback](../migration/finance-20261029/FIN17_CUTOVER.md). Approval produksi/UAT/pentest/akademik belum tersedia; bukan produk DONE. |
 | FIN16 integration flow/tooling | PASS engineering lokal / acceptance PARTIAL | Worker→manager finance→immutable export→cancel→worker denial **1 MySQL/52 assertions PASS**; runner dan matriks U01–21/KNF01–08 tersedia. [Hasil/gate lengkap](../migration/finance-20261029/FIN16_ACCEPTANCE.md). UAT/pentest/perangkat sasaran tetap belum disahkan. |
 | FIN16 MIME security | PASS lokal | Patch symfony/mime8.1.7→8.1.10 saja;25 backend/416 assertions pada upload/export/recovery+header injection,platform PASS,audit0. [Evidence](../migration/finance-20261029/evidence/FIN16-security-dependency.md). Bukan pentest berizin. |
