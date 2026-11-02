@@ -4,7 +4,7 @@ Dokumen ini melengkapi context pack FIN00 yang provenance dan arsipnya diverifik
 
 | Task | Status | Bukti / batas |
 |---|---|---|
-| FIN13 investasi | PASS core lokal / history follow-up |119 backend/1906 assertions;259 oracle; dua PHP/MySQL races;66 JVM/lint0;8 device +3 real API/two OS reboot phases + SQL reconciliation. Root focus1PASS; cancelled-only fresh-cache history follow-up, lalu FIN14 ekspor. [Backend](../migration/finance-20261029/evidence/FIN13-backend.md), [native](../migration/finance-20261029/evidence/FIN13-native.md). |
+| FIN13 investasi | PASS core lokal |119 backend/1906 assertions;259 oracle; dua PHP/MySQL races;66 JVM/lint0;8 device +3 real API/two OS reboot phases + SQL reconciliation. Root focus1PASS; cancelled-only history fix +17 device regression PASS; FIN14 ekspor berikutnya, push ditunda. [Backend](../migration/finance-20261029/evidence/FIN13-backend.md), [native](../migration/finance-20261029/evidence/FIN13-native.md). |
 | FIN01 core | PASS | Kontrak auth/context/activity/sync, decimal dan canonical hash PHP/Kotlin; [evidence](../migration/finance-20261029/evidence/FIN01.md). Kontrak finance/admin/upload/recovery lanjut per modul; FIN01 keseluruhan PARTIAL. |
 | FIN02 backend + login Android | PASS / PARTIAL fitur | Auth/token pekerja-pengelola, public UUID, assignment scope; UI/vault dibuktikan FIN06. [Server evidence](../migration/finance-20261029/evidence/FIN02.md). UI administrasi akun masih berikutnya. |
 | FIN03 backend | PASS / PARTIAL fitur | Master/assignment/user admin scoped, additive migrations, audit/version/receipt atomic; [evidence](../migration/finance-20261029/evidence/FIN03.md). UI master belum tersedia. |

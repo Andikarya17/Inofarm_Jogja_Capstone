@@ -233,11 +233,11 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     fun hydrateReportCache(scope:String,kind:String="season_report")=transaction {
         require(kind in setOf("season_report","investment_scenario","investment_report"));requireKind(scope,kind)
         while(true) {
-            val rows=db.rawQuery("""SELECT c.entity_id,c.greenhouse_id,c.version,c.body FROM cached_records c
+            val rows=db.rawQuery("""SELECT c.entity_id,c.greenhouse_id,c.version,c.body,c.tombstone FROM cached_records c
                 LEFT JOIN local_records r ON r.scope=c.scope AND r.entity_id=c.entity_id
-                WHERE c.scope=? AND c.kind=? AND c.tombstone=0 AND r.entity_id IS NULL
+                WHERE c.scope=? AND c.kind=? AND (c.tombstone=0 OR c.kind='investment_scenario') AND r.entity_id IS NULL
                 AND c.greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?) LIMIT 100""",arrayOf(scope,kind,scope)).use {cursor ->buildList {
-                while(cursor.moveToNext()) add(listOf(cursor.getString(0),cursor.getString(1),cursor.getLong(2),cursor.getString(3)))
+                while(cursor.moveToNext()) add(listOf(cursor.getString(0),cursor.getString(1),cursor.getLong(2),cursor.getString(3),cursor.getInt(4)))
             }}
             if(rows.isEmpty()) break
             rows.forEach {row ->
@@ -249,6 +249,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
                     else -> com.inofarm.jogja.core.contracts.InvestmentContract.report(decoded,true)
                 }
                 require(body.getString("id")==id && body.getString("greenhouse_id")==gh && body.getLong("version")==version)
+                require(row[4]==0 || kind=="investment_scenario" && body.getString("record_state")=="cancelled") {"Status histori skenario tidak konsisten."}
                 val data=values("scope" to scope,"entity_id" to id,"kind" to kind,"greenhouse_id" to gh,"revision" to 1L,
                     "base_version" to version,"server_version" to version,"body" to encrypt(scope,body),"server_body" to encrypt(scope,body),"sync_state" to "ACCEPTED","updated_at" to System.currentTimeMillis())
                 data.putAll(indexValues(body));db.insertOrThrow("local_records",null,data)
