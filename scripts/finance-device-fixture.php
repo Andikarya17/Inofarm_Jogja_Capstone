@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Cultivation\MasterService;
+use App\Domain\Identity\EntityIdentity;
 use App\Models\User;
 use App\Support\TestDatabaseGuard;
 use Illuminate\Contracts\Console\Kernel;
@@ -21,10 +22,13 @@ if ($mode === 'create') {
         throw new RuntimeException('Synthetic fixture manifest exists; verify/cleanup that fixture first.');
     }
     $fixture = DB::transaction(function () {
+        DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();
         $id = (string) Str::uuid();
         $password = 'device-fixture-only-password';
-        $manager = User::create(['public_id' => (string) Str::uuid(), 'name' => 'Pengelola perangkat sintetis', 'email' => 'device-manager-'.$id.'@example.invalid', 'role' => 'manager', 'password' => $password]);
-        $worker = User::create(['public_id' => (string) Str::uuid(), 'name' => 'Pekerja perangkat sintetis', 'email' => 'device-worker-'.$id.'@example.invalid', 'role' => 'worker', 'password' => $password]);
+        $managerId = (string) Str::uuid();$workerId = (string) Str::uuid();
+        app(EntityIdentity::class)->claim('users', $managerId);app(EntityIdentity::class)->claim('users', $workerId);
+        $manager = User::create(['public_id' => $managerId, 'name' => 'Pengelola perangkat sintetis', 'email' => 'device-manager-'.$id.'@example.invalid', 'role' => 'manager', 'password' => $password]);
+        $worker = User::create(['public_id' => $workerId, 'name' => 'Pekerja perangkat sintetis', 'email' => 'device-worker-'.$id.'@example.invalid', 'role' => 'worker', 'password' => $password]);
         $epoch = DB::table('sync_state')->where('id', 1)->value('epoch');
         $create = function (string $type, array $payload) use ($manager, $epoch) {
             return app(MasterService::class)->mutate($manager, $type, ['schema_version' => '2', 'sync_epoch' => $epoch, 'operation_id' => (string) Str::uuid(),
@@ -138,6 +142,9 @@ if ($mode === 'verify') {
     if (DB::table('change_feed')->where('entity_type', 'expense_balance')->where('entity_id', $expense->balance_id)->where('audience', 'manager')->count() !== 2) {
         throw new RuntimeException('Financial balance feed did not match source and allocation mutations.');
     }
+    if (Illuminate\Support\Facades\Artisan::call('inofarm:finance-identities', ['--json' => true]) !== 0) {
+        throw new RuntimeException('Read-only identity preflight did not reconcile the actual device graph.');
+    }
     echo 'PASS: MySQL inofarm_test activity1/version1/ledger1; harvest1/version2/cancelled/items2/snapshots2/ledger2/balance feed4; payment100.01/version1/allocation60.01/version1/counter60.01/balance version2/feed2; manager actor and one financial audit/receipt/feed per entity after offline/process restart/replay.'.PHP_EOL;
     exit(0);
 }
@@ -145,6 +152,9 @@ if ($mode !== 'cleanup') {
     throw new RuntimeException('Use create, verify or cleanup.');
 }
 DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
+    $registryIds = [...DB::table('change_feed')->whereIn('greenhouse_id', $greenhouses)->pluck('entity_id')->all(),
+        ...DB::table('greenhouse_assignments')->whereIn('greenhouse_id', $greenhouses)->pluck('id')->all(), ...$actors->pluck('public_id')->all()];
+    DB::table('entity_identities')->whereIn('entity_id', array_unique($registryIds))->delete();
     $expenses = DB::table('expenses')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->select('id');
     DB::table('cost_allocations')->whereIn('expense_id', $expenses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
     DB::table('expenses')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->delete();

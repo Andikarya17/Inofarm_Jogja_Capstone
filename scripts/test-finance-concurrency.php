@@ -4,6 +4,7 @@ use App\Domain\Activities\ActivityService;
 use App\Domain\Cultivation\MasterService;
 use App\Domain\Harvest\HarvestService;
 use App\Models\User;
+use App\Domain\Identity\EntityIdentity;
 use App\Support\TestDatabaseGuard;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
@@ -18,8 +19,8 @@ TestDatabaseGuard::install($app, required: true);
 $app->make(Kernel::class)->bootstrap();
 
 $kind = $argv[1] ?? 'activity';
-if (! in_array($kind, ['activity', 'harvest'], true)) {
-    throw new InvalidArgumentException('Use activity or harvest.');
+if (! in_array($kind, ['activity', 'harvest', 'identity'], true)) {
+    throw new InvalidArgumentException('Use activity, harvest or identity.');
 }
 $entityTable = $kind === 'harvest' ? 'harvests' : 'activities';
 $service = $kind === 'harvest' ? HarvestService::class : ActivityService::class;
@@ -27,8 +28,13 @@ $epoch = DB::table('sync_state')->where('id', 1)->value('epoch');
 $op = fn (string $type, array $p, string $action = 'create', ?string $id = null, ?int $v = null) => [
     'schema_version' => '2', 'sync_epoch' => $epoch, 'operation_id' => (string) Str::uuid(), 'entity_id' => $id ?? (string) Str::uuid(),
     'entity_type' => $type, 'action' => $action, 'base_version' => $v, 'payload' => $p];
-$actor = User::create(['public_id' => (string) Str::uuid(), 'name' => 'Synthetic race', 'role' => 'manager',
+$actor = DB::transaction(function () {
+    DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();
+    $actorId = (string) Str::uuid();
+    app(EntityIdentity::class)->claim('users', $actorId);
+    return User::create(['public_id' => $actorId, 'name' => 'Synthetic race', 'role' => 'manager',
     'email' => Str::uuid().'@example.invalid', 'password' => Str::random(40)]);
+});
 $ids = [];
 $processes = [];
 $files = [];
@@ -45,15 +51,22 @@ try {
     $variety = $create('varieties', ['greenhouse_id' => $gh, 'name' => 'Synthetic variety']);
     $season = $create('seasons', ['greenhouse_id' => $gh, 'name' => 'Synthetic season', 'start_date' => '2026-10-01', 'end_date' => null]);
     $group = $create('planting_groups', ['season_id' => $season, 'variety_id' => $variety, 'name' => 'Synthetic group', 'population' => 10, 'sowing_date' => '2026-10-01', 'transplant_date' => null]);
-    if ($kind === 'harvest') {
+    if ($kind === 'harvest' || $kind === 'identity') {
         $grade = $create('grades', ['greenhouse_id' => $gh, 'name' => 'Synthetic race grade']);
         $payload = ['planting_group_id' => $group, 'occurred_at' => '2026-10-29T08:00:00+07:00',
             'items' => [['id' => (string) Str::uuid(), 'grade_id' => $grade, 'fruit_count' => 1, 'weight_kg' => '2']], 'notes' => 'Synthetic harvest race'];
     } else {
         $payload = ['planting_group_id' => $group, 'activity_type' => 'general', 'occurred_at' => '2026-10-29T08:00:00+07:00', 'work_state' => 'completed', 'materials' => [], 'notes' => 'Synthetic race'];
     }
-    $entity = app($service)->mutate($actor, $op($kind, $payload))['body']['entity_id'];
-    $ids[$entityTable] = $entity;
+    if ($kind === 'identity') {
+        $harvestPayload = $payload;
+        $payload = ['planting_group_id' => $group, 'activity_type' => 'general', 'occurred_at' => '2026-10-30T08:00:00+07:00', 'work_state' => 'completed', 'materials' => [], 'notes' => 'Synthetic identity race'];
+        $entity = (string) Str::uuid();
+        $ids['activities'] = $ids['harvests'] = $entity;
+    } else {
+        $entity = app($service)->mutate($actor, $op($kind, $payload))['body']['entity_id'];
+        $ids[$entityTable] = $entity;
+    }
     $go = $dir.'/go';
     $files[] = $go;
     for ($i = 0; $i < 2; $i++) {
@@ -62,7 +75,10 @@ try {
         $result = $dir.'/result-'.$i.'.json';
         $stderr = $dir.'/error-'.$i.'.txt';
         array_push($files, $input, $ready, $result, $stderr);
-        file_put_contents($input, json_encode(['actor_id' => $actor->id, 'operation' => $op($kind, [...$payload, 'notes' => 'Concurrent '.$i, 'reference_policy' => 'preserve', 'reason' => 'Synthetic race'], 'update', $entity, 1)], JSON_THROW_ON_ERROR));
+        $childOperation = $kind === 'identity'
+            ? $op($i === 0 ? 'activity' : 'harvest', $i === 0 ? $payload : $harvestPayload, 'create', $entity)
+            : $op($kind, [...$payload, 'notes' => 'Concurrent '.$i, 'reference_policy' => 'preserve', 'reason' => 'Synthetic race'], 'update', $entity, 1);
+        file_put_contents($input, json_encode(['actor_id' => $actor->id, 'operation' => $childOperation], JSON_THROW_ON_ERROR));
         $process = proc_open([PHP_BINARY, dirname(__DIR__).'/backend/tests/Support/finance-race-worker.php', $input, $ready, $go, $result],
             [0 => ['pipe', 'r'], 1 => ['file', $stderr, 'a'], 2 => ['file', $stderr, 'a']], $pipes, dirname(__DIR__).'/backend');
         if (! is_resource($process)) {
@@ -89,11 +105,12 @@ try {
     $statuses = array_column($results, 'status');
     sort($statuses);
     if (count(array_unique(array_column($results, 'pid'))) !== 2 || count(array_unique(array_column($results, 'connection_id'))) !== 2
-        || $statuses !== ['accepted', 'version_conflict'] || DB::table($entityTable)->where('id', $entity)->value('version') !== 2) {
+        || $statuses !== ($kind === 'identity' ? ['accepted', 'entity_exists'] : ['accepted', 'version_conflict'])
+        || ($kind !== 'identity' && DB::table($entityTable)->where('id', $entity)->value('version') !== 2)) {
         throw new RuntimeException('Unexpected concurrency result: '.json_encode($results));
     }
     foreach (['audit_logs', 'change_feed', 'sync_operations'] as $table) {
-        if (DB::table($table)->where('entity_id', $entity)->count() !== 2) {
+        if (DB::table($table)->where('entity_id', $entity)->count() !== ($kind === 'identity' ? 1 : 2)) {
             throw new RuntimeException('Ledger components did not match accepted versions.');
         }
     }
@@ -102,8 +119,19 @@ try {
         || DB::table('harvest_items')->where('harvest_id', $entity)->value('balance_version') !== 2)) {
         throw new RuntimeException('Concurrent harvest snapshots/items/balance versions did not reconcile.');
     }
+    if ($kind === 'identity') {
+        $physical = DB::table('activities')->where('id', $entity)->count() + DB::table('harvests')->where('id', $entity)->count();
+        $winner = $results[0]['status'] === 'accepted' ? 'activity' : 'harvest';
+        if ($physical !== 1 || DB::table('entity_identities')->where('entity_id', $entity)->value('entity_type') !== $winner) {
+            throw new RuntimeException('Cross-kind UUID reservation did not match the single physical winner.');
+        }
+    }
     $db = DB::selectOne('SELECT DATABASE() AS db_name, VERSION() AS version');
-    echo 'PASS: '.$kind.'; two independent PHP/MySQL connections, simultaneous base_version=1; one accepted, one conflict; version=2, atomic ledger rows=2. DB='.$db->db_name.' MySQL='.$db->version.PHP_EOL;
+    if ($kind === 'identity') {
+        echo 'PASS: identity; two independent PHP/MySQL processes create activity/harvest with the same UUID; one accepted, one entity_exists; one physical record, matching registry kind and one atomic audit/receipt/feed. DB='.$db->db_name.' MySQL='.$db->version.PHP_EOL;
+    } else {
+        echo 'PASS: '.$kind.'; two independent PHP/MySQL connections, simultaneous base_version=1; one accepted, one conflict; version=2, atomic ledger rows=2. DB='.$db->db_name.' MySQL='.$db->version.PHP_EOL;
+    }
 } finally {
     foreach ($processes as $process) {
         if (proc_get_status($process)['running']) {
@@ -112,6 +140,10 @@ try {
         proc_close($process);
     }
     DB::transaction(function () use ($ids, $actor) {
+        $registryIds = [...array_values($ids), $actor->public_id,
+            ...DB::table('greenhouse_assignments')->where('user_id', $actor->id)->pluck('id')->all(),
+            ...DB::table('harvest_items')->where('harvest_id', $ids['harvests'] ?? '')->pluck('id')->all()];
+        DB::table('entity_identities')->whereIn('entity_id', array_unique($registryIds))->delete();
         foreach (['activity_materials', 'activity_reference_snapshots'] as $table) {
             DB::table($table)->where('activity_id', $ids['activities'] ?? '')->delete();
         }

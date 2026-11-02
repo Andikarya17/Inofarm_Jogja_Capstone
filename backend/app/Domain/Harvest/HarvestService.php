@@ -7,6 +7,7 @@ use App\Domain\Contracts\DomainFailure;
 use App\Domain\Cultivation\GroupContext;
 use App\Domain\Cultivation\MasterService;
 use App\Domain\Cultivation\PlantAge;
+use App\Domain\Identity\EntityIdentity;
 use App\Domain\Sync\MutationLedger;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -141,6 +142,7 @@ final class HarvestService
             }
             foreach ($submitted ?? [] as $id => $item) {
                 if (! $oldItems->has($id)) {
+                    app(EntityIdentity::class)->claim('harvest_item', $id);
                     DB::table('harvest_items')->insert($item);
                 }
             }

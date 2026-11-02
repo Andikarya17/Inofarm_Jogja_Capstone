@@ -4,6 +4,7 @@ namespace App\Domain\Cultivation;
 
 use App\Domain\Contracts\DomainFailure;
 use App\Domain\Identity\GreenhouseAccess;
+use App\Domain\Identity\EntityIdentity;
 use App\Domain\Sync\MutationLedger;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -147,7 +148,9 @@ final class MasterService
                 }
                 DB::table($table)->insert($data);
                 if ($table === 'greenhouses') {
-                    DB::table('greenhouse_assignments')->insert(['id' => (string) Str::uuid(), 'greenhouse_id' => $id,
+                    $assignmentId = (string) Str::uuid();
+                    app(EntityIdentity::class)->claim('greenhouse_assignments', $assignmentId);
+                    DB::table('greenhouse_assignments')->insert(['id' => $assignmentId, 'greenhouse_id' => $id,
                         'user_id' => $current->id, 'created_by' => $current->id, 'effective_from' => now(), 'created_at' => now(), 'updated_at' => now()]);
                 }
             } else {

@@ -4,6 +4,8 @@ Status pelaksanaan: [IMPLEMENTATION_STATUS](../../context/IMPLEMENTATION_STATUS.
 
 ## Keputusan aktif
 
+Q07 diperjelas pengguna pada30 Oktober 2026: **"Konfigurasi produksi belum ditetapkan"**. Usulan JPG/PNG/PDF5MB dan5 berkas belum disahkan sebagai nilai produksi. Implementasi akses privat/configuration dan uji dengan batas fixture tetap dapat dilanjutkan; jangan mengaktifkan upload produksi memakai angka usulan tersebut secara otomatis.
+
 | ID | Keputusan | Dasar/status |
 |---|---|---|
 | D01 | Proposal keuangan 60 halaman menjadi baseline aktif | Instruksi pengguna29 Oktober 2026 |

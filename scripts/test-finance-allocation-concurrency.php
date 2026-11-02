@@ -3,6 +3,7 @@
 use App\Domain\Cultivation\MasterService;
 use App\Domain\Finance\ExpenseService;
 use App\Models\User;
+use App\Domain\Identity\EntityIdentity;
 use App\Support\TestDatabaseGuard;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
@@ -18,8 +19,13 @@ $app->make(Kernel::class)->bootstrap();
 $epoch = DB::table('sync_state')->where('id', 1)->value('epoch');
 $operation = fn (string $kind, array $payload) => ['schema_version' => '2', 'sync_epoch' => $epoch, 'operation_id' => (string) Str::uuid(),
     'entity_id' => (string) Str::uuid(), 'entity_type' => $kind, 'action' => 'create', 'base_version' => null, 'payload' => $payload];
-$actor = User::create(['public_id' => (string) Str::uuid(), 'name' => 'Synthetic allocation race', 'role' => 'manager',
+$actor = DB::transaction(function () {
+    DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();
+    $actorId = (string) Str::uuid();
+    app(EntityIdentity::class)->claim('users', $actorId);
+    return User::create(['public_id' => $actorId, 'name' => 'Synthetic allocation race', 'role' => 'manager',
     'email' => Str::uuid().'@example.invalid', 'password' => Str::random(40)]);
+});
 $ids = [];
 $children = [];
 $files = [];
@@ -100,6 +106,11 @@ try {
         proc_close($process);
     }
     DB::transaction(function () use ($ids, $actor) {
+        $registryIds = [...array_values($ids), $actor->public_id,
+            ...DB::table('greenhouse_assignments')->where('user_id', $actor->id)->pluck('id')->all(),
+            ...DB::table('expenses')->where('id', $ids['expense'] ?? '')->pluck('balance_id')->all(),
+            ...DB::table('cost_allocations')->where('expense_id', $ids['expense'] ?? '')->pluck('id')->all()];
+        DB::table('entity_identities')->whereIn('entity_id', array_unique($registryIds))->delete();
         if (isset($ids['expense'])) {
             DB::table('cost_allocations')->where('expense_id', $ids['expense'])->where('recorded_by', $actor->id)->delete();
             DB::table('expenses')->where('id', $ids['expense'])->where('recorded_by', $actor->id)->delete();

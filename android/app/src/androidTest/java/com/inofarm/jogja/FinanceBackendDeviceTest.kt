@@ -37,11 +37,15 @@ class FinanceBackendDeviceTest {
     private fun financeEditor():com.inofarm.jogja.feature.expenses.FinancialEntryViewModel {lateinit var editor:com.inofarm.jogja.feature.expenses.FinancialEntryViewModel;rule.runOnIdle {editor=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.expenses.FinancialEntryViewModel::class.java]};return editor}
     private fun financialOfflineBarrier(f:JSONObject,phase:String) {
         file("finance-$phase-ready.txt").writeText(f.getString("fixture_id"))
-        val deadline=System.nanoTime()+90_000_000_000L
-        while(System.nanoTime()<deadline && (!file("finance-$phase-offline.txt").exists() || file("finance-$phase-offline.txt").readText().trim()!=f.getString("fixture_id"))) Thread.sleep(100)
-        assertTrue("Host did not stop the guarded API",file("finance-$phase-offline.txt").exists())
         val model=runtime();val session=model.vault.current!!
-        try {runBlocking {model.api.request(session.scope.server,session.token,"sync/status")};fail("Financial offline precondition failed")} catch(expected:IOException) { /* The actual API transport is unavailable. */ }
+        val deadline=System.nanoTime()+90_000_000_000L
+        var unavailable=false
+        while(System.nanoTime()<deadline) {
+            try {runBlocking {model.api.request(session.scope.server,session.token,"sync/status")}}
+            catch(expected:IOException) {unavailable=true;break}
+            Thread.sleep(1000)
+        }
+        assertTrue("Actual guarded API must become unavailable before offline entry",unavailable)
     }
     @Test fun queueFinancialPaymentWithBackendOffline() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="payment-queue")
@@ -105,15 +109,7 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-gh-option-${f.getJSONArray("contexts").getJSONObject(1).getString("greenhouse_id")}").assertDoesNotExist()
         rule.onNodeWithTag("finance-gh-option-${a.getString("greenhouse_id")}").performClick()
         choose("finance-season",a.getString("season_id"));choose("finance-group",a.getString("group_id"))
-        file("finance-device-ready.txt").writeText(f.getString("fixture_id"))
-        val deadline=System.nanoTime()+90_000_000_000L
-        while(System.nanoTime()<deadline && (!file("finance-device-go-offline.txt").exists() || file("finance-device-go-offline.txt").readText().trim()!=f.getString("fixture_id"))) Thread.sleep(100)
-        assertTrue("Host did not signal stopped test backend",file("finance-device-go-offline.txt").exists())
-        val active=runtime().vault.current!!
-        try {
-            runBlocking { runtime().api.request(active.scope.server,active.token,"sync/status") }
-            fail("Test backend is still reachable; offline precondition failed")
-        } catch(expected:IOException) { /* Transport really unavailable, not an HTTP validation error. */ }
+        financialOfflineBarrier(f,"device")
         rule.onNodeWithTag("finance-new").performScrollTo().performClick()
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("DEVICE OFFLINE ${f.getString("fixture_id")}")
         hideKeyboard();rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
