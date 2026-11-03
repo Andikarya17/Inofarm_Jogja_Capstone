@@ -23,7 +23,7 @@ Dashboard tepat dua kartu pada konteks dipilih. HSS/HST dan jadwal tetap; acuan 
 | `test-finance-entry.ps1 -JavaHome ... -SdkPath ... -SkipChecks -ManualMeasurements` |PASS8fase real Laravel/MySQL melalui ADB reverse; EC1.250000/PPM625.500000, actor sesi, hash/replay, force-stop/restart, manager history, harvest cancel/old ACK, payment100.01/allocation60.01/remaining40.00, PNG/PDF2 hash/receipt/audit/feed, sale0.01/cancel/restored counters; SQL reconciliation PASS |
 | API29 `FinanceProcessSurvivalTest#prepare`→force-stop→`#verify` dengan survivalPhase |PASS2fase/proses berbeda; catatan general lama, draf EC mentah `1,`/PPM kosong, queued EC1.25/PPM625.5 dan UUID/hash asli tetap; hanya DB fixture khusus dihapus setelah verify |
 | Regresi keuangan/admin native melalui readiness Device |PASS72tes/78.65s; readiness contracts/context/boundary/device PASS. 30save pada1.000rows maksimum24.6711ms. Backend/build di-skip eksplisit pada run ini karena sudah lulus terpisah |
-| `package-finance.ps1` dari tracked checkout bersih |NOT RUN sebelum commit; packager tetap memverifikasi identity/minSdk/hash/commit dan tidak bergantung firmware/npm |
+| `package-finance.ps1` dari tracked checkout bersih |PASS dari commit bersih225f705fbba61844e2bb0a974fa574d092227779, build2m14s; identity/minSdk/debug/hash diverifikasi tanpa firmware/npm |
 | Composer `check-platform-reqs`, PHP lint, PowerShell parser, `git diff --check` |PASS |
 
 Log lokal berada di `tmp/retirement-*`, `outputs/finance-entry/` dan Gradle reports, diabaikan Git; bukan evidence historis yang diklaim sebagai run baru. Uji hanya emulator baru milik task `Inofarm_Manual_Verify_API29`, tidak perangkat/data pengguna.
@@ -39,3 +39,9 @@ Log lokal berada di `tmp/retirement-*`, `outputs/finance-entry/` dan Gradle repo
 ## Batas penerimaan
 
 Tidak melakukan UAT mitra, pentest berizin, OS dispatch/Doze/reboot job sungguhan, upgrade/signing produksi atau restore aktual schema15 lintas instance. Backend recovery/immutability/scoping ikut regresi MySQL, tetapi itu tidak setara restore drill baru. APK release build bukan izin distribusi. Draf/antrean lama tetap; tidak ada auto-import akun/data owner. Rollout server/schema dan client baru memerlukan rencana produksi pada FIN17. Q07/Q08 dan gate akademik/bisnis tetap seperti DECISIONS; tidak dibuat persetujuan fiktif.
+
+## Paket dan publikasi
+
+Paket lokal `output/finance/finance-review-225f705f-20261103-093540.zip` berisi APK debug review, manifest commit, INSTALL dan SHA256SUMS. APK SHA256 `bd13cf46467606b5b9b4a3caf0336ca23835e0aa6cf1688467134038751ee89d`. Source paket adalah commit225f705; commit dokumentasi berikutnya hanya mencatat hasil paket ini. APK dan runtime/credential tidak dimasukkan Git.
+
+Branch pengukuran0d960db dipublikasikan pada [draft PR40](https://github.com/Andikarya17/Inofarm_Jogja_Capstone/pull/40), branch retirement225f705 pada [draft PR41](https://github.com/Andikarya17/Inofarm_Jogja_Capstone/pull/41) dengan base branch pengukuran. Remote main tidak berubah saat fetch; tidak merge/deploy. GitHub pada225f705 melaporkan0check runs/0statuses (combined pending), sehingga CI remote tidak diklaim PASS. Seluruh hasil PASS di atas berasal dari eksekusi lokal yang disebutkan.
