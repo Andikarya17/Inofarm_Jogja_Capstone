@@ -58,6 +58,7 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::get('attachments/{id}/audit', [AttachmentController::class, 'audit'])->whereUuid('id');
         Route::post('attachments/{id}/cancel', [AttachmentController::class, 'cancel'])->whereUuid('id');
         Route::get('activities', [ActivityController::class, 'index']);
+        Route::get('measurements/latest', [ActivityController::class, 'latestMeasurement']);
         Route::get('activities/{id}', [ActivityController::class, 'show'])->whereUuid('id');
         Route::post('activities', [ActivityController::class, 'store']);
         Route::patch('activities/{id}', [ActivityController::class, 'update'])->whereUuid('id');

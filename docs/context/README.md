@@ -1,5 +1,7 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+Keputusan terbaru2 November2026: [pengukuran EC/PPM dan pelepasan IoT](../migration/finance-20261029/MANUAL_MEASUREMENTS_20261102.md), [kontrak pengukuran](../../contracts/v2/MEASUREMENTS.md). Permintaan pengguna mengatasi coexistence/default legacy pada catatan historis di bawah. Implementasi dan verifikasi dicatat per branch; bukan cutover produksi.
+
 ## Lanjutan FIN16–17 — 2 November 2026
 
 Panduan terbaru2 November2026: [instalasi/run FIN17](../migration/finance-20261029/FIN17_INSTALL_RUN.md), [matriks acceptance FIN16](../migration/finance-20261029/FIN16_ACCEPTANCE.md), dan [cutover/rollback/gate FIN17](../migration/finance-20261029/FIN17_CUTOVER.md). Seluruh 38 branch finance telah masuk GitHub `main` melalui PR #1–38 pada2 November2026. Isi hasil integrasi identik dengan checkpoint `e910f6e` yang diuji. [Hasil integrasi dan pengecualian branch legacy](../migration/finance-20261029/MAIN_INTEGRATION_20261102.md).

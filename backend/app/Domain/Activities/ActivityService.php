@@ -71,8 +71,8 @@ final class ActivityService
                 if ($before !== null && ($p['reference_policy'] ?? 'preserve') === 'preserve') {
                     abort_if(CarbonImmutable::parse($p['occurred_at'])->ne(CarbonImmutable::parse($before['occurred_at'])) || $p['activity_type'] !== $before['activity_type'], 422, 'Perubahan waktu/jenis memerlukan refresh acuan eksplisit dan alasan.');
                     $snapshot = $before['reference_snapshot'];
-                    foreach (['manual_ppm', 'manual_ph'] as $parameter) {
-                        $snapshot['checks'][$parameter] = TargetComparator::compare($p[$parameter] ?? null, $snapshot['checks'][$parameter]['target']);
+                    foreach (['manual_ec', 'manual_ppm', 'manual_ph'] as $parameter) {
+                        $snapshot['checks'][$parameter] = TargetComparator::compare($p[$parameter] ?? null, $snapshot['checks'][$parameter]['target'] ?? null);
                     }
                 } else {
                     $snapshot = $this->references->snapshot($ctx['group'], $p['activity_type'], $p['occurred_at'], $p);
@@ -80,9 +80,9 @@ final class ActivityService
                         throw ValidationException::withMessages(['occurred_at' => $snapshot['age']['reasons']]);
                     }
                 }
-                $data = array_intersect_key($p, array_flip(['planting_group_id', 'schedule_id', 'activity_type', 'manual_ppm', 'manual_ph', 'actual_stage', 'work_state', 'skipped_reason', 'notes']));
+                $data = array_intersect_key($p, array_flip(['planting_group_id', 'schedule_id', 'activity_type', 'manual_ec', 'manual_ppm', 'manual_ph', 'actual_stage', 'work_state', 'skipped_reason', 'notes']));
                 $data['occurred_at'] = CarbonImmutable::parse($p['occurred_at'])->utc()->format('Y-m-d H:i:s.u');
-                foreach (['schedule_id', 'manual_ppm', 'manual_ph', 'actual_stage', 'skipped_reason'] as $key) {
+                foreach (['schedule_id', 'manual_ec', 'manual_ppm', 'manual_ph', 'actual_stage', 'skipped_reason'] as $key) {
                     $data[$key] = $data[$key] ?? null;
                 }
             }
@@ -109,7 +109,7 @@ final class ActivityService
 
     private function validate(array $p, string $gh, ?array $before): void
     {
-        foreach (['manual_ppm', 'manual_ph'] as $key) {
+        foreach (['manual_ec', 'manual_ppm', 'manual_ph'] as $key) {
             $this->nonNegative($p[$key] ?? null, $key);
         }
         abort_if(isset($p['manual_ph']) && bccomp($p['manual_ph'], '14', 6) > 0, 422, 'pH harus 0 sampai 14.');
@@ -125,6 +125,19 @@ final class ActivityService
             abort_unless($schedule && ($schedule->active || ($before['schedule_id'] ?? null) === $schedule->id), 422, 'Jadwal tidak cocok atau sudah tidak aktif.');
         }
         $errors = [];
+        if ($p['activity_type'] === 'measurement') {
+            foreach (['manual_ec', 'manual_ppm'] as $field) {
+                if (($p[$field] ?? null) === null) {
+                    $errors[$field] = 'EC dan PPM manual wajib lengkap; kosong bukan nol.';
+                }
+            }
+            if ($p['work_state'] !== 'completed') {
+                $errors['work_state'] = 'Pengukuran harus selesai untuk dikirim.';
+            }
+            if (count($p['materials']) !== 0) {
+                $errors['materials'] = 'Pemberian bahan dicatat sebagai kegiatan nutrisi terpisah.';
+            }
+        }
         if ($p['work_state'] === 'skipped') {
             if (trim($p['skipped_reason'] ?? '') === '') {
                 $errors['skipped_reason'] = 'Alasan kegiatan dilewati wajib diisi.';

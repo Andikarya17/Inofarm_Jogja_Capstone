@@ -143,7 +143,8 @@
             "nutrition",
             "spray",
             "general",
-            "stage"
+            "stage",
+            "measurement"
           ]
         },
         "occurred_at": {
@@ -231,6 +232,17 @@
         "notes": {
           "type": "string",
           "maxLength": 2000
+        },
+        "manual_ec": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^-?(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -240,6 +252,39 @@
         "work_state",
         "materials",
         "notes"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "activity_type": {
+                "const": "measurement"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "manual_ec",
+              "manual_ppm"
+            ],
+            "properties": {
+              "manual_ec": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
+              },
+              "manual_ppm": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
+              },
+              "work_state": {
+                "const": "completed"
+              },
+              "materials": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
       ]
     },
     "update": {
@@ -266,7 +311,8 @@
             "nutrition",
             "spray",
             "general",
-            "stage"
+            "stage",
+            "measurement"
           ]
         },
         "occurred_at": {
@@ -365,6 +411,17 @@
             "preserve",
             "refresh"
           ]
+        },
+        "manual_ec": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^-?(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -376,6 +433,39 @@
         "notes",
         "reason",
         "reference_policy"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "activity_type": {
+                "const": "measurement"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "manual_ec",
+              "manual_ppm"
+            ],
+            "properties": {
+              "manual_ec": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
+              },
+              "manual_ppm": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
+              },
+              "work_state": {
+                "const": "completed"
+              },
+              "materials": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
       ]
     },
     "cancel": {

@@ -1,5 +1,7 @@
 # Gap analysis baseline 29 Oktober 2026
 
+Gap terbaru2 November2026: EC manual terpisah dari pemberian nutrisi, dashboard pasangan/fallback WIB dan default runtime finance sedang ditangani menurut [AC dan inventaris](../migration/finance-20261029/MANUAL_MEASUREMENTS_20261102.md). Penghapusan source IoT tidak menghapus tabel/histori. Hasil/gate final dicatat pada IMPLEMENTATION_STATUS; UAT/pentest/production tetap terpisah.
+
 ## Lanjutan FIN16–17 — 2 November 2026
 
 Gap editor native akun/master/assignment/acuan, background registration, current profile dan advisory MIME telah ditangani; [hasil FIN16](../migration/finance-20261029/FIN16_ACCEPTANCE.md). Masih terbuka: actual background dispatch/Doze/reboot, full real-device E2E terbaru/API29/fisik, UAT/pentest berizin, end-to-end UI latency, selector operasional cache1000, Q07/Q08 dan SOP akademik. FIN17 install/package/cutover/rollback tersedia, bukan pelaksanaan produksi. Tabel FIN00 di bawah tetap audit historis.

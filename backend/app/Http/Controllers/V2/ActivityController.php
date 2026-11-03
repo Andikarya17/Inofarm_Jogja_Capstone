@@ -14,9 +14,23 @@ use Illuminate\Support\Facades\DB;
 
 final class ActivityController extends Controller
 {
+    public function latestMeasurement(Request $request, ActivityService $service)
+    {
+        $input = $request->validate(['planting_group_id' => ['required', OperationInput::UUID]]);
+        return app(ScopedRead::class)->run($request, function (User $actor) use ($service, $input) {
+            app(\App\Domain\Cultivation\GroupContext::class)->get($actor, $input['planting_group_id']);
+            $tomorrow = CarbonImmutable::now('Asia/Jakarta')->startOfDay()->addDay()->utc()->format('Y-m-d H:i:s');
+            $row = $service->scope($actor)->where('planting_group_id', $input['planting_group_id'])
+                ->where('record_state', 'active')->where('work_state', 'completed')->whereNotNull('manual_ppm')
+                ->where('occurred_at', '<', $tomorrow)->orderByDesc('occurred_at')->orderByDesc('id')->first();
+            return ['data' => $row === null ? null : app(AcceptedSnapshot::class)->read('activity', $row),
+                'calendar' => 'Asia/Jakarta', 'as_of' => CarbonImmutable::now()->toISOString()];
+        });
+    }
+
     public function index(Request $request, ActivityService $service, MasterService $masters)
     {
-        $input = $request->validate(['planting_group_id' => 'nullable|uuid', 'activity_type' => 'nullable|in:nutrition,spray,general,stage',
+        $input = $request->validate(['planting_group_id' => 'nullable|uuid', 'activity_type' => 'nullable|in:nutrition,spray,general,stage,measurement',
             'greenhouse_id' => 'nullable|uuid', 'season_id' => 'nullable|uuid', 'record_state' => 'nullable|in:active,cancelled',
             'from' => 'nullable|date_format:Y-m-d', 'until' => 'nullable|date_format:Y-m-d'.($request->filled('from') ? '|after_or_equal:from' : ''), 'limit' => 'sometimes|integer|min:1|max:100', 'cursor' => 'nullable|string|max:512']);
         return app(ScopedRead::class)->run($request, function (User $actor) use ($request, $service, $masters, $input) {
@@ -97,8 +111,8 @@ final class ActivityController extends Controller
     {
         $rules = $action === 'cancel' ? [] : [
             'planting_group_id' => ['required', OperationInput::UUID], 'schedule_id' => ['sometimes', 'nullable', OperationInput::UUID],
-            'activity_type' => 'required|in:nutrition,spray,general,stage', 'occurred_at' => 'required|date_format:Y-m-d\TH:i:sP',
-            'manual_ppm' => 'sometimes|nullable|string|max:30', 'manual_ph' => 'sometimes|nullable|string|max:30',
+            'activity_type' => 'required|in:nutrition,spray,general,stage,measurement', 'occurred_at' => 'required|date_format:Y-m-d\TH:i:sP',
+            'manual_ec' => 'sometimes|nullable|string|max:30', 'manual_ppm' => 'sometimes|nullable|string|max:30', 'manual_ph' => 'sometimes|nullable|string|max:30',
             'work_state' => 'required|in:completed,skipped', 'skipped_reason' => 'sometimes|nullable|string|max:1000', 'actual_stage' => 'sometimes|nullable|string|max:100',
             'materials' => 'present|array|max:30', 'materials.*' => 'required|array:material_id,unit_id,quantity',
             'materials.*.material_id' => ['required', OperationInput::UUID], 'materials.*.unit_id' => ['required', OperationInput::UUID], 'materials.*.quantity' => 'required|string|max:30',

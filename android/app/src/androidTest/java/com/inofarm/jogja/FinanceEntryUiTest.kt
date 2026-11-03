@@ -243,6 +243,34 @@ class FinanceEntryUiTest {
     }
     private fun hideKeyboard() {Espresso.closeSoftKeyboard();rule.waitForIdle()}
 
+    @Test fun manualMeasurementAutosaveBackRecreationQueueAndDashboardKeepOnePair() {
+        choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
+        readyNode("finance-measurement-new").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-ec").performScrollTo().performTextReplacement("1,25")
+        rule.onNodeWithTag("finance-ppm").performScrollTo().performTextReplacement("625,5")
+        hideKeyboard();rule.activityRule.scenario.recreate()
+        rule.onNodeWithTag("finance-ec").performScrollTo().assertTextContains("1,25")
+        Espresso.pressBack()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-tab-2").performClick()
+        readyText("Pengukuran manual",true).performScrollTo().performClick()
+        readyNode("finance-edit").performScrollTo().performClick()
+        offline.set(true)
+        rule.onNodeWithTag("finance-review").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        readyNode("finance-tab-0").performClick()
+        choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
+        readyNode("measurement-card-ec").performScrollTo().assertExists()
+        rule.onNodeWithText("1.25").assertExists();rule.onNodeWithText("625.5").assertExists()
+        readyText("Belum tersinkron",true).performScrollTo().assertExists()
+        assertEquals(0,posts.get())
+        offline.set(false);readyNode("finance-sync").performClick()
+        rule.waitUntil(15000) {posts.get()==1}
+        readyText("Diterima server · pencatat:",true).performScrollTo().assertExists()
+        val payload=receipts.values.single().getJSONObject("data")
+        assertEquals("1.25",payload.getString("manual_ec"));assertEquals("625.5",payload.getString("manual_ppm"));assertEquals(0,payload.getJSONArray("materials").length())
+    }
+
     @Test fun offlineQueueRecreationReconnectAndManagerHistoryKeepHonestStatus() {
         chooseContext();offline.set(true)
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Catatan offline UI sintetis")

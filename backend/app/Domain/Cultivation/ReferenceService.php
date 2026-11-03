@@ -111,7 +111,7 @@ final class ReferenceService
     {
         $at = CarbonImmutable::parse($occurredAt)->utc()->format('Y-m-d H:i:s.u');
         $checks = [];
-        foreach (['manual_ppm', 'manual_ph'] as $parameter) {
+        foreach (['manual_ec', 'manual_ppm', 'manual_ph'] as $parameter) {
             $targets = DB::table('targets')->where('planting_group_id', $group->id)->where('activity_type', $type)->where('parameter', $parameter)
                 ->where('active', true)->where('effective_from', '<=', $at)->where(fn ($q) => $q->whereNull('effective_until')->orWhere('effective_until', '>', $at))->limit(2)->get();
             $checks[$parameter] = $targets->count() > 1

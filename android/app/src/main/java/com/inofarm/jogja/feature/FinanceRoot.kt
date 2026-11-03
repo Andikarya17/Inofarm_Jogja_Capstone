@@ -192,6 +192,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
 @Composable private fun FinanceHome(session:FinanceSession,context:CultivationUiState,activity:ActivityUiState,onSync:()->Unit,onLogout:()->Unit,vm:ActivityViewModel,history:HistoryUiState,historyVm:HistoryViewModel,
     harvest:HarvestUiState,harvestVm:HarvestViewModel,harvestHistory:HistoryUiState,harvestHistoryVm:HistoryViewModel,financial:FinancialEntryState,financialVm:FinancialEntryViewModel,
     expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:AssetWorkspace,reports:SeasonReportWorkspace,investments:InvestmentWorkspace,onAdmin:()->Unit) {
+    val runtime:FinanceRuntime=viewModel()
     var tab by rememberSaveable { mutableStateOf(0) };var gh by rememberSaveable { mutableStateOf<String?>(null) };var season by rememberSaveable { mutableStateOf<String?>(null) };var group by rememberSaveable { mutableStateOf<String?>(null) }
     val writing=investments.state.busy || reports.state.busy || asset.entry.busy || asset.history.busy || asset.depreciation.busy || sale.busy || saleHistory.busy || attachment.busy || activity.busy || harvest.busy || history.busy || harvestHistory.busy || financial.busy || expenseHistory.busy || allocationHistory.busy
     val keyboard=LocalSoftwareKeyboardController.current;val ime=WindowInsets.ime.getBottom(LocalDensity.current)>0
@@ -236,8 +237,15 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     item { Choice("Kelompok tanam",group,context.groups.filter { it.optString("season_id")==season && it.optBoolean("active",true) },"finance-group") {group=it} }
                     if(group!=null && gh!=null) {
                         val open=context.seasons.find { it.optString("id")==season }?.optString("status")=="open"
-                        item { Button(onClick={vm.new(gh!!,group!!)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-new")) {Text("Catat kegiatan")};if(!open) Notice("Musim ditutup. Pengelola perlu membuka kembali sebelum pencatatan.",true) }
-                        item {OutlinedButton(onClick={harvestVm.new(gh!!,group!!)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("harvest-new")) {Text("Catat panen")}}
+                        item { Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                            Button(onClick={vm.new(gh!!,group!!,ActivityType.MEASUREMENT)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-measurement-new")) {Text("Catat pengukuran")}
+                            Button(onClick={vm.new(gh!!,group!!)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-new")) {Text("Catat kegiatan")};if(!open) Notice("Musim ditutup. Pengelola perlu membuka kembali sebelum pencatatan.",true)
+                            OutlinedButton(onClick={harvestVm.new(gh!!,group!!)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("harvest-new")) {Text("Catat panen")}
+                            com.inofarm.jogja.feature.activities.MeasurementDashboard(runtime,session,gh!!,group!!,activity.records,context.lastSyncedAt)
+                            val current=context.groups.find {it.optString("id")==group}
+                            val age=runCatching {current?.let {PlantAge.calculate(it.getString("sowing_date"),if(it.isNull("transplant_date")) null else it.getString("transplant_date"),OffsetDateTime.now(ActivityDraft.WIB).toString())}}.getOrNull()
+                            Text("HSS ${age?.hss ?: "belum tersedia"} · HST ${age?.hst ?: "belum berlaku"}")
+                        } }
                         item { Text("Jadwal dan target",style=MaterialTheme.typography.titleLarge) }
                         val schedules=context.schedules.filter { it.optString("planting_group_id")==group && it.optBoolean("active",true) }
                         if(schedules.isEmpty()) item { Notice("Belum ada jadwal untuk kelompok ini. Kegiatan spontan tetap dapat dicatat.") }
@@ -277,7 +285,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         FinanceField("Jam kejadian WIB (HH:mm)",draft.time,{value -> vm.edit {it.copy(time=value)}},"finance-time",hint="Detik boleh ditulis HH:mm:ss dan tetap dipertahankan.")
         Row { Checkbox(draft.skipped,{value -> vm.edit {it.copy(skipped=value)}},modifier=Modifier.testTag("finance-skipped"));Text("Kegiatan dilewati",Modifier.padding(top=12.dp)) }
         if(draft.skipped) FinanceField("Alasan kegiatan dilewati",draft.skippedReason,{value -> vm.edit {it.copy(skippedReason=value)}},"finance-skipped-reason",state.errors["skipped_reason"])
-        if(draft.type==ActivityType.NUTRITION || draft.ppm.isNotBlank() || draft.ph.isNotBlank()) {
+        if(draft.type in setOf(ActivityType.MEASUREMENT,ActivityType.NUTRITION) || draft.ec.isNotBlank() || draft.ppm.isNotBlank() || draft.ph.isNotBlank()) {
+            FinanceField("EC manual (mS/cm)",draft.ec,{value -> vm.edit {it.copy(ec=value)}},"finance-ec",state.errors["manual_ec"],keyboard=KeyboardType.Decimal)
             FinanceField("PPM manual (ppm)",draft.ppm,{value -> vm.edit {it.copy(ppm=value)}},"finance-ppm",state.errors["manual_ppm"],KeyboardType.Decimal)
             FinanceField("pH manual (0–14)",draft.ph,{value -> vm.edit {it.copy(ph=value)}},"finance-ph",state.errors["manual_ph"],KeyboardType.Decimal)
         }
@@ -320,6 +329,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
         Text("${draft.type.label} · ${draft.date} ${draft.time} WIB")
         Text(if(draft.skipped) "Dilewati: ${draft.skippedReason}" else "Kegiatan selesai")
+        if(draft.ec.isNotBlank()) Text("EC manual: ${draft.ec} mS/cm")
         if(draft.ppm.isNotBlank()) Text("PPM manual: ${draft.ppm} ppm")
         if(draft.ph.isNotBlank()) Text("pH manual: ${draft.ph}")
         if(draft.stage.isNotBlank()) Text("Stadia aktual: ${draft.stage}")
@@ -349,6 +359,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
             Text("${draft.type.label} · ${draft.date} ${draft.time} WIB")
             Text(if(draft.skipped) "Dilewati: ${draft.skippedReason}" else "Kegiatan selesai")
+            if(draft.ec.isNotBlank()) Text("EC manual: ${draft.ec} mS/cm")
             if(draft.ppm.isNotBlank()) Text("PPM manual: ${draft.ppm} ppm")
             if(draft.ph.isNotBlank()) Text("pH manual: ${draft.ph}")
             if(draft.stage.isNotBlank()) Text("Stadia aktual: ${draft.stage}")
@@ -363,7 +374,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         val snapshot=record.body.optJSONObject("reference_snapshot")
         snapshot?.let { snap -> val age=snap.optJSONObject("age");Text("HSS ${if(age?.isNull("hss")==false) age.optString("hss") else "belum tersedia"} · HST ${if(age?.isNull("hst")==false) age.optString("hst") else "belum berlaku"}")
             age?.optJSONArray("reasons")?.let { a -> repeat(a.length()) {Text(a.getString(it))} }
-            snap.optJSONObject("checks")?.let { checks -> checks.keys().forEach { parameter -> val check=checks.getJSONObject(parameter);Text("${if(parameter=="manual_ppm") "PPM" else "pH"}: ${when(check.optString("status")) {"delta_only" -> "selisih ${check.optString("delta")}";"within_range" -> "dalam rentang";"outside_range" -> "di luar rentang";else -> "belum dapat dibandingkan"}}")
+            snap.optJSONObject("checks")?.let { checks -> checks.keys().forEach { parameter -> val check=checks.getJSONObject(parameter);Text("${when(parameter) {"manual_ec" -> "EC";"manual_ppm" -> "PPM";else -> "pH"}}: ${when(check.optString("status")) {"delta_only" -> "selisih ${check.optString("delta")}";"within_range" -> "dalam rentang";"outside_range" -> "di luar rentang";else -> "belum dapat dibandingkan"}}")
                 check.optJSONArray("reasons")?.let { a -> repeat(a.length()) {Text(a.getString(it),style=MaterialTheme.typography.bodySmall)} } } }
         }
 }
@@ -376,7 +387,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         if(age!=null) { Text("HSS ${age.hss ?: "belum tersedia"} · HST ${age.hst ?: "belum berlaku"}");age.reasons.forEach {Text(it,style=MaterialTheme.typography.bodySmall)} }
         else Text("Umur belum dapat ditentukan dari tanggal yang tersedia.",style=MaterialTheme.typography.bodySmall)
     }
-    val targets=context.targets.filter { it.optString("planting_group_id")==group && it.optBoolean("active",true) && (draft==null || it.optString("activity_type")==draft.type.wire) }.filter { target ->
+    val targets=context.targets.filter { it.optString("planting_group_id")==group && it.optBoolean("active",true) && (draft!=null || it.optString("parameter")!="manual_ph") && (draft==null || it.optString("activity_type")==draft.type.wire) }.filter { target ->
         instant==null || runCatching { !instant.isBefore(OffsetDateTime.parse(target.getString("effective_from")).toInstant()) && (target.isNull("effective_until") || instant.isBefore(OffsetDateTime.parse(target.getString("effective_until")).toInstant())) }.getOrDefault(false)
     }
     if(targets.isEmpty()) Notice("Target pada konteks/waktu ini belum tersedia. Nilai aktual tetap dicatat; kesesuaian belum dapat dibandingkan.")
