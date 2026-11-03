@@ -34,7 +34,7 @@ import java.time.LocalDate
         state.comparison!=null -> ConflictReview(state.comparison,session,context,state.busy,state.message,vm::resolve,vm::closeComparison,kind)
         state.selected!=null -> HistoryDetail(state.selected,session,context,state,vm,queue,onEdit,kind)
         else -> LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp),modifier=Modifier.testTag("finance-history-list")) {
-            item {Text("Riwayat ${kind.label}",style=MaterialTheme.typography.headlineMedium);Text("Catatan lokal dan terakhir diterima dalam penugasan saat ini.")}
+            item {com.inofarm.jogja.core.design.FarmPageTitle("Riwayat ${kind.label}");Text("Catatan lokal dan terakhir diterima dalam penugasan saat ini.")}
             item {HistoryFilters(context,state.filter,vm::filter,kind)}
             item {context.message?.let {Text(it,modifier=Modifier.testTag("finance-sync-message"))};state.message?.let {Notice(it,true)}}
             if(state.loading) item {LinearProgressIndicator(Modifier.fillMaxWidth())}
@@ -42,7 +42,7 @@ import java.time.LocalDate
             items(state.records,key={it.id}) {record -> OutlinedCard(onClick={vm.select(record.id)},modifier=Modifier.fillMaxWidth().testTag("finance-record-${record.id}")) {
                 Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     Text(if(kind!=OperationalKind.ACTIVITY) kind.label.replaceFirstChar {it.uppercaseChar()} else ActivityType.entries.find {it.wire==record.body.optString("activity_type")}?.label ?: "Draf kegiatan",fontWeight=FontWeight.SemiBold)
-                    Text(record.body.optString("notes").ifBlank {record.body.optString("allocation_basis").ifBlank {"Tanpa keterangan"}});Text(record.syncState.label(),color=MaterialTheme.colorScheme.primary)
+                    Text(record.body.optString("notes").ifBlank {record.body.optString("allocation_basis").ifBlank {"Tanpa keterangan"}});Notice(record.syncState.label(),record.syncState.name in setOf("REJECTED","CONFLICT"))
                     if(record.body.optString("record_state")=="cancelled") Text("Dibatalkan",color=MaterialTheme.colorScheme.error)
                     Text(listOf("occurred_at","paid_at","created_at").firstNotNullOfOrNull {key -> record.body.optString(key).takeUnless {it=="null" || it.isBlank()}}?.let(::timeLabel) ?: "Draf waktu belum lengkap",style=MaterialTheme.typography.bodySmall)
                 }
@@ -141,7 +141,7 @@ import java.time.LocalDate
     var policy by rememberSaveable(reviewed.id,reviewed.revision,reviewed.serverVersion) {mutableStateOf("")}
     var useServer by remember {mutableStateOf(false)}
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        Text("Tinjau konflik versi",style=MaterialTheme.typography.headlineMedium)
+        com.inofarm.jogja.core.design.FarmPageTitle("Tinjau konflik versi")
         Notice("Bandingkan seluruh isi. Penyelesaian menyimpan salinan lokal sebelumnya; perubahan ke server memerlukan operasi baru.")
         Text("Lokal · berdasarkan versi ${reviewed.baseVersion ?: "belum diterima"}",fontWeight=FontWeight.Bold)
         RecordFacts(reviewed,session,context,kind)

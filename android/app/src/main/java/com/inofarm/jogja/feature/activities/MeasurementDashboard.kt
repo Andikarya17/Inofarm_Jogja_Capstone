@@ -3,6 +3,8 @@ package com.inofarm.jogja.feature.activities
 import android.content.Context
 import android.net.ConnectivityManager
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -61,7 +63,7 @@ import java.time.LocalDate
     Text("Pengukuran manual",style=MaterialTheme.typography.titleLarge)
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
         for((label,value,unit) in listOf(Triple("EC",pair?.ec,"mS/cm"),Triple("PPM",pair?.ppm,"ppm"))) {
-            ElevatedCard(Modifier.weight(1f).testTag("measurement-card-${label.lowercase()}")) {
+            ElevatedCard(Modifier.weight(1f).testTag("measurement-card-${label.lowercase()}"),colors=CardDefaults.elevatedCardColors(containerColor=if(label=="EC") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.tertiaryContainer,contentColor=if(label=="EC") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onTertiaryContainer)) {
                 Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     Text(label,style=MaterialTheme.typography.titleMedium)
                     Text(value ?: if(loading) "Memuat…" else if(pair!=null) "EC belum tersedia" else "Belum ada pengukuran")

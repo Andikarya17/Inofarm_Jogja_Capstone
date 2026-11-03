@@ -21,7 +21,7 @@ import com.inofarm.jogja.feature.harvest.domain.HarvestLine
 @Composable fun HarvestForm(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel) {
     val draft=state.draft ?: return
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("Catat panen",style=MaterialTheme.typography.headlineMedium)
+        com.inofarm.jogja.core.design.FarmPageTitle("Catat panen")
         Text(if(state.saved) "Isian terakhir tersimpan di perangkat." else "Perubahan menunggu penyimpanan lokal.",style=MaterialTheme.typography.bodySmall)
         Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
         Notice("Jumlah buah dan bobot aktual per grade. Panen belum menjadi penjualan atau penerimaan uang.")
@@ -57,7 +57,7 @@ import com.inofarm.jogja.feature.harvest.domain.HarvestLine
 
 @Composable fun HarvestReview(draft:HarvestDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        Text("Periksa panen",style=MaterialTheme.typography.headlineMedium)
+        com.inofarm.jogja.core.design.FarmPageTitle("Periksa panen")
         Text("${draft.date} ${draft.time} WIB");Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
         draft.items.forEach {line -> Text("${line.gradeName.ifBlank {context.grades.find {it.optString("id")==line.gradeId}?.optString("name") ?: "Grade belum tersedia"}}: ${line.fruitCount} buah · ${line.weightKg} kg")}
         if(draft.notes.isNotBlank()) Text(draft.notes);if(draft.reason.isNotBlank()) Text("Alasan koreksi: ${draft.reason}")

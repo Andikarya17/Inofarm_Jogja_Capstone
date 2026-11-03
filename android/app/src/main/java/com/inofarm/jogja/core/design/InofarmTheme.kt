@@ -1,6 +1,7 @@
 package com.inofarm.jogja.core.design
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,13 +14,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 internal object FarmColors {
-    val Brand = Color(0xFF245B43)
+    val Brand = Color(0xFF176747)
     val Ink = Color(0xFF103D31)
     val Muted = Color(0xFF63707B)
-    val Background = Color(0xFFF4F6F0)
+    val Background = Color(0xFFF2F5EE)
     val Surface = Color(0xFFFFFFFF)
     val Soft = Color(0xFFE1F0E3)
-    val Hero = Color(0xFFDDEAD8)
+    val Hero = Color(0xFFD3EEDB)
     val Outline = Color(0xFFC5CED4)
     val Divider = Color(0xFFD8E1D4)
     val Warning = Color(0xFF805016)
@@ -68,12 +69,27 @@ internal object FarmDepth {
         TextStyle(fontFamily = FontFamily.SansSerif, fontSize = size.sp, lineHeight = line.sp,
             fontWeight = weight, letterSpacing = tracking.sp)
     MaterialTheme(
-        colorScheme = lightColorScheme(
+        colorScheme = if (isSystemInDarkTheme()) darkColorScheme(
+            primary = Color(0xFF8AD7AC), onPrimary = Color(0xFF003923),
+            primaryContainer = Color(0xFF174D37), onPrimaryContainer = Color(0xFFB6F2CF),
+            secondary = Color(0xFFDCC28C), onSecondary = Color(0xFF3C2E10),
+            secondaryContainer = Color(0xFF383D30), onSecondaryContainer = Color(0xFFE0E8D7),
+            tertiary = Color(0xFF9BD0DB), onTertiary = Color(0xFF00363F),
+            tertiaryContainer = Color(0xFF214751), onTertiaryContainer = Color(0xFFC4EAF0),
+            background = Color(0xFF101B16), onBackground = Color(0xFFE3EDE4),
+            surface = Color(0xFF17251E), onSurface = Color(0xFFE3EDE4),
+            surfaceVariant = Color(0xFF283A30), onSurfaceVariant = Color(0xFFBBCDC0),
+            surfaceContainer = Color(0xFF203128), surfaceContainerHighest = Color(0xFF304238),
+            outline = Color(0xFF8A9D90), outlineVariant = Color(0xFF405348),
+            error = Color(0xFFFFB4A9), onError = Color(0xFF601410),
+            errorContainer = Color(0xFF712820), onErrorContainer = Color(0xFFFFDAD4)
+        ) else lightColorScheme(
             primary = FarmColors.Brand, onPrimary = Color.White,
             primaryContainer = FarmColors.Hero, onPrimaryContainer = FarmColors.Ink,
             secondary = FarmColors.Muted, onSecondary = Color.White,
             secondaryContainer = FarmColors.Soft, onSecondaryContainer = FarmColors.Ink,
             tertiary = FarmColors.Info, onTertiary = Color.White,
+            tertiaryContainer = FarmColors.InfoSurface, onTertiaryContainer = Color(0xFF173E48),
             background = background, onBackground = FarmColors.Ink,
             surface = FarmColors.Surface, onSurface = FarmColors.Ink,
             surfaceVariant = FarmColors.Soft, onSurfaceVariant = FarmColors.Muted,
@@ -96,7 +112,7 @@ internal object FarmDepth {
         ),
         shapes = Shapes(small = FarmShape.Control, medium = FarmShape.Card, large = FarmShape.Hero),
         content = {
-            Surface(Modifier.fillMaxSize(), color = background) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 Box(Modifier.fillMaxSize()) { content() }
             }
         }

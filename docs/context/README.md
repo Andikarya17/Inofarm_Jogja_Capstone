@@ -1,5 +1,7 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+Frontend3 November2026: [perubahan visual Android, hasil uji dan batas acceptance](ANDROID_FRONTEND_EVIDENCE_20261103.md). Tema kaca tonal light/dark tersedia; bukan klaim seluruh gate frontend/UAT selesai.
+
 Tooling desain3 November2026: [instalasi Impeccable project-local dan batas verifikasi](IMPECCABLE_SETUP.md).
 
 Keputusan terbaru2 November2026: [pengukuran EC/PPM dan pelepasan IoT](../migration/finance-20261029/MANUAL_MEASUREMENTS_20261102.md), [kontrak pengukuran](../../contracts/v2/MEASUREMENTS.md). Finance kini default tanpa flag pada branch `codex/retire-iot-runtime`, bergantung `0d960db`; source produk v1/owner/firmware/React dilepas, data/migration/provenance tetap. Permintaan pengguna mengatasi coexistence/default legacy pada catatan historis di bawah. Verifikasi dicatat per branch; bukan cutover produksi.

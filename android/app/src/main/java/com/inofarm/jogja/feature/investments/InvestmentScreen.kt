@@ -32,7 +32,7 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
 @Composable fun InvestmentScreen(workspace:InvestmentWorkspace,context:CultivationUiState) {
     val state=workspace.state;val vm=workspace.vm
     LazyColumn(Modifier.fillMaxSize().testTag("investment-list"),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
-        item {Text("Evaluasi investasi",style=MaterialTheme.typography.headlineMedium);TextButton(onClick=vm::back,enabled=!state.busy,modifier=Modifier.testTag("investment-back")) {Text(if(state.scenarioDraft!=null || state.reportDraft!=null || state.cancelReason!=null) "Simpan draf dan kembali" else "Kembali")}}
+        item {com.inofarm.jogja.core.design.FarmPageTitle("Evaluasi investasi");TextButton(onClick=vm::back,enabled=!state.busy,modifier=Modifier.testTag("investment-back")) {Text(if(state.scenarioDraft!=null || state.reportDraft!=null || state.cancelReason!=null) "Simpan draf dan kembali" else "Kembali")}}
         state.message?.let {item {Notice(it,true)}}
         if(state.denied) item {Notice("Akses perlu diperiksa kembali. Sinkronkan atau masuk ulang. Draf tetap disimpan.",true)}
         else if(state.busy) item {CircularProgressIndicator();Text("Memeriksa atau menyimpan catatan investasi…")}

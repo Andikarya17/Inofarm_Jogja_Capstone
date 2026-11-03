@@ -33,7 +33,7 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
         vm.previewHandled(if(error!=null) "Aplikasi pembuka berkas belum tersedia atau pratinjau tidak dapat dibuka. Salinan terenkripsi tetap disimpan." else null)
     }}
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp).testTag("attachment-screen"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("Lampiran catatan",style=MaterialTheme.typography.headlineMedium)
+        com.inofarm.jogja.core.design.FarmPageTitle("Lampiran catatan")
         Text("Catatan dan pengiriman berkas memiliki status terpisah. Salinan lokal disimpan terenkripsi.")
         if(state.busy || state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         state.message?.let {Notice(it,true)}

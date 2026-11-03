@@ -34,18 +34,22 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
     LaunchedEffect(context.greenhouses.map {it.optString("id")}) {if(gh.isNotBlank() && context.greenhouses.none {it.optString("id")==gh}) gh=""}
     val kind=RecordKind.entries.single {it.wire==selected}
     BoxWithConstraints(Modifier.fillMaxSize()) {
+    var showActions by rememberSaveable {mutableStateOf(true)}
     val controlsHeight=maxHeight*0.65f
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Column(Modifier.heightIn(max=controlsHeight).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick={showActions=!showActions},modifier=Modifier.fillMaxWidth()) {Text(if(showActions) "Fokus ke riwayat" else "Tampilkan menu keuangan")}
+        if(showActions) Column(Modifier.heightIn(max=controlsHeight).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        com.inofarm.jogja.core.design.FarmPageTitle("Keuangan", "Pembayaran, alokasi, dan evaluasi dalam satu ruang.")
         Choice("Greenhouse untuk catatan baru",gh,context.greenhouses.filter {it.optBoolean("active",true)},"expense-gh") {gh=it}
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick={entry.new(RecordKind.EXPENSE,gh)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("expense-new")) {Text("Catat pengeluaran")}
+            Button(onClick={entry.new(RecordKind.EXPENSE,gh)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("expense-new")) {Text("Catat pengeluaran")}
             OutlinedButton(onClick={entry.new(RecordKind.COST_ALLOCATION,gh)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("allocation-new")) {Text("Alokasikan biaya")}
         }
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick={sales.new(gh)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("sale-new")) {Text("Catat penjualan lunas")}
             OutlinedButton(onClick={reports.vm.show(gh)},modifier=Modifier.weight(1f).testTag("report-open")) {Text("Evaluasi musim")}
         }
+        Text("Aset dan evaluasi",style=MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick={asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ASSET)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("asset-new")) {Text("Catat aset")}
             OutlinedButton(onClick={asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ALLOCATION)},enabled=gh.isNotBlank(),modifier=Modifier.weight(1f).testTag("depreciation-new")) {Text("Alokasi penyusutan")}
@@ -97,7 +101,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
 
 @Composable fun FinancialReview(draft:FinancialDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        Text("Periksa ${draft.kind.label}",style=MaterialTheme.typography.headlineMedium)
+        com.inofarm.jogja.core.design.FarmPageTitle("Periksa ${draft.kind.label}")
         FinancialDraftFacts(draft,context)
         if(draft.replaceValidationRejected) Notice("Perbaikan ini membuat operasi baru. Isi pengajuan yang ditolak tetap disimpan dalam histori.")
         Notice("Disimpan lokal dan diantrekan dahulu. Nominal belum menjadi transaksi diterima sebelum server mengonfirmasi.")

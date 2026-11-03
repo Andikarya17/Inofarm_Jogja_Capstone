@@ -53,7 +53,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
 }
 @Composable fun SaleReview(draft:SaleDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        Text("Periksa penjualan lunas",style=MaterialTheme.typography.headlineMedium);SaleDraftFacts(draft,context)
+        com.inofarm.jogja.core.design.FarmPageTitle("Periksa penjualan lunas");SaleDraftFacts(draft,context)
         Notice("Pratinjau dihitung dari harga/bobot manual, total dibulatkan sekali. Saldo terakhir diketahui dan kelengkapan diperiksa ulang server.")
         if(draft.replaceValidationRejected) Notice("Perbaikan membuat operasi baru; pengajuan yang ditolak tetap disimpan.")
         Button(onClick=onQueue,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("sale-queue")) {Text("Simpan lokal dan antrekan")}

@@ -39,7 +39,7 @@ import com.inofarm.jogja.feature.Notice
         BackHandler {if(state.editing) vm.back() else close()}
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                Text("Administrasi",style=MaterialTheme.typography.headlineMedium)
+                com.inofarm.jogja.core.design.FarmPageTitle("Administrasi")
                 Text("Isian disimpan per akun. Pengajuan memerlukan koneksi dan persetujuan Anda; hasil server menentukan hak akses serta versi.")
                 TextButton(onClick={if(state.editing) vm.back() else close()},enabled=!state.busy) {Text(if(state.editing) "Simpan draf dan kembali" else "Tutup administrasi")}
                 state.message?.let {Notice(it)}

@@ -249,7 +249,44 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag(option).performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag(option).fetchSemanticsNodes().isEmpty()}
     }
-    private fun hideKeyboard() {Espresso.closeSoftKeyboard();rule.waitForIdle()}
+    private fun hideKeyboard() {
+        rule.runOnUiThread {
+            androidx.core.view.WindowCompat.getInsetsController(rule.activity.window,rule.activity.window.decorView)
+                .hide(androidx.core.view.WindowInsetsCompat.Type.ime())
+        }
+        rule.waitUntil(10000) {
+            androidx.core.view.ViewCompat.getRootWindowInsets(rule.activity.window.decorView)
+                ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) != true
+        }
+        rule.waitForIdle()
+    }
+
+    @Test fun glassFrontendCapturesWorkerManagerAndPreservesDraftNavigation() {
+        fun capture(name:String) {
+            rule.waitForIdle()
+            val bitmap=rule.onRoot().captureToImage().asAndroidBitmap()
+            val directory=File(rule.activity.getExternalFilesDir(null),"frontend-glass").apply {mkdirs()}
+            File(directory,"$name.png").outputStream().use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+        }
+        capture("worker-home")
+        choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
+        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("measurement-card-ec"))
+        capture("worker-measurements")
+        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("finance-new"))
+        rule.onNodeWithTag("finance-new").performClick()
+        rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Draf verifikasi tampilan kaca")
+        hideKeyboard();capture("worker-form")
+        rule.onNodeWithTag("finance-save-draft").performScrollTo().performClick()
+        readyNode("finance-tab-2").performClick();capture("worker-history")
+        readyNode("finance-logout").performClick();login("manager@example.invalid")
+        capture("manager-home")
+        readyNode("finance-tab-4").performClick();choose("expense-gh",gh);capture("manager-finance")
+        readyNode("expense-new").performScrollTo().performClick()
+        readyNode("expense-amount").performTextReplacement("1234567890,50")
+        hideKeyboard();capture("manager-payment")
+        rule.activityRule.scenario.recreate()
+        readyNode("expense-amount").assertTextContains("1234567890,50")
+    }
 
     @Test fun defaultLauncherOpensFinanceWithExistingApplicationIdentity() {
         assertEquals("com.inofarm.jogja.finance",rule.activity.packageName)

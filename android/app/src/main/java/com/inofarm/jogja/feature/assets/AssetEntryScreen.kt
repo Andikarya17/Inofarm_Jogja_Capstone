@@ -69,7 +69,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
 
 @Composable fun AssetReview(draft:AssetDraft,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("Periksa catatan aset",style=MaterialTheme.typography.headlineMedium);AssetDraftFacts(draft)
+        com.inofarm.jogja.core.design.FarmPageTitle("Periksa catatan aset");AssetDraftFacts(draft)
         Notice("Alokasi ini nominal manual, bukan pembagian otomatis. Server memeriksa sisa pembayaran, anggaran tahunan, A−S dan duplikasi pemakaian.")
         if(draft.replaceValidationRejected) Notice("Perbaikan membuat operasi baru; pengajuan lama yang ditolak tetap disimpan.")
         Button(onClick=onQueue,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("asset-queue")) {Text("Simpan lokal dan antrekan")}

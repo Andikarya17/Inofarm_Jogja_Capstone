@@ -5,6 +5,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.*
+import com.inofarm.jogja.core.design.*
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -171,7 +174,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         else permissionMessage="Akses jaringan lokal belum diizinkan. Izinkan untuk tersambung ke server ini; draf tetap disimpan."
     }
     Column(Modifier.safeDrawingPadding().imePadding().fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).widthIn(max=640.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        Spacer(Modifier.height(24.dp));Text("INOFARM",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(24.dp));Text("Inofarm",style=MaterialTheme.typography.headlineMedium,color=MaterialTheme.colorScheme.primary)
         Text("Catatan greenhouse,\ndalam satu tempat.",style=MaterialTheme.typography.headlineLarge)
         Text("Masuk dengan akun pekerja atau pengelola. Draf dan antrean tetap tersimpan saat koneksi terputus.")
         FinanceField("URL API operasional",server,{server=it},"finance-server",hint="https://…/api/v2/")
@@ -200,7 +203,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     BackHandler(investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
         when { writing -> Unit;ime -> keyboard?.hide();investments.state.active -> investments.vm.back();reports.state.active -> reports.vm.back();asset.entry.draft!=null && asset.entry.reviewing -> asset.vm.backToForm();asset.entry.draft!=null -> asset.vm.saveAndClose();asset.history.comparison!=null -> asset.historyVm.closeComparison();asset.history.selected!=null -> asset.historyVm.close();asset.depreciation.comparison!=null -> asset.depreciationVm.closeComparison();asset.depreciation.selected!=null -> asset.depreciationVm.close();attachment.parentReview!=null || attachment.reviewing -> attachmentVm.backToDetails();attachment.selected!=null -> attachmentVm.closeSelected();attachment.parent!=null -> attachmentVm.close();sale.draft!=null && sale.reviewing -> saleVm.backToForm();sale.draft!=null -> saleVm.saveAndClose();saleHistory.comparison!=null -> saleHistoryVm.closeComparison();saleHistory.selected!=null -> saleHistoryVm.close();activity.draft!=null && activity.reviewing -> vm.backToForm();activity.draft!=null -> vm.saveAndClose();harvest.draft!=null && harvest.reviewing -> harvestVm.backToForm();harvest.draft!=null -> harvestVm.saveAndClose();financial.draft!=null && financial.reviewing -> financialVm.backToForm();financial.draft!=null -> financialVm.saveAndClose();expenseHistory.comparison!=null -> expenseHistoryVm.closeComparison();expenseHistory.selected!=null -> expenseHistoryVm.close();allocationHistory.comparison!=null -> allocationHistoryVm.closeComparison();allocationHistory.selected!=null -> allocationHistoryVm.close();history.comparison!=null -> historyVm.closeComparison();history.selected!=null -> historyVm.close();harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison();harvestHistory.selected!=null -> harvestHistoryVm.close();else -> tab=0 }
     }
-    Scaffold(contentWindowInsets=WindowInsets.safeDrawing,topBar={ Column(Modifier.statusBarsPadding().padding(horizontal=16.dp,vertical=8.dp)) {
+    Scaffold(contentWindowInsets=WindowInsets.safeDrawing,topBar={ FarmGlass(Modifier.statusBarsPadding().padding(horizontal=12.dp,vertical=8.dp)) { Column(Modifier.padding(horizontal=16.dp,vertical=4.dp)) {
         if((attachment.parent!=null && (ime || LocalDensity.current.fontScale>1.5f || LocalConfiguration.current.screenHeightDp<400)) || (ime && (investments.state.scenarioDraft!=null || investments.state.reportDraft!=null || investments.state.cancelReason!=null || reports.state.draft!=null || asset.entry.draft!=null || sale.draft!=null || activity.draft!=null || harvest.draft!=null || financial.draft!=null))) {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(if(attachment.parent!=null) "Lampiran" else if(investments.state.active) "Investasi" else if(reports.state.draft!=null) "Evaluasi" else if(asset.entry.draft!=null) "Aset" else if(sale.draft!=null) "Penjualan" else if(financial.draft!=null && LocalDensity.current.fontScale>1.5f) "Isian" else if(financial.draft!=null) "Catat ${financial.draft.kind.label}" else if(harvest.draft!=null) "Catat panen" else "Catat kegiatan",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={keyboard?.hide();if(attachment.parent!=null) {if(attachment.selected!=null) attachmentVm.closeSelected() else attachmentVm.close()} else if(investments.state.active) investments.vm.back() else if(reports.state.draft!=null) reports.vm.back() else if(asset.entry.draft!=null) asset.vm.saveAndClose() else if(sale.draft!=null) saleVm.saveAndClose() else if(financial.draft!=null) financialVm.saveAndClose() else if(harvest.draft!=null) harvestVm.saveAndClose() else vm.saveAndClose()},enabled=!writing) {Text(if(attachment.parent!=null) "Kembali" else "Simpan draf")} }
         } else {
@@ -208,7 +211,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         if(session.expired()) Notice("Sesi berakhir. Masuk kembali dengan akun yang sama untuk mengirim antrean. Draf tetap dapat disimpan.",true)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text("Pencatatan manual",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium);TextButton(onClick=onSync,enabled=!context.loading,modifier=Modifier.testTag("finance-sync")) {Text(if(context.loading) "Memeriksa…" else "Sinkronkan")} }
         }
-    } },bottomBar={ if(!investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null) NavigationBar { (listOf("Beranda","Antrean","Kegiatan","Panen")+if(session.role==UserRole.MANAGER) listOf("Keuangan") else emptyList()).forEachIndexed { index,label -> NavigationBarItem(selected=tab==index,onClick={tab=index},icon={Text(listOf("⌂","↻","≡","▦","Rp")[index])},label={Text(label)},modifier=Modifier.testTag("finance-tab-$index")) } } }) { padding ->
+    } } },bottomBar={ if(!investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null) FarmGlass(Modifier.navigationBarsPadding().padding(horizontal=12.dp,vertical=8.dp)) { NavigationBar(containerColor=androidx.compose.ui.graphics.Color.Transparent,windowInsets=WindowInsets(0,0,0,0)) { (listOf("Beranda","Antrean","Kegiatan","Panen")+if(session.role==UserRole.MANAGER) listOf("Keuangan") else emptyList()).forEachIndexed { index,label -> NavigationBarItem(selected=tab==index,onClick={tab=index},icon={FarmNavigationIcon(index)},label={Text(label)},modifier=Modifier.testTag("finance-tab-$index")) } } } }) { padding ->
         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding().padding(horizontal=16.dp).widthIn(max=900.dp)) {
             when {
                 session.role==UserRole.MANAGER && investments.state.active -> InvestmentScreen(investments,context)
@@ -229,8 +232,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 harvestHistory.selected!=null -> HistoryScreen(session,context,harvestHistory,harvestHistoryVm,activity.queue,onEdit={record,replace -> harvestVm.open(record,replace);harvestHistoryVm.close()},kind=OperationalKind.HARVEST)
                 tab==0 -> LazyColumn(modifier=Modifier.testTag("finance-home-list"),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
                     item { if(session.role==UserRole.MANAGER) OutlinedButton(onClick=onAdmin,modifier=Modifier.fillMaxWidth().testTag("finance-admin")) {Text("Kelola akun, budidaya dan acuan")} }
-                    item { Text("Kegiatan hari ini",style=MaterialTheme.typography.headlineMedium);Text("Pilih konteks budidaya sebelum mencatat. Target hanya menjadi acuan.") }
+                    item { FarmPageTitle("Kebun hari ini","Pilih konteks budidaya sebelum mencatat. Target hanya menjadi acuan.") }
                     item { context.message?.let { Text(it,modifier=Modifier.testTag("finance-sync-message")) };Text(context.lastSyncedAt?.let {"Data lokal diperbarui: ${timeLabel(Instant.ofEpochMilli(it).toString())}"} ?: "Belum ada data server tersimpan.",style=MaterialTheme.typography.bodySmall) }
+
                     item { Choice("Greenhouse",gh,context.greenhouses.filter { it.optBoolean("active",true) },"finance-gh") {gh=it;season=null;group=null} }
                     item { Choice("Musim",season,context.seasons.filter { it.optString("greenhouse_id")==gh },"finance-season") {season=it;group=null} }
                     if(session.role==UserRole.MANAGER && season!=null) item {context.seasons.find {it.optString("id")==season}?.let {SeasonActions(it,history.busy,history.message,historyVm::season)}}
@@ -239,7 +243,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         val open=context.seasons.find { it.optString("id")==season }?.optString("status")=="open"
                         item { Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
                             Button(onClick={vm.new(gh!!,group!!,ActivityType.MEASUREMENT)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-measurement-new")) {Text("Catat pengukuran")}
-                            Button(onClick={vm.new(gh!!,group!!)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-new")) {Text("Catat kegiatan")};if(!open) Notice("Musim ditutup. Pengelola perlu membuka kembali sebelum pencatatan.",true)
+                            FilledTonalButton(onClick={vm.new(gh!!,group!!)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-new")) {Text("Catat kegiatan")};if(!open) Notice("Musim ditutup. Pengelola perlu membuka kembali sebelum pencatatan.",true)
                             OutlinedButton(onClick={harvestVm.new(gh!!,group!!)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("harvest-new")) {Text("Catat panen")}
                         } }
                         item { Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -259,7 +263,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     item { activity.message?.let { Notice(it) } }
                 }
                 tab==1 -> LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
-                    item { Text("Antrean akun ini",style=MaterialTheme.typography.headlineMedium);Text("Disimpan lokal belum berarti diterima server. Operasi yang ditahan tetap disimpan.") }
+                    item { FarmPageTitle("Antrean akun ini","Disimpan lokal belum berarti diterima server. Operasi yang ditahan tetap disimpan.") }
                     item { context.message?.let { Text(it,modifier=Modifier.testTag("finance-sync-message")) } }
                     if(activity.queue.isEmpty()) item { Notice("Belum ada operasi dalam antrean.") }
                     items(activity.queue,key={it.id}) { op -> ElevatedCard { Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -415,12 +419,12 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
 }
 @Composable internal fun Notice(message:String,error:Boolean=false) { Surface(color=if(error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth()) {Text(message,Modifier.padding(12.dp),style=MaterialTheme.typography.bodyMedium)} }
 @Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true) {
-    OutlinedTextField(value,onChange,label={Text(label)},isError=error!=null,supportingText={if(error!=null) Text(error) else if(hint!=null) Text(hint)},singleLine=singleLine,keyboardOptions=KeyboardOptions(keyboardType=keyboard),modifier=Modifier.fillMaxWidth().testTag(tag))
+    OutlinedTextField(value,onChange,shape=MaterialTheme.shapes.small,colors=OutlinedTextFieldDefaults.colors(unfocusedContainerColor=MaterialTheme.colorScheme.surface,focusedContainerColor=MaterialTheme.colorScheme.surface),label={Text(label)},isError=error!=null,supportingText={if(error!=null) Text(error) else if(hint!=null) Text(hint)},singleLine=singleLine,keyboardOptions=KeyboardOptions(keyboardType=keyboard),modifier=Modifier.fillMaxWidth().testTag(tag))
 }
 @Composable internal fun Choice(label:String,selected:String?,options:List<JSONObject>,tag:String,onSelect:(String)->Unit) {
     var expanded by rememberSaveable {mutableStateOf(false)}
     val value=options.find {it.optString("id")==selected}?.optString("name")
-    OutlinedButton(onClick={expanded=true},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp).testTag(tag)) {Text("$label: ${value ?: "pilih"}",modifier=Modifier.fillMaxWidth())}
+    OutlinedButton(onClick={expanded=true},shape=MaterialTheme.shapes.medium,colors=ButtonDefaults.outlinedButtonColors(containerColor=MaterialTheme.colorScheme.surface,contentColor=MaterialTheme.colorScheme.onSurface),border=BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant),modifier=Modifier.fillMaxWidth().heightIn(min=56.dp).testTag(tag)) {Column(Modifier.weight(1f).padding(vertical=6.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) { Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(value ?: "Pilih $label",style=MaterialTheme.typography.bodyLarge) }; Text("Pilih",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)}
     if(expanded) AlertDialog(onDismissRequest={expanded=false},title={Text("Pilih $label")},text={LazyColumn(Modifier.heightIn(max=380.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
         if(options.isEmpty()) item {Text("Belum ada pilihan yang tersedia.")}
         items(options,key={it.getString("id")}) { row -> TextButton(onClick={onSelect(row.getString("id"));expanded=false},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("$tag-option-${row.getString("id")}")) {Text(row.getString("name"),Modifier.fillMaxWidth())} }
