@@ -2,6 +2,8 @@
 
 Pengukuran manual2 November2026 menggunakan domain activity/ledger/sync existing, tipe `measurement`, additive schema15 nullable EC dan index, SQLite9/encrypted raw drafts/immutable outbox tetap. Dashboard memindai kandidat cache scoped dalam batch100 sampai valid, terpisah dari pagination riwayat; stable full pull memasok cache. API baca terbaru memakai commit-order scoped read dan immutable accepted snapshot. [Kontrak dan batas rollout](../../contracts/v2/MEASUREMENTS.md).
 
+Lanjutan pelepasan IoT: MainActivity hanya FinanceRoot; finance default tanpa flag. Tema shared berada di core/design, validasi URL di core/network; tidak memakai data/ui owner. Route v1/middleware device/owner, ingest/provisioning, source firmware dan React dilepas. Debug/profile identity `.finance`, release identity lama, SQLite9/vault/provider/job tetap. Migration/tabel/histori tidak dihapus. [Inventaris pemakai dan pengecualian](../migration/finance-20261029/MANUAL_MEASUREMENTS_20261102.md).
+
 ## Lanjutan FIN16–17 — 2 November 2026
 
 FIN16 menambah feature/admin (typed fields, encrypted account journal; password hanya memori), Android JobScheduler/JobService memakai coordinator existing, dan vault StateFlow/current profile pada scoped sync/status. Tidak ada migration/dependency Android baru; wire2/schema14/SQLite9 tetap. symfony/mime dipatch8.1.10 saja. [Kontrak background/profile](../../contracts/v2/BACKGROUND_SYNC.md), [evidence](../migration/finance-20261029/FIN16_ACCEPTANCE.md), [operasi FIN17](../migration/finance-20261029/FIN17_INSTALL_RUN.md).

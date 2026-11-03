@@ -1,13 +1,6 @@
-import java.net.URI
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
-}
-val ownerApiUrl = providers.gradleProperty("inofarmApiUrl").orElse("").get()
-val financeApp = project.hasProperty("financeApp")
-require(ownerApiUrl.isBlank() || URI(ownerApiUrl).let { it.scheme == "https" && !it.host.isNullOrBlank() && it.rawUserInfo == null && it.rawQuery == null && it.rawFragment == null }) {
-    "inofarmApiUrl harus berupa URL HTTPS tanpa credential/query/fragment."
 }
 fun quotedConfig(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 android {
@@ -16,13 +9,11 @@ android {
     compileSdk { version = release(37) { minorApiLevel = 0 } }
     defaultConfig {
         applicationId = "com.inofarm.jogja"
-        minSdk = if (financeApp) 29 else 26
+        minSdk = 29
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "DEFAULT_API_BASE_URL", quotedConfig(ownerApiUrl))
-        buildConfigField("boolean", "FINANCE_APP", financeApp.toString())
         buildConfigField("String", "FINANCE_API_BASE_URL", quotedConfig(providers.gradleProperty("inofarmFinanceApiUrl").orElse("").get()))
     }
     buildFeatures { compose = true; buildConfig = true }
@@ -40,10 +31,9 @@ android {
             testProguardFiles("proguard-test-rules.pro")
         }
         getByName("debug") {
-            if(financeApp) applicationIdSuffix = ".finance"
+            applicationIdSuffix = ".finance"
             buildConfigField("String", "FINANCE_API_BASE_URL", quotedConfig(providers.gradleProperty("inofarmFinanceDebugApiUrl").orElse("http://10.0.2.2:8000/api/v2/").get()))
-            buildConfigField("String", "DEFAULT_API_BASE_URL", quotedConfig(providers.gradleProperty("inofarmDebugApiUrl").orElse("http://10.0.2.2:8000/api/v1/").get()))
-            if(project.hasProperty("performanceTest")) applicationIdSuffix = if(financeApp) ".finance.performance" else ".performance"
+            if(project.hasProperty("performanceTest")) applicationIdSuffix = ".finance.performance"
         }
         create("profile") {
             initWith(getByName("release"))
@@ -51,8 +41,8 @@ android {
             isDebuggable = false
             matchingFallbacks += listOf("release")
             proguardFiles("proguard-profile-rules.pro", "proguard-profile-test-abi.pro")
-            if(financeApp) applicationIdSuffix = ".finance"
-            if(project.hasProperty("performanceTest")) applicationIdSuffix = if(financeApp) ".finance.performance" else ".performance"
+            applicationIdSuffix = ".finance"
+            if(project.hasProperty("performanceTest")) applicationIdSuffix = ".finance.performance"
         }
     }
     testBuildType = if (project.hasProperty("profileUi")) "profile" else "debug"
@@ -65,8 +55,6 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
-    implementation("androidx.navigation:navigation-compose:2.9.3")
-    implementation("dev.chrisbanes.haze:haze:1.6.10")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")

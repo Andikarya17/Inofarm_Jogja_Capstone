@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$JavaHome,[string]$SdkPath="$env:LOCALAPPDATA/Android/Sdk",[switch]$SkipChecks)
+param([Parameter(Mandatory=$true)][string]$JavaHome,[string]$SdkPath="$env:LOCALAPPDATA/Android/Sdk",[switch]$SkipChecks,[switch]$ManualMeasurements)
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path $PSScriptRoot -Parent
 $adb=Join-Path $SdkPath 'platform-tools/adb.exe'
@@ -7,9 +7,13 @@ $manifest=Join-Path $projectRoot 'tmp/finance-device-fixture.json'
 $outputDirectory=Join-Path $projectRoot 'outputs/finance-entry'
 if(Test-Path -LiteralPath $manifest) {throw 'A synthetic fixture already exists; verify its provenance/cleanup before starting another.'}
 if(Get-NetTCPConnection -LocalPort 8001 -State Listen -ErrorAction SilentlyContinue) {throw 'Port8001 is occupied; refusing to replace the service.'}
+function Assert-NoPhpUnit {
+    if(Get-CimInstance Win32_Process -Filter "Name='php.exe'" | Where-Object {$_.CommandLine -match 'phpunit[/\\]phpunit'}) {throw 'PHPUnit is active; finish it before creating HTTP/device fixtures.'}
+}
+Assert-NoPhpUnit
 New-Item -ItemType Directory -Force $outputDirectory | Out-Null
-$tasks=if($SkipChecks) {@(':app:assembleDebug',':app:assembleDebugAndroidTest','-PfinanceApp')} else {@(':app:assembleDebug',':app:testDebugUnitTest',':app:lintDebug',':app:connectedDebugAndroidTest','-PfinanceApp','-Pandroid.testInstrumentationRunnerArguments.class=com.inofarm.jogja.FinanceAttachmentTest,com.inofarm.jogja.FinanceLocalStoreTest,com.inofarm.jogja.FinanceSyncCoordinatorTest,com.inofarm.jogja.FinanceEntryUiTest,com.inofarm.jogja.CanonicalUnicodeDeviceTest')}
-& (Join-Path $PSScriptRoot 'build-android.ps1') -JavaHome $JavaHome -Tasks $tasks
+$tasks=if($SkipChecks) {@(':app:assembleDebug',':app:assembleDebugAndroidTest')} else {@(':app:assembleDebug',':app:testDebugUnitTest',':app:lintDebug',':app:connectedDebugAndroidTest','-Pandroid.testInstrumentationRunnerArguments.class=com.inofarm.jogja.FinanceAttachmentTest,com.inofarm.jogja.FinanceLocalStoreTest,com.inofarm.jogja.FinanceSyncCoordinatorTest,com.inofarm.jogja.FinanceEntryUiTest,com.inofarm.jogja.CanonicalUnicodeDeviceTest')}
+& (Join-Path $PSScriptRoot 'build-android.ps1') -JavaHome $JavaHome -SdkPath $SdkPath -Tasks $tasks
 foreach($apk in @('android/app/build/outputs/apk/debug/app-debug.apk','android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk')) {
     & $adb install -r -t (Join-Path $projectRoot $apk)
     if($LASTEXITCODE -ne 0) {throw 'Finance test APK install failed.'}
@@ -21,7 +25,7 @@ $listenerPid=$null
 $listenerWrapperPid=$null
 $fixtureCreated=$false
 $attachmentEnv=@{}
-foreach($key in @('FINANCE_PRIVATE_ROOT','FINANCE_ATTACHMENT_MAX_BYTES','FINANCE_ATTACHMENT_MAX_FILES','FINANCE_ATTACHMENT_MIME_TYPES')) {$attachmentEnv[$key]=[Environment]::GetEnvironmentVariable($key,'Process')}
+foreach($key in @('FINANCE_PRIVATE_ROOT','FINANCE_ATTACHMENT_MAX_BYTES','FINANCE_ATTACHMENT_MAX_FILES','FINANCE_ATTACHMENT_MIME_TYPES','FINANCE_DEVICE_TEST_BASE_URL')) {$attachmentEnv[$key]=[Environment]::GetEnvironmentVariable($key,'Process')}
 function Start-TestApi {
     # No reload preserves explicit fixture env values in Laravel's child PHP process.
     $script:serverProcess=Start-Process -FilePath $php -WorkingDirectory (Join-Path $projectRoot 'backend') -ArgumentList @('artisan','serve','--env=testing','--no-reload','--host=127.0.0.1','--port=8001') -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $outputDirectory 'server.stdout.txt') -RedirectStandardError (Join-Path $outputDirectory 'server.stderr.txt')
@@ -77,6 +81,10 @@ function Assert-Instrumentation([Diagnostics.Process]$Process,[string]$LogPath) 
     if((Get-Content -LiteralPath $LogPath -Raw) -notmatch 'OK \(1 test\)') {throw "Finance instrumentation failed; inspect $LogPath"}
 }
 try {
+    Assert-NoPhpUnit
+    & $adb reverse tcp:8001 tcp:8001
+    if($LASTEXITCODE -ne 0) {throw 'ADB reverse for isolated API failed.'}
+    $env:FINANCE_DEVICE_TEST_BASE_URL='http://127.0.0.1:8001/api/v2/'
     & $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') create
     if($LASTEXITCODE -ne 0) {throw 'Guarded fixture creation failed.'}
     $fixtureCreated=$true
@@ -93,7 +101,7 @@ try {
     & $adb push $manifest '/sdcard/Android/data/com.inofarm.jogja.finance/files/finance-device-fixture.json'
     Start-TestApi
     $queueLog=Join-Path $outputDirectory 'device-queue.txt'
-    $queueProcess=Start-Process -FilePath $adb -ArgumentList @('shell','am','instrument','-w','-r','-e','class','com.inofarm.jogja.FinanceBackendDeviceTest#queueWithBackendOffline','-e','devicePhase','queue','com.inofarm.jogja.finance.test/androidx.test.runner.AndroidJUnitRunner') -WindowStyle Hidden -PassThru -RedirectStandardOutput $queueLog -RedirectStandardError (Join-Path $outputDirectory 'device-queue.stderr.txt')
+    $queueProcess=Start-Process -FilePath $adb -ArgumentList @('shell','am','instrument','-w','-r','-e','class','com.inofarm.jogja.FinanceBackendDeviceTest#queueWithBackendOffline','-e','devicePhase','queue','-e','measurementPair',($ManualMeasurements.IsPresent.ToString().ToLowerInvariant()),'com.inofarm.jogja.finance.test/androidx.test.runner.AndroidJUnitRunner') -WindowStyle Hidden -PassThru -RedirectStandardOutput $queueLog -RedirectStandardError (Join-Path $outputDirectory 'device-queue.stderr.txt')
     $deadline=[DateTime]::UtcNow.AddSeconds(60)
     do {
         $ready=& $adb shell cat '/sdcard/Android/data/com.inofarm.jogja.finance/files/finance-device-ready.txt' 2>$null
@@ -106,7 +114,7 @@ try {
     & $adb shell am force-stop com.inofarm.jogja.finance
     Start-TestApi
     $verifyLog=Join-Path $outputDirectory 'device-verify.txt'
-    $verifyProcess=Start-Process -FilePath $adb -ArgumentList @('shell','am','instrument','-w','-r','-e','class','com.inofarm.jogja.FinanceBackendDeviceTest#reconnectReplayAndManagerReview','-e','devicePhase','verify','com.inofarm.jogja.finance.test/androidx.test.runner.AndroidJUnitRunner') -WindowStyle Hidden -PassThru -RedirectStandardOutput $verifyLog -RedirectStandardError (Join-Path $outputDirectory 'device-verify.stderr.txt')
+    $verifyProcess=Start-Process -FilePath $adb -ArgumentList @('shell','am','instrument','-w','-r','-e','class','com.inofarm.jogja.FinanceBackendDeviceTest#reconnectReplayAndManagerReview','-e','devicePhase','verify','-e','measurementPair',($ManualMeasurements.IsPresent.ToString().ToLowerInvariant()),'com.inofarm.jogja.finance.test/androidx.test.runner.AndroidJUnitRunner') -WindowStyle Hidden -PassThru -RedirectStandardOutput $verifyLog -RedirectStandardError (Join-Path $outputDirectory 'device-verify.stderr.txt')
     Assert-Instrumentation $verifyProcess $verifyLog
     foreach($step in @(
         @{Name='payment';Method='queueFinancialPaymentWithBackendOffline';Phase='payment-queue'},
@@ -149,7 +157,7 @@ try {
     $saleLog=Join-Path $outputDirectory 'device-sale-verify.txt'
     $saleProcess=Start-Process -FilePath $adb -ArgumentList @('shell','am','instrument','-w','-r','-e','class','com.inofarm.jogja.FinanceBackendDeviceTest#replaySaleAuditCancelAndWorkerScope','-e','devicePhase','sale-verify','com.inofarm.jogja.finance.test/androidx.test.runner.AndroidJUnitRunner') -WindowStyle Hidden -PassThru -RedirectStandardOutput $saleLog -RedirectStandardError (Join-Path $outputDirectory 'device-sale-verify.stderr.txt')
     Assert-Instrumentation $saleProcess $saleLog
-    & $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') verify
+    & $php (Join-Path $PSScriptRoot 'finance-device-fixture.php') $(if($ManualMeasurements) {'verify-measurements'} else {'verify'})
     if($LASTEXITCODE -ne 0) {throw 'MySQL verification failed.'}
 } finally {
     try {

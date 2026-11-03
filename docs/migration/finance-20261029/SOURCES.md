@@ -4,6 +4,8 @@ Tanggal audit 29 Oktober 2026, zona Asia/Jakarta. Source baseline HEAD `9da5b30b
 
 ## Sumber primer
 
+Verifikasi2 November2026 pada mesin lanjutan: salinan Downloads yang diberikan pengguna tersedia60halaman dan SHA256 cocok dengan P (`e4d7389e2fb1385d43ed507f33d211b7e66f92eae1bade4f15c64c6cf3bfc273`). Bagian pencatatan manual, draf/antrean, transaksi atomik dan dua aktor dibaca; SOP GitLab/Pengumpulan v2 juga tersedia. Keputusan EC/PPM dan penghapusan source IoT berasal dari permintaan pengguna terbaru, bukan dikarang sebagai isi PDF. Tidak menyalin PDF ke Git.
+
 Verifikasi lanjutan30 Oktober2026: pengguna menyediakan salinan asli melalui `C:/Users/Pongo/Downloads/Proposal Aplikasi Pencatatan Keuangan .pdf`. SHA256 dan jumlah60 halaman cocok dengan baseline P di bawah. Teks bagian keuangan/pelaporan/pengujian diperiksa ulang; tabel pada halaman PDF43,44,46,47 dirender dan diperiksa visual. Salinan tidak dimasukkan Git. Kendala salinan PDF tidak tersedia pada mesin lanjutan sudah terselesaikan; ini bukan perubahan requirement atau persetujuan keputusan bisnis yang masih terbuka. Lihat [evidence verifikasi sumber](evidence/20261030-PROPOSAL_RECEIVED.md).
 
 P: `D:/Semester 7/Capstone 2/Proposal/Proposal Aplikasi Pencatatan Keuangan .pdf`, 60 halaman PDF, SHA256 `e4d7389e2fb1385d43ed507f33d211b7e66f92eae1bade4f15c64c6cf3bfc273`. Judul sampul: Aplikasi Mobile Pencatatan Operasional dan Evaluasi Keuangan Greenhouse Melon Hidroponik. Tidak menyalin PDF ke repo tanpa kebutuhan.

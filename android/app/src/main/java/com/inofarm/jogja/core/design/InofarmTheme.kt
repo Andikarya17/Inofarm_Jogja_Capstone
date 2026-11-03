@@ -1,18 +1,11 @@
-package com.inofarm.jogja.ui
+package com.inofarm.jogja.core.design
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -103,27 +96,9 @@ internal object FarmDepth {
         ),
         shapes = Shapes(small = FarmShape.Control, medium = FarmShape.Card, large = FarmShape.Hero),
         content = {
-            DeviceGlassPolicy {
             Surface(Modifier.fillMaxSize(), color = background) {
                 Box(Modifier.fillMaxSize()) { content() }
             }
-            }
         }
     )
-}
-
-@Composable internal fun PrimaryAction(
-    text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
-    shape: androidx.compose.ui.graphics.Shape = FarmShape.Control
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val focused by interaction.collectIsFocusedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.985f else 1f, tween(FarmMotion.Press), label = "Press feedback")
-    Button(onClick, modifier.heightIn(min = FarmSpace.Touch).graphicsLayer { scaleX = scale; scaleY = scale },
-        enabled = enabled, interactionSource = interaction, shape = shape,
-        border = if (focused) BorderStroke(2.dp, FarmColors.Ink) else BorderStroke(1.dp,Color.White.copy(alpha=.3f)),
-        contentPadding = PaddingValues(horizontal = FarmSpace.Large, vertical = FarmSpace.Medium)) {
-        Text(text)
-    }
 }

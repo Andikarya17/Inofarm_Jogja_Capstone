@@ -78,16 +78,18 @@ if (-not $SkipBackend) {
     }
 }
 Write-Host 'Build APK debug...'
-$loginUrl = if ($script:deviceSerial -like 'emulator-*') { 'http://10.0.2.2:8000/api/v1/' } else { 'http://127.0.0.1:8000/api/v1/' }
-& (Join-Path $PSScriptRoot 'build-android.ps1') -Tasks @(':app:assembleDebug', "-PinofarmDebugApiUrl=$loginUrl") -JavaHome $JavaHome -SdkPath $SdkPath
+$loginUrl = if ($script:deviceSerial -like 'emulator-*') { 'http://10.0.2.2:8000/api/v2/' } else { 'http://127.0.0.1:8000/api/v2/' }
+& (Join-Path $PSScriptRoot 'build-android.ps1') -Tasks @(':app:assembleDebug', "-PinofarmFinanceDebugApiUrl=$loginUrl") -JavaHome $JavaHome -SdkPath $SdkPath
+$metadata=Get-Content -LiteralPath (Join-Path $androidRoot 'app/build/outputs/apk/debug/output-metadata.json') -Raw | ConvertFrom-Json
+if($metadata.applicationId -ne 'com.inofarm.jogja.finance') {throw 'Build must be the finance debug application; preserving installed applications.'}
 Invoke-Adb -AdbArguments @('reverse', 'tcp:8000', 'tcp:8000')
 Invoke-Adb -AdbArguments @('install', '-r', (Join-Path $androidRoot 'app/build/outputs/apk/debug/app-debug.apk'))
 if ($script:deviceSerial -like 'emulator-*') { Invoke-Adb -AdbArguments @('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP') }
-Invoke-Adb -AdbArguments @('shell', 'am', 'start', '-W', '-n', 'com.inofarm.jogja/.MainActivity')
+Invoke-Adb -AdbArguments @('shell', 'am', 'start', '-W', '-n', 'com.inofarm.jogja.finance/com.inofarm.jogja.MainActivity')
 if ($script:deviceSerial -like 'emulator-*') {
     Write-Host 'Untuk melihat emulator di Android Studio: View > Tool Windows > Running Devices.'
     Write-Host 'Pilih tab Medium Phone API 37.0. Device Manager hanya daftar perangkat.'
 }
 Write-Host "Aplikasi terbuka. Alamat server debug otomatis: $loginUrl"
-Write-Host 'Gunakan akun owner Anda. Launcher tidak membuat akun atau mengubah konfigurasi produksi.'
+Write-Host 'Gunakan akun pekerja/pengelola dengan penugasan greenhouse. Launcher tidak membuat akun.'
 } finally { Stop-Transcript | Out-Null }

@@ -4,7 +4,7 @@
 
 Pengguna meminta rombak ke **Aplikasi Mobile Pencatatan Operasional dan Evaluasi Keuangan Greenhouse Melon Hidroponik**, proposal `D:/Semester 7/Capstone 2/Proposal/Proposal Aplikasi Pencatatan Keuangan .pdf`. Stack tetap Android native **Kotlin + Jetpack Compose**, **Laravel REST API**, **MySQL**. Context aktif di `docs/context/`; instruksi sebelumnya di `docs/archive/pre-finance-20261029/AGENTS.md` bukan larangan yang mengatasi keputusan baru.
 
-Dua peran pekerja/pengelola, input manual Android, multi-greenhouse/musim/kelompok, offline/sync, panen, keuangan/evaluasi/investasi. Tidak ada IoT/sensor otomatis/ESP32/dosing pada target. Source runnable masih legacy sampai target diuji. Rancangan bukan implementasi.
+Dua peran pekerja/pengelola, input manual Android, multi-greenhouse/musim/kelompok, offline/sync, panen, keuangan/evaluasi/investasi. Tidak ada IoT/sensor otomatis/ESP32/dosing. Keputusan pengguna2 November2026 melepas source/runtime/tooling IoT setelah shared dependency dipisahkan, menjadikan finance default tanpa flag, menambah pengukuran EC mS/cm + PPM ppm tanpa bahan dan dua kartu dashboard/fallback WIB. Status/evidence aktual di context; tabel/migration/histori/provenance tidak dihapus. Rancangan bukan implementasi.
 
 FIN00 pada29 Oktober menyusun proposal/audit/context/master prompt tanpa mengganti runtime. Pengguna kemudian meminta pelaksanaan MASTER_PROMPT.md; implementasi bertahap aktif, status aktual di docs/context/IMPLEMENTATION_STATUS.md dan kontrak executable di contracts/v2/. Jangan memakai status audit FIN00 sebagai klaim source terbaru belum berubah. Jangan meminta approval ulang untuk tindakan reversible dalam scope terotorisasi.
 

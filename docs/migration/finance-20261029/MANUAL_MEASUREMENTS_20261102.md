@@ -16,3 +16,15 @@ AC: activity `measurement` tanpa bahan, EC mS/cm dan PPM ppm lengkap untuk submi
 AC runtime: finance default tanpa flag, identitas debug/profile `.finance` tetap, release identity lama tetap dan distribusi/signing masih gate; SQLite9/draf/outbox tidak dihapus. API v2 tetap, v1 tidak terdaftar, source produk tidak memerlukan npm/firmware. Regresi HSS/HST/keuangan/offline/lifecycle wajib dilaporkan aktual.
 
 Baseline checks: contract runner awal terhalang jsonschema belum terpasang. Context checker gagal satu link gambar historis `docs/implementation/UI_REDESIGN.md` ke output yang tidak ada; arsip tidak diubah. PHP awal8.2 tidak memenuhi composer; vendor belum tersedia. JDK25 ditemukan di `.jdks`, Gradle wrapper tersedia. Setup prasyarat lokal dilakukan dalam `.tools` yang diabaikan Git. Hasil final dicatat pada evidence terpisah.
+
+## Batas pelepasan source yang telah diverifikasi
+
+`codex/retire-iot-runtime` bergantung `0d960db`.103file dedicated dilepas awal, ditambah README/certificate TLS test owner dan2asset atribusi Haze yang tak lagi dibundel (total107). Seluruh pemakai `data.ApiClient` finance diganti validator `core/network/ApiBaseUrl`; tema/token/font dipindah ke `core/design/InofarmTheme` tanpa dependensi Haze/policy efek glass owner. MainActivity hanya FinanceRoot; gate FINANCE_APP dan owner export/viewmodel dilepas, JobScheduler tetap1601. Navigation-compose/Haze khusus owner tidak dipakai finance dan dilepas.
+
+Controller v1 enam buah, middleware DeviceAuth/OwnerScope, service ingest/config/validator/shift, provision device/owner/demo dan model Eloquent khusus v1 tidak mempunyai pemakai auth v2/audit/recovery/migration. Setelah dilepas, `User`/Sanctum tetap, termasuk kolom historis `tank_id`; recovery memakai inventory tabel/kolom/FK dinamis dan immutable v2 ledger, tidak membutuhkan model lama. Semua migration1–14/map schema8/tabel legacy utuh. Tidak ada SQL drop/convert legacy dalam task ini.
+
+Tes yang dilepas hanya implementation khusus route/UI/provisioning v1. Assertion v2 bahwa `/api/v1/dashboard` menolak token diperbarui dari403 menjadi404 karena route tidak terdaftar; owner-only token tetap ditolak finance. Tes penolakan seluruh registrasi v1/middleware/command ditambahkan. Dua file JVM legacy10kasus dilepas dan2tes transport URL finance ditambahkan; semua tes finance sebelumnya tetap. Test key publik TLS owner tidak lagi mempunyai consumer, pengecualian gitignore key itu dilepas.
+
+Build normal code2/min29/debug-profile `.finance`, release `com.inofarm.jogja`; provider/SQLite9/vault/JobScheduler tetap. `install -r` bukan uninstall/clear. README/Cara Instalasi/FIN17/runner/package hanya Android+Laravel/MySQL; scripts tidak memerlukan flag, firmware atau npm. Prototipe React/config/Gemini example env root khusus prototipe dilepas; backend `.env.example` tetap.
+
+Pengecualian istilah IoT: docs/archive dan histori evidence/proposal, migration/tabel/kolom historis, User tank_id, tes penolakan v1/legacy ability, serta ignore secret file dari checkout lama. Itu bukan runtime sensor/perangkat. Source yang telah dilepas dapat ditinjau lewat Git, tanpa salinan arsip besar.

@@ -4,7 +4,7 @@ $ErrorActionPreference='Stop'
 $project=Split-Path $PSScriptRoot -Parent
 if(& git -C $project status --porcelain --untracked-files=no){throw 'Commit tracked changes before packaging so APK provenance is reviewable.'}
 $commit=(& git -C $project rev-parse HEAD).Trim()
-& (Join-Path $PSScriptRoot 'build-android.ps1') -JavaHome $JavaHome -SdkPath $SdkPath -Tasks @('-PfinanceApp',':app:assembleDebug')
+& (Join-Path $PSScriptRoot 'build-android.ps1') -JavaHome $JavaHome -SdkPath $SdkPath -Tasks @(':app:assembleDebug')
 if($LASTEXITCODE -ne 0){throw 'Finance build failed.'}
 if((& git -C $project rev-parse HEAD).Trim() -ne $commit -or (& git -C $project status --porcelain --untracked-files=no)){throw 'Source changed during packaging; no package published.'}
 $apk=Join-Path $project 'android/app/build/outputs/apk/debug/app-debug.apk'
@@ -29,8 +29,8 @@ Commit: $commit
 APK SHA256: $hash
 Install/update only the separate com.inofarm.jogja.finance test app with adb install -r.
 Do not clear app data. Configure your own API URL/account. No server/database/credential is bundled.
-Guide: https://github.com/Andikarya17/Inofarm_Jogja_Capstone/blob/codex/finance-cutover-docs/docs/migration/finance-20261029/FIN17_INSTALL_RUN.md
-Gates: https://github.com/Andikarya17/Inofarm_Jogja_Capstone/blob/codex/finance-cutover-docs/docs/migration/finance-20261029/FIN17_CUTOVER.md
+Guide: https://github.com/Andikarya17/Inofarm_Jogja_Capstone/blob/$commit/docs/migration/finance-20261029/FIN17_INSTALL_RUN.md
+Gates: https://github.com/Andikarya17/Inofarm_Jogja_Capstone/blob/$commit/docs/migration/finance-20261029/FIN17_CUTOVER.md
 This debug package is not a production deployment or acceptance sign-off.
 "@ | Set-Content -LiteralPath (Join-Path $directory 'INSTALL.txt') -Encoding utf8
 Get-ChildItem -LiteralPath $directory -File | Sort-Object Name | ForEach-Object {"$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)"} | Set-Content -LiteralPath (Join-Path $directory 'SHA256SUMS.txt') -Encoding utf8

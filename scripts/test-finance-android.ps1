@@ -14,7 +14,7 @@ if (-not $AdbPath) {
 if (-not (Test-Path -LiteralPath $AdbPath)) { throw 'Pass -AdbPath for the Android SDK adb executable.' }
 $evidenceDirectory=Join-Path $projectRoot 'outputs/finance-android'
 New-Item -ItemType Directory -Force $evidenceDirectory | Out-Null
-& (Join-Path $PSScriptRoot 'build-android.ps1') -JavaHome $JavaHome -Tasks @(':app:assembleDebug',':app:testDebugUnitTest',':app:lintDebug',':app:connectedDebugAndroidTest','-PfinanceApp','-Pandroid.testInstrumentationRunnerArguments.class=com.inofarm.jogja.FinanceLocalStoreTest,com.inofarm.jogja.FinanceSyncCoordinatorTest')
+& (Join-Path $PSScriptRoot 'build-android.ps1') -JavaHome $JavaHome -Tasks @(':app:assembleDebug',':app:testDebugUnitTest',':app:lintDebug',':app:connectedDebugAndroidTest','-Pandroid.testInstrumentationRunnerArguments.class=com.inofarm.jogja.FinanceLocalStoreTest,com.inofarm.jogja.FinanceSyncCoordinatorTest,com.inofarm.jogja.FinanceMeasurementStoreTest,com.inofarm.jogja.FinanceSyncScheduleTest')
 foreach ($apk in @('android/app/build/outputs/apk/debug/app-debug.apk','android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk')) {
     & $AdbPath install -r -t (Join-Path $projectRoot $apk)
     if ($LASTEXITCODE -ne 0) { throw 'Isolated finance test APK installation failed.' }

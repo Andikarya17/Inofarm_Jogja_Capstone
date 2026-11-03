@@ -37,7 +37,7 @@ function Device-Phase([string]$Phase,[string]$Method,[string]$ClassName='Finance
 }
 try {
     Source-Environment;if($GradleHome){$env:GRADLE_USER_HOME=$GradleHome}
-    if(-not $SkipDevice -and -not $SkipBuild){& (Join-Path $JavaHome 'bin/java.exe') --enable-native-access=ALL-UNNAMED -classpath android/gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -p android -PfinanceApp :app:assembleDebug :app:assembleDebugAndroidTest --console=plain --max-workers=2 --no-daemon '-Pkotlin.compiler.execution.strategy=in-process';Check-Code 'Finance APK build failed'}
+    if(-not $SkipDevice -and -not $SkipBuild){& (Join-Path $JavaHome 'bin/java.exe') --enable-native-access=ALL-UNNAMED -classpath android/gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -p android :app:assembleDebug :app:assembleDebugAndroidTest --console=plain --max-workers=2 --no-daemon '-Pkotlin.compiler.execution.strategy=in-process';Check-Code 'Finance APK build failed'}
     & $PhpPath (Join-Path $PSScriptRoot 'finance-recovery-fixture.php') create;Check-Code 'Source fixture creation failed';if(-not(Test-Path -LiteralPath $fixture)){throw 'Source fixture did not create its manifest; inspect diagnostic output'};$created=$true;$f=Get-Content $fixture -Raw|ConvertFrom-Json
     if($SkipDevice){& $PhpPath (Join-Path $PSScriptRoot 'finance-recovery-fixture.php') seed;Check-Code 'Synthetic source operation failed'}else {
         foreach($apk in @('android/app/build/outputs/apk/debug/app-debug.apk','android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk')){& $adb -s $Device install -r -t (Join-Path $project $apk);Check-Code 'APK install failed'}

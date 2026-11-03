@@ -70,7 +70,7 @@ function Assert-Instrumentation([Diagnostics.Process]$Process,[string]$LogPath) 
 
 try {
     if(-not $SkipBuild) {
-    & (Join-Path $JavaHome 'bin/java.exe') --enable-native-access=ALL-UNNAMED -classpath (Join-Path $projectRoot 'android/gradle/wrapper/gradle-wrapper.jar') org.gradle.wrapper.GradleWrapperMain -p (Join-Path $projectRoot 'android') -PfinanceApp :app:assembleDebug :app:assembleDebugAndroidTest --console=plain --max-workers=2 --no-daemon '-Pkotlin.compiler.execution.strategy=in-process'
+    & (Join-Path $JavaHome 'bin/java.exe') --enable-native-access=ALL-UNNAMED -classpath (Join-Path $projectRoot 'android/gradle/wrapper/gradle-wrapper.jar') org.gradle.wrapper.GradleWrapperMain -p (Join-Path $projectRoot 'android') :app:assembleDebug :app:assembleDebugAndroidTest --console=plain --max-workers=2 --no-daemon '-Pkotlin.compiler.execution.strategy=in-process'
     if($LASTEXITCODE -ne 0) {throw 'Finance report APK build failed.'}
     }
     foreach($apk in @('android/app/build/outputs/apk/debug/app-debug.apk','android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk')) {

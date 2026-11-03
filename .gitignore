@@ -47,7 +47,6 @@ auth.json
 *.pem
 *.p12
 *.pfx
-!android/app/src/androidTest/assets/mock-server.p12
 key.properties
 keystore.properties
 *credentials*.json

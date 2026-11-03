@@ -1,6 +1,6 @@
 # FIN17 — instalasi dan penggunaan v2
 
-Checkpoint2 November2026. Branch terbaru **`codex/finance-cutover-docs`** memuat seluruh dependency FIN01–15 Cruelasss dan lanjutan FIN16/17. Checkpoint tersebut kini telah masuk GitHub **`main`** melalui PR #1–38; [evidence integrasi](MAIN_INTEGRATION_20261102.md). [Hasil engineering/gate](FIN16_ACCEPTANCE.md), [cutover/rollback](FIN17_CUTOVER.md), [status implementasi](../../context/IMPLEMENTATION_STATUS.md), [kontrak executable](../../../contracts/v2/README.md). FIN17 dokumen/tooling tersedia; penerimaan dan cutover produksi belum disahkan.
+Lanjutan2 November2026: branch `codex/retire-iot-runtime` bergantung pada `codex/manual-ec-ppm-dashboard` (`0d960db`). Finance satu-satunya produk aktif/default; tidak perlu flag. Riwayat integrasi sebelum penghapusan: Checkpoint tersebut kini telah masuk GitHub **`main`** melalui PR #1–38; [evidence integrasi](MAIN_INTEGRATION_20261102.md). [Hasil engineering/gate](FIN16_ACCEPTANCE.md), [cutover/rollback](FIN17_CUTOVER.md), [status implementasi](../../context/IMPLEMENTATION_STATUS.md), [kontrak executable](../../../contracts/v2/README.md). FIN17 dokumen/tooling tersedia; penerimaan dan cutover produksi belum disahkan.
 
 ## Ambil source dan dependency
 
@@ -10,9 +10,9 @@ Set-Location -LiteralPath Inofarm
 git status --short
 ```
 
-Checkout existing: periksa status/diff dahulu, fetch remote GitHub aktual, kemudian switch/pull fast-forward branch tersebut. Gunakan `main` GitHub untuk hasil integrasi. Jangan reset/stash/delete kerja sendiri. `origin` checkout penulis adalah GitLab, **`github`** adalah GitHub; clone baru umumnya `origin` GitHub. Tidak perlu mengambil setiap branch dependency satu per satu.
+Checkout existing: periksa status/diff dahulu, fetch remote GitHub aktual, kemudian switch/pull fast-forward branch tersebut. Pilih branch fitur terbaru untuk perubahan yang belum di-merge; `main` memuat baseline integrasi. Jangan reset/stash/delete kerja sendiri. Periksa `git remote -v`; checkout ini memiliki alias `github` dan `origin` ke GitHub yang sama, tanpa mengganti URL origin. Clone baru umumnya memakai origin. Tidak perlu mengambil setiap branch dependency satu per satu.
 
-Lingkungan run baru: Windows/PowerShell7, PHP8.5.11 dengan BCMath/PDO MySQL/fileinfo/mbstring/GD/DOM sesuai composer.lock, MySQL8.0.30, Java25.0.4, Gradle9.3.1/AGP9.1.1, SDK/build-tools37. Gunakan lockfile; `composer check-platform-reqs` menentukan extension wajib. Tidak perlu Node/React, PlatformIO, firmware, ESP32, sensor atau credential DB di Android. PHP minimal mengikuti dependency lock (Symfony MIME8.1.10 membutuhkan PHP≥8.4.1); jangan menyimpulkan PHP8.3 kompatibel dari framework saja.
+Lingkungan run baru: Windows/PowerShell7, PHP8.5.12 dengan BCMath/PDO MySQL/fileinfo/mbstring/GD/DOM sesuai composer.lock, MySQL8.0.30, Java25.0.2, Gradle9.3.1/AGP9.1.1, SDK/build-tools37. Gunakan lockfile; `composer check-platform-reqs` menentukan extension wajib. Tidak perlu Node/React, PlatformIO, firmware, ESP32, sensor atau credential DB di Android. PHP minimal mengikuti dependency lock (Symfony MIME8.1.10 membutuhkan PHP≥8.4.1); jangan menyimpulkan PHP8.3 kompatibel dari framework saja.
 
 ```powershell
 Set-Location backend
@@ -24,7 +24,7 @@ if(-not(Test-Path -LiteralPath .env)) {Copy-Item -LiteralPath .env.example -Dest
 
 Isi `.env` dengan DB development milik Anda dan APP_KEY sendiri. Jangan menyalin `.env`/password mesin teman. Default contoh `inofarm_local` adalah nama historis, bukan izin menyentuh DB pengguna yang sudah berisi data. Untuk **database development baru/kosong yang Anda siapkan khusus**, lakukan `php artisan key:generate`, tinjau `php artisan migrate --pretend`, lalu `php artisan migrate`. Pada database existing, ikuti gate migration/cutover lebih dahulu. Tidak ada migrate:fresh/reset/seed otomatis, konversi tank→GH/event→aktivitas/roster→akun, atau import transaksi palsu.
 
-Migration additive target sampai **schema14**, local SQLite **schema9**; tidak mengedit migration terdahulu. Registry identity schema8 memerlukan preflight pada data lama. `php artisan inofarm:finance-identities --json` membaca ringkasan collision/missing identity; bukan alat auto-repair. Production deployment belum diotorisasi.
+Migration additive target sampai **schema15**, local SQLite **schema9**; tidak mengedit migration terdahulu. Registry identity schema8 memerlukan preflight pada data lama. `php artisan inofarm:finance-identities --json` membaca ringkasan collision/missing identity; bukan alat auto-repair. Production deployment belum diotorisasi.
 
 ## Akun, API dan perangkat
 
@@ -38,11 +38,20 @@ Masukkan password lewat prompt tersembunyi, minimal12karakter. Provisioner tidak
 ```powershell
 Set-Location ..
 $env:JAVA_HOME='C:/lokasi/JDK'
-./scripts/build-android.ps1 -JavaHome $env:JAVA_HOME -SdkPath "$env:LOCALAPPDATA/Android/Sdk" -Tasks @('-PfinanceApp',':app:assembleDebug',':app:testDebugUnitTest',':app:lintDebug')
+./scripts/build-android.ps1 -JavaHome $env:JAVA_HOME -SdkPath "$env:LOCALAPPDATA/Android/Sdk" -Tasks @(':app:assembleDebug',':app:testDebugUnitTest',':app:lintDebug')
 & "$env:LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" install -r android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-`-PfinanceApp` wajib: default launcher tetap legacy sampai parity/acceptance. Paket review **`com.inofarm.jogja.finance`**, Android10/API29 minimum, target37. `install -r` mempertahankan data; jangan uninstall/clear untuk memperbaiki sync. Debug emulator URL `http://10.0.2.2:8000/api/v2/`; USB/ADB reverse `adb reverse tcp:8000 tcp:8000` dengan `http://127.0.0.1:8000/api/v2/`. Pilih izin jaringan lokal bila Android meminta. API URL editable di login. Build release memerlukan HTTPS, signing/identity/release plan tersendiri; debug APK bukan paket produksi.
+Build normal langsung finance tanpa flag. Paket review **`com.inofarm.jogja.finance`**, Android10/API29 minimum, target37. `install -r` mempertahankan data; jangan uninstall/clear untuk memperbaiki sync. Debug emulator URL `http://10.0.2.2:8000/api/v2/`; USB/ADB reverse `adb reverse tcp:8000 tcp:8000` dengan `http://127.0.0.1:8000/api/v2/`. Pilih izin jaringan lokal bila Android meminta. API URL editable di login. Build release memerlukan HTTPS, signing/identity/release plan tersendiri; debug APK bukan paket produksi.
+
+
+## Upgrade pengukuran manual dan batas identitas
+
+Versi0.2.0/code2 mempertahankan debug/profile `com.inofarm.jogja.finance`, release `com.inofarm.jogja`, provider `${applicationId}.finance-files`, JobScheduler1601, nama DB SQLite9 dan vault. Update `install -r` dengan signing yang sama; tidak uninstall/clear app data. Build flag lama tidak memilih runtime lain. Release masih memerlukan signing/distribusi/approval produksi; APK debug bukan release.
+
+Schema15 additive menambah nullable `activities.manual_ec` dan index; EC historis tetap null/absent. Update server/schema dahulu sebelum submit jenis `measurement`; audit/receipt/hash antrean lama dipertahankan. Backup/restore menuntut schema target yang cocok; jangan memaksa paket schema14 masuk schema15 atau rollback drop kolom. Identitas legacy `com.inofarm.jogja` mungkin masih menyimpan data owner: tetap tersimpan, tanpa auto-import tank/event atau penghapusan; release upgrade perlu inventaris data dan signing review tersendiri.
+
+Beranda→pilih GH/musim/kelompok→**Catat pengukuran**→EC mS/cm dan PPM ppm→review→antrekan. pH opsional; tidak perlu bahan. Kedua kartu dari satu record waktu ukur terakhir WIB, fallback kemarin/sebelumnya, queued jelas dan missing bukan0. [Kontrak](../../../contracts/v2/MEASUREMENTS.md). Sumber/tooling firmware/React/v1 tidak ada pada produk aktif; histori tabel/migration/archive tetap.
 
 ## Alur penggunaan dan pemulihan kesalahan
 
@@ -67,7 +76,7 @@ python -m venv .tools/finance-contracts-venv
 ./scripts/package-finance.ps1 -JavaHome $env:JAVA_HOME
 ```
 
-Runner menyimpan hasil per langkah PASS/FAIL/SKIPPED dan commit di `outputs/finance-readiness/`; pilihan skip tidak dianggap lulus. Default backend mengecualikan dua DemoHistory legacy seperti baseline FIN11–15 dan mencetak filter. Ingin memeriksa legacy juga: set `-BackendFilter '.*'` secara eksplisit, tetap dengan guard testDB. **Jangan menjalankan kedua runner bersamaan.** Oracle/concurrency/actual restore/reboot lengkap mempunyai runner masing-masing; pilih sesuai source yang berubah, bukan mengulang semua untuk perubahan dokumentasi.
+Runner menyimpan hasil per langkah PASS/FAIL/SKIPPED dan commit di `outputs/finance-readiness/`; pilihan skip tidak dianggap lulus. Default backend menjalankan semua tes aktif (`.*`), termasuk penolakan route IoT; tes khusus implementation v1 yang telah dilepas tidak lagi dijalankan. Guard testDB tetap wajib. **Jangan menjalankan kedua runner bersamaan.** Oracle/concurrency/actual restore/reboot lengkap mempunyai runner masing-masing; pilih sesuai source yang berubah, bukan mengulang semua untuk perubahan dokumentasi.
 
 Packager membangun finance debug dari tracked checkout bersih, memverifikasi identitas APK+minSdk29 dengan aapt2, lalu menyalin APK/manifest/INSTALL/SHA256SUMS dan ZIP ke `output/finance/`. Tidak memerlukan firmware, tidak memasukkan .env/log/dump/private proof, tidak deploy atau mengubah APK pengguna. Data historis/desain26Oktober yang belum ditinjau tetap tidak dipublikasikan. Server/database/signing keys tidak disertakan; pemilik menyiapkan environment sendiri.
 

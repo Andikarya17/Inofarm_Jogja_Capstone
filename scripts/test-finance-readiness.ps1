@@ -2,7 +2,7 @@
 param(
     [string]$JavaHome='', [string]$PhpPath='', [string]$PythonPath='',
     [string]$SdkPath="$env:LOCALAPPDATA/Android/Sdk", [string]$Device='',
-    [string]$BackendFilter='^(?!.*DemoHistoryTest)',
+    [string]$BackendFilter='.*',
     [switch]$SkipBackend, [switch]$SkipBuild, [switch]$AuditDependencies
 )
 $ErrorActionPreference='Stop'
@@ -30,12 +30,13 @@ Push-Location $project
 try {
     Invoke-Stage contracts {& $PythonPath -X utf8 -B scripts/check-finance-contracts.py}
     Invoke-Stage context {& $PythonPath -X utf8 -B scripts/check-finance-context.py}
+    Invoke-Stage product-boundary {& $PythonPath -X utf8 -B scripts/check-product-boundary.py}
     if($SkipBackend) {$summary.stages+=@{name='backend';status='SKIPPED';reason='Explicit SkipBackend'}}
     else {
         if(Get-ChildItem -LiteralPath (Join-Path $project 'tmp') -Filter 'finance-*-fixture.json' -File -ErrorAction SilentlyContinue){throw 'Live fixture manifest exists; finish its owner run before PHPUnit.'}
         if(Get-NetTCPConnection -LocalPort 8001 -State Listen -ErrorAction SilentlyContinue){throw 'Port8001 is occupied; no backend test/reset while integration HTTP may be active.'}
         Invoke-Stage database-guard {& $PhpPath backend/vendor/phpunit/phpunit/phpunit -c backend/phpunit.xml backend/tests/Unit/TestDatabaseGuardTest.php --testdox}
-        Write-Output "Backend filter: $BackendFilter (default excludes historical DemoHistory tests explicitly)."
+        Write-Output "Backend filter: $BackendFilter (default runs all active backend tests)."
         Invoke-Stage backend {
             Push-Location backend
             try {& $PhpPath vendor/phpunit/phpunit/phpunit --filter $BackendFilter --testdox} finally {Pop-Location}
@@ -43,7 +44,7 @@ try {
     }
     if($SkipBuild) {$summary.stages+=@{name='android-build';status='SKIPPED';reason='Explicit SkipBuild'}}
     else {Invoke-Stage android-build {
-        & scripts/build-android.ps1 -JavaHome $JavaHome -SdkPath $SdkPath -Tasks @('-PfinanceApp',':app:assembleDebug',':app:assembleDebugAndroidTest',':app:testDebugUnitTest',':app:lintDebug')
+        & scripts/build-android.ps1 -JavaHome $JavaHome -SdkPath $SdkPath -Tasks @(':app:assembleDebug',':app:assembleDebugAndroidTest',':app:testDebugUnitTest',':app:lintDebug')
     }}
     if($Device) {
         $adb=Join-Path $SdkPath 'platform-tools/adb.exe'
@@ -56,7 +57,7 @@ try {
             & $adb -s $Device shell wm dismiss-keyguard
             $apiLevel=& $adb -s $Device shell getprop ro.build.version.sdk
             if([int]$apiLevel -ge 37) {& $adb -s $Device shell pm grant com.inofarm.jogja.finance android.permission.ACCESS_LOCAL_NETWORK}
-            $classes='com.inofarm.jogja.FinanceAdminTest,com.inofarm.jogja.FinanceAdminUiTest,com.inofarm.jogja.FinanceLocalStoreTest,com.inofarm.jogja.FinanceSyncCoordinatorTest,com.inofarm.jogja.FinanceSyncScheduleTest,com.inofarm.jogja.FinanceRecoveryTest,com.inofarm.jogja.FinanceInvestmentTest,com.inofarm.jogja.FinanceSeasonReportTest,com.inofarm.jogja.FinanceReportExportTest,com.inofarm.jogja.FinanceStorageTimingTest'
+            $classes='com.inofarm.jogja.FinanceAdminTest,com.inofarm.jogja.FinanceAdminUiTest,com.inofarm.jogja.FinanceLocalStoreTest,com.inofarm.jogja.FinanceSyncCoordinatorTest,com.inofarm.jogja.FinanceSyncScheduleTest,com.inofarm.jogja.FinanceRecoveryTest,com.inofarm.jogja.FinanceInvestmentTest,com.inofarm.jogja.FinanceSeasonReportTest,com.inofarm.jogja.FinanceReportExportTest,com.inofarm.jogja.FinanceStorageTimingTest,com.inofarm.jogja.FinanceMeasurementStoreTest,com.inofarm.jogja.FinanceEntryUiTest#defaultLauncherOpensFinanceWithExistingApplicationIdentity,com.inofarm.jogja.FinanceEntryUiTest#manualMeasurementAutosaveBackRecreationQueueAndDashboardKeepOnePair,com.inofarm.jogja.FinanceEntryUiTest#twoManualCardsKeepLegacyEcUnavailableAtNarrowLargeFont'
             $stayon=(& $adb -s $Device shell settings get global stay_on_while_plugged_in).Trim()
             try {
                 & $adb -s $Device shell svc power stayon true

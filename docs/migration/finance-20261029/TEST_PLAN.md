@@ -1,5 +1,17 @@
 # Acceptance dan verification plan
 
+Lanjutan pengguna2 November2026 tidak menghapus U01–21/KF/KNF: U04/U05/U06/U13 diperluas dengan pengukuran manual EC+PPM dan dashboard; build/default runtime serta penolakan route IoT juga diuji. [Kontrak](../../../contracts/v2/MEASUREMENTS.md), [baseline hasil pengukuran](evidence/20261102-MANUAL-MEASUREMENTS.md).
+
+| Tambahan AC | Source/test executable |
+|---|---|
+| Hari ini/kemarin/lama/empty, WIB rollover/delayed sync, tie timestamp, >1000riwayat non-pengukuran |FinanceMeasurementTest (MySQL), ManualMeasurementTest (JVM), FinanceMeasurementStoreTest (SQLite device) |
+| Koma→wire titik, nonfinite/precision/negative/missing/zero, nullable EC historis |ActivityDraft/ActivityService/schema, ManualMeasurementTest dan fixture contract |
+| Koreksi/batal, draf/queued/accepted/reject/conflict/epoch, scope/akun/revoke |FinanceMeasurementTest, FinanceMeasurementStoreTest, LocalStore/SyncCoordinator device |
+| Default tanpa flag, dua kartu/320dp-font200, autosave/recreate/Back/IME, offline/replay actor |FinanceEntryUiTest + unflagged Gradle; real FinanceBackendDeviceTest melalui test-finance-entry -ManualMeasurements |
+| Tidak ada route/middleware/provisioning IoT; package tanpa firmware/npm |RetiredIotRoutesTest, check-product-boundary, package-finance metadata/hash |
+
+Runner HTTP/device menolak PHPUnit aktif sebelum build dan sebelum fixture. Backend tests hanya effective `inofarm_test`; jangan jalankan kedua writer bersamaan. Kegagalan/rerun dicatat, tidak menukar mock dengan bukti MySQL atau mengganti assertion relevan.
+
 Saat FIN00 semua skenario **NOT RUN**; hasil pelaksanaan baru sekarang tercatat di [status/evidence](../../context/IMPLEMENTATION_STATUS.md), bukan diubah menjadi PASS seluruh U01–21. Sumber P §3.4 PDF55–57. Backend hanya `inofarm_test`; fixture sintetis, APK instrumentation terpisah. Test guard sebelum SQL. Mock bukan bukti transaksi MySQL concurrency, process death nyata, restore atau device usability.
 
 | ID | Skenario dan assertion | Layer / task |

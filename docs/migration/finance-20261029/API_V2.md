@@ -1,6 +1,8 @@
 # API v2: rancangan kontrak untuk implementasi
 
-**RANCANGAN FIN00; tidak seluruhnya aktif.** V1 tetap di `docs/implementation/API.md`/routes/api.php. Subset v2 sudah berjalan di routes/api_v2.php dan [contracts/v2](../../../contracts/v2/README.md); [status/evidence](../../context/IMPLEMENTATION_STATUS.md) menunjukkan bagian yang diuji. Nama endpoint peta lengkap di bawah adalah rancangan engineering, bukan endpoint literal proposal. Bekukan tiap modul sebelum implementasi.
+**RANCANGAN FIN00; tidak seluruhnya aktif.** `docs/implementation/API.md` adalah dokumentasi historis v1; route/source v1 dilepas atas permintaan pengguna2 November2026. Produk aktif memakai routes/api_v2.php dan [contracts/v2](../../../contracts/v2/README.md); [status/evidence](../../context/IMPLEMENTATION_STATUS.md) menunjukkan bagian yang diuji. Nama endpoint peta lengkap di bawah adalah rancangan engineering, bukan endpoint literal proposal. Bekukan tiap modul sebelum implementasi.
+
+Lanjutan executable2 November2026: activity `measurement`, `manual_ec` mS/cm + `manual_ppm` ppm lengkap, tanpa bahan; `GET measurements/latest?planting_group_id=UUID` scoped, active/completed, occurred_at WIB lalu UUID descending, legacy EC nullable. Operasi tetap transaction/audit/receipt/feed v2, tidak mengubah hash antrean lama. [Kontrak pengukuran/dashboard](../../../contracts/v2/MEASUREMENTS.md).
 
 FIN14 executable menyediakan `GET report-exports/{id}/{pdf|csv}?expected_snapshot_hash={sha256}` untuk snapshot laporan accepted. Current manager/GH/token/epoch diperiksa ulang sebelum delivery; respons privat mencantumkan hash snapshot, SHA byte dan panjang berkas. PDF/CSV tidak menghitung ulang sumber. [Kontrak ekspor](../../../contracts/v2/REPORT_EXPORT.md), [evidence dan batas jaringan emulator](evidence/FIN14-backend.md).
 

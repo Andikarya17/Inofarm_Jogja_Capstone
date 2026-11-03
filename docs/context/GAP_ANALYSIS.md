@@ -1,6 +1,6 @@
 # Gap analysis baseline 29 Oktober 2026
 
-Gap terbaru2 November2026: EC manual terpisah dari pemberian nutrisi, dashboard pasangan/fallback WIB dan default runtime finance sedang ditangani menurut [AC dan inventaris](../migration/finance-20261029/MANUAL_MEASUREMENTS_20261102.md). Penghapusan source IoT tidak menghapus tabel/histori. Hasil/gate final dicatat pada IMPLEMENTATION_STATUS; UAT/pentest/production tetap terpisah.
+Gap terbaru3 November2026 telah ditutup secara engineering lokal untuk EC/PPM manual, fallback dashboard WIB, finance default dan pelepasan source/runtime/tooling IoT. Tabel/histori tetap dipertahankan. Integrasi API29→Laravel/MySQL8fase, UI39 dan readiness device72 PASS. UAT/pentest, perangkat fisik, dispatch OS background dan produksi tetap terbuka. [Evidence hasil dan batas](../migration/finance-20261029/evidence/20261102-IOT-RETIREMENT.md). Bagian sebelumnya di bawah adalah histori. Risiko selector operasional cache1000 tetap terpisah; pemilihan pengukuran terbaru membaca seluruh cache scoped.
 
 ## Lanjutan FIN16–17 — 2 November 2026
 

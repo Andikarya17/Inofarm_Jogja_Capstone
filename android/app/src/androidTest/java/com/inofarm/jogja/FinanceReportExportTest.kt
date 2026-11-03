@@ -22,7 +22,7 @@ import com.inofarm.jogja.core.database.*
 import com.inofarm.jogja.core.network.*
 import com.inofarm.jogja.core.session.*
 import com.inofarm.jogja.feature.exports.*
-import com.inofarm.jogja.ui.InofarmTheme
+import com.inofarm.jogja.core.design.InofarmTheme
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.*
 import org.json.*

@@ -1,6 +1,6 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
-Keputusan terbaru2 November2026: [pengukuran EC/PPM dan pelepasan IoT](../migration/finance-20261029/MANUAL_MEASUREMENTS_20261102.md), [kontrak pengukuran](../../contracts/v2/MEASUREMENTS.md). Permintaan pengguna mengatasi coexistence/default legacy pada catatan historis di bawah. Implementasi dan verifikasi dicatat per branch; bukan cutover produksi.
+Keputusan terbaru2 November2026: [pengukuran EC/PPM dan pelepasan IoT](../migration/finance-20261029/MANUAL_MEASUREMENTS_20261102.md), [kontrak pengukuran](../../contracts/v2/MEASUREMENTS.md). Finance kini default tanpa flag pada branch `codex/retire-iot-runtime`, bergantung `0d960db`; source produk v1/owner/firmware/React dilepas, data/migration/provenance tetap. Permintaan pengguna mengatasi coexistence/default legacy pada catatan historis di bawah. Verifikasi dicatat per branch; bukan cutover produksi.
 
 ## Lanjutan FIN16–17 — 2 November 2026
 

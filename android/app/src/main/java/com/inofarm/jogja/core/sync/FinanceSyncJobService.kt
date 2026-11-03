@@ -7,7 +7,6 @@ import android.app.job.JobService
 import android.content.ComponentName
 import android.content.Context
 import android.util.Log
-import com.inofarm.jogja.BuildConfig
 import com.inofarm.jogja.InofarmApplication
 import kotlinx.coroutines.*
 
@@ -17,7 +16,6 @@ object FinanceSyncSchedule {
     fun info(context:Context)=JobInfo.Builder(JOB_ID,ComponentName(context,FinanceSyncJobService::class.java))
         .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setPersisted(true).setPeriodic(15*60*1000L).build()
     fun ensure(context:Context):Boolean {
-        if(!BuildConfig.FINANCE_APP) return false
         return try {
             val scheduler=context.getSystemService(JobScheduler::class.java)
             scheduler.getPendingJob(JOB_ID)!=null || scheduler.schedule(info(context))==JobScheduler.RESULT_SUCCESS
@@ -30,7 +28,6 @@ class FinanceSyncJobService:JobService() {
     private var active:JobParameters?=null
     private var running:Job?=null
     override fun onStartJob(params:JobParameters):Boolean {
-        if(!BuildConfig.FINANCE_APP) return false
         active=params
         running=scope.launch {
             try {

@@ -21,7 +21,11 @@ if ($mode === 'create') {
     if (is_file($path)) {
         throw new RuntimeException('Synthetic fixture manifest exists; verify/cleanup that fixture first.');
     }
-    $fixture = DB::transaction(function () {
+    $baseUrl = getenv('FINANCE_DEVICE_TEST_BASE_URL') ?: 'http://10.0.2.2:8001/api/v2/';
+    if (! in_array($baseUrl, ['http://10.0.2.2:8001/api/v2/', 'http://127.0.0.1:8001/api/v2/'], true)) {
+        throw new RuntimeException('Device fixture URL must use the isolated localhost test API.');
+    }
+    $fixture = DB::transaction(function () use ($baseUrl) {
         DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();
         $id = (string) Str::uuid();
         $password = 'device-fixture-only-password';
@@ -49,7 +53,7 @@ if ($mode === 'create') {
         }
         $create('greenhouse_assignments', ['greenhouse_id' => $contexts[0]['greenhouse_id'], 'user_id' => $worker->public_id, 'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
 
-        return ['database' => 'inofarm_test', 'fixture_id' => $id, 'base_url' => 'http://10.0.2.2:8001/api/v2/',
+        return ['database' => 'inofarm_test', 'fixture_id' => $id, 'base_url' => $baseUrl,
             'manager_id' => $manager->public_id, 'manager_email' => $manager->email, 'worker_id' => $worker->public_id, 'worker_email' => $worker->email,
             'password' => $password, 'contexts' => $contexts];
     });
@@ -81,8 +85,11 @@ foreach ($fixture['contexts'] as $context) {
         throw new RuntimeException('Fixture context ownership/relations do not match; cleanup refused.');
     }
 }
-if ($mode === 'verify') {
+if (in_array($mode, ['verify', 'verify-measurements'], true)) {
     $activities = DB::table('activities')->whereIn('planting_group_id', $groups)->limit(10)->get();
+    if ($mode === 'verify-measurements' && ($activities->count() !== 1 || $activities[0]->activity_type !== 'measurement' || $activities[0]->manual_ec !== '1.250000' || $activities[0]->manual_ppm !== '625.500000')) {
+        throw new RuntimeException('Manual EC/PPM SQL reconciliation failed.');
+    }
     if ($activities->count() !== 1 || $activities[0]->notes !== 'DEVICE OFFLINE '.$fixture['fixture_id']) {
         throw new RuntimeException('Expected exactly one accepted synthetic activity.');
     }

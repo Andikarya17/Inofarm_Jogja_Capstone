@@ -38,4 +38,9 @@ class ManualMeasurementTest {
         }
         assertNull(ManualMeasurement.from(row(body=draft().payload().put("occurred_at","2026-11-02T17:00:00Z")),today))
     }
+    @Test fun queuedCorrectionKeepsOriginalRecorderAndKnownNewerVersionIsHeld() {
+        val correction=row(SyncState.QUEUED).copy(serverBody=JSONObject().put("recorded_by_name","Pekerja pencatat awal"))
+        assertEquals("Pekerja pencatat awal",ManualMeasurement.from(correction,today)!!.recorder)
+        assertNull(ManualMeasurement.from(correction.copy(serverVersion=2),today))
+    }
 }
