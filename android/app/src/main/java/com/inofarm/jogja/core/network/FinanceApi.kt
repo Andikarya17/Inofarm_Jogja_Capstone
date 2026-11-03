@@ -1,6 +1,5 @@
 package com.inofarm.jogja.core.network
 
-import com.inofarm.jogja.data.ApiClient
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
@@ -37,7 +36,7 @@ class FinanceHttpApi(private val allowHttp: Boolean, private val client: OkHttpC
     .connectTimeout(10,TimeUnit.SECONDS).readTimeout(20,TimeUnit.SECONDS).callTimeout(30,TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()) : FinanceApi {
     override suspend fun exportReport(base:String,token:String,id:String,format:String,snapshotHash:String)=ReportExportTransport(client).fetch(validateBase(base),token,id,format,snapshotHash)
     override fun validateBase(base: String): String {
-        val normalized=ApiClient({base},{null},allowHttp).validateBase(base)
+        val normalized=ApiBaseUrl.validate(base,allowHttp)
         require(normalized.toHttpUrl().encodedPath.endsWith("/v2/")) { "Gunakan URL API operasional yang berakhir /v2/." }
         return normalized
     }

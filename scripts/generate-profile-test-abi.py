@@ -24,7 +24,7 @@ bases = set()
 def shared(name):
     return name.startswith(('androidx.compose.', 'kotlin.', 'kotlinx.coroutines.',
                             'androidx.lifecycle.', 'androidx.activity.', 'androidx.savedstate.',
-                            'dev.chrisbanes.haze.', 'okhttp3.', 'okio.',
+                            'okhttp3.', 'okio.',
                             'androidx.core.', 'androidx.concurrent.', 'com.google.common.')) \
         and '.test.' not in name and not name.endswith('.test')
 

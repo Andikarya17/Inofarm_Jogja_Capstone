@@ -18,7 +18,7 @@ import com.inofarm.jogja.core.network.FinanceHttpApi
 import com.inofarm.jogja.core.session.*
 import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.investments.*
-import com.inofarm.jogja.ui.InofarmTheme
+import com.inofarm.jogja.core.design.InofarmTheme
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.*
 import org.json.*

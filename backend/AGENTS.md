@@ -1,6 +1,6 @@
 # Backend Inofarm: transisi operasional dan keuangan
 
-Ikuti AGENTS root/context aktif29 Oktober 2026 dan docs/migration/finance-20261029. Backend masih v1 owner/tank/device; target auth pekerja/pengelola scoped greenhouse, activities/harvest, expenses/allocation/assets/sales, evaluation/investment, sync/audit/report/recovery.
+Ikuti AGENTS root/context aktif29 Oktober2026 beserta keputusan pengguna2 November2026. Produk aktif hanya API v2 pekerja/pengelola scoped greenhouse, activities/pengukuran manual/harvest, expenses/allocation/assets/sales, evaluation/investment, sync/audit/report/recovery. Route/source owner/device v1 dilepas; tabel/migration historis tetap dipertahankan.
 
 API_V2/DATA_CONTRACTS memuat rancangan lengkap; subset core/master/reference/activity/harvest/expense/allocation sudah executable, lihat contracts/v2/, routes/api_v2.php dan docs/context/IMPLEMENTATION_STATUS.md. Native finance/private proof masih bertahap. Migration additive; jangan ubah makna histori atau auto-convert device events. Domain services/policy/validation; fixed decimal, transaction locks, idempotent operation/base_version, audit dan snapshots immutable. Actor dari sesi; file/sync/export scoped.
 

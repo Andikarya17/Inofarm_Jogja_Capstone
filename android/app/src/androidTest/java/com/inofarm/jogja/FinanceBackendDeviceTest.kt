@@ -32,7 +32,13 @@ class FinanceBackendDeviceTest {
         rule.waitUntil(15000) {rule.onAllNodesWithTag("finance-gh").fetchSemanticsNodes().isNotEmpty()}
         rule.waitUntil(15000) {rule.onAllNodesWithText("Data server sudah diperiksa. Tinjau antrean yang ditahan.").fetchSemanticsNodes().isNotEmpty()}
     }
-    private fun choose(tag:String,id:String) {rule.onNodeWithTag(tag).performScrollTo().performClick();rule.onNodeWithTag("$tag-option-$id").performScrollTo().performClick()}
+    private fun choose(tag:String,id:String) {
+        rule.waitUntil(10000) {rule.onAllNodesWithTag(tag).fetchSemanticsNodes().size==1}
+        rule.onNodeWithTag(tag).performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("$tag-option-$id").fetchSemanticsNodes().size==1}
+        rule.onNodeWithTag("$tag-option-$id").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("$tag-option-$id").fetchSemanticsNodes().isEmpty()}
+    }
     private fun hideKeyboard() {rule.runOnIdle {(rule.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(rule.activity.window.decorView.windowToken,0)};rule.waitForIdle()}
     private fun runtime():FinanceRuntime {lateinit var runtime:FinanceRuntime;rule.runOnIdle {runtime=ViewModelProvider(rule.activity)[FinanceRuntime::class.java]};return runtime}
     private fun financeEditor():com.inofarm.jogja.feature.expenses.FinancialEntryViewModel {lateinit var editor:com.inofarm.jogja.feature.expenses.FinancialEntryViewModel;rule.runOnIdle {editor=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.expenses.FinancialEntryViewModel::class.java]};return editor}
@@ -86,7 +92,7 @@ class FinanceBackendDeviceTest {
     @Test fun queueFinancialPaymentWithBackendOffline() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="payment-queue")
         val f=fixture();login(f,"manager");val a=f.getJSONArray("contexts").getJSONObject(0)
-        rule.onNodeWithTag("finance-tab-4").performClick();rule.onNodeWithTag("expense-gh").performClick();rule.onNodeWithTag("expense-gh-option-${a.getString("greenhouse_id")}").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",a.getString("greenhouse_id"))
         rule.onNodeWithTag("expense-new").performClick();choose("expense-category",a.getString("category_id"));choose("expense-payment-kind","operating")
         rule.onNodeWithTag("expense-date").performScrollTo().performTextReplacement("2026-10-30");rule.onNodeWithTag("expense-time").performScrollTo().performTextReplacement("08:12:34")
         rule.onNodeWithTag("expense-amount").performScrollTo().performTextReplacement("100,01");rule.onNodeWithTag("expense-notes").performScrollTo().performTextReplacement("DEVICE EXPENSE — ${f.getString("fixture_id")}");hideKeyboard()
@@ -154,8 +160,10 @@ class FinanceBackendDeviceTest {
         val balance=model.api.request(session.scope.server,session.token,"expenses/${proof.getString("expense_id")}/availability").getJSONObject("data")
         assertEquals("60.01",balance.getString("allocated_amount"));assertEquals("40.00",balance.getString("available_amount"));assertEquals(1,balance.getInt("expense_version"));assertEquals(2,balance.getInt("version"))
         val attachmentIds=verifyPrivateAttachments(proof)
-        rule.onNodeWithTag("finance-tab-4").performClick();rule.onNodeWithTag("expense-history-kind").performClick();rule.onNodeWithTag("expense-history-kind-option-cost_allocation").performScrollTo().performClick()
-        rule.waitUntil(15000) {rule.onAllNodesWithTag("finance-record-${op.entityId}").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-${op.entityId}").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","cost_allocation")
+        rule.waitUntil(15000) {runCatching {rule.onNodeWithTag("finance-history-list").performScrollToNode(hasTestTag("finance-record-${op.entityId}"))}.isSuccess}
+        rule.onNodeWithTag("finance-record-${op.entityId}").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("history-audit").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(15000) {rule.onAllNodesWithText("Pencatatan · versi 1").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("finance-logout").performClick();login(f,"worker");val worker=model.vault.current!!
         rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
@@ -197,7 +205,7 @@ class FinanceBackendDeviceTest {
         val sourceOp=model.store.outbox(worker.scope.key).single {it.id==proof.getString("harvest_op")};assertEquals(proof.getString("harvest_hash"),sourceOp.hash)
         model.api.request(worker.scope.server,worker.token,"harvests","POST",sourceOp.envelope)
         login(f,"manager");val ctx=f.getJSONArray("contexts").getJSONObject(0)
-        rule.onNodeWithTag("finance-tab-4").performClick();rule.onNodeWithTag("expense-gh").performClick();rule.onNodeWithTag("expense-gh-option-${ctx.getString("greenhouse_id")}").performScrollTo().performClick();rule.onNodeWithTag("sale-new").performClick()
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",ctx.getString("greenhouse_id"));rule.onNodeWithTag("sale-new").performClick()
         choose("sale-season",ctx.getString("season_id"));rule.onNodeWithTag("sale-date").performScrollTo().performTextReplacement("2026-10-30")
         repeat(2) {index ->
             if(index>0) rule.onNodeWithTag("sale-add").performScrollTo().performClick()
@@ -218,8 +226,10 @@ class FinanceBackendDeviceTest {
         rule.waitUntil(20000) {model.store.record(session.scope.key,id)?.syncState==com.inofarm.jogja.core.contracts.SyncState.ACCEPTED}
         val op=model.store.outbox(session.scope.key).single {it.id==proof.getString("sale_op")};assertEquals(proof.getString("sale_hash"),op.hash)
         val receipt=model.api.request(session.scope.server,session.token,"sales","POST",op.envelope);assertEquals("0.01",receipt.getJSONObject("data").getString("total_amount"))
-        rule.onNodeWithTag("finance-tab-4").performClick();rule.onNodeWithTag("expense-history-kind").performClick();rule.onNodeWithTag("expense-history-kind-option-sale").performScrollTo().performClick()
-        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-record-$id").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","sale")
+        rule.waitUntil(15000) {runCatching {rule.onNodeWithTag("finance-history-list").performScrollToNode(hasTestTag("finance-record-$id"))}.isSuccess}
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("history-audit").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Pencatatan · versi 1").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("history-cancel").performScrollTo().performClick();rule.onNodeWithTag("history-action-reason").performTextReplacement("DEVICE SALE CANCEL ${f.getString("fixture_id")}");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
         rule.waitUntil(20000) {model.store.record(session.scope.key,id)?.serverVersion==2L && model.store.record(session.scope.key,id)?.body?.optString("record_state")=="cancelled"}
@@ -240,7 +250,12 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-gh-option-${a.getString("greenhouse_id")}").performClick()
         choose("finance-season",a.getString("season_id"));choose("finance-group",a.getString("group_id"))
         financialOfflineBarrier(f,"device")
-        rule.onNodeWithTag("finance-new").performScrollTo().performClick()
+        val measurement=InstrumentationRegistry.getArguments().getString("measurementPair")=="true"
+        rule.onNodeWithTag(if(measurement) "finance-measurement-new" else "finance-new").performScrollTo().performClick()
+        if(measurement) {
+            rule.onNodeWithTag("finance-ec").performScrollTo().performTextReplacement("1,25")
+            rule.onNodeWithTag("finance-ppm").performScrollTo().performTextReplacement("625,5")
+        }
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("DEVICE OFFLINE ${f.getString("fixture_id")}")
         hideKeyboard();rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
@@ -273,6 +288,13 @@ class FinanceBackendDeviceTest {
         rule.waitUntil(20000) {runtime.store.outbox(worker.scope.key).count {it.state=="ACCEPTED"}==2}
         val record=runtime.api.request(worker.scope.server,worker.token,"activities/${proof.getString("entity_id")}")
         assertEquals(f.getString("worker_id"),record.getString("recorded_by"));assertEquals(1,record.getInt("version"))
+        if(InstrumentationRegistry.getArguments().getString("measurementPair")=="true") {
+            assertEquals("measurement",record.getString("activity_type"));assertEquals("1.250000",record.getString("manual_ec"));assertEquals("625.500000",record.getString("manual_ppm"))
+            val ctx=f.getJSONArray("contexts").getJSONObject(0)
+            val latest=runtime.api.request(worker.scope.server,worker.token,"measurements/latest",query=mapOf("planting_group_id" to ctx.getString("group_id"))).getJSONObject("data")
+            assertEquals(record.getString("id"),latest.getString("id"))
+            assertEquals("1.25",runtime.store.latestMeasurement(worker.scope.key,ctx.getString("greenhouse_id"),ctx.getString("group_id"),java.time.LocalDate.now(com.inofarm.jogja.feature.activities.domain.ActivityDraft.WIB))!!.ec)
+        }
         try {runtime.api.request(worker.scope.server,worker.token,"greenhouses/${f.getJSONArray("contexts").getJSONObject(1).getString("greenhouse_id")}");fail("Cross GH must be denied")} catch(error:FinanceApiFailure) {assertEquals(404,error.status)}
         val op=runtime.store.outbox(worker.scope.key).single {it.entityId==proof.getString("entity_id")};assertEquals(proof.getString("operation_id"),op.id);assertEquals(proof.getString("hash"),op.hash)
         val replay=runtime.api.request(worker.scope.server,worker.token,"sync/operations","POST",op.envelope)
@@ -289,10 +311,12 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-logout").performClick();login(f,"manager")
         rule.onNodeWithTag("finance-tab-2").performClick();rule.waitUntil(15000) {rule.onAllNodesWithText("DEVICE OFFLINE ${f.getString("fixture_id")}").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithText("DEVICE OFFLINE ${f.getString("fixture_id")}").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-edit").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithText("Pencatat: Pekerja perangkat sintetis").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Kembali ke riwayat").performScrollTo().performClick();rule.onNodeWithTag("finance-tab-3").performClick()
         rule.waitUntil(15000) {rule.onAllNodesWithText("DEVICE HARVEST OFFLINE ${f.getString("fixture_id")}").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithText("DEVICE HARVEST OFFLINE ${f.getString("fixture_id")}").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-edit").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithText("Pencatat: Pekerja perangkat sintetis").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("history-cancel").performScrollTo().performClick();rule.onNodeWithTag("history-action-reason").performTextReplacement("DEVICE HARVEST CANCEL ${f.getString("fixture_id")}");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
         rule.waitUntil(15000) {rule.onAllNodesWithText("Dibatalkan").fetchSemanticsNodes().isNotEmpty()}

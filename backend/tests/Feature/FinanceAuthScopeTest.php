@@ -90,7 +90,7 @@ class FinanceAuthScopeTest extends TestCase
     {
         $worker = $this->account();
         $token = $this->token($worker);
-        $this->withToken($token)->getJson('/api/v1/dashboard')->assertForbidden();
+        $this->withToken($token)->getJson('/api/v1/dashboard')->assertNotFound();
         $this->withToken($token)->postJson('/api/v2/auth/logout')->assertNoContent();
         $this->app['auth']->forgetGuards();
         $this->withToken($token)->getJson('/api/v2/me')->assertUnauthorized()->assertJsonPath('code', 'authentication_required');

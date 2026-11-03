@@ -1,4 +1,8 @@
-# Status implementasi nyata — 2 November 2026
+# Status implementasi nyata — 3 November 2026
+
+## Penghapusan IoT dan pengukuran manual — 3 November 2026
+
+Implementasi engineering selesai pada `codex/retire-iot-runtime`, di atas `codex/manual-ec-ppm-dashboard` (`0d960db`). Finance menjadi default, source/runtime/tooling IoT dan prototipe React dilepas setelah utilitas bersama dipisahkan. Dashboard dua kartu EC/PPM, fallback WIB, schema15 additive dan preservasi draft/outbox tersedia. Verifikasi final PASS130 MySQL/2369 assertions,73 JVM,39 UI,72 readiness device,31 storage/sync,2 fase process survival dan8 fase integrasi API/MySQL. Build debug/test/profile/release dan lint0errors PASS. Paket review dari commit bersih225f705 PASS, dengan manifest/SHA256. Draft PR40 dan41 sudah tersedia di GitHub. UAT, pentest, perangkat fisik, dispatch OS background dan cutover produksi tetap terbuka. [Evidence final, kegagalan dan batas](../migration/finance-20261029/evidence/20261102-IOT-RETIREMENT.md). Bagian bertanggal sebelumnya di bawah merupakan histori.
 
 ## Pengukuran EC/PPM manual2 November2026
 

@@ -737,12 +737,6 @@
     void addListener(java.lang.Runnable,java.util.concurrent.Executor);
     public *; protected *;
 }
--keep class dev.chrisbanes.haze.HazeKt {
-    androidx.compose.ui.Modifier hazeSource$default(androidx.compose.ui.Modifier,dev.chrisbanes.haze.HazeState,float,java.lang.Object,int,java.lang.Object);
-    dev.chrisbanes.haze.HazeState rememberHazeState(boolean,androidx.compose.runtime.Composer,int,int);
-}
--keep class dev.chrisbanes.haze.HazeState {
-}
 -keep class kotlin.ExceptionsKt {
     void addSuppressed(java.lang.Throwable,java.lang.Throwable);
 }

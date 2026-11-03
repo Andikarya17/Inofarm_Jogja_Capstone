@@ -35,7 +35,7 @@ class FinanceLocalStoreTest {
     private lateinit var helper: FinanceDatabase
     private lateinit var store: LocalFinanceStore
     @Before fun setUp() {
-        assertTrue("Run with -PfinanceApp; no legacy APK data",context.packageName.endsWith(".finance"))
+        assertTrue("Use the finance application identity; no legacy APK data",context.packageName.endsWith(".finance"))
         helper=FinanceDatabase(context,name);store=LocalFinanceStore(helper,FixtureCipher())
         store.initialize("account-a",epoch,UserRole.WORKER);store.applyPull("account-a",page())
     }

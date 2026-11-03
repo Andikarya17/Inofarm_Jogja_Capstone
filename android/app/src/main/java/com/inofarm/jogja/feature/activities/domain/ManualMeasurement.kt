@@ -27,7 +27,8 @@ data class ManualMeasurement(val id:String,val at:Instant,val ec:String?,val ppm
             val ec=decimal("manual_ec")
             // Historical PPM-only accepted rows remain readable. New/pending pairs must be complete.
             if(ec==null && (record.syncState==SyncState.QUEUED || body.optString("activity_type")=="measurement" || (!body.isNull("manual_ec") && body.has("manual_ec")))) return null
-            return ManualMeasurement(record.id,at,ec,ppm,body.optString("recorded_by_name").takeUnless {it.isBlank() || it=="null"},record.syncState==SyncState.QUEUED)
+            fun recorder(source:org.json.JSONObject?)=source?.optString("recorded_by_name")?.takeUnless {it.isBlank() || it=="null"}
+            return ManualMeasurement(record.id,at,ec,ppm,recorder(body) ?: recorder(record.serverBody),record.syncState==SyncState.QUEUED)
         }
     }
 }

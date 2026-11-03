@@ -1,9 +1,7 @@
 <?php
 
 use App\Domain\Contracts\DomainFailure;
-use App\Http\Middleware\DeviceAuth;
 use App\Http\Middleware\FinanceSession;
-use App\Http\Middleware\OwnerScope;
 use App\Http\Middleware\PayloadLimit;
 use App\Support\TestDatabaseGuard;
 use Illuminate\Auth\AuthenticationException;
@@ -26,7 +24,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
         // Retry identity is based on the exact validated wire strings, including empty/whitespace notes.
         $middleware->trimStrings(except: [fn (Request $request) => $request->is('api/v2/*')]);
         $middleware->convertEmptyStringsToNull(except: [fn (Request $request) => $request->is('api/v2/*')]);
-        $middleware->alias(['device' => DeviceAuth::class, 'owner' => OwnerScope::class, 'finance-session' => FinanceSession::class]);
+        $middleware->alias(['finance-session' => FinanceSession::class]);
         $middleware->api(prepend: [PayloadLimit::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

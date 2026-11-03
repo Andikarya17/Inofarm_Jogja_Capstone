@@ -227,7 +227,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 session.role==UserRole.MANAGER && allocationHistory.selected!=null -> HistoryScreen(session,context,allocationHistory,allocationHistoryVm,activity.queue,onEdit={record,replace -> financialVm.open(record,replace);allocationHistoryVm.close()},kind=OperationalKind.COST_ALLOCATION)
                 history.selected!=null -> HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()})
                 harvestHistory.selected!=null -> HistoryScreen(session,context,harvestHistory,harvestHistoryVm,activity.queue,onEdit={record,replace -> harvestVm.open(record,replace);harvestHistoryVm.close()},kind=OperationalKind.HARVEST)
-                tab==0 -> LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
+                tab==0 -> LazyColumn(modifier=Modifier.testTag("finance-home-list"),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
                     item { if(session.role==UserRole.MANAGER) OutlinedButton(onClick=onAdmin,modifier=Modifier.fillMaxWidth().testTag("finance-admin")) {Text("Kelola akun, budidaya dan acuan")} }
                     item { Text("Kegiatan hari ini",style=MaterialTheme.typography.headlineMedium);Text("Pilih konteks budidaya sebelum mencatat. Target hanya menjadi acuan.") }
                     item { context.message?.let { Text(it,modifier=Modifier.testTag("finance-sync-message")) };Text(context.lastSyncedAt?.let {"Data lokal diperbarui: ${timeLabel(Instant.ofEpochMilli(it).toString())}"} ?: "Belum ada data server tersimpan.",style=MaterialTheme.typography.bodySmall) }
@@ -241,16 +241,20 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             Button(onClick={vm.new(gh!!,group!!,ActivityType.MEASUREMENT)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-measurement-new")) {Text("Catat pengukuran")}
                             Button(onClick={vm.new(gh!!,group!!)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-new")) {Text("Catat kegiatan")};if(!open) Notice("Musim ditutup. Pengelola perlu membuka kembali sebelum pencatatan.",true)
                             OutlinedButton(onClick={harvestVm.new(gh!!,group!!)},enabled=open,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("harvest-new")) {Text("Catat panen")}
+                        } }
+                        item { Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
                             com.inofarm.jogja.feature.activities.MeasurementDashboard(runtime,session,gh!!,group!!,activity.records,context.lastSyncedAt)
+                        } }
+                        item {
                             val current=context.groups.find {it.optString("id")==group}
                             val age=runCatching {current?.let {PlantAge.calculate(it.getString("sowing_date"),if(it.isNull("transplant_date")) null else it.getString("transplant_date"),OffsetDateTime.now(ActivityDraft.WIB).toString())}}.getOrNull()
                             Text("HSS ${age?.hss ?: "belum tersedia"} · HST ${age?.hst ?: "belum berlaku"}")
-                        } }
-                        item { Text("Jadwal dan target",style=MaterialTheme.typography.titleLarge) }
+                        }
+                        item { Text("Jadwal kegiatan",style=MaterialTheme.typography.titleLarge) }
                         val schedules=context.schedules.filter { it.optString("planting_group_id")==group && it.optBoolean("active",true) }
                         if(schedules.isEmpty()) item { Notice("Belum ada jadwal untuk kelompok ini. Kegiatan spontan tetap dapat dicatat.") }
                         items(schedules,key={it.getString("id")}) { schedule -> ElevatedCard { Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {Text(ActivityType.entries.find { it.wire==schedule.optString("activity_type") }?.label ?: "Kegiatan");Text(timeLabel(schedule.optString("planned_at")));Text(schedule.optString("notes"));Text("Satu catatan tidak otomatis menyelesaikan seluruh jadwal.",style=MaterialTheme.typography.bodySmall);OutlinedButton(onClick={vm.new(gh!!,group!!,ActivityType.entries.single { it.wire==schedule.getString("activity_type") },schedule.getString("id"))},enabled=open) {Text("Catat realisasi")} } } }
-                        item { ReferenceCards(context,group!!,null) }
+                        item { Text("Target/acuan tersedia saat mengisi kegiatan; hasil pengukuran tetap manual.",style=MaterialTheme.typography.bodySmall) }
                     } else if(!context.loading && context.greenhouses.isEmpty()) item { Notice("Belum ada greenhouse dalam penugasan yang tersimpan. Sinkronkan atau hubungi pengelola.") }
                     item { activity.message?.let { Notice(it) } }
                 }
