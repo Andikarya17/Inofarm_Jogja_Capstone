@@ -23,7 +23,14 @@ fun userMessage(error:Throwable):String = when(error) {
     is IOException -> "Server belum dapat dihubungi. Periksa koneksi; draf tetap disimpan di perangkat."
     else -> error.message ?: "Permintaan belum berhasil. Coba kembali."
 }
-data class AuthUiState(val loading:Boolean=true,val session:FinanceSession?=null,val error:String?=null)
+enum class LogoutStatus { Confirmed, RevocationUnconfirmed }
+
+data class AuthUiState(
+    val loading: Boolean = true,
+    val session: FinanceSession? = null,
+    val error: String? = null,
+    val logoutStatus: LogoutStatus? = null
+)
 class AuthViewModel(private val repository:AuthRepository):ViewModel() {
     private val mutable=MutableStateFlow(AuthUiState());val state=mutable.asStateFlow()
     init { viewModelScope.launch {
@@ -46,9 +53,9 @@ class AuthViewModel(private val repository:AuthRepository):ViewModel() {
             try {
                 beforeRelease();draftFlushed=true
                 val (previous,ticket)=repository.logoutLocal()
-                mutable.value=AuthUiState(false,error="Keluar. Draf dan antrean akun ini tetap tersimpan.")
+                mutable.value=AuthUiState(false,logoutStatus=LogoutStatus.Confirmed)
                 if(previous!=null) try { repository.revoke(previous) } catch(cancelled:CancellationException) {throw cancelled}
-                catch(error:Exception) { if(repository.vault.generation==ticket && repository.vault.current==null) mutable.value=AuthUiState(false,error="Keluar dari perangkat. Draf tetap tersimpan; pencabutan sesi server belum terkonfirmasi.") }
+                catch(error:Exception) { if(repository.vault.generation==ticket && repository.vault.current==null) mutable.value=AuthUiState(false,logoutStatus=LogoutStatus.RevocationUnconfirmed) }
             } catch(cancelled:CancellationException) {throw cancelled} catch(error:Exception) {
                 mutable.value=AuthUiState(false,repository.vault.current,error=if(!draftFlushed) "Isian terakhir belum berhasil disimpan. Anda tetap di akun ini; coba simpan draf kembali." else userMessage(error))
             }

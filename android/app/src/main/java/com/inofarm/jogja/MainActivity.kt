@@ -13,8 +13,8 @@ class MainActivity:ComponentActivity() {
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
-            statusBarStyle=SystemBarStyle.light(android.graphics.Color.TRANSPARENT,android.graphics.Color.TRANSPARENT),
-            navigationBarStyle=SystemBarStyle.light(android.graphics.Color.TRANSPARENT,android.graphics.Color.TRANSPARENT)
+            statusBarStyle=SystemBarStyle.auto(android.graphics.Color.TRANSPARENT,android.graphics.Color.TRANSPARENT),
+            navigationBarStyle=SystemBarStyle.auto(android.graphics.Color.TRANSPARENT,android.graphics.Color.TRANSPARENT)
         )
         val runtime=ViewModelProvider(this)[FinanceRuntime::class.java]
         setContent {InofarmTheme {FinanceRoot(runtime)}}

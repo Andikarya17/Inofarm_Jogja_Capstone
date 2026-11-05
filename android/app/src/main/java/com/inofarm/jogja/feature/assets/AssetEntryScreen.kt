@@ -11,6 +11,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.core.contracts.DepreciationAmounts
 import com.inofarm.jogja.core.database.LocalRecord
+import com.inofarm.jogja.core.design.FarmDraftStatus
+import com.inofarm.jogja.core.design.FarmPageTitle
+import com.inofarm.jogja.core.design.FarmPanel
 import com.inofarm.jogja.feature.Choice
 import com.inofarm.jogja.feature.Notice
 import com.inofarm.jogja.feature.context.CultivationUiState
@@ -24,8 +27,9 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
 @Composable fun AssetForm(state:AssetEntryState,context:CultivationUiState,vm:AssetEntryViewModel) {
     val draft=state.draft ?: return
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text(if(draft.kind==AssetKind.ASSET) "Catat aset" else "Alokasikan penyusutan",style=MaterialTheme.typography.headlineMedium)
-        Text(if(state.saved) "Isian terakhir tersimpan lokal." else "Perubahan belum selesai disimpan.",modifier=Modifier.testTag("asset-draft-status"))
+        FarmPageTitle(if(draft.kind==AssetKind.ASSET) "Catat aset" else "Alokasikan penyusutan")
+        FarmDraftStatus(state.saved, Modifier.testTag("asset-draft-status"))
+        FarmPanel(title = if (draft.kind == AssetKind.ASSET) "Sumber dan perolehan" else "Aset dan periode pemakaian") {
         if(draft.kind==AssetKind.ASSET) {
             val sources=context.expenses.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("payment_kind")=="asset_acquisition" && it.optString("record_state")=="active"}.map {JSONObject(it.toString()).put("name","${moneyLabel(it.optString("amount"))} · ${it.optString("notes")} · ${it.optString("id").take(8)}")}
             if(draft.lockedParents) Text("Pembayaran sumber: ${sources.find {it.optString("id")==draft.expenseId}?.optString("name") ?: "terakhir tersimpan"}")
@@ -58,8 +62,11 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
                 Text("Anggaran tahun ini: ${moneyLabel(it.amount.toPlainString())}. Sisa setelah alokasi lain diperiksa server.")
             }
         }
+        }
+        FarmPanel(title = "Dasar dan catatan") {
         FinanceField("Dasar pemakaian / pembagian",draft.basis,{value -> vm.edit {it.copy(basis=value)}},"asset-basis",state.errors["basis"],singleLine=false)
         if(draft.baseVersion!=null) FinanceField("Alasan koreksi",draft.reason,{value -> vm.edit {it.copy(reason=value)}},"asset-reason",state.errors["reason"],singleLine=false)
+        }
         Notice("Harga pembelian aset terpisah dari biaya operasi dan alokasi penyusutan. Draf/antrean belum diterima server. Anggaran dan sumber diperiksa ulang saat sinkronisasi.")
         state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
         Button(onClick=vm::review,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("asset-review")) {Text("Periksa catatan aset")}
@@ -69,7 +76,8 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
 
 @Composable fun AssetReview(draft:AssetDraft,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("Periksa catatan aset",style=MaterialTheme.typography.headlineMedium);AssetDraftFacts(draft)
+        FarmPageTitle("Periksa catatan aset")
+        FarmPanel(title = if (draft.kind == AssetKind.ASSET) "Perolehan aset" else "Alokasi penyusutan") { AssetDraftFacts(draft) }
         Notice("Alokasi ini nominal manual, bukan pembagian otomatis. Server memeriksa sisa pembayaran, anggaran tahunan, A−S dan duplikasi pemakaian.")
         if(draft.replaceValidationRejected) Notice("Perbaikan membuat operasi baru; pengajuan lama yang ditolak tetap disimpan.")
         Button(onClick=onQueue,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("asset-queue")) {Text("Simpan lokal dan antrekan")}

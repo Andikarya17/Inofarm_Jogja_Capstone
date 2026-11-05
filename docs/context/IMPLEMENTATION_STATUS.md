@@ -1,4 +1,8 @@
-# Status implementasi nyata — 3 November 2026
+# Status implementasi nyata — 5 November 2026
+
+## Rombak frontend Android — 5 November 2026
+
+Login dua field, beranda berbasis konteks dan EC/PPM, riwayat dengan filter sheet, form serta review berpanel, dan ruang keuangan satu daftar tersedia di `codex/android-operational-frontend`. Build debug, lint dan regresi emulator tersedia. [Bukti dan batas penerimaan frontend](ANDROID_OPERATIONAL_FRONTEND_20261105.md).
 
 ## Penghapusan IoT dan pengukuran manual — 3 November 2026
 

@@ -44,6 +44,9 @@ class FinanceEntryUiTest {
     private val harvestReceipts=ConcurrentHashMap<String,JSONObject>();private val harvestPosts=AtomicInteger();private val harvestConflictNext=AtomicBoolean(false);private val harvestUseNext=AtomicBoolean(false)
     private val gradeA=UUID.randomUUID().toString();private val gradeB=UUID.randomUUID().toString()
     private val seasonState=java.util.concurrent.atomic.AtomicReference("open");private val seasonVersion=AtomicInteger(1)
+    private val longNames = AtomicBoolean(false)
+    private val expiredLogin = AtomicBoolean(false)
+    private val longGreenhouseName = "Greenhouse pembesaran melon hidroponik Blok Barat dengan nama lengkap"
     private val epoch=UUID.randomUUID().toString();private val worker=UUID.randomUUID().toString();private val manager=UUID.randomUUID().toString()
     private val gh=UUID.randomUUID().toString();private val season=UUID.randomUUID().toString();private val group=UUID.randomUUID().toString()
     private val unit=UUID.randomUUID().toString();private val materialA=UUID.randomUUID().toString();private val materialB=UUID.randomUUID().toString()
@@ -65,7 +68,7 @@ class FinanceEntryUiTest {
                 if(path.startsWith("harvests") && request.method in setOf("POST","PATCH")) return harvestMutation(request,response)
                 if(path.startsWith("harvests/") && path.endsWith("/audit")) return harvestAudit(path,response)
                 return when(path) {
-                    "auth/login" -> { val isManager=JSONObject(request.body.readUtf8()).getString("email").startsWith("manager");response.setBody(JSONObject().put("token",if(isManager) "manager-fixture" else "worker-fixture").put("expires_at","2030-01-01T00:00:00Z").put("user",JSONObject().put("id",if(isManager) manager else worker).put("name",if(isManager) "Pengelola sintetis" else "Pekerja sintetis").put("role",if(isManager) "manager" else "worker")).toString()) }
+                    "auth/login" -> { val isManager=JSONObject(request.body.readUtf8()).getString("email").startsWith("manager");response.setBody(JSONObject().put("token",if(isManager) "manager-fixture" else "worker-fixture").put("expires_at",if(expiredLogin.get()) "2020-01-01T00:00:00Z" else "2030-01-01T00:00:00Z").put("user",JSONObject().put("id",if(isManager) manager else worker).put("name",if(isManager) "Pengelola sintetis" else "Pekerja sintetis").put("role",if(isManager) "manager" else "worker")).toString()) }
                     "auth/logout" -> {logoutPosts.incrementAndGet();response.setResponseCode(204)}
                     "sync/status" -> response.setBody(JSONObject().put("schema_version","2").put("sync_epoch",epoch).toString())
                     "sync/changes" -> response.setBody(page(request.getHeader("Authorization").orEmpty().contains("manager-fixture")).toString())
@@ -106,15 +109,15 @@ class FinanceEntryUiTest {
                 }
             }
         }
-        rule.waitUntil(10000) { rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty() || rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty() }
-        if(rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty()) readyNode("finance-logout").performClick()
+        rule.waitUntil(10000) { rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty() || rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty() }
+        if(rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()) rule.logoutFromAccount()
         login("worker@example.invalid")
     }
     @After fun close() { server.shutdown() }
     private fun page(managerAccess:Boolean=false):JSONObject {
         val rows=JSONArray()
         fun row(kind:String,id:String,data:JSONObject) { rows.put(JSONObject().put("sequence",rows.length()+1).put("entity_type",kind).put("entity_id",id).put("greenhouse_id",gh).put("version",data.optInt("version",1)).put("tombstone",false).put("data",data.put("id",id).put("version",data.optInt("version",1)))) }
-        row("greenhouses",gh,JSONObject().put("name","GH UI sintetis").put("active",true))
+        row("greenhouses",gh,JSONObject().put("name",if (longNames.get()) longGreenhouseName else "GH UI sintetis").put("active",true))
         row("seasons",season,JSONObject().put("greenhouse_id",gh).put("name","Musim UI sintetis").put("status",seasonState.get()).put("version",seasonVersion.get()))
         row("planting_groups",group,JSONObject().put("season_id",season).put("name","Kelompok UI sintetis").put("active",true).put("sowing_date","2026-10-01").put("transplant_date",JSONObject.NULL))
         for((id,name) in listOf(gradeA to "Grade A sintetis",gradeB to "Grade B sintetis")) row("grades",id,JSONObject().put("greenhouse_id",gh).put("name",name).put("active",true))
@@ -214,14 +217,19 @@ class FinanceEntryUiTest {
             .put("action",if(receipt.getInt("version")==1) "create" else "update").put("reason","Audit panen sintetis").put("server_at","2026-10-29T09:00:00+07:00").put("changes",JSONObject().put("before",JSONObject.NULL).put("after",receipt.getJSONObject("data"))))}
         return response.setBody(JSONObject().put("data",rows).put("next_cursor",JSONObject.NULL).toString())
     }
-    private fun login(email:String) {
+    private fun login(email:String, waitForSync: Boolean = true) {
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("finance-server").performScrollTo().performTextReplacement(server.url("/api/v2/").toString())
+        rule.configureFinanceEndpoint(server.url("/api/v2/").toString())
         rule.onNodeWithTag("finance-email").performScrollTo().performTextReplacement(email)
         rule.onNodeWithTag("finance-password").performScrollTo().performTextReplacement("synthetic-ui-password")
         hideKeyboard();rule.onNodeWithTag("finance-login").performScrollTo().performClick()
-        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-gh").fetchSemanticsNodes().isNotEmpty()}
-        rule.waitUntil(10000) {rule.onAllNodesWithText("Data server sudah diperiksa. Tinjau antrean yang ditahan.").fetchSemanticsNodes().isNotEmpty()}
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-context-open").fetchSemanticsNodes().isNotEmpty()}
+        if (waitForSync) {
+            val home = rule.onNodeWithTag("finance-home-list")
+            val synced = hasText("Data server sudah diperiksa. Tinjau antrean yang ditahan.")
+            rule.waitUntil(10_000) { runCatching { home.performScrollToNode(synced) }.isSuccess }
+            home.performScrollToIndex(0)
+        }
     }
     private fun chooseContext(harvest:Boolean=false) {
         choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
@@ -243,18 +251,162 @@ class FinanceEntryUiTest {
         return rule.onNodeWithTag(tag)
     }
     private fun choose(tag:String,id:String) {
+        rule.prepareChoice(tag)
         rule.onNodeWithTag(tag).performScrollTo().performClick()
         val option="$tag-option-$id"
         rule.waitUntil(10000) {rule.onAllNodesWithTag(option).fetchSemanticsNodes().size==1}
         rule.onNodeWithTag(option).performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag(option).fetchSemanticsNodes().isEmpty()}
+        rule.finishChoice(tag)
     }
-    private fun hideKeyboard() {Espresso.closeSoftKeyboard();rule.waitForIdle()}
+    private fun hideKeyboard() {
+        rule.runOnUiThread {
+            val root = focusedWindow()
+            val input = root.context.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+            input.hideSoftInputFromWindow(root.windowToken, 0)
+        }
+        rule.waitUntil(10000) {
+            var hidden = false
+            rule.runOnUiThread {
+                hidden = androidx.core.view.ViewCompat.getRootWindowInsets(focusedWindow())
+                    ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) != true
+            }
+            hidden
+        }
+        rule.waitForIdle()
+    }
+
+    private fun focusedWindow() = android.view.inspector.WindowInspector.getGlobalWindowViews()
+        .lastOrNull { it.hasWindowFocus() } ?: rule.activity.window.decorView
+
+    private fun frontendEvidence(name: String) = File(
+        File(rule.activity.getExternalFilesDir(null), "frontend-redesign").apply { mkdirs() }, name
+    )
+
+    private fun capture(name: String) {
+        rule.waitForIdle()
+        val bitmap = rule.onAllNodes(isRoot()).onLast().captureToImage().asAndroidBitmap()
+        frontendEvidence("$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    private fun captureWindow(name: String) {
+        rule.waitForIdle()
+        val automation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation
+        val bitmap = requireNotNull(automation.takeScreenshot())
+        frontendEvidence("$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    private fun deviceShell(command: String): String {
+        val automation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation
+        val descriptor = automation.executeShellCommand(command)
+        return android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use { it.readText() }
+    }
+
+    private fun gfxInfo(arguments: String) = deviceShell("dumpsys gfxinfo ${rule.activity.packageName} $arguments")
+
+    @Test fun twoFieldLoginHasAccessiblePasswordToggleAndHandlesMissingConfiguration() {
+        rule.logoutFromAccount()
+        readyNode("finance-login").assertIsNotEnabled()
+        capture("login")
+        rule.onAllNodes(hasSetTextAction()).assertCountEquals(2)
+        rule.onNodeWithTag("finance-server").assertDoesNotExist()
+        val toggle = readyNode("finance-password-toggle")
+        toggle.assert(hasContentDescription("Tampilkan password")).performClick()
+        toggle.assert(hasContentDescription("Sembunyikan password")).performClick()
+        readyNode("finance-email").performClick().performImeAction()
+        readyNode("finance-password").assertIsFocused()
+        hideKeyboard()
+        rule.configureFinanceEndpoint("")
+        readyText("Alamat server belum dikonfigurasi untuk aplikasi ini. Hubungi pengelola.").assertIsDisplayed()
+        readyNode("finance-login").assertIsNotEnabled()
+        login("worker@example.invalid")
+        offline.set(true)
+        rule.logoutFromAccount()
+        readyText("Pencabutan sesi server belum terkonfirmasi.", true).assertIsDisplayed()
+    }
+
+    @Test fun navigationBackdropScrollFrameSample() {
+        choose("finance-gh", gh)
+        choose("finance-season", season)
+        choose("finance-group", group)
+        val home = rule.onNodeWithTag("finance-home-list")
+        home.performScrollToNode(hasTestTag("measurement-card-ec"))
+        rule.waitForIdle()
+        val bounds = home.fetchSemanticsNode().boundsInWindow
+        val x = bounds.center.x.toInt()
+        val upper = (bounds.top + bounds.height * .25f).toInt()
+        val lower = (bounds.top + bounds.height * .65f).toInt()
+        gfxInfo("reset")
+        repeat(3) {
+            deviceShell("input swipe $x $lower $x $upper 420")
+            deviceShell("input swipe $x $upper $x $lower 420")
+        }
+        rule.waitForIdle()
+        frontendEvidence("navigation-scroll-frames.txt").writeText(gfxInfo("framestats"))
+    }
+
+    @Test fun longContextAndExpiredSessionKeepNavigationReachable() {
+        longNames.set(true)
+        rule.logoutFromAccount()
+        login("manager@example.invalid")
+        choose("finance-gh", gh)
+        readyText(longGreenhouseName).assertIsDisplayed()
+        capture("manager-long-context")
+
+        rule.logoutFromAccount()
+        expiredLogin.set(true)
+        login("manager@example.invalid", waitForSync = false)
+        readyText("Sesi berakhir.", true).assertIsDisplayed()
+        readyNode("finance-tab-1").performClick().assertIsSelected()
+        readyText("Antrean akun ini").assertIsDisplayed()
+        capture("manager-expired-session")
+    }
+
+    @Test fun glassFrontendCapturesWorkerManagerAndPreservesDraftNavigation() {
+        rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
+        rule.onNodeWithTag("finance-account").performClick()
+        rule.onNodeWithTag("finance-admin").assertDoesNotExist()
+        Espresso.pressBack()
+        capture("worker-home")
+        gfxInfo("reset")
+        choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
+        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("measurement-card-ec"))
+        if (rule.activity.resources.configuration.fontScale > 1.3f) {
+            rule.onNodeWithTag("finance-home-list").performTouchInput {
+                swipeUp(startY = height * .65f, endY = height * .2f, durationMillis = 400)
+            }
+        }
+        capture("worker-measurements")
+        rule.onNodeWithTag("finance-home-list").performTouchInput { swipeUp() }
+        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("finance-new"))
+        rule.onNodeWithTag("finance-new").performClick()
+        capture("worker-form-start")
+        rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Draf verifikasi tampilan kaca")
+        hideKeyboard();capture("worker-form")
+        rule.onNodeWithTag("finance-save-draft").performScrollTo().performClick()
+        readyNode("finance-tab-2").performClick();capture("worker-history")
+        rule.logoutFromAccount();login("manager@example.invalid")
+        capture("manager-home")
+        rule.onNodeWithTag("finance-account").performClick()
+        rule.onNodeWithTag("finance-admin").assertExists()
+        Espresso.pressBack()
+        readyNode("finance-tab-4").performClick();choose("expense-gh",gh);capture("manager-finance")
+        rule.openFinanceTools()
+        readyText("Transaksi dan aset").assertIsDisplayed()
+        captureWindow("manager-finance-tools")
+        rule.onNodeWithTag("finance-tools-close").performScrollTo().performClick()
+        readyNode("expense-new").performScrollTo().performClick()
+        readyNode("expense-amount").performTextReplacement("1234567890,50")
+        hideKeyboard();capture("manager-payment")
+        frontendEvidence("frame-timing.txt").writeText(gfxInfo("framestats"))
+        rule.activityRule.scenario.recreate()
+        readyNode("expense-amount").performScrollTo().assertTextContains("1234567890,50")
+    }
 
     @Test fun defaultLauncherOpensFinanceWithExistingApplicationIdentity() {
         assertEquals("com.inofarm.jogja.finance",rule.activity.packageName)
         assertEquals(MainActivity::class.java.name,rule.activity.packageManager.getLaunchIntentForPackage(rule.activity.packageName)!!.component!!.className)
-        rule.onNodeWithTag("finance-gh").assertExists()
+        rule.onNodeWithTag("finance-context-open").assertExists()
         rule.onNodeWithTag("finance-tab-2").assertExists()
     }
 
@@ -294,11 +446,13 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("measurement-card-ec"))
         rule.onNodeWithTag("measurement-card-ec").performScrollTo().assertExists()
         rule.onNodeWithText("1.25").assertExists();rule.onNodeWithText("625.5").assertExists()
+        capture("worker-measurement-pair-queued")
         readyText("Belum tersinkron",true).performScrollTo().assertExists()
         assertEquals(0,posts.get())
         offline.set(false);readyNode("finance-sync").performClick()
         rule.waitUntil(15000) {posts.get()==1}
         readyText("Diterima server · pencatat:",true).performScrollTo().assertExists()
+        capture("worker-measurement-pair-accepted")
         val payload=receipts.values.single().getJSONObject("data")
         assertEquals("1.25",payload.getString("manual_ec"));assertEquals("625.5",payload.getString("manual_ppm"));assertEquals(0,payload.getJSONArray("materials").length())
     }
@@ -319,7 +473,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-sync").performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Diterima server").fetchSemanticsNodes().isNotEmpty()}
         assertEquals(1,posts.get())
-        readyNode("finance-logout").performClick();login("manager@example.invalid")
+        rule.logoutFromAccount();login("manager@example.invalid")
         rule.onNodeWithTag("finance-tab-2").performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Catatan offline UI sintetis").fetchSemanticsNodes().isNotEmpty()}
         assertEquals(worker,receipts.values.single().getJSONObject("data").getString("recorded_by"))
     }
@@ -380,7 +534,7 @@ class FinanceEntryUiTest {
         rule.activityRule.scenario.recreate()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("attachment-queue").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("attachment-queue").performScrollTo().assertIsNotEnabled()
-        readyNode("finance-logout").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
+        rule.logoutFromAccount();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
     }
     @Test fun attachmentPreviewProviderChecksBytesWriteModeAndLogout() {
         val (vm,bytes)=attachmentDraft();val model=runtime();val session=model.vault.current!!;val record=vm.state.value.selected!!
@@ -391,7 +545,7 @@ class FinanceEntryUiTest {
         assertArrayEquals(bytes,rule.activity.contentResolver.openInputStream(uri)!!.use {it.readBytes()})
         assertThrows(SecurityException::class.java) {rule.activity.contentResolver.openFileDescriptor(uri,"w")}
         val partial=File(rule.activity.cacheDir,"finance-attachment-views/"+uri.pathSegments.drop(1).joinToString("/")+".new");partial.writeBytes(bytes)
-        readyNode("finance-logout").performClick();rule.waitUntil(10000) {model.vault.current==null}
+        rule.logoutFromAccount();rule.waitUntil(10000) {model.vault.current==null}
         assertFalse(partial.exists())
         assertThrows(SecurityException::class.java) {rule.activity.contentResolver.openInputStream(uri)}
         model.files.verify(session.scope.key,blob.id,com.inofarm.jogja.core.contracts.AttachmentBytes.parse(blob.body))
@@ -411,7 +565,7 @@ class FinanceEntryUiTest {
     @Test fun attachmentReasonLogoutFlushesLatestRawTextWithoutChangingAcceptedMetadata() {
         val vm=acceptedAttachmentReason();val model=runtime();val scope=model.vault.current!!.scope.key;val row=vm.state.value.selected!!
         rule.onNodeWithTag("attachment-reason").performScrollTo().performTextReplacement("Alasan terbaru — belum dibatalkan")
-        hideKeyboard();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty()};readyNode("finance-logout").performClick();rule.waitUntil(10000) {model.vault.current==null}
+        hideKeyboard();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()};rule.logoutFromAccount();rule.waitUntil(10000) {model.vault.current==null}
         assertEquals("Alasan terbaru — belum dibatalkan",model.store.attachmentForm(scope,row.id)!!.getString("reason"))
         assertEquals(com.inofarm.jogja.core.contracts.SyncState.ACCEPTED,model.store.record(scope,row.id)!!.syncState)
         assertTrue(model.store.outbox(scope).filter {it.entityId==row.id}.all {it.state=="ACCEPTED"})
@@ -424,13 +578,13 @@ class FinanceEntryUiTest {
         try {
             sql("CREATE TRIGGER $trigger BEFORE INSERT ON local_attachment_forms WHEN NEW.scope='${session.scope.key}' BEGIN SELECT RAISE(ABORT,'Synthetic form write failure'); END")
             rule.onNodeWithTag("attachment-reason").performScrollTo().performTextReplacement("Alasan yang wajib tetap ada")
-            hideKeyboard();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty()};readyNode("finance-logout").performClick()
+            hideKeyboard();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()};rule.logoutFromAccount()
             rule.waitUntil(10000) {rule.onAllNodesWithText("Belum keluar").fetchSemanticsNodes().isNotEmpty()}
             assertNotNull(model.vault.current);assertEquals(previousLogoutPosts,logoutPosts.get())
             rule.onNodeWithText("Kembali ke isian").performClick();rule.activityRule.scenario.recreate()
             rule.onNodeWithTag("attachment-reason").performScrollTo().assertTextContains("Alasan yang wajib tetap ada")
         } finally {sql("DROP TRIGGER IF EXISTS $trigger")}
-        hideKeyboard();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty()};readyNode("finance-logout").performClick();rule.waitUntil(10000) {model.vault.current==null}
+        hideKeyboard();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()};rule.logoutFromAccount();rule.waitUntil(10000) {model.vault.current==null}
     }
     @Test fun attachmentReviewRemainsReachableAtLargeFontNarrowAndLandscape() {
         attachmentDraft();val model=runtime()
@@ -475,7 +629,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("conflict-keep-local").performScrollTo().performClick()
         rule.waitUntil(10000) {posts.get()==2}
         val latest=receipts.values.maxBy {it.getInt("version")};assertEquals(3,latest.getInt("version"));assertEquals("Koreksi lokal sintetis",latest.getJSONObject("data").getString("notes"))
-        readyNode("finance-logout").performClick();login("manager@example.invalid")
+        rule.logoutFromAccount();login("manager@example.invalid")
         rule.onNodeWithTag("finance-tab-2").performClick();awaitRecord("finance-record-$id")
         rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
         readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
@@ -488,7 +642,7 @@ class FinanceEntryUiTest {
         rule.waitUntil(10000) {rule.onAllNodesWithText("Dibatalkan").fetchSemanticsNodes().isNotEmpty()}
     }
     @Test fun managerSeasonCloseAndReopenUseReasonedVersionedQueue() {
-        readyNode("finance-logout").performClick();login("manager@example.invalid");choose("finance-gh",gh);choose("finance-season",season)
+        rule.logoutFromAccount();login("manager@example.invalid");choose("finance-gh",gh);choose("finance-season",season)
         rule.onNodeWithTag("finance-season-transition").performScrollTo().performClick()
         rule.onNodeWithTag("history-action-confirm").assertIsNotEnabled();rule.onNodeWithTag("history-action-reason").performTextReplacement("Penutupan sintetis");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
         rule.waitUntil(10000) {seasonState.get()=="closed"}
@@ -532,7 +686,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-2").performClick();rule.onNodeWithText("Panen offline UI sintetis").assertDoesNotExist();rule.onNodeWithTag("finance-tab-3").performClick()
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
         rule.onNodeWithTag("history-cancel").assertDoesNotExist();readyText("Pencatat: Pekerja sintetis").performScrollTo().assertExists()
-        readyNode("finance-logout").performClick();login("manager@example.invalid");rule.onNodeWithTag("finance-tab-3").performClick()
+        rule.logoutFromAccount();login("manager@example.invalid");rule.onNodeWithTag("finance-tab-3").performClick()
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
         readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit panen sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
         readyNode("history-cancel").performScrollTo().performClick();rule.onNodeWithTag("history-action-reason").performTextReplacement("Pembatalan panen UI");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
@@ -600,7 +754,7 @@ class FinanceEntryUiTest {
         }
         assertEquals("Draf lama",runtime.store.record(session.scope.key,id)!!.body.getString("notes"))
         rule.waitUntil(10000) {rule.onAllNodesWithTag(if(harvest) "harvest-notes" else "finance-notes").fetchSemanticsNodes().isNotEmpty()}
-        readyNode("finance-logout").performClick()
+        rule.logoutFromAccount()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
         assertEquals(latest,runtime.store.record(session.scope.key,id)!!.body.getString("notes"));assertTrue(runtime.store.outbox(session.scope.key).isEmpty())
         login("worker@example.invalid");rule.onNodeWithTag(if(harvest) "finance-tab-3" else "finance-tab-2").performClick()
@@ -619,7 +773,7 @@ class FinanceEntryUiTest {
         } else createAccepted("Kegiatan diterima tanpa edit")
         lateinit var runtime:FinanceRuntime;rule.runOnIdle {runtime=ViewModelProvider(rule.activity)[FinanceRuntime::class.java]}
         val session=runtime.vault.current!!;val before=runtime.store.record(session.scope.key,id)!!
-        readyNode("finance-edit").performScrollTo().performClick();readyNode("finance-logout").performClick()
+        readyNode("finance-edit").performScrollTo().performClick();rule.logoutFromAccount()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
         val after=runtime.store.record(session.scope.key,id)!!
         assertEquals(before.revision,after.revision);assertEquals(com.inofarm.jogja.core.contracts.SyncState.ACCEPTED,after.syncState)
@@ -638,17 +792,17 @@ class FinanceEntryUiTest {
         rule.activityRule.scenario.recreate();rule.onNodeWithText("Menyimpan isian terakhir sebelum keluar…").assertExists();assertEquals(originalRequests,logoutPosts.get())
         release.complete(Unit);rule.waitUntil(10000) {rule.onAllNodesWithText("Belum keluar").fetchSemanticsNodes().isNotEmpty()}
         assertEquals(session,runtime.vault.current);assertEquals(generation,runtime.vault.generation);assertEquals(originalRequests,logoutPosts.get())
-        rule.onNodeWithText("Kembali ke isian").performClick();rule.onNodeWithTag("finance-logout").assertExists()
+        rule.onNodeWithText("Kembali ke isian").performClick();rule.onNodeWithTag("finance-account").assertExists()
     }
     private fun managerLogin() {
-        readyNode("finance-logout").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()};login("manager@example.invalid")
+        rule.logoutFromAccount();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()};login("manager@example.invalid")
     }
     private fun saleFormWithSources():List<String> {
         fillHarvest("Sumber penjualan UI",true)
         rule.onNodeWithTag("harvest-weight-1").performScrollTo().performTextReplacement("5");hideKeyboard();queueHarvest()
         rule.waitUntil(10000) {harvestPosts.get()==1}
         val sources=harvestReceipts.values.single().getJSONObject("data").getJSONArray("items").let {rows -> (0 until rows.length()).map {rows.getJSONObject(it).getString("id")}}
-        managerLogin();rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.onNodeWithTag("sale-new").performClick()
+        managerLogin();rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("sale-new")
         choose("sale-season",season)
         sources.forEachIndexed {index,id ->
             if(index>0) rule.onNodeWithTag("sale-add").performScrollTo().performClick()
@@ -690,13 +844,13 @@ class FinanceEntryUiTest {
         lateinit var editor:com.inofarm.jogja.feature.sales.SaleEntryViewModel
         rule.runOnIdle {editor=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.sales.SaleEntryViewModel::class.java];editor.new(gh);editor.edit {it.copy(date="belum",items=listOf(com.inofarm.jogja.feature.sales.SaleLine(quantity="1,2,3",price="")))};editor.pauseAutosave()}
         val draft=editor.state.value.draft!!
-        readyNode("finance-logout").performClick();rule.waitUntil(10000) {runtime().vault.current==null}
+        rule.logoutFromAccount();rule.waitUntil(10000) {runtime().vault.current==null}
         val saved=runtime().store.record(session.scope.key,draft.id)!!;val raw=saved.body.getJSONObject("_local_form")
         assertEquals("belum",raw.getString("date"));assertFalse(raw.getBoolean("paid"));assertEquals("1,2,3",raw.getJSONArray("items").getJSONObject(0).getString("quantity"));assertTrue(runtime().store.outbox(session.scope.key).isEmpty())
     }
     private fun financialForm(allocation:Boolean=false) {
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh)
-        rule.onNodeWithTag(if(allocation) "allocation-new" else "expense-new").performClick()
+        if(allocation) rule.clickFinanceTool("allocation-new") else rule.onNodeWithTag("expense-new").performClick()
     }
     private fun fillPayment() {
         choose("expense-category",category);choose("expense-payment-kind","operating")
@@ -756,7 +910,7 @@ class FinanceEntryUiTest {
             editor.edit {it.copy(amount="1,2,3",date="belum",notes="Input terbaru sebelum logout")};editor.pauseAutosave()
         }
         val draft=editor.state.value.draft!!;assertNull(runtime().store.record(session.scope.key,draft.id))
-        readyNode("finance-logout").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
+        rule.logoutFromAccount();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
         login("manager@example.invalid");val saved=runtime().store.record(session.scope.key,draft.id)!!
         assertEquals("1,2,3",saved.body.getJSONObject("_local_form").getString("amount"));assertEquals("belum",saved.body.getJSONObject("_local_form").getString("date"))
         assertTrue(runtime().store.outbox(session.scope.key).isEmpty());assertEquals(0,financePosts.get())
@@ -765,7 +919,7 @@ class FinanceEntryUiTest {
         managerLogin();financialForm();fillPayment();queueFinancial();val id=acceptedFinancial("expense");val session=runtime().vault.current!!
         val before=runtime().store.record(session.scope.key,id)!!
         rule.runOnIdle {ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.expenses.FinancialEntryViewModel::class.java].open(before)}
-        readyNode("finance-logout").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
+        rule.logoutFromAccount();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
         login("manager@example.invalid");val after=runtime().store.record(session.scope.key,id)!!
         assertEquals(before.revision,after.revision);assertEquals(com.inofarm.jogja.core.contracts.SyncState.ACCEPTED,after.syncState);assertEquals(1,runtime().store.outbox(session.scope.key).size)
     }
@@ -844,8 +998,8 @@ class FinanceEntryUiTest {
         return expense
     }
     @Test fun assetFormReviewRecreationAndAcceptedHistoryUseDedicatedFlow() {
-        val expense=assetSources();readyNode("finance-logout").performClick();login("manager@example.invalid")
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.onNodeWithTag("asset-new").performClick();choose("asset-expense",expense)
+        val expense=assetSources();rule.logoutFromAccount();login("manager@example.invalid")
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new");choose("asset-expense",expense)
         for((tag,value) in listOf("asset-name" to "Pompa UI sintetis","asset-cost" to "100,00","asset-residual" to "0","asset-life" to "3","asset-start" to "2026-01-01","asset-basis" to "Basis manual eksplisit")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
         hideKeyboard();rule.activityRule.scenario.recreate();rule.onNodeWithTag("asset-name").performScrollTo().assertTextContains("Pompa UI sintetis")
         rule.onNodeWithTag("asset-review").performScrollTo().performClick();rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
@@ -856,8 +1010,8 @@ class FinanceEntryUiTest {
         rule.onNodeWithText("Harga 100.00 IDR · nilai sisa 0.00 IDR").assertExists()
     }
     @Test fun depreciationRequiresExplicitUsagePeriodBasisAndDoesNotInventAmount() {
-        val asset=assetSources(true);readyNode("finance-logout").performClick();login("manager@example.invalid")
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.onNodeWithTag("depreciation-new").performClick();choose("asset-source",asset);choose("asset-season",season)
+        val asset=assetSources(true);rule.logoutFromAccount();login("manager@example.invalid")
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("depreciation-new");choose("asset-source",asset);choose("asset-season",season)
         assertEquals("",rule.onNodeWithTag("asset-amount").performScrollTo().fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.EditableText].text)
         for((tag,value) in listOf("asset-usage-year" to "1","asset-period-start" to "2026-01-01","asset-period-end" to "2027-01-01","asset-amount" to "33,33","asset-basis" to "Pemakaian musim sintetis")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
         hideKeyboard();rule.onNodeWithTag("asset-new-usage").performScrollTo().performClick();rule.onNodeWithTag("asset-review").performScrollTo().performClick();rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
@@ -865,28 +1019,30 @@ class FinanceEntryUiTest {
         val receipt=financeReceipts.values.single {financeKinds[it.getString("entity_id")]=="depreciation_allocation"};assertEquals("33.33",receipt.getJSONObject("data").getString("amount"))
     }
     @Test fun assetImmediateLogoutFlushesLatestIncompleteRawInput() {
-        assetSources();readyNode("finance-logout").performClick();login("manager@example.invalid");rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.onNodeWithTag("asset-new").performClick()
-        rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Terakhir sebelum logout");hideKeyboard();readyNode("finance-logout").performClick()
+        assetSources();rule.logoutFromAccount();login("manager@example.invalid");rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new")
+        rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Terakhir sebelum logout");hideKeyboard();rule.logoutFromAccount()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
         login("manager@example.invalid");val model=runtime();val session=model.vault.current!!
         val row=model.store.records(session.scope.key,kind="asset").single();assertEquals("Terakhir sebelum logout",row.body.getJSONObject("_local_form").getString("name"));assertTrue(model.store.outbox(session.scope.key).none {it.envelope.optString("entity_type")=="asset"})
     }
     @Test fun assetHubRemainsScrollableWithFont200Percent() {
-        assetSources();readyNode("finance-logout").performClick();login("manager@example.invalid")
+        assetSources();rule.logoutFromAccount();login("manager@example.invalid")
         rule.runOnUiThread {
             val model=ViewModelProvider(rule.activity)[FinanceRuntime::class.java];val density=rule.activity.resources.displayMetrics.density
             rule.activity.setContent {CompositionLocalProvider(LocalDensity provides Density(density,2f)) {InofarmTheme {Box(Modifier.width(320.dp).fillMaxHeight()) {FinanceRoot(model)}}}}
         }
         rule.waitForIdle();rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh)
+        rule.openFinanceTools()
         rule.onNodeWithTag("asset-new").performScrollTo().assertIsDisplayed();rule.onNodeWithTag("depreciation-new").performScrollTo().assertIsDisplayed()
-        choose("expense-history-kind","asset");rule.onNodeWithTag("asset-new").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-tools-close").performScrollTo().performClick()
+        choose("expense-history-kind","asset");rule.clickFinanceTool("asset-new")
         rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Isian 200 persen")
         rule.onNodeWithTag("asset-basis").performScrollTo().performTextReplacement("Basis tetap bisa dijangkau");hideKeyboard()
         rule.onNodeWithTag("asset-save-draft").performScrollTo().assertIsDisplayed().performClick()
     }
 
     @Test fun assetConflictReviewPreservesRawLocalNameAndOldOperation() {
-        val id=assetSources(true);readyNode("finance-logout").performClick();login("manager@example.invalid")
+        val id=assetSources(true);rule.logoutFromAccount();login("manager@example.invalid")
         val model=runtime();val session=model.vault.current!!
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","asset")
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
@@ -910,8 +1066,8 @@ class FinanceEntryUiTest {
     }
 
     @Test fun assetQueueRechecksPaymentAndReturnsFailureReasonWithoutLosingRawInput() {
-        val expense=assetSources();readyNode("finance-logout").performClick();login("manager@example.invalid")
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.onNodeWithTag("asset-new").performClick();choose("asset-expense",expense)
+        val expense=assetSources();rule.logoutFromAccount();login("manager@example.invalid")
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new");choose("asset-expense",expense)
         for((tag,value) in listOf("asset-name" to "Aset sumber berubah","asset-cost" to "100","asset-residual" to "0","asset-life" to "3","asset-start" to "2026-01-01","asset-basis" to "Basis manual")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
         hideKeyboard();rule.onNodeWithTag("asset-review").performScrollTo().performClick()
         val model=runtime();val session=model.vault.current!!;val cancelled=JSONObject(model.store.cachedOne(session.scope.key,"expense",expense)!!.toString()).put("version",2).put("record_state","cancelled")
@@ -926,19 +1082,22 @@ class FinanceEntryUiTest {
     }
 
     @Test fun investmentWorkspaceRecreationAndLogoutKeepLatestIncompleteRawInput() {
-        readyNode("finance-logout").performClick();login("manager@example.invalid")
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);readyNode("investment-open").performScrollTo().performClick()
+        rule.logoutFromAccount();login("manager@example.invalid")
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("investment-open")
         rule.waitUntil(10000) {rule.onAllNodesWithTag("investment-list").fetchSemanticsNodes().isNotEmpty()}
         fun scroll(tag:String) {rule.onNodeWithTag("investment-list").performScrollToNode(hasTestTag(tag))}
-        scroll("investment-new");rule.onNodeWithTag("investment-new").performClick();scroll("investment-name");rule.onNodeWithTag("investment-name").performTextReplacement("  Skenario root α  ");hideKeyboard()
+        scroll("investment-new");rule.onNodeWithTag("investment-new").performClick();scroll("investment-name")
+        rule.onNodeWithTag("investment-name").performScrollTo().performTextReplacement("  Skenario root α  ")
+        rule.onNodeWithTag("investment-name").assertTextContains("  Skenario root α  ")
+        hideKeyboard()
         scroll("investment-horizon");rule.onNodeWithTag("investment-horizon").performTextReplacement("2");hideKeyboard()
         val model=runtime();val session=model.vault.current!!;val vm=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.investments.InvestmentViewModel::class.java];val id=vm.state.value.scenarioDraft!!.id
         rule.activityRule.scenario.recreate();readyNode("investment-name").performScrollTo().assertTextContains("  Skenario root α  ")
-        scroll("investment-initial");rule.onNodeWithTag("investment-initial").performTextReplacement("1,");hideKeyboard();readyNode("finance-logout").performClick()
+        scroll("investment-initial");rule.onNodeWithTag("investment-initial").performTextReplacement("1,");hideKeyboard();rule.logoutFromAccount()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
         val saved=model.store.record(session.scope.key,id)!!;assertEquals("1,",saved.body.getJSONObject("_local_form").getString("initial"));assertEquals("2",saved.body.getJSONObject("_local_form").getString("horizon"));assertNull(saved.serverVersion)
         assertTrue(model.store.outbox(session.scope.key).none {it.entityId==id})
-        login("manager@example.invalid");rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);readyNode("investment-open").performScrollTo().performClick()
+        login("manager@example.invalid");rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("investment-open")
         rule.waitUntil(10000) {rule.onAllNodesWithTag("investment-record-$id").fetchSemanticsNodes().isNotEmpty()};scroll("investment-record-$id");rule.onNodeWithTag("investment-record-$id").performClick()
         rule.waitUntil(10000) {runCatching {scroll("investment-initial")}.isSuccess}
         rule.onNodeWithTag("investment-initial").assertTextContains("1,")

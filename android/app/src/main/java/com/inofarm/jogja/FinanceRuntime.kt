@@ -1,6 +1,7 @@
 package com.inofarm.jogja
 
 import android.app.Application
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import com.inofarm.jogja.core.database.FinanceDatabase
 import com.inofarm.jogja.core.database.LocalFinanceStore
@@ -57,6 +58,7 @@ class FinanceDependencies(application:Application) {
 
 class FinanceRuntime(application:Application):AndroidViewModel(application) {
     private val dependencies=(application as InofarmApplication).finance
+    internal val configuredLoginEndpoint = mutableStateOf(BuildConfig.FINANCE_API_BASE_URL)
     val vault get()=dependencies.vault
     val store get()=dependencies.store
     val api get()=dependencies.api

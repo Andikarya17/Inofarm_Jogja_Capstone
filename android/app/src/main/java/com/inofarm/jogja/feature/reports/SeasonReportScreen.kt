@@ -1,5 +1,10 @@
 package com.inofarm.jogja.feature.reports
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import com.inofarm.jogja.core.design.FarmDraftStatus
+import com.inofarm.jogja.core.design.FarmMotion
+import com.inofarm.jogja.core.design.FarmPanel
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,7 +38,7 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
         else if(state.busy) {item {CircularProgressIndicator();Text("Memeriksa atau menyimpan evaluasi…")}}
         else if(draft!=null) {
             item {Text(context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse tersimpan")}
-            item {Text(if(state.saved) "Draf tersimpan di perangkat." else "Perubahan belum selesai disimpan.",modifier=Modifier.testTag("report-draft-status"))}
+            item {FarmDraftStatus(state.saved, Modifier.testTag("report-draft-status"))}
             item {Choice("Musim laporan",draft.seasonId,context.seasons.filter {it.optString("greenhouse_id")==draft.greenhouseId},"report-season") {value->vm.edit {it.copy(seasonId=value)}}}
             item {Coverage("Biaya dan alokasi",draft.costs,"report-costs") {value->vm.edit {it.copy(costs=value)}}}
             item {Coverage("Penjualan lunas",draft.sales,"report-sales") {value->vm.edit {it.copy(sales=value)}}}
@@ -102,9 +107,8 @@ private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",n
 }
 @Composable private fun Indicator(key:String,metric:JSONObject) {
     var expanded by remember(key,metric.toString()) {mutableStateOf(false)}
-    OutlinedCard(Modifier.fillMaxWidth().testTag("report-metric-$key")) {Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-        Text(SeasonReportContract.labels.getValue(key),style=MaterialTheme.typography.titleMedium)
-        Text(if(metric.isNull("value")) "Belum dapat dihitung" else reportValue(metric.getString("value"),metric.getString("unit"),metric.getInt("display_scale")),style=MaterialTheme.typography.titleLarge)
+    FarmPanel(Modifier.animateContentSize(tween(FarmMotion.State)).testTag("report-metric-$key"), title = SeasonReportContract.labels.getValue(key)) {
+        Text(if(metric.isNull("value")) "Belum dapat dihitung" else reportValue(metric.getString("value"),metric.getString("unit"),metric.getInt("display_scale")),style=MaterialTheme.typography.headlineSmall)
         if(metric.getString("status")=="provisional") Text("Hasil sementara dari sumber yang belum dinyatakan lengkap.")
         val reasons=metric.getJSONArray("reasons");repeat(reasons.length()) {Text(reasons.getString(it))}
         TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Tutup perhitungan" else "Rumus, input dan asumsi")}
@@ -114,7 +118,7 @@ private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",n
             val assumptions=metric.getJSONArray("assumptions");repeat(assumptions.length()) {Text(assumptions.getString(it))}
             metric.optJSONObject("exact_fraction")?.let {Text("Pecahan sebelum pembulatan: ${it.getString("numerator")} / ${it.getString("denominator")}",style=MaterialTheme.typography.bodySmall)}
         }
-    }}
+    }
 }
 @Composable private fun ReportAssumptions(data:JSONObject) {Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
     Text("Cakupan dan asumsi",style=MaterialTheme.typography.titleMedium)
