@@ -13,6 +13,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.core.contracts.*
+import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.context.CultivationUiState
@@ -34,10 +36,13 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
     }}
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp).testTag("attachment-screen"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         com.inofarm.jogja.core.design.FarmPageTitle("Lampiran catatan")
-        Text("Catatan dan pengiriman berkas memiliki status terpisah. Salinan lokal disimpan terenkripsi.")
-        if(state.busy || state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if(state.busy || state.loading) {
+            Text(if (state.busy) "Memproses berkas…" else "Memuat lampiran…")
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
         state.message?.let {Notice(it,true)}
         val policy=state.policy
+        FarmPanel(title = "Batas dan akses lampiran") {
         if(policy==null) Notice("Batas lampiran belum tersedia. Berkas dapat disalin sebagai draf; pengajuan menunggu konfigurasi server.")
         else {
             if(!policy.optBoolean("configured")) Notice("Konfigurasi lampiran produksi belum ditetapkan.")
@@ -46,12 +51,18 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
             policy.optJSONArray("reasons")?.let {reasons -> repeat(reasons.length()) {Notice(reasons.getString(it),true)}}
         }
         OutlinedButton(onClick=vm::refreshPolicy,enabled=!state.busy,modifier=Modifier.fillMaxWidth()) {Text("Periksa batas dan akses terbaru")}
+        }
         if(state.selected==null) {
             val canChoose=session.role==UserRole.MANAGER || parent.recorderId()==session.scope.accountId
             if(canChoose) Button(onClick={pickerScope=session.scope.key;pickerOwner=parent.id;pickerTicket=ticket;picker.launch(AttachmentContract.supportedMimes.toTypedArray())},enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-choose")) {Text("Pilih berkas sebagai draf")}
             if(state.rows.isEmpty() && !state.loading) Notice("Belum ada lampiran atau draf berkas pada catatan ini.")
-            state.rows.forEach {row -> OutlinedCard(onClick={vm.select(row.id)},modifier=Modifier.fillMaxWidth().testTag("attachment-${row.id}")) {
-                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {Text(row.body.optString("original_name","Berkas belum selesai disalin"));Text(row.syncState.label());Text(copyLabel(row.body));if(row.body.optString("record_state")=="cancelled") Text("Lampiran dibatalkan; riwayat tetap tersedia.")}
+            state.rows.forEach {row -> Card(onClick={vm.select(row.id)},shape=FarmShape.Card,colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface),modifier=Modifier.fillMaxWidth().testTag("attachment-${row.id}")) {
+                Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    Text(row.body.optString("original_name","Berkas belum selesai disalin"),style=MaterialTheme.typography.titleMedium)
+                    Text(copyLabel(row.body),style=MaterialTheme.typography.bodyMedium)
+                    Text(row.syncState.label(),style=MaterialTheme.typography.labelLarge)
+                    if(row.body.optString("record_state")=="cancelled") Text("Lampiran dibatalkan; riwayat tetap tersedia.")
+                }
             }}
             if(state.hasMore) OutlinedButton(onClick=vm::more,enabled=!state.loading) {Text("Muat 50 berikutnya")}
             OutlinedButton(onClick=vm::close,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-close")) {Text("Kembali ke catatan")}

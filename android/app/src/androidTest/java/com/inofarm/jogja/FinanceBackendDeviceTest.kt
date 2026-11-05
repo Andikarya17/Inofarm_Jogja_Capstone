@@ -22,22 +22,24 @@ class FinanceBackendDeviceTest {
     private fun file(name:String)=File(context.getExternalFilesDir(null),name)
     private fun fixture():JSONObject { assertTrue(context.packageName.endsWith(".finance"));return JSONObject(file("finance-device-fixture.json").readText()).also {assertEquals("inofarm_test",it.getString("database"))} }
     private fun login(f:JSONObject,role:String) {
-        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty() || rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty()}
-        if(rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty()) rule.onNodeWithTag("finance-logout").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty() || rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()}
+        if(rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()) rule.logoutFromAccount()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("finance-server").performScrollTo().performTextReplacement(f.getString("base_url"))
+        rule.configureFinanceEndpoint(f.getString("base_url"))
         rule.onNodeWithTag("finance-email").performScrollTo().performTextReplacement(f.getString("${role}_email"))
         rule.onNodeWithTag("finance-password").performScrollTo().performTextReplacement(f.getString("password"))
         hideKeyboard();rule.onNodeWithTag("finance-login").performScrollTo().performClick()
-        rule.waitUntil(15000) {rule.onAllNodesWithTag("finance-gh").fetchSemanticsNodes().isNotEmpty()}
+        rule.waitUntil(15000) {rule.onAllNodesWithTag("finance-context-open").fetchSemanticsNodes().isNotEmpty()}
         rule.waitUntil(15000) {rule.onAllNodesWithText("Data server sudah diperiksa. Tinjau antrean yang ditahan.").fetchSemanticsNodes().isNotEmpty()}
     }
     private fun choose(tag:String,id:String) {
+        rule.prepareChoice(tag)
         rule.waitUntil(10000) {rule.onAllNodesWithTag(tag).fetchSemanticsNodes().size==1}
         rule.onNodeWithTag(tag).performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("$tag-option-$id").fetchSemanticsNodes().size==1}
         rule.onNodeWithTag("$tag-option-$id").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("$tag-option-$id").fetchSemanticsNodes().isEmpty()}
+        rule.finishChoice(tag)
     }
     private fun hideKeyboard() {rule.runOnIdle {(rule.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(rule.activity.window.decorView.windowToken,0)};rule.waitForIdle()}
     private fun runtime():FinanceRuntime {lateinit var runtime:FinanceRuntime;rule.runOnIdle {runtime=ViewModelProvider(rule.activity)[FinanceRuntime::class.java]};return runtime}
@@ -165,7 +167,7 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-record-${op.entityId}").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("history-audit").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(15000) {rule.onAllNodesWithText("Pencatatan · versi 1").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("finance-logout").performClick();login(f,"worker");val worker=model.vault.current!!
+        rule.logoutFromAccount();login(f,"worker");val worker=model.vault.current!!
         rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
         try {model.api.request(worker.scope.server,worker.token,"expenses/${proof.getString("expense_id")}");fail("Worker financial read must be denied")} catch(error:FinanceApiFailure) {assertEquals(403,error.status)}
         attachmentIds.forEach {id -> listOf("attachments/$id","attachments/$id/content","attachments/$id/audit").forEach {path ->
@@ -174,7 +176,7 @@ class FinanceBackendDeviceTest {
         try {model.api.request(worker.scope.server,worker.token,"attachments/policy",query=mapOf("owner_type" to "expense","owner_id" to proof.getString("expense_id")));fail("Worker financial upload policy must be denied")} catch(error:FinanceApiFailure) {assertEquals(403,error.status)}
         val changes=model.api.request(worker.scope.server,worker.token,"sync/changes").getJSONArray("data")
         assertTrue((0 until changes.length()).none {changes.getJSONObject(it).getString("entity_type") in setOf("expense","expense_balance","cost_allocation","expense_categories","expense_attachment")})
-        rule.onNodeWithTag("finance-logout").performClick()
+        rule.logoutFromAccount()
     }
 
     @Test fun queueSaleHarvestWithBackendOffline() {
@@ -205,7 +207,7 @@ class FinanceBackendDeviceTest {
         val sourceOp=model.store.outbox(worker.scope.key).single {it.id==proof.getString("harvest_op")};assertEquals(proof.getString("harvest_hash"),sourceOp.hash)
         model.api.request(worker.scope.server,worker.token,"harvests","POST",sourceOp.envelope)
         login(f,"manager");val ctx=f.getJSONArray("contexts").getJSONObject(0)
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",ctx.getString("greenhouse_id"));rule.onNodeWithTag("sale-new").performClick()
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",ctx.getString("greenhouse_id"));rule.clickFinanceTool("sale-new")
         choose("sale-season",ctx.getString("season_id"));rule.onNodeWithTag("sale-date").performScrollTo().performTextReplacement("2026-10-30")
         repeat(2) {index ->
             if(index>0) rule.onNodeWithTag("sale-add").performScrollTo().performClick()
@@ -236,18 +238,19 @@ class FinanceBackendDeviceTest {
         model.store.acknowledge(session.scope.key,op.id,receipt);assertEquals(2L,model.store.record(session.scope.key,id)!!.serverVersion)
         val balances=model.api.request(session.scope.server,session.token,"harvests/${proof.getString("harvest_id")}/availability").getJSONArray("data")
         repeat(balances.length()) {assertEquals("0.000000",balances.getJSONObject(it).getString("sold_weight_kg"));assertEquals("5.000000",balances.getJSONObject(it).getString("available_weight_kg"))}
-        rule.onNodeWithTag("finance-logout").performClick();login(f,"worker");val worker=model.vault.current!!
+        rule.logoutFromAccount();login(f,"worker");val worker=model.vault.current!!
         try {model.api.request(worker.scope.server,worker.token,"sales/$id");fail("Worker sale must be denied")} catch(error:FinanceApiFailure) {assertEquals(403,error.status)}
         val changes=model.api.request(worker.scope.server,worker.token,"sync/changes").getJSONArray("data");assertTrue((0 until changes.length()).none {changes.getJSONObject(it).getString("entity_type")=="sale"})
-        rule.onNodeWithTag("finance-logout").performClick()
+        rule.logoutFromAccount()
     }
 
     @Test fun queueWithBackendOffline() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="queue")
         val f=fixture();login(f,"worker");val a=f.getJSONArray("contexts").getJSONObject(0)
-        rule.onNodeWithTag("finance-gh").performClick()
+        rule.openHomeContext();rule.onNodeWithTag("finance-gh").performClick()
         rule.onNodeWithTag("finance-gh-option-${f.getJSONArray("contexts").getJSONObject(1).getString("greenhouse_id")}").assertDoesNotExist()
         rule.onNodeWithTag("finance-gh-option-${a.getString("greenhouse_id")}").performClick()
+        rule.finishChoice("finance-gh")
         choose("finance-season",a.getString("season_id"));choose("finance-group",a.getString("group_id"))
         financialOfflineBarrier(f,"device")
         val measurement=InstrumentationRegistry.getArguments().getString("measurementPair")=="true"
@@ -308,7 +311,7 @@ class FinanceBackendDeviceTest {
         val firstGrade=(0 until 2).map {harvest.getJSONArray("items").getJSONObject(it)}.single {it.getString("grade_id")==f.getJSONArray("contexts").getJSONObject(0).getJSONArray("grade_ids").getString(0)}
         assertEquals(3,firstGrade.getInt("fruit_count"));assertEquals("4.500000",firstGrade.getString("weight_kg"))
         val harvestReplay=runtime.api.request(worker.scope.server,worker.token,"harvests","POST",harvestOp.envelope);assertEquals(1,harvestReplay.getInt("version"))
-        rule.onNodeWithTag("finance-logout").performClick();login(f,"manager")
+        rule.logoutFromAccount();login(f,"manager")
         rule.onNodeWithTag("finance-tab-2").performClick();rule.waitUntil(15000) {rule.onAllNodesWithText("DEVICE OFFLINE ${f.getString("fixture_id")}").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithText("DEVICE OFFLINE ${f.getString("fixture_id")}").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-edit").fetchSemanticsNodes().isNotEmpty()}
@@ -320,12 +323,12 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithText("Pencatat: Pekerja perangkat sintetis").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("history-cancel").performScrollTo().performClick();rule.onNodeWithTag("history-action-reason").performTextReplacement("DEVICE HARVEST CANCEL ${f.getString("fixture_id")}");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
         rule.waitUntil(15000) {rule.onAllNodesWithText("Dibatalkan").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("finance-logout").performClick();login(f,"worker")
+        rule.logoutFromAccount();login(f,"worker")
         val currentWorker=runtime.vault.current!!
         val oldReceipt=runtime.api.request(currentWorker.scope.server,currentWorker.token,"harvests","POST",harvestOp.envelope)
         assertEquals(1,oldReceipt.getInt("version"));runtime.store.acknowledge(currentWorker.scope.key,harvestOp.id,oldReceipt)
         val after=runtime.store.record(currentWorker.scope.key,harvestOp.entityId)!!
         assertEquals(2L,after.serverVersion);assertEquals(2L,after.baseVersion);assertEquals("cancelled",after.body.getString("record_state"))
-        rule.onNodeWithTag("finance-logout").performClick()
+        rule.logoutFromAccount()
     }
 }

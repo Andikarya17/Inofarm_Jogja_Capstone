@@ -16,12 +16,12 @@ import androidx.compose.ui.unit.sp
 internal object FarmColors {
     val Brand = Color(0xFF176747)
     val Ink = Color(0xFF103D31)
-    val Muted = Color(0xFF63707B)
+    val Muted = Color(0xFF596772)
     val Background = Color(0xFFF2F5EE)
     val Surface = Color(0xFFFFFFFF)
     val Soft = Color(0xFFE1F0E3)
     val Hero = Color(0xFFD3EEDB)
-    val Outline = Color(0xFFC5CED4)
+    val Outline = Color(0xFF687970)
     val Divider = Color(0xFFD8E1D4)
     val Warning = Color(0xFF805016)
     val WarningSurface = Color(0xFFFFF0D9)
@@ -50,7 +50,7 @@ internal object FarmShape {
     val Control = RoundedCornerShape(12.dp)
     val Card = RoundedCornerShape(20.dp)
     val Hero = RoundedCornerShape(24.dp)
-    val Navigation = RoundedCornerShape(36.dp)
+    val Navigation = RoundedCornerShape(26.dp)
 }
 
 internal object FarmMotion {
@@ -79,7 +79,9 @@ internal object FarmDepth {
             background = Color(0xFF101B16), onBackground = Color(0xFFE3EDE4),
             surface = Color(0xFF17251E), onSurface = Color(0xFFE3EDE4),
             surfaceVariant = Color(0xFF283A30), onSurfaceVariant = Color(0xFFBBCDC0),
+            surfaceContainerLowest = Color(0xFF0E1813), surfaceContainerLow = Color(0xFF15221B),
             surfaceContainer = Color(0xFF203128), surfaceContainerHighest = Color(0xFF304238),
+            surfaceContainerHigh = Color(0xFF293B31),
             outline = Color(0xFF8A9D90), outlineVariant = Color(0xFF405348),
             error = Color(0xFFFFB4A9), onError = Color(0xFF601410),
             errorContainer = Color(0xFF712820), onErrorContainer = Color(0xFFFFDAD4)
@@ -93,7 +95,9 @@ internal object FarmDepth {
             background = background, onBackground = FarmColors.Ink,
             surface = FarmColors.Surface, onSurface = FarmColors.Ink,
             surfaceVariant = FarmColors.Soft, onSurfaceVariant = FarmColors.Muted,
+            surfaceContainerLowest = FarmColors.Surface, surfaceContainerLow = Color(0xFFF7FAF5),
             surfaceContainer = FarmColors.Navigation, surfaceContainerHighest = FarmColors.Soft,
+            surfaceContainerHigh = Color(0xFFE7EEE5),
             outline = FarmColors.Outline, outlineVariant = FarmColors.Divider,
             error = FarmColors.Error, onError = Color.White,
             errorContainer = FarmColors.ErrorSurface, onErrorContainer = FarmColors.Error

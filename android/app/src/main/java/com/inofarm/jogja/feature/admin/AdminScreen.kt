@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature.admin
 
+import com.inofarm.jogja.core.design.FarmPanel
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -37,30 +38,29 @@ import com.inofarm.jogja.feature.Notice
     val close={if(!state.busy && vm.flush()) onClose()}
     Dialog(onDismissRequest=close,properties=DialogProperties(usePlatformDefaultWidth=false,dismissOnBackPress=false)) {
         BackHandler {if(state.editing) vm.back() else close()}
-        Surface(Modifier.fillMaxSize()) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                 com.inofarm.jogja.core.design.FarmPageTitle("Administrasi")
                 Text("Isian disimpan per akun. Pengajuan memerlukan koneksi dan persetujuan Anda; hasil server menentukan hak akses serta versi.")
                 TextButton(onClick={if(state.editing) vm.back() else close()},enabled=!state.busy) {Text(if(state.editing) "Simpan draf dan kembali" else "Tutup administrasi")}
                 state.message?.let {Notice(it)}
-                if(state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if(state.busy) { Text("Memeriksa data administrasi…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 if(state.editing) AdminEditor(state,vm,onAccepted)
                 else {
                     state.form?.let {Button(onClick=vm::resume,enabled=!state.busy,modifier=Modifier.testTag("admin-resume")) {Text(if(state.pending) "Tinjau pengajuan tertunda" else "Lanjutkan draf ${it.resource.label}")}}
-                    Choice("Jenis data",state.resource.name,AdminResource.entries.map {org.json.JSONObject().put("id",it.name).put("name",it.label)},"admin-resource") {vm.choose(AdminResource.valueOf(it))}
-                    Choice("Filter greenhouse",state.greenhouse,state.options["greenhouses"].orEmpty(),"admin-greenhouse",vm::greenhouse)
-                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    FarmPanel(title = "Cakupan administrasi") {
+                        Choice("Jenis data",state.resource.name,AdminResource.entries.map {org.json.JSONObject().put("id",it.name).put("name",it.label)},"admin-resource") {vm.choose(AdminResource.valueOf(it))}
+                        Choice("Filter greenhouse",state.greenhouse,state.options["greenhouses"].orEmpty(),"admin-greenhouse",vm::greenhouse)
                         Button(onClick={vm.open()},enabled=!state.busy && state.form==null,modifier=Modifier.testTag("admin-new")) {Text("Tambah ${state.resource.label}")}
                         TextButton(onClick={vm.reload()},enabled=!state.busy) {Text("Perbarui daftar")}
                     }
                     if(state.rows.isEmpty() && !state.busy) Text("Belum ada data yang dapat ditampilkan. Pilih greenhouse atau periksa koneksi.")
                     state.rows.forEach {row ->
-                        OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                            Text(row.optString("name").ifBlank {row.optString("activity_type").ifBlank {row.optString("user_id")}},style=MaterialTheme.typography.titleMedium)
+                        FarmPanel(title = row.optString("name").ifBlank {row.optString("activity_type").ifBlank {row.optString("user_id")}}) {
                             Text("Versi ${row.optLong("version")} · ${if(row.optString("status")=="closed") "Musim ditutup" else if(row.optBoolean("active",true)) "Aktif" else "Nonaktif"}")
                             TextButton(onClick={vm.open(row)},enabled=!state.busy && state.form==null) {Text("Ubah")}
                             if(state.resource==AdminResource.SEASON) TextButton(onClick={vm.open(row,if(row.optString("status")=="closed") "reopen" else "close")},enabled=!state.busy && state.form==null) {Text(if(row.optString("status")=="closed") "Buka kembali musim" else "Tutup musim")}
-                        }}
+                        }
                     }
                     if(state.cursor!=null) TextButton(onClick={vm.reload(true)},enabled=!state.busy) {Text("Muat berikutnya")}
                 }

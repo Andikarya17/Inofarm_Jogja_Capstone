@@ -22,16 +22,16 @@ class FinanceAssetBackendDeviceTest {
     private fun file(name:String)=File(context.getExternalFilesDir(null),name)
     private fun fixture():JSONObject { assertTrue(context.packageName.endsWith(".finance"));return JSONObject(file("finance-asset-fixture.json").readText()).also {assertEquals("inofarm_test",it.getString("database"))} }
     private fun login(f:JSONObject,role:String) {
-        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty() || rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty()}
-        if(rule.onAllNodesWithTag("finance-logout").fetchSemanticsNodes().isNotEmpty()) rule.onNodeWithTag("finance-logout").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty() || rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()}
+        if(rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()) rule.logoutFromAccount()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("finance-server").performScrollTo().performTextReplacement(f.getString("base_url"))
+        rule.configureFinanceEndpoint(f.getString("base_url"))
         rule.onNodeWithTag("finance-email").performScrollTo().performTextReplacement(f.getString("${role}_email"))
         rule.onNodeWithTag("finance-password").performScrollTo().performTextReplacement(f.getString("password"))
         hideKeyboard()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)==false}
         rule.onNodeWithTag("finance-login").performScrollTo().assertIsEnabled().performClick()
-        try {rule.waitUntil(15000) {rule.onAllNodesWithTag("finance-gh").fetchSemanticsNodes().isNotEmpty()}}
+        try {rule.waitUntil(15000) {rule.onAllNodesWithTag("finance-context-open").fetchSemanticsNodes().isNotEmpty()}}
         catch(error:Exception) {
             lateinit var auth:com.inofarm.jogja.feature.auth.AuthViewModel;rule.runOnIdle {auth=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.auth.AuthViewModel::class.java]}
             throw AssertionError("Login transition: loading=${auth.state.value.loading}, hasSession=${auth.state.value.session!=null}, reason=${auth.state.value.error}",error)
@@ -73,14 +73,14 @@ class FinanceAssetBackendDeviceTest {
     }
     @Test fun queueAssetOffline() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="asset")
-        val f=fixture();login(f,"manager");rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",f.getString("greenhouse_id"));rule.onNodeWithTag("asset-new").performClick();choose("asset-expense",f.getString("expense_id"))
+        val f=fixture();login(f,"manager");rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",f.getString("greenhouse_id"));rule.clickFinanceTool("asset-new");choose("asset-expense",f.getString("expense_id"))
         fields(listOf("asset-name" to "Pompa perangkat sintetis","asset-cost" to "100,00","asset-residual" to "0","asset-life" to "3","asset-start" to "2026-01-01","asset-basis" to "Pemakaian sintetis eksplisit"))
         barrier(f,"asset");remember(JSONObject(),"asset")
     }
     @Test fun replayAssetThenQueueDepreciationOffline():Unit=runBlocking {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="allocation")
         val f=fixture();val proof=JSONObject(file("finance-asset-proof.json").readText());val id=replay(proof,"asset","assets")
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",f.getString("greenhouse_id"));rule.onNodeWithTag("depreciation-new").performClick();choose("asset-source",id);choose("asset-season",f.getString("season_id"))
+        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",f.getString("greenhouse_id"));rule.clickFinanceTool("depreciation-new");choose("asset-source",id);choose("asset-season",f.getString("season_id"))
         fields(listOf("asset-usage-year" to "1","asset-period-start" to "2026-01-01","asset-period-end" to "2027-01-01","asset-amount" to "33,33","asset-basis" to "Satu pemakaian sintetis, pembagian manual"))
         rule.onNodeWithTag("asset-new-usage").performScrollTo().performClick();barrier(f,"allocation");remember(proof,"depreciation_allocation")
     }
@@ -102,6 +102,6 @@ class FinanceAssetBackendDeviceTest {
         for(path in listOf("assets","depreciation-allocations")) {try {model.api.request(worker.scope.server,worker.token,path);fail("Worker cannot read finance") } catch(error:FinanceApiFailure) {assertEquals(403,error.status)}}
         for(kind in listOf("asset","depreciation_allocation")) {try {model.store.cached(worker.scope.key,kind);fail("Worker cache access must be denied")} catch(expected:IllegalArgumentException) {assertTrue(expected.message!!.contains("pengelola"))}}
         rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
-        rule.onNodeWithTag("finance-logout").performClick()
+        rule.logoutFromAccount()
     }
 }

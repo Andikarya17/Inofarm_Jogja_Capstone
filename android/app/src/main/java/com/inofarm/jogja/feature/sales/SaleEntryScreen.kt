@@ -5,11 +5,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.core.database.LocalRecord
+import com.inofarm.jogja.core.design.FarmDraftStatus
+import com.inofarm.jogja.core.design.FarmPageTitle
+import com.inofarm.jogja.core.design.FarmPanel
 import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.expenses.moneyLabel
@@ -24,15 +28,17 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
 @Composable fun SaleForm(state:SaleEntryState,context:CultivationUiState,vm:SaleEntryViewModel) {
     val draft=state.draft ?: return
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        Text(if(draft.baseVersion==null) "Catat penjualan lunas" else "Koreksi penjualan",style=MaterialTheme.typography.headlineMedium)
-        Text(if(state.saved) "Draf tersimpan di perangkat." else "Perubahan belum selesai disimpan.",modifier=Modifier.testTag("sale-draft-status"))
+        FarmPageTitle(if(draft.baseVersion==null) "Catat penjualan lunas" else "Koreksi penjualan")
+        FarmDraftStatus(state.saved, Modifier.testTag("sale-draft-status"))
+        FarmPanel(title = "Pembayaran dan pembeli") {
         if(draft.lockedSeason) Text("Musim: ${context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "terakhir tersimpan"}")
         else Choice("Musim penjualan",draft.seasonId,context.seasons.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("status")=="open"},"sale-season") {value -> vm.edit {it.copy(seasonId=value,items=listOf(SaleLine()))}}
         FinanceField("Tanggal lunas (YYYY-MM-DD)",draft.date,{value -> vm.edit {it.copy(date=value)}},"sale-date",state.errors["paid_at"])
         FinanceField("Jam lunas WIB (HH:mm)",draft.time,{value -> vm.edit {it.copy(time=value)}},"sale-time",hint="Detik opsional HH:mm:ss.")
         FinanceField("Pembeli (boleh kosong)",draft.customer,{value -> vm.edit {it.copy(customer=value)}},"sale-customer",state.errors["customer"])
+        }
         val options=sources(context,draft)
-        draft.items.forEachIndexed {index,line -> OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        draft.items.forEachIndexed {index,line -> key(line.id) { FarmPanel(title = "Rincian panen ${index+1}") {
             fun edit(updated:SaleLine) {vm.edit {it.copy(items=it.items.toMutableList().apply {set(index,updated)})}}
             if(line.id in draft.lockedSources) Text(options.find {it.optString("id")==line.sourceId}?.optString("name") ?: "Sumber terakhir tersimpan · sinkronkan untuk saldo terbaru")
             else Choice("Sumber panen ${index+1}",line.sourceId,options,"sale-source-$index") {edit(line.copy(sourceId=it))}
@@ -53,7 +59,8 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
 }
 @Composable fun SaleReview(draft:SaleDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        com.inofarm.jogja.core.design.FarmPageTitle("Periksa penjualan lunas");SaleDraftFacts(draft,context)
+        FarmPageTitle("Periksa penjualan lunas")
+        FarmPanel(title = "Rincian transaksi") { SaleDraftFacts(draft,context) }
         Notice("Pratinjau dihitung dari harga/bobot manual, total dibulatkan sekali. Saldo terakhir diketahui dan kelengkapan diperiksa ulang server.")
         if(draft.replaceValidationRejected) Notice("Perbaikan membuat operasi baru; pengajuan yang ditolak tetap disimpan.")
         Button(onClick=onQueue,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("sale-queue")) {Text("Simpan lokal dan antrekan")}

@@ -33,7 +33,7 @@ php artisan inofarm:finance-user email-anda --name="Nama pengelola" --role=manag
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
-Masukkan password lewat prompt tersembunyi, minimal12karakter. Provisioner tidak membuat assignment/greenhouse. Di Android, login pengelola→**Beranda → Kelola akun, budidaya dan acuan**→tambah greenhouse; server memberi assignment pencipta secara atomic. Lanjut varietas/musim/kelompok, satuan/bahan/grade/kategori, akun pekerja dan penugasan/jadwal/target sesuai data usaha. Akun owner legacy bukan manager v2. Data produksi/target/harga/diskonto tidak diisi dari fixture.
+Masukkan password lewat prompt tersembunyi, minimal12karakter. Provisioner tidak membuat assignment/greenhouse. Di Android, buka **Menu akun → Kelola akun, budidaya dan acuan** sebagai pengelola untuk menambah greenhouse. Server memberi assignment pencipta secara atomik. Lanjut varietas/musim/kelompok, satuan/bahan/grade/kategori, akun pekerja dan penugasan/jadwal/target sesuai data usaha. Akun owner legacy bukan manager v2. Data produksi/target/harga/diskonto tidak diisi dari fixture.
 
 ```powershell
 Set-Location ..
@@ -42,7 +42,9 @@ $env:JAVA_HOME='C:/lokasi/JDK'
 & "$env:LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" install -r android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Build normal langsung finance tanpa flag. Paket review **`com.inofarm.jogja.finance`**, Android10/API29 minimum, target37. `install -r` mempertahankan data; jangan uninstall/clear untuk memperbaiki sync. Debug emulator URL `http://10.0.2.2:8000/api/v2/`; USB/ADB reverse `adb reverse tcp:8000 tcp:8000` dengan `http://127.0.0.1:8000/api/v2/`. Pilih izin jaringan lokal bila Android meminta. API URL editable di login. Build release memerlukan HTTPS, signing/identity/release plan tersendiri; debug APK bukan paket produksi.
+Build normal langsung finance tanpa flag. Paket review **`com.inofarm.jogja.finance`**, Android10/API29 minimum, target37. `install -r` mempertahankan data. Login menerima Email dan Password, dengan alamat API dari konfigurasi build. Default debug emulator adalah `http://10.0.2.2:8000/api/v2/`. Untuk perangkat USB, jalankan `adb reverse tcp:8000 tcp:8000` dan tambahkan `-PinofarmFinanceDebugApiUrl=http://127.0.0.1:8000/api/v2/` ke daftar argumen Gradle. Berikan izin jaringan lokal bila Android meminta.
+
+Paket release mengambil endpoint HTTPS v2 dari `-PinofarmFinanceApiUrl=<alamat-api>` serta mengikuti rencana signing dan distribusi. Saat memasang APK pengganti, konfigurasi alamat server yang sama dengan sesi asal agar setelah masuk kembali akun menemukan draf dan antrean pada scope server yang sama. Jika alamat tidak valid atau kosong, layar Masuk menampilkan pesan konfigurasi.
 
 
 ## Upgrade pengukuran manual dan batas identitas
@@ -56,7 +58,7 @@ Beranda→pilih GH/musim/kelompok→**Catat pengukuran**→EC mS/cm dan PPM ppm�
 ## Alur penggunaan dan pemulihan kesalahan
 
 - **Pekerja:** pilih GH/musim/kelompok→kegiatan manual/panen→review→simpan draf/antrekan. Lokal, antre, accepted, conflict, rejected, scope revoked dan epoch review ditampilkan terpisah. Riwayat/audit/koreksi mengikuti kewenangan server.
-- **Pengelola:** menu Keuangan untuk pembayaran aktual, alokasi biaya, penjualan lunas dari panen, aset/penyusutan manual, evaluasi musim, investasi, dan ekspor PDF/CSV dari laporan accepted. Semua alasan/sumber/versi dapat ditinjau; kosong bukan0 dan panen belum terjual bukan penerimaan.
+- **Pengelola:** buka **Keuangan** untuk mencatat pengeluaran dan melihat riwayat. **Alat keuangan** berisi alokasi biaya, penjualan lunas, aset, penyusutan, evaluasi musim, investasi dan cadangan. Ekspor PDF/CSV tersedia dari detail laporan yang sudah diterima. Alasan, sumber dan versi tetap dapat ditinjau.
 - **Admin:** satu draf/journal per server+akun, autosave dan Back/ON_STOP flush. Pengajuan perlu review online. Jika respons terputus, buka lagi pengajuan tertunda dan retry operasi yang sama; tidak membuat ID baru. Password akun tidak disimpan; retry account mutation memerlukan password awal yang sama. Konflik tampil lokal/server dan memerlukan pilihan eksplisit. Jangan menghapus pending yang belum diketahui hasil server.
 - **Sync:** tombol Sinkronkan tersedia; job persistent network-aware minimal15menit didaftarkan saat login/restore. OS/Doze/izin/force-stop dapat menunda; waktu itu bukan SLA. Expired/revoked memerlukan login akun yang sama; draf/outbox tetap disimpan. Job tidak mengirim admin journal atau melepaskan epoch hold.
 - **Restore epoch:** masuk ulang, baca server baru, tinjau receipt historis. Receipt cocok dapat diakui eksplisit; missing receipt bukan bukti operasi belum pernah accepted. Salinan lokal berbeda tetap disimpan. Jangan re-ID/replay/rebase/purge otomatis. [Kontrak recovery](../../../contracts/v2/RECOVERY.md).

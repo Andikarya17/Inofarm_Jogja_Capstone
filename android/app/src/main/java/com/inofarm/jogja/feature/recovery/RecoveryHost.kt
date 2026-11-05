@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature.recovery
 
+import com.inofarm.jogja.core.design.FarmPanel
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,7 +48,7 @@ class RecoveryViewModel(private val repository:RecoveryRepository):ViewModel() {
     CompositionLocalProvider(LocalRecoveryActions provides RecoveryActions(vm::open,vm::review,repository::canReview)){content()}
     BackHandler(state.active){vm.close()}
     if(state.active) AlertDialog(onDismissRequest=vm::close,title={Text(if(state.operation==null) "Cadangan sistem" else "Rekonsiliasi setelah pemulihan")},text={LazyColumn(Modifier.fillMaxWidth().heightIn(max=520.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        if(state.busy)item {CircularProgressIndicator()}
+        if(state.busy)item {Text("Memeriksa status di server…"); LinearProgressIndicator(Modifier.fillMaxWidth())}
         state.message?.let {item {Text(it,Modifier.testTag("recovery-message"))}}
         if(state.operation!=null) {
             item {Text("Isi dan ID operasi lama tetap tersimpan. Pemeriksaan ini tidak mengirim ulang transaksi.")}
@@ -55,7 +56,9 @@ class RecoveryViewModel(private val repository:RecoveryRepository):ViewModel() {
                 if(review.getString("state")=="receipt_found")item {Button(onClick={vm.acknowledge(onChanged)},enabled=!state.busy,modifier=Modifier.testTag("recovery-ack")){Text("Akui tanda terima historis")}}
             }
         } else {
-            item {Text("Cadangan mencakup seluruh sistem dan lampiran server. Isian yang belum tersinkron di perangkat tetap terpisah. Restore produksi dilakukan melalui operator server dengan prosedur tersendiri.")}
+            item {FarmPanel(title = "Cakupan cadangan") {
+                Text("Cadangan mencakup seluruh sistem dan lampiran server. Isian yang belum tersinkron di perangkat tetap terpisah. Restore produksi dilakukan melalui operator server dengan prosedur tersendiri.")
+            }}
             state.policy?.let {policy->
                 if(!policy.getBoolean("available"))item {Text("Kewenangan operator pencadangan belum ditetapkan untuk akun ini.")}
                 else {
@@ -76,5 +79,12 @@ class RecoveryViewModel(private val repository:RecoveryRepository):ViewModel() {
     if(confirm)AlertDialog(onDismissRequest={confirm=false},title={Text("Cadangkan seluruh sistem?")},text={Text("Cadangan privat menyertakan seluruh database dan lampiran server. Permintaan dengan ID yang sama tidak membuat cadangan ganda. Ini belum membuktikan restore berhasil.")},confirmButton={Button(onClick={confirm=false;vm.create(requestId,reason)}){Text("Cadangkan sekarang")}},dismissButton={TextButton(onClick={confirm=false}){Text("Kembali")}})
 }
 
-@Composable fun RecoveryBackupButton() {val actions=LocalRecoveryActions.current ?: return;OutlinedButton(onClick=actions.backups,modifier=Modifier.fillMaxWidth().testTag("recovery-open")){Text("Cadangan dan pemeriksaan pemulihan")}}
+@Composable fun RecoveryBackupButton(onOpen: () -> Unit = {}) {
+    val actions = LocalRecoveryActions.current ?: return
+    OutlinedButton(
+        onClick = { onOpen(); actions.backups() },
+        shape = com.inofarm.jogja.core.design.FarmShape.Control,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recovery-open")
+    ) { Text("Cadangan dan pemeriksaan pemulihan") }
+}
 @Composable fun RecoveryReviewButton(op:QueuedOperation) {val actions=LocalRecoveryActions.current ?: return;if(actions.canReview(op)) OutlinedButton(onClick={actions.review(op)},modifier=Modifier.testTag("recovery-review-${op.id}")){Text("Periksa tanda terima setelah pemulihan")}}
