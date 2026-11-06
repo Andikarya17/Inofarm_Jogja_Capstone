@@ -67,8 +67,10 @@ class ReportExportViewModel(private val repository:ReportExportRepository):ViewM
 
 @Composable fun ReportExportActions(row:LocalRecord) {
     val action=LocalReportExport.current ?: return
-    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick={action(row,"pdf")},modifier=Modifier.fillMaxWidth().testTag("report-download-pdf")) {Text("Unduh PDF dari laporan ini")}
-        OutlinedButton(onClick={action(row,"csv")},modifier=Modifier.fillMaxWidth().testTag("report-download-csv")) {Text("Unduh CSV dari laporan ini")}
+    com.inofarm.jogja.core.design.FarmSection("Unduh laporan") {
+        OutlinedButton(onClick={action(row,"pdf")},shape=com.inofarm.jogja.core.design.FarmShape.Control,
+            modifier=Modifier.fillMaxWidth().testTag("report-download-pdf")) {Text("Unduh PDF dari laporan ini")}
+        OutlinedButton(onClick={action(row,"csv")},shape=com.inofarm.jogja.core.design.FarmShape.Control,
+            modifier=Modifier.fillMaxWidth().testTag("report-download-csv")) {Text("Unduh CSV dari laporan ini")}
     }
 }

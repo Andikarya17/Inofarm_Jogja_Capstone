@@ -2,9 +2,13 @@ package com.inofarm.jogja.feature.reports
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import com.inofarm.jogja.core.design.FarmAmount
 import com.inofarm.jogja.core.design.FarmDraftStatus
+import com.inofarm.jogja.core.design.FarmFact
 import com.inofarm.jogja.core.design.FarmMotion
+import com.inofarm.jogja.core.design.FarmPageTitle
 import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,7 +36,12 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
     val accepted=selected?.serverVersion!=null
     val data=runCatching {draft?.preview() ?: if(accepted) selected?.serverBody ?: selected?.body else selected?.body?.optJSONObject("_local_form")?.optJSONObject("preview")}.getOrNull()
     LazyColumn(Modifier.fillMaxSize().testTag("report-list"),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
-        item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("Evaluasi musim",style=MaterialTheme.typography.headlineMedium,modifier=Modifier.weight(1f));TextButton(onClick=vm::back,enabled=!state.busy,modifier=Modifier.testTag("report-back")) {Text(if(draft!=null) "Simpan draf" else "Kembali")}}}
+        item {
+            FarmPageTitle("Evaluasi musim")
+            TextButton(onClick = vm::back, enabled = !state.busy, modifier = Modifier.testTag("report-back")) {
+                Text(if (draft != null) "Simpan draf" else "Kembali")
+            }
+        }
         state.message?.let {message -> item {Notice(message,true)}}
         if(state.accessDenied) {item {Notice("Akses perlu diperiksa kembali. Sinkronkan atau masuk ulang; data lokal tidak dihapus.",true)}}
         else if(state.busy) {item {CircularProgressIndicator();Text("Memeriksa atau menyimpan evaluasi…")}}
@@ -47,18 +56,17 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
             item {FinanceField("Catatan tinjauan pengelola",draft.note,{value->vm.edit {it.copy(note=value)}},"report-note",state.errors["note"],singleLine=false)}
             item {Notice("Lengkap adalah pernyataan tinjauan Anda. Aplikasi tidak dapat memastikan seluruh perangkat offline atau transaksi yang belum dicatat. Pembelian aset dan pembayaran sumber tidak dibebankan lagi bersama alokasi.")}
             state.errors.values.distinct().forEach {message->item {Notice(message,true)}}
-            item {Button(onClick=vm::preview,modifier=Modifier.fillMaxWidth().testTag("report-preview")) {Text("Muat dan tinjau pratinjau server")}}
+            item {Button(onClick=vm::preview,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("report-preview")) {Text("Muat dan tinjau pratinjau server")}}
             if(data!=null) {
                 item {Notice("Pratinjau belum menjadi laporan yang diterima server. Perubahan sumber memerlukan peninjauan ulang.");draft.previewFetchedAt?.let {Text("Pratinjau diperiksa pada perangkat: ${timeLabel(Instant.ofEpochMilli(it).toString())}")}}
                 item {ReportHeader(data,false)}
                 items(SeasonReportContract.labels.keys.toList(),key={it}) {key ->Indicator(key,data.getJSONObject("metrics").getJSONObject(key))}
                 item {ReportAssumptions(data)}
                 item {OutlinedButton(onClick=vm::sources,modifier=Modifier.fillMaxWidth().testTag("report-sources")) {Text("Tinjau sumber dan versinya")}}
-                item {Button(onClick=vm::queue,modifier=Modifier.fillMaxWidth().testTag("report-queue")) {Text("Simpan permintaan dan antrekan")}}
+                item {Button(onClick=vm::queue,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("report-queue")) {Text("Simpan permintaan dan antrekan")}}
             }
             item {OutlinedButton(onClick=vm::back,modifier=Modifier.fillMaxWidth().testTag("report-save-draft")) {Text("Simpan draf dan kembali")}}
         } else if(selected!=null) {
-            if(accepted) item {com.inofarm.jogja.feature.exports.ReportExportActions(selected)}
             item {Notice(if(accepted) {if(state.fresh) "Laporan tersimpan telah diperiksa ke server pada sesi ini." else "Menampilkan salinan laporan tersimpan. Pemeriksaan terbaru belum terkonfirmasi."} else "Permintaan lokal belum diterima server. Hasil berikut hanya pratinjau yang pernah ditinjau.",!accepted)}
             selected.error?.let {error ->item {ErrorReasons(error)}}
             if(data!=null) {
@@ -70,6 +78,7 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
                     item {OutlinedButton(onClick={vm.new(selected.greenhouseId,data.getString("season_id"))},modifier=Modifier.fillMaxWidth().testTag("report-evaluate-again")) {Text("Evaluasi ulang sebagai laporan baru")}}
                 }
             } else item {Notice("Belum ada laporan yang diterima server untuk ditampilkan. Permintaan tetap tersimpan.")}
+            if(accepted) item {com.inofarm.jogja.feature.exports.ReportExportActions(selected)}
         } else {
             item {Text("Riwayat lokal per akun. Sinkronkan untuk menerima laporan server terbaru; laporan lama tetap tersimpan.")}
             item {Choice("Greenhouse laporan",state.greenhouse,listOf(option("","Semua greenhouse"))+context.greenhouses,"report-gh") {vm.filter(it,"")}}
@@ -96,19 +105,38 @@ private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",n
     Choice("Kelengkapan $label",value,listOf(option("unknown","Belum diketahui"),option("partial","Belum lengkap"),option("complete","Sudah ditinjau lengkap")),tag,onChange)
 }
 @Composable private fun ReportHeader(data:JSONObject,accepted:Boolean) {
-    Text(data.getJSONObject("scope").getJSONObject("greenhouse").getString("name"),style=MaterialTheme.typography.titleLarge)
-    Text(data.getJSONObject("scope").getJSONObject("season").getString("name"))
-    Text(if(data.getString("report_state")=="reviewed_final") "Akhir setelah tinjauan pengelola" else "Sementara",modifier=Modifier.testTag("report-status"))
-    if(accepted) {Text("Diterbitkan: ${timeLabel(data.getString("generated_at"))}");Text("Pengelola: ${data.getString("recorded_by_name")}")}
-    Text("Dasar: ${data.getInt("source_count")} sumber · metode biaya tercatat, versi 1",style=MaterialTheme.typography.bodySmall)
-    fun coverage(value:String)=when(value) {"complete"->"ditinjau lengkap";"partial"->"belum lengkap";else->"belum diketahui"}
-    Text("Biaya/alokasi: ${coverage(data.getJSONObject("coverage").getString("costs"))}; penjualan: ${coverage(data.getJSONObject("coverage").getString("sales"))}.")
-    Text("Tinjauan: ${data.getString("review_note")}")
+    val scope = data.getJSONObject("scope")
+    val season = scope.getJSONObject("season")
+    val coverage = data.getJSONObject("coverage")
+    fun coverageLabel(value: String) = when (value) {
+        "complete" -> "ditinjau lengkap"
+        "partial" -> "belum lengkap"
+        else -> "belum diketahui"
+    }
+    FarmPanel(title = season.getString("name")) {
+        Text(scope.getJSONObject("greenhouse").getString("name"), style = MaterialTheme.typography.bodyMedium)
+        Text(if (data.getString("report_state") == "reviewed_final") "Akhir setelah tinjauan pengelola" else "Sementara",
+            modifier = Modifier.testTag("report-status"), style = MaterialTheme.typography.labelLarge)
+        val start = if (season.isNull("start_date")) "Awal belum tersedia" else season.getString("start_date")
+        val end = if (season.isNull("end_date")) "akhir belum tercatat" else season.getString("end_date")
+        FarmFact("Periode musim", "$start · $end")
+        FarmFact("Dasar evaluasi", "${data.getInt("source_count")} sumber · metode biaya tercatat, versi 1")
+        Text("Biaya dan alokasi ${coverageLabel(coverage.getString("costs"))}. Penjualan ${coverageLabel(coverage.getString("sales"))}.")
+        if (accepted) {
+            Text("Diterbitkan ${timeLabel(data.getString("generated_at"))}", style = MaterialTheme.typography.bodySmall)
+            Text("Pengelola ${data.getString("recorded_by_name")}", style = MaterialTheme.typography.bodySmall)
+        }
+        FarmFact("Tinjauan", data.getString("review_note"))
+    }
 }
 @Composable private fun Indicator(key:String,metric:JSONObject) {
     var expanded by remember(key,metric.toString()) {mutableStateOf(false)}
     FarmPanel(Modifier.animateContentSize(tween(FarmMotion.State)).testTag("report-metric-$key"), title = SeasonReportContract.labels.getValue(key)) {
-        Text(if(metric.isNull("value")) "Belum dapat dihitung" else reportValue(metric.getString("value"),metric.getString("unit"),metric.getInt("display_scale")),style=MaterialTheme.typography.headlineSmall)
+        val unit = metric.getString("unit")
+        val value = if (metric.isNull("value")) "Belum dapat dihitung"
+            else reportValue(metric.getString("value"), unit, metric.getInt("display_scale"))
+        if (!metric.isNull("value") && unit in setOf("IDR", "IDR/kg")) FarmAmount(value, MaterialTheme.typography.headlineSmall)
+        else Text(value, style = MaterialTheme.typography.headlineSmall)
         if(metric.getString("status")=="provisional") Text("Hasil sementara dari sumber yang belum dinyatakan lengkap.")
         val reasons=metric.getJSONArray("reasons");repeat(reasons.length()) {Text(reasons.getString(it))}
         TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Tutup perhitungan" else "Rumus, input dan asumsi")}

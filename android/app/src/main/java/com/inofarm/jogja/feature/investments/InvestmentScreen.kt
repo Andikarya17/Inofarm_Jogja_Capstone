@@ -2,9 +2,13 @@ package com.inofarm.jogja.feature.investments
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import com.inofarm.jogja.core.design.FarmAmount
 import com.inofarm.jogja.core.design.FarmDraftStatus
+import com.inofarm.jogja.core.design.FarmFact
 import com.inofarm.jogja.core.design.FarmMotion
 import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmSection
+import com.inofarm.jogja.core.design.FarmShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -47,16 +51,15 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
             item {FarmPanel(title = "Tinjau skenario sebelum menerbitkan laporan") { FarmDraftStatus(state.saved, Modifier.testTag("investment-draft-status")) }}
             item {Notice("Laporan memakai skenario yang telah diterima server. Perubahan belum terkirim harus disinkronkan dahulu.")}
             item {FinanceField("Catatan tinjauan",draft.note,{v->vm.editReport {it.copy(note=v)}},"investment-report-note")}
-            item {Button(onClick=vm::preview,modifier=Modifier.fillMaxWidth().testTag("investment-preview")) {Text("Muat pratinjau server")}}
+            item {Button(onClick=vm::preview,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("investment-preview")) {Text("Muat pratinjau server")}}
             val preview=runCatching {draft.preview()}.getOrNull()
             if(preview!=null) {
                 report(preview,false)
                 item {Text("Pratinjau dimuat: ${draft.previewFetchedAt?.let {java.time.Instant.ofEpochMilli(it).toString()} ?: "belum tercatat"}. Sumber akan diperiksa lagi saat server menerima permintaan.")}
-                item {Button(onClick=vm::queueReport,modifier=Modifier.fillMaxWidth().testTag("investment-report-queue")) {Text("Simpan permintaan dan antrekan")}}
+                item {Button(onClick=vm::queueReport,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("investment-report-queue")) {Text("Simpan permintaan dan antrekan")}}
             }
         } else if(state.selected!=null) {
             val row=state.selected;val accepted=row.serverVersion!=null;val body=row.serverBody ?: row.body
-            if(accepted && row.kind==InvestmentContract.REPORT) item {com.inofarm.jogja.feature.exports.ReportExportActions(row)}
             item {Notice(if(accepted) {if(state.fresh) "Salinan telah diperiksa ke server pada sesi ini." else "Menampilkan salinan terakhir tersimpan. Pemeriksaan terbaru belum terkonfirmasi."} else "Catatan lokal belum diterima server.",!state.fresh);Text(row.syncState.label())}
             row.error?.let {item {ErrorReasons(it)}}
             if(row.kind==InvestmentContract.SCENARIO) {
@@ -80,6 +83,7 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
                 val snapshot=if(accepted) body else row.body.optJSONObject("_local_form")?.optJSONObject("preview")
                 if(snapshot!=null) report(snapshot,accepted)
                 if(accepted) {
+                    item {com.inofarm.jogja.feature.exports.ReportExportActions(row)}
                     item {Notice("Snapshot ini tetap memakai sumber dan rumus saat diterbitkan. Evaluasi baru menghasilkan laporan baru.")}
                     item {OutlinedButton(onClick=vm::sources,modifier=Modifier.fillMaxWidth().testTag("investment-sources")) {Text("Tinjau sumber tersimpan")}}
                     item {OutlinedButton(onClick=vm::reevaluate,modifier=Modifier.fillMaxWidth().testTag("investment-reevaluate")) {Text("Buat evaluasi baru dari skenario ini")}}
@@ -111,7 +115,7 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
 }
 
 private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:InvestmentState,vm:InvestmentViewModel,context:CultivationUiState) {
-    item {FarmPanel(title = if(draft.baseVersion==null) "Skenario baru" else "Koreksi skenario versi ${draft.baseVersion}") {
+    item {FarmSection(title = if(draft.baseVersion==null) "Skenario baru" else "Koreksi skenario versi ${draft.baseVersion}") {
         Text(context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse tersimpan")
         FarmDraftStatus(state.saved, Modifier.testTag("investment-draft-status"))
     }}
@@ -128,7 +132,12 @@ private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:Inves
     val count=runCatching {InvestmentInputs.horizon(draft.horizon)}.getOrNull()
     draft.flows.forEachIndexed {index,flow->
         val year=index+1
-        item(key="year-heading-$year") {Text("Tahun $year${if(count!=null && year>count) " · di luar horizon, tidak dikirim" else ""}",style=MaterialTheme.typography.titleLarge);state.errors["flow-$year"]?.let {Notice(it,true)}}
+        item(key="year-heading-$year") {
+            FarmSection("Tahun $year") {
+                if (count != null && year > count) Text("Di luar horizon, tidak dikirim.", style = MaterialTheme.typography.bodySmall)
+                state.errors["flow-$year"]?.let { Notice(it, true) }
+            }
+        }
         item(key="year-amount-$year") {FinanceField("Kas neto tahun $year (IDR; boleh negatif)",flow.amount,{v->vm.editScenario {d->d.copy(flows=d.flows.mapIndexed {i,f->if(i==index) f.copy(amount=v) else f})}},"investment-flow-$year")}
         item(key="year-kind-$year") {SourceChoice("Sumber tahun $year",flow.kind,"investment-flow-kind-$year") {v->vm.editScenario {d->d.copy(flows=d.flows.mapIndexed {i,f->if(i==index) f.copy(kind=v) else f})}}}
         item(key="year-reference-$year") {FinanceField("Referensi tahun $year",flow.reference,{v->vm.editScenario {d->d.copy(flows=d.flows.mapIndexed {i,f->if(i==index) f.copy(reference=v) else f})}},"investment-flow-reference-$year")}
@@ -137,7 +146,7 @@ private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:Inves
     item {FinanceField("Catatan dan asumsi skenario",draft.notes,{v->vm.editScenario {it.copy(notes=v)}},"investment-notes",state.errors["notes"])}
     if(draft.baseVersion!=null) item {FinanceField("Alasan koreksi",draft.reason,{v->vm.editScenario {it.copy(reason=v)}},"investment-reason",state.errors["reason"])}
     state.errors.filterKeys {it !in setOf("name","base_date","horizon","initial","discount","initial_source","notes","reason") && !it.startsWith("flow-")}.values.forEach {item {Notice(it,true)}}
-    item {Button(onClick=vm::queueScenario,modifier=Modifier.fillMaxWidth().testTag("investment-scenario-queue")) {Text("Simpan skenario dan antrekan")}}
+    item {Button(onClick=vm::queueScenario,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("investment-scenario-queue")) {Text("Simpan skenario dan antrekan")}}
     item {OutlinedButton(onClick=vm::back,modifier=Modifier.fillMaxWidth().testTag("investment-save-draft")) {Text("Simpan draf dan kembali")}}
 }
 private fun LazyListScope.rawScenario(d:InvestmentScenarioDraft) {
@@ -149,7 +158,22 @@ private fun LazyListScope.scenario(data:JSONObject) {
     val flows=data.getJSONArray("cash_flows");repeat(flows.length()) {i->val f=flows.getJSONObject(i);item {Text("Tahun ${f.getInt("year")}: ${nullable(f,"amount")} IDR · ${sourceLabel(f.optString("source_kind"))}\n${f.getString("source_reference")}\n${f.getString("basis")}")}}
 }
 private fun LazyListScope.report(data:JSONObject,accepted:Boolean) {
-    item {val scope=data.getJSONObject("scope");val s=scope.getJSONObject("scenario");Text(scope.getJSONObject("greenhouse").getString("name"),style=MaterialTheme.typography.titleLarge);Text("${s.getString("name")} · skenario versi ${data.getInt("scenario_version")}");Text("Tanggal dasar ${s.getString("base_date")} · ${s.getInt("horizon_years")} tahun");Text("Konvensi: ${nullable(s,"payback_convention")}; diskonto: ${if(s.isNull("discount_rate")) "belum diketahui" else InvestmentInputs.percentFromRate(s.getString("discount_rate"))+"%"}");val summary=data.getJSONObject("source_summary");Text("Sumber: ${summary.getInt("actual")} aktual dinyatakan, ${summary.getInt("projection")} proyeksi, ${summary.getInt("unknown")} belum dinyatakan.");Text("Tinjauan: ${data.getString("review_note")}");if(accepted) Text("Diterbitkan ${timeLabel(data.getString("generated_at"))} oleh ${data.getString("recorded_by_name")}")}
+    item {
+        val scope = data.getJSONObject("scope")
+        val scenario = scope.getJSONObject("scenario")
+        val summary = data.getJSONObject("source_summary")
+        val discount = if (scenario.isNull("discount_rate")) "belum diketahui"
+            else InvestmentInputs.percentFromRate(scenario.getString("discount_rate")) + "%"
+        FarmPanel(title = scenario.getString("name")) {
+            Text("${scope.getJSONObject("greenhouse").getString("name")} · skenario versi ${data.getInt("scenario_version")}")
+            FarmFact("Periode", "Tanggal dasar ${scenario.getString("base_date")} · ${scenario.getInt("horizon_years")} tahun")
+            FarmFact("Basis arus kas", "${summary.getInt("actual")} aktual dinyatakan, ${summary.getInt("projection")} proyeksi, ${summary.getInt("unknown")} belum dinyatakan.")
+            Text("Konvensi ${nullable(scenario, "payback_convention")} · diskonto $discount", style = MaterialTheme.typography.bodyMedium)
+            if (accepted) Text("Diterbitkan ${timeLabel(data.getString("generated_at"))} oleh ${data.getString("recorded_by_name")}",
+                style = MaterialTheme.typography.bodySmall)
+            FarmFact("Tinjauan", data.getString("review_note"))
+        }
+    }
     items(InvestmentContract.labels.keys.toList(),key={"metric-$it"}) {key->InvestmentIndicator(key,data.getJSONObject("metrics").getJSONObject(key))}
     item {val assumptions=data.getJSONArray("assumptions");repeat(assumptions.length()) {Text(assumptions.getString(it))};Text("Versi rumus: ${data.getString("formula_version")}",style=MaterialTheme.typography.bodySmall)}
 }
@@ -157,7 +181,14 @@ private fun LazyListScope.report(data:JSONObject,accepted:Boolean) {
     var expanded by remember(key,m.toString()) {mutableStateOf(false)}
     FarmPanel(Modifier.animateContentSize(tween(FarmMotion.State)).testTag("investment-metric-$key"),
         title = "$key · ${InvestmentContract.labels.getValue(key)}") {
-        Text(if(m.isNull("value")) {if(m.getString("status")=="not_recovered") "Belum kembali dalam horizon" else "Belum dapat dihitung"} else investmentValue(m.getString("value"),m.getString("unit"),m.getInt("display_scale")),style=MaterialTheme.typography.headlineSmall)
+        val unit = m.getString("unit")
+        val value = when {
+            !m.isNull("value") -> investmentValue(m.getString("value"), unit, m.getInt("display_scale"))
+            m.getString("status") == "not_recovered" -> "Belum kembali dalam horizon"
+            else -> "Belum dapat dihitung"
+        }
+        if (!m.isNull("value") && unit == "IDR") FarmAmount(value, MaterialTheme.typography.headlineSmall)
+        else Text(value, style = MaterialTheme.typography.headlineSmall)
         if(m.getString("status")=="provisional") Text("Hasil sementara; periksa kelengkapan input dan sumber.")
         val reasons=m.getJSONArray("reasons");repeat(reasons.length()) {Text(reasons.getString(it))}
         TextButton(onClick={expanded=!expanded},modifier=Modifier.testTag("investment-detail-$key")) {Text(if(expanded) "Tutup perhitungan" else "Rumus, input dan asumsi")}
