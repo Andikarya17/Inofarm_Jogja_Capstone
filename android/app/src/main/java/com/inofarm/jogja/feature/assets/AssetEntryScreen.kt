@@ -14,6 +14,7 @@ import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.design.FarmDraftStatus
 import com.inofarm.jogja.core.design.FarmPageTitle
 import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmSection
 import com.inofarm.jogja.feature.Choice
 import com.inofarm.jogja.feature.Notice
 import com.inofarm.jogja.feature.context.CultivationUiState
@@ -29,7 +30,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         FarmPageTitle(if(draft.kind==AssetKind.ASSET) "Catat aset" else "Alokasikan penyusutan")
         FarmDraftStatus(state.saved, Modifier.testTag("asset-draft-status"))
-        FarmPanel(title = if (draft.kind == AssetKind.ASSET) "Sumber dan perolehan" else "Aset dan periode pemakaian") {
+        FarmSection(title = if (draft.kind == AssetKind.ASSET) "Sumber dan perolehan" else "Aset dan periode pemakaian") {
         if(draft.kind==AssetKind.ASSET) {
             val sources=context.expenses.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("payment_kind")=="asset_acquisition" && it.optString("record_state")=="active"}.map {JSONObject(it.toString()).put("name","${moneyLabel(it.optString("amount"))} · ${it.optString("notes")} · ${it.optString("id").take(8)}")}
             if(draft.lockedParents) Text("Pembayaran sumber: ${sources.find {it.optString("id")==draft.expenseId}?.optString("name") ?: "terakhir tersimpan"}")
@@ -63,7 +64,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
             }
         }
         }
-        FarmPanel(title = "Dasar dan catatan") {
+        FarmSection(title = "Dasar dan catatan") {
         FinanceField("Dasar pemakaian / pembagian",draft.basis,{value -> vm.edit {it.copy(basis=value)}},"asset-basis",state.errors["basis"],singleLine=false)
         if(draft.baseVersion!=null) FinanceField("Alasan koreksi",draft.reason,{value -> vm.edit {it.copy(reason=value)}},"asset-reason",state.errors["reason"],singleLine=false)
         }

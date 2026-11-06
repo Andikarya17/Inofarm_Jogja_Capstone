@@ -1,6 +1,7 @@
 package com.inofarm.jogja.feature.recovery
 
-import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmSection
+import com.inofarm.jogja.core.design.FarmShape
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -56,14 +57,14 @@ class RecoveryViewModel(private val repository:RecoveryRepository):ViewModel() {
                 if(review.getString("state")=="receipt_found")item {Button(onClick={vm.acknowledge(onChanged)},enabled=!state.busy,modifier=Modifier.testTag("recovery-ack")){Text("Akui tanda terima historis")}}
             }
         } else {
-            item {FarmPanel(title = "Cakupan cadangan") {
+            item {FarmSection(title = "Cakupan cadangan") {
                 Text("Cadangan mencakup seluruh sistem dan lampiran server. Isian yang belum tersinkron di perangkat tetap terpisah. Restore produksi dilakukan melalui operator server dengan prosedur tersendiri.")
             }}
             state.policy?.let {policy->
                 if(!policy.getBoolean("available"))item {Text("Kewenangan operator pencadangan belum ditetapkan untuk akun ini.")}
                 else {
                     item {OutlinedTextField(reason,{reason=it},label={Text("Alasan pencadangan (wajib)")},isError=reason.length>1000,supportingText={Text("${reason.length}/1000 karakter")},enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("recovery-reason"));Text("Jadwal, retensi dan target pemulihan produksi belum ditetapkan.")}
-                    item {Button(onClick={confirm=true},enabled=!state.busy && reason.isNotBlank() && reason.length<=1000,modifier=Modifier.testTag("recovery-create")){Text("Buat cadangan sistem")}}
+                    item {Button(onClick={confirm=true},enabled=!state.busy && reason.isNotBlank() && reason.length<=1000,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("recovery-create")){Text("Buat cadangan sistem")}}
                     item {TextButton(onClick={requestId=UUID.randomUUID().toString();reason=""},enabled=!state.busy){Text("Mulai permintaan baru")};TextButton(onClick={vm.refresh()},enabled=!state.busy){Text("Periksa status terbaru")}}
                     if(state.rows.isEmpty() && !state.busy)item {Text("Belum ada cadangan tercatat.")}
                     items(state.rows,key={it.getString("id")}){row->Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {Text(row.getString("id"));Text("Dibuat (UTC): ${row.optString("created_at").ifBlank {"Belum tersedia"}}");Text(when(row.getString("state")){"completed"->"Cadangan dibuat; restore belum dibuktikan";"requested"->"Permintaan tercatat; periksa kembali";"interrupted_by_restore"->"Terhenti pada titik pemulihan";else->"Cadangan gagal; paket tidak boleh digunakan"});Text(row.getString("reason"));if(row.getString("state")=="completed") {Text("SHA256: ${row.getString("manifest_hash")}");OutlinedButton(onClick={vm.validate(row)},enabled=!state.busy){Text("Periksa integritas paket")}}}}
@@ -83,7 +84,7 @@ class RecoveryViewModel(private val repository:RecoveryRepository):ViewModel() {
     val actions = LocalRecoveryActions.current ?: return
     OutlinedButton(
         onClick = { onOpen(); actions.backups() },
-        shape = com.inofarm.jogja.core.design.FarmShape.Control,
+        shape = FarmShape.Control,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recovery-open")
     ) { Text("Cadangan dan pemeriksaan pemulihan") }
 }

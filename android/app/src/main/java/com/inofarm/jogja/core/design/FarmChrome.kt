@@ -29,12 +29,17 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.unit.dp
 
 @Composable internal fun FarmGlass(
@@ -92,18 +97,35 @@ internal enum class FarmIcon { Account, Sync, Eye, EyeOff }
     }
 }
 
-@Composable internal fun FarmTab(index: Int, label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+@Composable internal fun FarmTab(
+    index: Int, label: String, selected: Boolean, onClick: () -> Unit,
+    modifier: Modifier = Modifier, inline: Boolean = false
+) {
     val colors = MaterialTheme.colorScheme
     var focused by remember { mutableStateOf(false) }
     val indicator by animateColorAsState(
         if (selected) colors.primaryContainer else colors.primaryContainer.copy(alpha = 0f),
         tween(FarmMotion.State), label = "Indikator navigasi"
     )
+    val control = modifier.onFocusChanged { focused = it.isFocused }
+        .border(2.dp, if (focused) colors.primary else Color.Transparent, FarmShape.Control)
+        .selectable(selected, onClick = onClick, role = Role.Tab)
+        .heightIn(min = FarmSpace.Touch)
+    if (inline) {
+        Row(
+            control.background(indicator, FarmShape.Control).padding(horizontal = FarmSpace.Medium),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium)
+        ) {
+            val contentColor = if (selected) colors.onPrimaryContainer else colors.onSurface
+            CompositionLocalProvider(LocalContentColor provides contentColor) { FarmNavigationIcon(index) }
+            Text(label, Modifier.padding(vertical = FarmSpace.Small), style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = contentColor)
+        }
+        return
+    }
     Column(
-        modifier.onFocusChanged { focused = it.isFocused }
-            .border(2.dp, if (focused) colors.primary else Color.Transparent, FarmShape.Control)
-            .selectable(selected, onClick = onClick, role = Role.Tab)
-            .heightIn(min = FarmSpace.Touch).padding(vertical = 6.dp),
+        control.padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -114,7 +136,7 @@ internal enum class FarmIcon { Account, Sync, Eye, EyeOff }
         }
         Text(
             label, style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
     }
@@ -125,11 +147,52 @@ internal enum class FarmIcon { Account, Sync, Eye, EyeOff }
     title: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Surface(modifier.fillMaxWidth(), shape = FarmShape.Card, color = MaterialTheme.colorScheme.surface) {
+    Surface(modifier.fillMaxWidth(), shape = FarmShape.Card, color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
             title?.let { Text(it, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium) }
             content()
         }
+    }
+}
+
+@Composable internal fun FarmSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+        HorizontalDivider()
+        Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
+        content()
+    }
+}
+
+@Composable internal fun FarmFact(label: String, value: String, modifier: Modifier = Modifier, prominent: Boolean = false) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val style = if (prominent) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge
+        if (value.startsWith("Rp")) FarmAmount(value, style)
+        else Text(value, style = if (prominent) style.copy(fontFeatureSettings = "tnum") else style)
+    }
+}
+
+private val rupiahGroupSeparator = Regex("(?<=\\d)\\.(?=\\d{3}(?:[.,]|$))")
+
+@Composable internal fun FarmAmount(value: String, style: TextStyle = MaterialTheme.typography.titleLarge) {
+    val display = remember(value) { rupiahGroupSeparator.replace(value, ".\u200B") }
+    // Keep the original amount available to accessibility services when the visual line wraps.
+    Text(display, Modifier.clearAndSetSemantics { text = AnnotatedString(value) },
+        style = style.copy(fontFeatureSettings = "tnum"))
+}
+
+@Composable internal fun FarmCheckbox(
+    label: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier
+) {
+    Row(
+        modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch)
+            .toggleable(checked, role = Role.Checkbox, onValueChange = onChange),
+        horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(checked, onCheckedChange = null, modifier = Modifier.size(FarmSpace.Touch))
+        Text(label, Modifier.weight(1f).padding(vertical = FarmSpace.Small))
     }
 }
 
@@ -162,7 +225,7 @@ internal enum class FarmIcon { Account, Sync, Eye, EyeOff }
         Modifier.fillMaxWidth(),
         shape = FarmShape.Control,
         color = if (dark) Color(0xFF493519) else FarmColors.WarningSurface,
-        contentColor = if (dark) MaterialTheme.colorScheme.secondary else FarmColors.Warning
+        contentColor = if (dark) ForestScheme.secondary else FarmColors.Warning
     ) {
         Text(message, Modifier.padding(FarmSpace.Medium), style = MaterialTheme.typography.bodyMedium)
     }

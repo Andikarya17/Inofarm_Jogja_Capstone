@@ -48,7 +48,7 @@ class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: Fin
                 if(!vault.matches(ticket,session.scope)) return@withContext SyncOutcome(accepted,"Sesi berubah; antrean akun sebelumnya ditahan.")
                 val op=store.next(session.scope.key) ?: run {
                     if(accepted>0) pull(session,ticket)
-                    return@withContext SyncOutcome(accepted,if(accepted>0) "$accepted catatan diterima server." else "Data server sudah diperiksa. Tinjau antrean yang ditahan.")
+                    return@withContext SyncOutcome(accepted,if(accepted>0) "$accepted catatan diterima server." else "Data server sudah diperiksa.")
                 }
                 if(runCatching {WireContract.hash(op.envelope)}.getOrNull() != op.hash) {
                     store.mark(session.scope.key,op,SyncState.REJECTED,JSONObject().put("code","canonical_hash_mismatch").put("message","Hash pengajuan tidak cocok dengan kontrak UTF-8. Isi dan ID tetap disimpan untuk rekonsiliasi; pengiriman ditahan."))

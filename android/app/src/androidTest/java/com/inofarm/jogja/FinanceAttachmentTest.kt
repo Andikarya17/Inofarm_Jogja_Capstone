@@ -126,12 +126,13 @@ class FinanceAttachmentTest {
         // Reconstruct only this owned synthetic schema6 DB without later tables/columns.
         // Copy ciphertext and immutable hashes verbatim; this also runs on API29 SQLite.
         require(name.startsWith("finance-test-files-"))
+        val newerColumns = setOf("asset_id", "scenario_id")
         val tables=linkedMapOf<String,Pair<String,List<android.content.ContentValues>>>()
         val indexes=mutableListOf<String>()
         context.openOrCreateDatabase(name,0,null).use {old ->
             old.rawQuery("SELECT name,sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('android_metadata','local_attachment_forms')",null).use {schema ->while(schema.moveToNext()) {
-                val table=schema.getString(0);val sql=schema.getString(1).replace(Regex(",\\s*asset_id TEXT"),"");val rows=mutableListOf<android.content.ContentValues>()
-                old.rawQuery("SELECT * FROM $table",null).use {data ->while(data.moveToNext()) {val values=android.content.ContentValues();data.columnNames.forEachIndexed {index,column ->if(column!="asset_id") {when(data.getType(index)) {
+                val table=schema.getString(0);val sql=schema.getString(1).replace(Regex(",\\s*(asset_id|scenario_id) TEXT"),"");val rows=mutableListOf<android.content.ContentValues>()
+                old.rawQuery("SELECT * FROM $table",null).use {data ->while(data.moveToNext()) {val values=android.content.ContentValues();data.columnNames.forEachIndexed {index,column ->if(column !in newerColumns) {when(data.getType(index)) {
                     android.database.Cursor.FIELD_TYPE_NULL->values.putNull(column)
                     android.database.Cursor.FIELD_TYPE_INTEGER->values.put(column,data.getLong(index))
                     android.database.Cursor.FIELD_TYPE_FLOAT->values.put(column,data.getDouble(index))
@@ -139,7 +140,7 @@ class FinanceAttachmentTest {
                     else->values.put(column,data.getString(index))
                 }}};rows.add(values)}};tables[table]=sql to rows
             }}
-            old.rawQuery("SELECT sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL AND name!='local_asset_parent'",null).use {cursor ->while(cursor.moveToNext()) indexes.add(cursor.getString(0))}
+            old.rawQuery("SELECT sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL AND name NOT IN ('local_asset_parent','local_investment_scenario')",null).use {cursor ->while(cursor.moveToNext()) indexes.add(cursor.getString(0))}
         }
         assertTrue(context.deleteDatabase(name))
         context.openOrCreateDatabase(name,0,null).use {legacy ->legacy.beginTransaction();try {tables.forEach {(table,snapshot) ->legacy.execSQL(snapshot.first);snapshot.second.forEach {legacy.insertOrThrow(table,null,it)}};indexes.forEach(legacy::execSQL);legacy.version=6;legacy.setTransactionSuccessful()} finally {legacy.endTransaction()}}

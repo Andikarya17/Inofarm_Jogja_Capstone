@@ -1,8 +1,8 @@
 package com.inofarm.jogja.feature
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.selection.selectableGroup
 import com.inofarm.jogja.core.design.*
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.BorderStroke
@@ -38,6 +38,7 @@ import com.inofarm.jogja.feature.assets.*
 import com.inofarm.jogja.feature.reports.*
 import com.inofarm.jogja.feature.investments.*
 import com.inofarm.jogja.FinanceRuntime
+import com.inofarm.jogja.R
 import com.inofarm.jogja.core.contracts.OperationalKind
 import com.inofarm.jogja.core.contracts.SyncState
 import com.inofarm.jogja.core.contracts.UserRole
@@ -191,40 +192,30 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         when { writing -> Unit;ime -> keyboard?.hide();investments.state.active -> investments.vm.back();reports.state.active -> reports.vm.back();asset.entry.draft!=null && asset.entry.reviewing -> asset.vm.backToForm();asset.entry.draft!=null -> asset.vm.saveAndClose();asset.history.comparison!=null -> asset.historyVm.closeComparison();asset.history.selected!=null -> asset.historyVm.close();asset.depreciation.comparison!=null -> asset.depreciationVm.closeComparison();asset.depreciation.selected!=null -> asset.depreciationVm.close();attachment.parentReview!=null || attachment.reviewing -> attachmentVm.backToDetails();attachment.selected!=null -> attachmentVm.closeSelected();attachment.parent!=null -> attachmentVm.close();sale.draft!=null && sale.reviewing -> saleVm.backToForm();sale.draft!=null -> saleVm.saveAndClose();saleHistory.comparison!=null -> saleHistoryVm.closeComparison();saleHistory.selected!=null -> saleHistoryVm.close();activity.draft!=null && activity.reviewing -> vm.backToForm();activity.draft!=null -> vm.saveAndClose();harvest.draft!=null && harvest.reviewing -> harvestVm.backToForm();harvest.draft!=null -> harvestVm.saveAndClose();financial.draft!=null && financial.reviewing -> financialVm.backToForm();financial.draft!=null -> financialVm.saveAndClose();expenseHistory.comparison!=null -> expenseHistoryVm.closeComparison();expenseHistory.selected!=null -> expenseHistoryVm.close();allocationHistory.comparison!=null -> allocationHistoryVm.closeComparison();allocationHistory.selected!=null -> allocationHistoryVm.close();history.comparison!=null -> historyVm.closeComparison();history.selected!=null -> historyVm.close();harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison();harvestHistory.selected!=null -> harvestHistoryVm.close();else -> tab=0 }
     }
     val showNavigation = !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
+    val sessionExpired = session.expired()
     val translucentNavigation = tab == 0 && showNavigation && !writing && LocalDensity.current.fontScale <= 1.4f &&
         android.os.Build.VERSION.SDK_INT >= 31 && androidx.compose.ui.platform.LocalView.current.isHardwareAccelerated
-    Scaffold(contentWindowInsets=WindowInsets.safeDrawing,topBar={ Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal=FarmSpace.Page)) {
+    Scaffold(
+        contentWindowInsets=WindowInsets.safeDrawing,topBar={ Column(
+            Modifier.fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .padding(horizontal=FarmSpace.Page)
+        ) {
         if((attachment.parent!=null && (ime || LocalDensity.current.fontScale>1.5f || LocalConfiguration.current.screenHeightDp<400)) || (ime && (investments.state.scenarioDraft!=null || investments.state.reportDraft!=null || investments.state.cancelReason!=null || reports.state.draft!=null || asset.entry.draft!=null || sale.draft!=null || activity.draft!=null || harvest.draft!=null || financial.draft!=null))) {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(if(attachment.parent!=null) "Lampiran" else if(investments.state.active) "Investasi" else if(reports.state.draft!=null) "Evaluasi" else if(asset.entry.draft!=null) "Aset" else if(sale.draft!=null) "Penjualan" else if(financial.draft!=null && LocalDensity.current.fontScale>1.5f) "Isian" else if(financial.draft!=null) "Catat ${financial.draft.kind.label}" else if(harvest.draft!=null) "Catat panen" else "Catat kegiatan",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={keyboard?.hide();if(attachment.parent!=null) {if(attachment.selected!=null) attachmentVm.closeSelected() else attachmentVm.close()} else if(investments.state.active) investments.vm.back() else if(reports.state.draft!=null) reports.vm.back() else if(asset.entry.draft!=null) asset.vm.saveAndClose() else if(sale.draft!=null) saleVm.saveAndClose() else if(financial.draft!=null) financialVm.saveAndClose() else if(harvest.draft!=null) harvestVm.saveAndClose() else vm.saveAndClose()},enabled=!writing) {Text(if(attachment.parent!=null) "Kembali" else "Simpan draf")} }
         } else {
-            FinanceToolbar(session, context.loading, writing, onSync, onLogout, onAdmin)
+            FinanceToolbar(session, context.loading, writing, sessionExpired, onSync, onLogout, onAdmin)
         }
     } },bottomBar={
-        if (showNavigation) FarmGlass(
-            Modifier.navigationBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp),
-            transmitBackdrop = translucentNavigation
-        ) {
-            BoxWithConstraints(Modifier.fillMaxWidth().selectableGroup().padding(horizontal = 4.dp)) {
-                val labels = listOf("Beranda", "Antrean", "Kegiatan", "Panen", "Keuangan")
-                val destinations = labels.take(if (session.role == UserRole.MANAGER) 5 else 4).withIndex().toList()
-                val columns = if (LocalDensity.current.fontScale > 1.4f && maxWidth < 480.dp) {
-                    (destinations.size + 1) / 2
-                } else destinations.size
-                Column {
-                    destinations.chunked(columns).forEach { row ->
-                        Row(Modifier.fillMaxWidth()) {
-                            row.forEach { (index, label) ->
-                                FarmTab(index, label, tab == index, { tab = index }, Modifier.weight(1f).testTag("finance-tab-$index"))
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        if (showNavigation) FinanceNavigation(tab, session.role == UserRole.MANAGER, translucentNavigation) { tab = it }
     }) { padding ->
+        if (showNavigation && tab == 0) BotanicalBackdrop(R.drawable.background_dashboard)
         val systemBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val contentPadding = if (translucentNavigation) {
-            PaddingValues(top = padding.calculateTopPadding(), bottom = systemBottom)
+            PaddingValues(start = padding.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current),
+                end = padding.calculateEndPadding(androidx.compose.ui.platform.LocalLayoutDirection.current),
+                top = padding.calculateTopPadding(), bottom = systemBottom)
         } else padding
         Box(Modifier.fillMaxSize().padding(contentPadding).consumeWindowInsets(padding).imePadding().padding(horizontal=FarmSpace.Page),
             contentAlignment = Alignment.TopCenter) {
@@ -248,7 +239,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 harvestHistory.selected!=null -> HistoryScreen(session,context,harvestHistory,harvestHistoryVm,activity.queue,onEdit={record,replace -> harvestVm.open(record,replace);harvestHistoryVm.close()},kind=OperationalKind.HARVEST)
                 tab==0 -> tabState.SaveableStateProvider(0) { LazyColumn(
                     modifier=Modifier.fillMaxSize().testTag("finance-home-list"),
-                    verticalArrangement=Arrangement.spacedBy(FarmSpace.Large),
+                    verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium),
                     contentPadding=PaddingValues(
                         top = 12.dp,
                         bottom = FarmSpace.Large + if (translucentNavigation) {
@@ -263,14 +254,20 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             group = scope.group
                         }
                     }
+                    if (sessionExpired) item("expired-session") { ExpiredSessionNotice() }
                     if (selectedGreenhouse != null && selectedSeason != null && selectedGroup != null) {
                         val greenhouseId = selectedGreenhouse.getString("id")
                         val groupId = selectedGroup.getString("id")
                         val open = selectedSeason.optString("status") == "open"
                         item("measurements") {
-                            Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                                com.inofarm.jogja.feature.activities.MeasurementDashboard(runtime,session,greenhouseId,groupId,activity.records,context.lastSyncedAt)
-                            }
+                            com.inofarm.jogja.feature.activities.MeasurementDashboard(
+                                runtime, session, greenhouseId, groupId, activity.records, context.lastSyncedAt,
+                                context.message.takeUnless { sessionExpired }
+                            )
+                        }
+                        val blocked = activity.queue.count { it.state in setOf("REJECTED", "CONFLICT", "AUTH_REQUIRED", "SCOPE_REVOKED", "EPOCH_REVIEW") }
+                        if (blocked > 0) item("queue-attention") {
+                            FarmAttention("$blocked pengajuan perlu ditinjau. Buka Antrean.")
                         }
                         item("recording") {
                             Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
@@ -286,34 +283,43 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 }
                             }
                         }
-                        item { Text("Jadwal kegiatan",style=MaterialTheme.typography.titleLarge) }
                         val schedules=context.schedules.filter { it.optString("planting_group_id")==group && it.optBoolean("active",true) }
-                        if(schedules.isEmpty()) item { Notice("Belum ada jadwal untuk kelompok ini. Kegiatan spontan tetap dapat dicatat.") }
+                        item {
+                            FarmPanel(title = "Jadwal kegiatan") {
+                                if (schedules.isEmpty())
+                                    Text("Belum ada jadwal untuk kelompok ini. Kegiatan spontan tetap dapat dicatat.",
+                                        style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
                         items(schedules,key={it.getString("id")}) { schedule -> ElevatedCard { Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {Text(ActivityType.entries.find { it.wire==schedule.optString("activity_type") }?.label ?: "Kegiatan");Text(timeLabel(schedule.optString("planned_at")));Text(schedule.optString("notes"));Text("Satu catatan tidak otomatis menyelesaikan seluruh jadwal.",style=MaterialTheme.typography.bodySmall);OutlinedButton(onClick={vm.new(gh!!,group!!,ActivityType.entries.single { it.wire==schedule.getString("activity_type") },schedule.getString("id"))},enabled=open) {Text("Catat realisasi")} } } }
-                        item { Text("Target/acuan tersedia saat mengisi kegiatan; hasil pengukuran tetap manual.",style=MaterialTheme.typography.bodySmall) }
+                        item { Notice("Target dan acuan tersedia saat mengisi kegiatan. Hasil pengukuran dicatat manual.") }
                     } else if(!context.loading && context.greenhouses.isEmpty()) item { Notice("Belum ada greenhouse dalam penugasan yang tersimpan. Sinkronkan atau hubungi pengelola.") }
                     if (session.role == UserRole.MANAGER && selectedSeason != null) item("season-actions") {
                         SeasonActions(selectedSeason, history.busy, history.message, historyVm::season)
                     }
-                    item("sync") {
-                        context.message?.let { Text(it, Modifier.testTag("finance-sync-message"), style = MaterialTheme.typography.bodySmall) }
-                        if (selectedGroup == null) Text(
-                            context.lastSyncedAt?.let { "Sinkron terakhir: ${timeLabel(Instant.ofEpochMilli(it).toString())}" }
-                                ?: "Belum ada data server tersimpan.",
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                    if (selectedGroup == null) item("sync") {
+                        FarmPanel(title = "Sinkronisasi") {
+                            if (!sessionExpired) context.message?.let {
+                                Text(it, Modifier.testTag("finance-sync-message"), style = MaterialTheme.typography.bodySmall)
+                            }
+                            Text(context.lastSyncedAt?.let { "Sinkron terakhir: ${timeLabel(Instant.ofEpochMilli(it).toString())}" }
+                                ?: "Belum ada data server tersimpan.", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                     item { activity.message?.let { Notice(it) } }
                 } }
                 tab==1 -> tabState.SaveableStateProvider(1) { LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
                     item { FarmPageTitle("Antrean akun ini","Disimpan lokal belum berarti diterima server. Operasi yang ditahan tetap disimpan.") }
-                    item { context.message?.let { Text(it,modifier=Modifier.testTag("finance-sync-message")) } }
+                    item {
+                        if (sessionExpired) ExpiredSessionNotice()
+                        else context.message?.let { Text(it, modifier = Modifier.testTag("finance-sync-message")) }
+                    }
                     val waiting = activity.queue.count { it.state == "QUEUED" }
                     val attention = activity.queue.count { it.state in setOf("REJECTED", "CONFLICT", "AUTH_REQUIRED", "SCOPE_REVOKED", "EPOCH_REVIEW") }
                     if (attention > 0) item { FarmAttention("$attention pengajuan perlu ditinjau.") }
                     if (waiting > 0) item { Text("$waiting pengajuan menunggu pengiriman.", style = MaterialTheme.typography.bodyMedium) }
                     if(activity.queue.isEmpty()) item { Notice("Belum ada operasi dalam antrean.") }
-                    items(activity.queue,key={it.id}) { op -> FarmPanel(title = if(op.state=="SUPERSEDED") "Digantikan setelah ditinjau" else runCatching { SyncState.valueOf(op.state).label() }.getOrDefault("Perlu ditinjau")) {
+                    items(activity.queue,key={it.id}) { op -> FarmSection(title = if(op.state=="SUPERSEDED") "Digantikan setelah ditinjau" else runCatching { SyncState.valueOf(op.state).label() }.getOrDefault("Perlu ditinjau")) {
                         OperationalKind.entries.find { it.wire == op.envelope.optString("entity_type") }?.let { Text(it.label.replaceFirstChar { char -> char.uppercaseChar() }) }
                         Text("Catatan ${op.entityId.take(8)} · percobaan ${op.attempts}",style=MaterialTheme.typography.bodySmall)
                         op.error?.let { ErrorReasons(it) }
@@ -335,6 +341,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     session: FinanceSession,
     syncing: Boolean,
     writing: Boolean,
+    sessionExpired: Boolean,
     onSync: () -> Unit,
     onLogout: () -> Unit,
     onAdmin: () -> Unit
@@ -345,17 +352,17 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text("Inofarm", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-        if (syncing) Text(
+        if (syncing && LocalDensity.current.fontScale <= 1.3f) Text(
             "Sinkronisasi",
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
         )
         IconButton(onClick = onSync, enabled = !syncing, modifier = Modifier.testTag("finance-sync")) {
-            FarmControlIcon(FarmIcon.Sync, "Sinkronkan")
+            FarmControlIcon(FarmIcon.Sync, if (syncing) "Memeriksa server" else "Sinkronkan")
         }
         Box {
             IconButton(onClick = { accountOpen = true }, modifier = Modifier.testTag("finance-account")) {
-                FarmControlIcon(FarmIcon.Account, "Menu akun")
+                FarmControlIcon(FarmIcon.Account, if (sessionExpired) "Menu akun. Sesi berakhir." else "Menu akun")
             }
             DropdownMenu(expanded = accountOpen, onDismissRequest = { accountOpen = false }) {
                 Column(Modifier.widthIn(max = 240.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -377,7 +384,16 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             }
         }
     }
-    if (session.expired()) Notice("Sesi berakhir. Masuk kembali dengan akun yang sama untuk mengirim antrean. Draf tetap dapat disimpan.", true)
+    if (sessionExpired) Text(
+        "Sesi berakhir",
+        Modifier.padding(bottom = FarmSpace.Tiny).semantics { liveRegion = LiveRegionMode.Polite },
+        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error
+    )
+}
+
+@Composable
+private fun ExpiredSessionNotice() {
+    Notice("Sesi berakhir. Masuk kembali dengan akun yang sama untuk mengirim antrean. Draf tetap dapat disimpan.", true)
 }
 
 @Composable private fun ActivityForm(state:ActivityUiState,context:CultivationUiState,vm:ActivityViewModel) {
@@ -390,16 +406,17 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         }
         FarmPageTitle(title)
         FarmDraftStatus(state.saved, Modifier.testTag("finance-draft-status"))
-        FarmPanel(title = "Waktu dan kelompok") {
+        FarmSection(title = "Waktu dan kelompok") {
             context.groups.find { it.optString("id") == draft.groupId }?.let { Text(it.optString("name")) }
             Choice("Jenis kegiatan",draft.type.wire,ActivityType.entries.map { JSONObject().put("id",it.wire).put("name",it.label) },"finance-type") { value -> vm.edit { it.copy(type=ActivityType.entries.single { type -> type.wire==value }) } }
             FinanceField("Tanggal kejadian (YYYY-MM-DD)",draft.date,{value -> vm.edit {it.copy(date=value)}},"finance-date",state.errors["occurred_at"])
             FinanceField("Jam kejadian WIB (HH:mm)",draft.time,{value -> vm.edit {it.copy(time=value)}},"finance-time",hint="Detik boleh ditulis HH:mm:ss dan tetap dipertahankan.")
         }
-        Row { Checkbox(draft.skipped,{value -> vm.edit {it.copy(skipped=value)}},modifier=Modifier.testTag("finance-skipped"));Text("Kegiatan dilewati",Modifier.padding(top=12.dp)) }
+        FarmCheckbox("Kegiatan dilewati", draft.skipped, { value -> vm.edit { it.copy(skipped = value) } },
+            Modifier.testTag("finance-skipped"))
         if(draft.skipped) FinanceField("Alasan kegiatan dilewati",draft.skippedReason,{value -> vm.edit {it.copy(skippedReason=value)}},"finance-skipped-reason",state.errors["skipped_reason"])
         if(draft.type in setOf(ActivityType.MEASUREMENT,ActivityType.NUTRITION) || draft.ec.isNotBlank() || draft.ppm.isNotBlank() || draft.ph.isNotBlank()) {
-            FarmPanel(title = "Hasil ukur aktual") {
+            FarmSection(title = "Hasil ukur aktual") {
                 FinanceField("EC manual (mS/cm)",draft.ec,{value -> vm.edit {it.copy(ec=value)}},"finance-ec",state.errors["manual_ec"],keyboard=KeyboardType.Decimal)
                 FinanceField("PPM manual (ppm)",draft.ppm,{value -> vm.edit {it.copy(ppm=value)}},"finance-ppm",state.errors["manual_ppm"],KeyboardType.Decimal)
                 FinanceField("pH manual (0–14)",draft.ph,{value -> vm.edit {it.copy(ph=value)}},"finance-ph",state.errors["manual_ph"],KeyboardType.Decimal)
@@ -419,7 +436,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             OutlinedButton(onClick={vm.edit {it.copy(materials=it.materials+MaterialDraft())}},enabled=draft.materials.size<30,modifier=Modifier.fillMaxWidth().testTag("finance-add-material")) {Text("Tambah bahan")}
             state.errors["materials"]?.let { Notice(it,true) }
         }
-        FarmPanel(title = "Catatan lapangan") {
+        FarmSection(title = "Catatan lapangan") {
             FinanceField("Keterangan pekerjaan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"finance-notes",state.errors["notes"],singleLine=false)
         }
         if(draft.baseVersion!=null) {
@@ -433,8 +450,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         } else ReferenceCards(context,draft.groupId,draft)
         state.message?.let { Notice(it,true) }
         state.errors.values.distinct().forEach { Notice(it,true) }
-        Button(onClick=vm::review,enabled=!state.busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-review")) {Text("Periksa catatan")}
-        OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-save-draft")) {Text("Simpan draf dan kembali")}
+        Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-review")) {Text("Periksa catatan")}
+        OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-save-draft")) {Text("Simpan draf dan kembali")}
         Spacer(Modifier.height(16.dp))
     }
 }
@@ -445,10 +462,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         if(draft.replaceValidationRejected) Notice("Perbaikan ini membuat operasi baru. Operasi yang ditolak tetap disimpan sebagai riwayat dan tidak dikirim ulang.")
         FarmPanel(title = draft.type.label) {
         Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
-        Text("${draft.date} ${draft.time} WIB")
+        FarmFact("Waktu kejadian", "${draft.date} ${draft.time} WIB")
         Text(if(draft.skipped) "Dilewati: ${draft.skippedReason}" else "Kegiatan selesai")
-        if(draft.ec.isNotBlank()) Text("EC manual: ${draft.ec} mS/cm")
-        if(draft.ppm.isNotBlank()) Text("PPM manual: ${draft.ppm} ppm")
+        if(draft.ec.isNotBlank()) FarmFact("EC manual", "${draft.ec} mS/cm", prominent = true)
+        if(draft.ppm.isNotBlank()) FarmFact("PPM manual", "${draft.ppm} ppm", prominent = true)
         if(draft.ph.isNotBlank()) Text("pH manual: ${draft.ph}")
         if(draft.stage.isNotBlank()) Text("Stadia aktual: ${draft.stage}")
         draft.materials.forEach { item -> Text("${context.materials.find {it.optString("id")==item.materialId}?.optString("name") ?: "Bahan"}: ${item.quantity} ${context.units.find {it.optString("id")==item.unitId}?.optString("name").orEmpty()}") }
@@ -456,8 +473,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         if(draft.reason.isNotBlank()) Text("Alasan koreksi: ${draft.reason}")
         }
         Notice("Catatan akan disimpan lokal dan diantrekan. Status diterima diberikan setelah server mengonfirmasi.")
-        Button(onClick=onQueue,enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-queue")) {Text(if(busy) "Menyimpan…" else "Simpan lokal & antrekan")}
-        OutlinedButton(onClick=onBack,enabled=!busy,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke isian")}
+        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-queue")) {Text(if(busy) "Menyimpan…" else "Simpan lokal & antrekan")}
+        OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke isian")}
     }
 }
 

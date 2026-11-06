@@ -11,6 +11,25 @@ internal fun FinanceTestRule.configureFinanceEndpoint(endpoint: String) {
     runOnUiThread { ViewModelProvider(activity)[FinanceRuntime::class.java].configuredLoginEndpoint.value = endpoint }
 }
 
+internal fun FinanceTestRule.openCompactNavigationIfPresent(): Boolean {
+    val compact = onAllNodesWithTag("finance-navigation-menu").fetchSemanticsNodes().isNotEmpty()
+    if (compact) {
+        onNodeWithTag("finance-navigation-menu").performClick()
+    }
+    return compact
+}
+
+internal fun FinanceTestRule.selectFinanceTab(index: Int) {
+    waitUntil(10_000) {
+        onAllNodesWithTag("finance-navigation-menu").fetchSemanticsNodes().isNotEmpty() ||
+            onAllNodesWithTag("finance-tab-$index").fetchSemanticsNodes().isNotEmpty()
+    }
+    val compact = openCompactNavigationIfPresent()
+    val destination = onNodeWithTag("finance-tab-$index")
+    if (compact) destination.performScrollTo()
+    destination.performClick()
+}
+
 internal fun FinanceTestRule.logoutFromAccount() {
     waitUntil(10_000) { onAllNodesWithTag("finance-account").fetchSemanticsNodes().size == 1 }
     onNodeWithTag("finance-account").performClick()

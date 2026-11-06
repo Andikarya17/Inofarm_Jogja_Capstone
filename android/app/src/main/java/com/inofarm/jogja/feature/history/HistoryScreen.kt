@@ -26,6 +26,7 @@ import com.inofarm.jogja.core.database.LocalHistoryFilter
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.database.QueuedOperation
 import com.inofarm.jogja.core.design.FarmMotion
+import com.inofarm.jogja.core.design.FarmAmount
 import com.inofarm.jogja.core.design.FarmPanel
 import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.design.FarmSpace
@@ -42,23 +43,32 @@ import java.time.LocalDate
     when {
         state.comparison!=null -> ConflictReview(state.comparison,session,context,state.busy,state.message,vm::resolve,vm::closeComparison,kind)
         state.selected!=null -> HistoryDetail(state.selected,session,context,state,vm,queue,onEdit,kind)
-        else -> LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp),modifier=Modifier.testTag("finance-history-list")) {
+        else -> LazyColumn(verticalArrangement=Arrangement.spacedBy(FarmSpace.Small),contentPadding=PaddingValues(vertical=16.dp),modifier=Modifier.testTag("finance-history-list")) {
             header()
             item("history-filters") {
                 com.inofarm.jogja.core.design.FarmPageTitle("Riwayat ${kind.label}")
                 HistoryFilters(context,state.filter,vm::filter,kind)
             }
-            item {context.message?.let {Text(it,modifier=Modifier.testTag("finance-sync-message"))};state.message?.let {Notice(it,true)}}
+            item {
+                context.message?.let { Text(it, Modifier.testTag("finance-sync-message"),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                state.message?.let { Notice(it, true) }
+            }
             if(state.loading) item {Text("Memuat riwayat…"); LinearProgressIndicator(Modifier.fillMaxWidth())}
-            if(!state.loading && state.records.isEmpty()) item {Notice("Belum ada catatan yang cocok dengan filter ini.")}
-            items(state.records,key={it.id}) {record -> HistoryRecordCard(record, kind, context) { vm.select(record.id) } }
+            if(!state.loading && state.records.isEmpty()) item {
+                Notice(if (state.filter == LocalHistoryFilter()) "Belum ada catatan ${kind.label} dalam riwayat akun ini."
+                    else "Belum ada catatan yang cocok dengan filter ini.")
+            }
+            items(state.records, key = { it.id }) { record ->
+                HistoryRecordRow(record, kind, context) { vm.select(record.id) }
+            }
             if(state.hasMore) item {OutlinedButton(onClick=vm::more,enabled=!state.loading,modifier=Modifier.fillMaxWidth().testTag("finance-history-more")) {Text("Muat 50 berikutnya")}}
         }
     }
 }
 
 @Composable
-private fun HistoryRecordCard(record: LocalRecord, kind: OperationalKind, context: CultivationUiState, onOpen: () -> Unit) {
+private fun HistoryRecordRow(record: LocalRecord, kind: OperationalKind, context: CultivationUiState, onOpen: () -> Unit) {
     val data = record.body
     val title = if (kind == OperationalKind.ACTIVITY) {
         ActivityType.entries.find { it.wire == data.optString("activity_type") }?.label ?: "Draf kegiatan"
@@ -72,21 +82,26 @@ private fun HistoryRecordCard(record: LocalRecord, kind: OperationalKind, contex
         data.optString(key).takeUnless { data.isNull(key) || it.isBlank() }
     }
     val amountKey = if (kind == OperationalKind.SALE) "total_amount" else "amount"
-    Card(onClick = onOpen, modifier = Modifier.fillMaxWidth().testTag("finance-record-${record.id}"),
-        shape = FarmShape.Card, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            if (kind.financial && !data.isNull(amountKey) && data.optString(amountKey).isNotBlank()) {
-                Text(moneyLabel(data.optString(amountKey)), style = MaterialTheme.typography.headlineSmall)
+    Surface(onClick = onOpen, modifier = Modifier.fillMaxWidth().testTag("finance-record-${record.id}"),
+        color = MaterialTheme.colorScheme.surface) {
+        Column {
+            Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Large, vertical = FarmSpace.Medium),
+                verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                if (kind.financial && !data.isNull(amountKey) && data.optString(amountKey).isNotBlank()) {
+                    FarmAmount(moneyLabel(data.optString(amountKey)))
+                }
+                if (notes != null) Text(notes, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(listOfNotNull(greenhouse, time ?: "Draf waktu belum lengkap").joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val needsReview = record.syncState in setOf(SyncState.REJECTED, SyncState.CONFLICT,
+                    SyncState.AUTH_REQUIRED, SyncState.SCOPE_REVOKED, SyncState.EPOCH_REVIEW)
+                Text(record.syncState.label(), style = MaterialTheme.typography.labelMedium,
+                    color = if (needsReview) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                if (data.optString("record_state") == "cancelled") Text("Dibatalkan", color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelMedium)
             }
-            if (notes != null) Text(notes, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(listOfNotNull(greenhouse, time ?: "Draf waktu belum lengkap").joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            HorizontalDivider(Modifier.padding(vertical = 4.dp))
-            val needsReview = record.syncState in setOf(SyncState.REJECTED, SyncState.CONFLICT, SyncState.AUTH_REQUIRED, SyncState.SCOPE_REVOKED, SyncState.EPOCH_REVIEW)
-            Text(record.syncState.label(), style = MaterialTheme.typography.labelLarge,
-                color = if (needsReview) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-            if (data.optString("record_state") == "cancelled") Text("Dibatalkan", color = MaterialTheme.colorScheme.error)
+            HorizontalDivider()
         }
     }
 }

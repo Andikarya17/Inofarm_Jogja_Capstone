@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.core.contracts.*
 import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmSection
 import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.*
@@ -42,7 +43,7 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
         }
         state.message?.let {Notice(it,true)}
         val policy=state.policy
-        FarmPanel(title = "Batas dan akses lampiran") {
+        FarmSection(title = "Batas dan akses lampiran") {
         if(policy==null) Notice("Batas lampiran belum tersedia. Berkas dapat disalin sebagai draf; pengajuan menunggu konfigurasi server.")
         else {
             if(!policy.optBoolean("configured")) Notice("Konfigurasi lampiran produksi belum ditetapkan.")
@@ -54,7 +55,7 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
         }
         if(state.selected==null) {
             val canChoose=session.role==UserRole.MANAGER || parent.recorderId()==session.scope.accountId
-            if(canChoose) Button(onClick={pickerScope=session.scope.key;pickerOwner=parent.id;pickerTicket=ticket;picker.launch(AttachmentContract.supportedMimes.toTypedArray())},enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-choose")) {Text("Pilih berkas sebagai draf")}
+            if(canChoose) Button(onClick={pickerScope=session.scope.key;pickerOwner=parent.id;pickerTicket=ticket;picker.launch(AttachmentContract.supportedMimes.toTypedArray())},enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("attachment-choose")) {Text("Pilih berkas sebagai draf")}
             if(state.rows.isEmpty() && !state.loading) Notice("Belum ada lampiran atau draf berkas pada catatan ini.")
             state.rows.forEach {row -> Card(onClick={vm.select(row.id)},shape=FarmShape.Card,colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface),modifier=Modifier.fillMaxWidth().testTag("attachment-${row.id}")) {
                 Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
@@ -68,9 +69,13 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
             OutlinedButton(onClick=vm::close,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-close")) {Text("Kembali ke catatan")}
         } else {
             val row=state.selected
-            Text(row.body.optString("original_name"),style=MaterialTheme.typography.titleLarge);Text(row.syncState.label());Text(copyLabel(row.body))
-            if(row.body.has("bytes")) Text("${row.body.getLong("bytes")} byte · ${typeLabel(row.body.optString("mime"))}")
-            Text("Versi catatan induk saat ditinjau: ${row.body.optLong("owner_version")}")
+            FarmPanel(title = row.body.optString("original_name").ifBlank { "Rincian berkas" }) {
+                Text(row.syncState.label(), style = MaterialTheme.typography.labelLarge)
+                Text(copyLabel(row.body))
+                if(row.body.has("bytes")) Text("${row.body.getLong("bytes")} byte · ${typeLabel(row.body.optString("mime"))}",
+                    style = MaterialTheme.typography.bodySmall)
+                Text("Versi catatan induk saat ditinjau: ${row.body.optLong("owner_version")}", style = MaterialTheme.typography.bodySmall)
+            }
             row.error?.let {ErrorReasons(it)};state.pending.forEach {op -> op.error?.let {ErrorReasons(it)}}
             val ready=row.body.optString("_copy_state")=="READY"
             when {

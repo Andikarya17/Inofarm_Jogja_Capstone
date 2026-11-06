@@ -120,6 +120,7 @@ class FinanceInvestmentTest {
         rule.runOnIdle {vm.select(report.getString("id"))};rule.waitUntil(10000) {vm.state.value.selected?.id==report.getString("id") && !vm.state.value.busy}
         InvestmentContract.labels.keys.forEach {scroll("investment-metric-$it");rule.onNodeWithTag("investment-metric-$it").assertExists()}
         click("investment-detail-IRR");rule.onNodeWithTag("investment-list").performScrollToNode(hasText("converged: true",substring=true))
+        rule.captureBotanicalWindow("investment-report")
         click("investment-sources");rule.waitUntil(10000) {vm.state.value.sources?.rows?.length()==1 && !vm.state.value.busy}
         repeat(2) {click("investment-sources-more");rule.waitUntil(10000) {vm.state.value.sources?.rows?.length()==it+2 && !vm.state.value.busy}}
         assertEquals(3,vm.state.value.sources!!.rows.length());assertNull(vm.state.value.sources!!.cursor)

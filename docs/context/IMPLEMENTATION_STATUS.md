@@ -1,4 +1,8 @@
-# Status implementasi nyata — 5 November 2026
+# Status implementasi nyata — 7 November 2026
+
+## Frontend botani Android — 7 November 2026
+
+Login dan beranda memakai dua ilustrasi lokal. Navigasi menyesuaikan lebar dan skala teks. Form, antrean, riwayat, panen, keuangan, laporan dan layar sekunder memakai sistem visual bersama. Bukti build, tes, render emulator, provenance dan batas penerimaan ada di [catatan verifikasi frontend botani](ANDROID_BOTANICAL_FRONTEND_20261107.md).
 
 ## Rombak frontend Android — 5 November 2026
 

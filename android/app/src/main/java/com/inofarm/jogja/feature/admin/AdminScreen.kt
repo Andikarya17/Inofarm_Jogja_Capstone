@@ -1,6 +1,8 @@
 package com.inofarm.jogja.feature.admin
 
-import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmCheckbox
+import com.inofarm.jogja.core.design.FarmSection
+import com.inofarm.jogja.core.design.FarmShape
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -48,7 +50,7 @@ import com.inofarm.jogja.feature.Notice
                 if(state.editing) AdminEditor(state,vm,onAccepted)
                 else {
                     state.form?.let {Button(onClick=vm::resume,enabled=!state.busy,modifier=Modifier.testTag("admin-resume")) {Text(if(state.pending) "Tinjau pengajuan tertunda" else "Lanjutkan draf ${it.resource.label}")}}
-                    FarmPanel(title = "Cakupan administrasi") {
+                    FarmSection(title = "Cakupan administrasi") {
                         Choice("Jenis data",state.resource.name,AdminResource.entries.map {org.json.JSONObject().put("id",it.name).put("name",it.label)},"admin-resource") {vm.choose(AdminResource.valueOf(it))}
                         Choice("Filter greenhouse",state.greenhouse,state.options["greenhouses"].orEmpty(),"admin-greenhouse",vm::greenhouse)
                         Button(onClick={vm.open()},enabled=!state.busy && state.form==null,modifier=Modifier.testTag("admin-new")) {Text("Tambah ${state.resource.label}")}
@@ -56,7 +58,7 @@ import com.inofarm.jogja.feature.Notice
                     }
                     if(state.rows.isEmpty() && !state.busy) Text("Belum ada data yang dapat ditampilkan. Pilih greenhouse atau periksa koneksi.")
                     state.rows.forEach {row ->
-                        FarmPanel(title = row.optString("name").ifBlank {row.optString("activity_type").ifBlank {row.optString("user_id")}}) {
+                        FarmSection(title = row.optString("name").ifBlank {row.optString("activity_type").ifBlank {row.optString("user_id")}}) {
                             Text("Versi ${row.optLong("version")} · ${if(row.optString("status")=="closed") "Musim ditutup" else if(row.optBoolean("active",true)) "Aktif" else "Nonaktif"}")
                             TextButton(onClick={vm.open(row)},enabled=!state.busy && state.form==null) {Text("Ubah")}
                             if(state.resource==AdminResource.SEASON) TextButton(onClick={vm.open(row,if(row.optString("status")=="closed") "reopen" else "close")},enabled=!state.busy && state.form==null) {Text(if(row.optString("status")=="closed") "Buka kembali musim" else "Tutup musim")}
@@ -81,7 +83,7 @@ import com.inofarm.jogja.feature.Notice
         val value=form.values[field.key].orEmpty()
         if(state.pending || state.busy) Text("${field.label}: ${field.choices[value] ?: state.options[field.source]?.find {it.optString("id")==value}?.optString("name") ?: value.ifBlank {"Belum diisi"}}")
         else when {
-            field.type=="boolean" -> Row {Checkbox(value=="true",{vm.edit(field.key,it.toString())});Text(field.label,Modifier.padding(top=12.dp))}
+            field.type=="boolean" -> FarmCheckbox(field.label, value == "true", { vm.edit(field.key, it.toString()) })
             field.source!=null || field.choices.isNotEmpty() -> {
                 val options=if(field.source!=null) state.options[field.source].orEmpty().map {row -> org.json.JSONObject(row.toString()).put("name",row.optString("name").ifBlank {row.optString("id")})} else field.choices.map {(id,label) -> org.json.JSONObject().put("id",id).put("name",label)}
                 Choice(field.label,value,options,"admin-${field.key}") {vm.edit(field.key,it)}
@@ -97,7 +99,7 @@ import com.inofarm.jogja.feature.Notice
         TextButton(onClick=vm::useServer,enabled=!state.busy) {Text("Gunakan versi server untuk draf")}
     }
     if(state.rejected) TextButton(onClick=vm::reviseRejected,enabled=!state.busy) {Text("Perbaiki draf yang ditolak")}
-    Button(onClick={confirm=true},enabled=!state.busy && !state.rejected,modifier=Modifier.fillMaxWidth().testTag("admin-submit")) {Text(if(state.pending) "Coba pengajuan yang sama" else "Tinjau dan ajukan")}
+    Button(onClick={confirm=true},enabled=!state.busy && !state.rejected,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("admin-submit")) {Text(if(state.pending) "Coba pengajuan yang sama" else "Tinjau dan ajukan")}
     if(!state.pending) TextButton(onClick={discard=true},enabled=!state.busy) {Text("Hapus draf ini")}
     if(confirm) AlertDialog(onDismissRequest={confirm=false},title={Text("Ajukan perubahan?")},text={Text("Periksa isian di atas. Perubahan akses dapat mencabut sesi; perubahan musim dan acuan memengaruhi pencatatan berikutnya. Pengajuan akan diperiksa server dan diaudit.")},confirmButton={TextButton(onClick={confirm=false;vm.submit(password,onAccepted)}) {Text("Ajukan")}},dismissButton={TextButton(onClick={confirm=false}) {Text("Kembali")}})
     if(discard) AlertDialog(onDismissRequest={discard=false},title={Text("Hapus draf lokal?")},text={Text("Isian administrasi ini akan dihapus. Data yang sudah diterima server tetap tersimpan.")},confirmButton={TextButton(onClick={discard=false;vm.discard()}) {Text("Hapus draf")}},dismissButton={TextButton(onClick={discard=false}) {Text("Kembali")}})

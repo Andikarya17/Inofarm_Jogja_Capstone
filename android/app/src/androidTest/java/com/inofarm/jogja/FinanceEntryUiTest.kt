@@ -226,7 +226,7 @@ class FinanceEntryUiTest {
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-context-open").fetchSemanticsNodes().isNotEmpty()}
         if (waitForSync) {
             val home = rule.onNodeWithTag("finance-home-list")
-            val synced = hasText("Data server sudah diperiksa. Tinjau antrean yang ditahan.")
+            val synced = hasText("Data server sudah diperiksa.")
             rule.waitUntil(10_000) { runCatching { home.performScrollToNode(synced) }.isSuccess }
             home.performScrollToIndex(0)
         }
@@ -280,7 +280,7 @@ class FinanceEntryUiTest {
         .lastOrNull { it.hasWindowFocus() } ?: rule.activity.window.decorView
 
     private fun frontendEvidence(name: String) = File(
-        File(rule.activity.getExternalFilesDir(null), "frontend-redesign").apply { mkdirs() }, name
+        File(rule.activity.getExternalFilesDir(null), "frontend-botanical").apply { mkdirs() }, name
     )
 
     private fun capture(name: String) {
@@ -290,10 +290,7 @@ class FinanceEntryUiTest {
     }
 
     private fun captureWindow(name: String) {
-        rule.waitForIdle()
-        val automation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation
-        val bitmap = requireNotNull(automation.takeScreenshot())
-        frontendEvidence("$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        rule.captureBotanicalWindow(name)
     }
 
     private fun deviceShell(command: String): String {
@@ -310,16 +307,35 @@ class FinanceEntryUiTest {
         capture("login")
         rule.onAllNodes(hasSetTextAction()).assertCountEquals(2)
         rule.onNodeWithTag("finance-server").assertDoesNotExist()
-        val toggle = readyNode("finance-password-toggle")
+        val toggle = readyNode("finance-password-toggle").performScrollTo()
         toggle.assert(hasContentDescription("Tampilkan password")).performClick()
         toggle.assert(hasContentDescription("Sembunyikan password")).performClick()
-        readyNode("finance-email").performClick().performImeAction()
+        readyNode("finance-email").performScrollTo().performClick().performImeAction()
         readyNode("finance-password").assertIsFocused()
         hideKeyboard()
         rule.configureFinanceEndpoint("")
         readyText("Alamat server belum dikonfigurasi untuk aplikasi ini. Hubungi pengelola.").assertIsDisplayed()
         readyNode("finance-login").assertIsNotEnabled()
-        login("worker@example.invalid")
+        rule.configureFinanceEndpoint(server.url("/api/v2/").toString())
+        val emailField = readyNode("finance-email").performScrollTo().performClick()
+        emailField.performTextReplacement("worker@example.invalid")
+        emailField.performImeAction()
+        readyNode("finance-password").assertIsFocused().performTextReplacement("synthetic-ui-password")
+        rule.waitUntil(10_000) {
+            var visible = false
+            rule.runOnUiThread {
+                visible = androidx.core.view.ViewCompat.getRootWindowInsets(focusedWindow())
+                    ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+            }
+            visible
+        }
+        readyNode("finance-login").performScrollTo().assertIsDisplayed().assertIsEnabled()
+        captureWindow("login-ime")
+        hideKeyboard()
+        readyNode("finance-login").performScrollTo()
+        captureWindow("login-ready")
+        readyNode("finance-password").performScrollTo().performClick().performImeAction()
+        readyNode("finance-context-open").assertIsDisplayed()
         offline.set(true)
         rule.logoutFromAccount()
         readyText("Pencabutan sesi server belum terkonfirmasi.", true).assertIsDisplayed()
@@ -356,20 +372,43 @@ class FinanceEntryUiTest {
         rule.logoutFromAccount()
         expiredLogin.set(true)
         login("manager@example.invalid", waitForSync = false)
-        readyText("Sesi berakhir.", true).assertIsDisplayed()
-        readyNode("finance-tab-1").performClick().assertIsSelected()
+        val expiredMessage = "Sesi berakhir. Masuk kembali dengan akun yang sama untuk mengirim antrean. Draf tetap dapat disimpan."
+        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasText(expiredMessage))
+        readyText(expiredMessage).assertIsDisplayed()
+        rule.selectFinanceTab(1)
         readyText("Antrean akun ini").assertIsDisplayed()
         capture("manager-expired-session")
+        if (rule.activity.resources.configuration.fontScale > 1.5f) {
+            try {
+                rule.runOnUiThread { rule.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+                rule.waitUntil(10_000) { rule.activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE }
+                readyText("Antrean akun ini").assertIsDisplayed()
+                readyNode("finance-account").assertIsDisplayed()
+                captureWindow("manager-expired-landscape")
+            } finally {
+                rule.runOnUiThread { rule.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+            }
+        }
     }
 
     @Test fun glassFrontendCapturesWorkerManagerAndPreservesDraftNavigation() {
+        val compact = rule.openCompactNavigationIfPresent()
         rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
+        if (compact) Espresso.pressBack()
         rule.onNodeWithTag("finance-account").performClick()
         rule.onNodeWithTag("finance-admin").assertDoesNotExist()
         Espresso.pressBack()
         capture("worker-home")
         gfxInfo("reset")
-        choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
+        rule.openHomeContext()
+        rule.onNodeWithTag("finance-season").assertDoesNotExist()
+        rule.onNodeWithTag("finance-group").assertDoesNotExist()
+        choose("finance-gh", gh)
+        rule.openHomeContext()
+        rule.onNodeWithTag("finance-season").assertExists()
+        rule.onNodeWithTag("finance-group").assertDoesNotExist()
+        choose("finance-season", season)
+        choose("finance-group", group)
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("measurement-card-ec"))
         if (rule.activity.resources.configuration.fontScale > 1.3f) {
             rule.onNodeWithTag("finance-home-list").performTouchInput {
@@ -381,16 +420,16 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("finance-new"))
         rule.onNodeWithTag("finance-new").performClick()
         capture("worker-form-start")
-        rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Draf verifikasi tampilan kaca")
+        rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Draf verifikasi tampilan botani")
         hideKeyboard();capture("worker-form")
         rule.onNodeWithTag("finance-save-draft").performScrollTo().performClick()
-        readyNode("finance-tab-2").performClick();capture("worker-history")
+        rule.selectFinanceTab(2);capture("worker-history")
         rule.logoutFromAccount();login("manager@example.invalid")
         capture("manager-home")
         rule.onNodeWithTag("finance-account").performClick()
         rule.onNodeWithTag("finance-admin").assertExists()
         Espresso.pressBack()
-        readyNode("finance-tab-4").performClick();choose("expense-gh",gh);capture("manager-finance")
+        rule.selectFinanceTab(4);choose("expense-gh",gh);capture("manager-finance")
         rule.openFinanceTools()
         readyText("Transaksi dan aset").assertIsDisplayed()
         captureWindow("manager-finance-tools")
@@ -401,6 +440,16 @@ class FinanceEntryUiTest {
         frontendEvidence("frame-timing.txt").writeText(gfxInfo("framestats"))
         rule.activityRule.scenario.recreate()
         readyNode("expense-amount").performScrollTo().assertTextContains("1234567890,50")
+        choose("expense-category", category)
+        choose("expense-payment-kind", "operating")
+        readyNode("expense-notes").performScrollTo().performTextReplacement("Nominal panjang sintetis untuk tinjauan")
+        hideKeyboard()
+        readyNode("expense-review").performScrollTo().performClick()
+        readyNode("expense-amount-fact").performScrollTo()
+        readyText("1.234.567.890,50", substring = true).assertIsDisplayed()
+        capture("manager-payment-review")
+        Espresso.pressBack()
+        readyNode("expense-amount").performScrollTo().assertTextContains("1234567890,50")
     }
 
     @Test fun defaultLauncherOpensFinanceWithExistingApplicationIdentity() {
@@ -410,12 +459,54 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-2").assertExists()
     }
 
+    @Test fun compactNavigationKeepsEveryAllowedDestinationReachable() {
+        fun useCompactLayout() {
+            val model = runtime()
+            rule.runOnUiThread {
+                rule.activity.setContent {
+                    CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
+                        InofarmTheme {
+                            Box(Modifier.width(320.dp).fillMaxHeight()) { FinanceRoot(model) }
+                        }
+                    }
+                }
+            }
+            readyNode("finance-navigation-menu").assertIsDisplayed()
+        }
+        useCompactLayout()
+        assertTrue(rule.openCompactNavigationIfPresent())
+        rule.onNodeWithTag("finance-tab-0").assertIsSelected()
+        rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
+        Espresso.pressBack()
+        rule.selectFinanceTab(1)
+        readyText("Antrean akun ini").assertIsDisplayed()
+        rule.selectFinanceTab(2)
+        readyText("Riwayat kegiatan").assertIsDisplayed()
+        rule.selectFinanceTab(3)
+        readyText("Riwayat panen").assertIsDisplayed()
+        rule.selectFinanceTab(0)
+        readyNode("finance-context-open").assertIsDisplayed()
+
+        rule.logoutFromAccount()
+        login("manager@example.invalid")
+        assertTrue(rule.openCompactNavigationIfPresent())
+        captureWindow("manager-compact-navigation")
+        rule.onNodeWithTag("finance-tab-4").performScrollTo().performClick()
+        readyNode("finance-tools").assertIsDisplayed()
+        assertTrue(rule.openCompactNavigationIfPresent())
+        rule.onNodeWithTag("finance-tab-4").assertIsSelected()
+        Espresso.pressBack()
+        Espresso.pressBack()
+        readyNode("finance-context-open").assertIsDisplayed()
+    }
+
     @Test fun twoManualCardsKeepLegacyEcUnavailableAtNarrowLargeFont() {
         val today=java.time.LocalDate.now(com.inofarm.jogja.feature.activities.domain.ActivityDraft.WIB)
         val pair=com.inofarm.jogja.feature.activities.domain.ManualMeasurement(UUID.randomUUID().toString(),java.time.Instant.now().minusSeconds(172800),null,"625.5","Pencatat sintetis",false)
         rule.runOnUiThread {rule.activity.setContent {InofarmTheme {CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density,2f)) {
             androidx.compose.foundation.layout.Column(Modifier.width(280.dp).safeDrawingPadding().verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                com.inofarm.jogja.feature.activities.MeasurementCards(pair,today)
+                com.inofarm.jogja.feature.activities.MeasurementCards(pair)
+                com.inofarm.jogja.feature.activities.MeasurementSource(pair,today,false,null,null)
             }
         }}}}
         rule.onNodeWithTag("measurement-card-ec").assertExists();rule.onNodeWithTag("measurement-card-ppm").assertExists()
@@ -434,24 +525,26 @@ class FinanceEntryUiTest {
         hideKeyboard();rule.activityRule.scenario.recreate()
         rule.onNodeWithTag("finance-ec").performScrollTo().assertTextContains("1,25")
         Espresso.pressBack()
-        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("finance-tab-2").performClick()
+        rule.selectFinanceTab(2)
         readyText("Pengukuran manual",true).performScrollTo().performClick()
         readyNode("finance-edit").performScrollTo().performClick()
         offline.set(true)
         rule.onNodeWithTag("finance-review").performScrollTo().performClick()
         rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
-        readyNode("finance-tab-0").performClick()
+        rule.selectFinanceTab(0)
         choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("measurement-card-ec"))
         rule.onNodeWithTag("measurement-card-ec").performScrollTo().assertExists()
         rule.onNodeWithText("1.25").assertExists();rule.onNodeWithText("625.5").assertExists()
         capture("worker-measurement-pair-queued")
-        readyText("Belum tersinkron",true).performScrollTo().assertExists()
+        rule.onNodeWithTag("measurement-source").performScrollTo().performClick()
+        readyText("Belum tersinkron · pencatat:",true).performScrollTo().assertExists()
         assertEquals(0,posts.get())
         offline.set(false);readyNode("finance-sync").performClick()
         rule.waitUntil(15000) {posts.get()==1}
         readyText("Diterima server · pencatat:",true).performScrollTo().assertExists()
+        rule.onNodeWithTag("measurement-source").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-home-list").performScrollToIndex(0)
         capture("worker-measurement-pair-accepted")
         val payload=receipts.values.single().getJSONObject("data")
         assertEquals("1.25",payload.getString("manual_ec"));assertEquals("625.5",payload.getString("manual_ppm"));assertEquals(0,payload.getJSONArray("materials").length())
@@ -731,7 +824,11 @@ class FinanceEntryUiTest {
         rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE};rule.waitUntil(10000) {rule.activity.resources.configuration.orientation==Configuration.ORIENTATION_LANDSCAPE}
         content(false);rule.onNodeWithTag("harvest-weight-0").performScrollTo().performClick();Thread.sleep(500);rule.waitForIdle()
         rule.onNodeWithTag("harvest-save-draft").performScrollTo();capture("finance-harvest-landscape-ime.png");rule.onNodeWithTag("harvest-save-draft").assertIsDisplayed();hideKeyboard()
-        rule.onNodeWithTag("harvest-save-draft").performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-3").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("harvest-save-draft").performClick()
+        rule.waitUntil(10000) {
+            rule.onAllNodesWithTag("finance-tab-3").fetchSemanticsNodes().isNotEmpty() ||
+                rule.onAllNodesWithTag("finance-navigation-menu").fetchSemanticsNodes().isNotEmpty()
+        }
         rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_PORTRAIT}
     }
     private fun editorSnapshotLogout(harvest:Boolean) {
@@ -849,7 +946,7 @@ class FinanceEntryUiTest {
         assertEquals("belum",raw.getString("date"));assertFalse(raw.getBoolean("paid"));assertEquals("1,2,3",raw.getJSONArray("items").getJSONObject(0).getString("quantity"));assertTrue(runtime().store.outbox(session.scope.key).isEmpty())
     }
     private fun financialForm(allocation:Boolean=false) {
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh)
+        rule.selectFinanceTab(4);choose("expense-gh",gh)
         if(allocation) rule.clickFinanceTool("allocation-new") else rule.onNodeWithTag("expense-new").performClick()
     }
     private fun fillPayment() {
@@ -940,14 +1037,17 @@ class FinanceEntryUiTest {
             }
             rule.waitForIdle()
         }
-        layout(true);rule.onNodeWithTag("expense-notes").performScrollTo().performTextReplacement("Catatan pembayaran font 200 persen")
+        layout(true);rule.onNodeWithTag("expense-notes").performScrollTo().performClick().performTextReplacement("Catatan pembayaran font 200 persen")
         Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-save-draft").performScrollTo().assertIsDisplayed()
         File(rule.activity.getExternalFilesDir(null),"expense-narrow-ime.png").outputStream().use {rule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+        captureWindow("payment-narrow-ime")
         hideKeyboard();rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}
         rule.waitUntil(10000) {rule.activity.resources.configuration.orientation==Configuration.ORIENTATION_LANDSCAPE};layout(false)
-        rule.onNodeWithTag("expense-notes").performScrollTo().assertTextContains("Catatan pembayaran font 200 persen");rule.onNodeWithTag("expense-notes").performTextReplacement("Landscape tetap dapat disimpan")
+        rule.onNodeWithTag("expense-notes").performScrollTo().assertTextContains("Catatan pembayaran font 200 persen")
+            .performClick().performTextReplacement("Landscape tetap dapat disimpan")
         Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-save-draft").performScrollTo().assertIsDisplayed()
         File(rule.activity.getExternalFilesDir(null),"expense-landscape-ime.png").outputStream().use {rule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+        captureWindow("payment-landscape-ime")
         rule.onNodeWithTag("expense-save-draft").performClick();rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED}
     }
     @Test fun narrowAndLandscapeAtTwoHundredPercentKeepSaveReachableWithKeyboard() {
@@ -1031,7 +1131,7 @@ class FinanceEntryUiTest {
             val model=ViewModelProvider(rule.activity)[FinanceRuntime::class.java];val density=rule.activity.resources.displayMetrics.density
             rule.activity.setContent {CompositionLocalProvider(LocalDensity provides Density(density,2f)) {InofarmTheme {Box(Modifier.width(320.dp).fillMaxHeight()) {FinanceRoot(model)}}}}
         }
-        rule.waitForIdle();rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh)
+        rule.waitForIdle();rule.selectFinanceTab(4);choose("expense-gh",gh)
         rule.openFinanceTools()
         rule.onNodeWithTag("asset-new").performScrollTo().assertIsDisplayed();rule.onNodeWithTag("depreciation-new").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("finance-tools-close").performScrollTo().performClick()

@@ -14,7 +14,10 @@ import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.core.cultivation.PlantAge
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.design.FarmDraftStatus
+import com.inofarm.jogja.core.design.FarmFact
 import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmSection
+import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.context.CultivationUiState
@@ -26,12 +29,12 @@ import com.inofarm.jogja.feature.harvest.domain.HarvestLine
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         com.inofarm.jogja.core.design.FarmPageTitle("Catat panen")
         FarmDraftStatus(state.saved)
-        FarmPanel(title = "Waktu dan kelompok") {
+        FarmSection(title = "Waktu dan kelompok") {
             Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
             FinanceField("Tanggal panen WIB",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
             FinanceField("Jam panen WIB",draft.time,{value -> vm.edit {it.copy(time=value)}},"harvest-time",state.errors["occurred_at"],hint="HH:mm; detik opsional")
         }
-        draft.items.forEachIndexed {index,line -> key(line.id) { FarmPanel(title = "Rincian grade ${index+1}") {
+        draft.items.forEachIndexed {index,line -> key(line.id) { FarmSection(title = "Rincian grade ${index+1}") {
             if(line.id in draft.lockedItems) {
                 Text("Grade: ${line.gradeName.ifBlank {context.grades.find {it.optString("id")==line.gradeId}?.optString("name") ?: "belum tersedia"}}")
                 Text("Rincian sudah tersimpan atau diantrekan. Untuk grade berbeda, hapus rincian dan tambahkan rincian baru; saldo tetap diperiksa server.",style=MaterialTheme.typography.bodySmall)
@@ -53,8 +56,8 @@ import com.inofarm.jogja.feature.harvest.domain.HarvestLine
             if(age!=null) {Text("HSS ${age.hss ?: "belum tersedia"} · HST ${age.hst ?: "belum berlaku"}");age.reasons.forEach {Text(it,style=MaterialTheme.typography.bodySmall)}}
         } else Notice("Acuan historis dipertahankan. Perubahan waktu panen memerlukan pilihan nilai ulang.")
         state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
-        Button(onClick=vm::review,enabled=!state.busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("harvest-review")) {Text("Periksa panen")}
-        OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("harvest-save-draft")) {Text("Simpan draf dan kembali")}
+        Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("harvest-review")) {Text("Periksa panen")}
+        OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("harvest-save-draft")) {Text("Simpan draf dan kembali")}
     }
 }
 
@@ -62,14 +65,19 @@ import com.inofarm.jogja.feature.harvest.domain.HarvestLine
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         com.inofarm.jogja.core.design.FarmPageTitle("Periksa panen")
         FarmPanel(title = "Hasil per grade") {
-        Text("${draft.date} ${draft.time} WIB");Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
-        draft.items.forEach {line -> Text("${line.gradeName.ifBlank {context.grades.find {it.optString("id")==line.gradeId}?.optString("name") ?: "Grade belum tersedia"}}: ${line.fruitCount} buah · ${line.weightKg} kg")}
+        FarmFact("Waktu panen", "${draft.date} ${draft.time} WIB")
+        Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
+        draft.items.forEach { line ->
+            FarmFact(line.gradeName.ifBlank {
+                context.grades.find { it.optString("id") == line.gradeId }?.optString("name") ?: "Grade belum tersedia"
+            }, "${line.fruitCount} buah · ${line.weightKg} kg", prominent = true)
+        }
         if(draft.notes.isNotBlank()) Text(draft.notes);if(draft.reason.isNotBlank()) Text("Alasan koreksi: ${draft.reason}")
         }
         if(draft.replaceValidationRejected) Notice("Panen yang ditolak akan diganti setelah tinjauan ini. Pengajuan lama tetap disimpan sebagai riwayat.")
         Notice("Panen disimpan lokal dan diantrekan. Pembaruan atau pembatalan ditolak bila melampaui saldo sumber yang sudah dipakai penjualan.")
-        Button(onClick=onQueue,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("harvest-queue")) {Text(if(busy) "Menyimpan…" else "Simpan lokal & antrekan")}
-        OutlinedButton(onClick=onBack,enabled=!busy,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke isian")}
+        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("harvest-queue")) {Text(if(busy) "Menyimpan…" else "Simpan lokal & antrekan")}
+        OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke isian")}
     }
 }
 

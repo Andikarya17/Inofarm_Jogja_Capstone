@@ -30,7 +30,7 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-password").performScrollTo().performTextReplacement(f.getString("password"))
         hideKeyboard();rule.onNodeWithTag("finance-login").performScrollTo().performClick()
         rule.waitUntil(15000) {rule.onAllNodesWithTag("finance-context-open").fetchSemanticsNodes().isNotEmpty()}
-        rule.waitUntil(15000) {rule.onAllNodesWithText("Data server sudah diperiksa. Tinjau antrean yang ditahan.").fetchSemanticsNodes().isNotEmpty()}
+        rule.waitUntil(15000) {rule.onAllNodesWithText("Data server sudah diperiksa.").fetchSemanticsNodes().isNotEmpty()}
     }
     private fun choose(tag:String,id:String) {
         rule.prepareChoice(tag)

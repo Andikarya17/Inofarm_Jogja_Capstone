@@ -140,6 +140,7 @@ class FinanceSeasonReportTest {
         click("report-preview");rule.waitUntil(10000) {!vm.state.value.busy && vm.state.value.draft?.previewText!=null}
         for(key in SeasonReportContract.labels.keys) {scroll("report-metric-$key");rule.onNodeWithTag("report-metric-$key").assertIsDisplayed()}
         scroll("report-metric-BEP_Q");rule.onNodeWithText("266,666667 kg").assertIsDisplayed()
+        rule.captureBotanicalWindow("season-report")
         click("report-queue");rule.waitUntil(10000) {vm.state.value.draft==null && !vm.state.value.busy}
         assertEquals(1,store.outbox(session.scope.key).size);assertNull(store.records(session.scope.key,kind="season_report").single().serverVersion)
     }
