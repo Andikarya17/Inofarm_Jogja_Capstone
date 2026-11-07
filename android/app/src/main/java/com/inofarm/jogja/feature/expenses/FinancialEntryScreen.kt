@@ -16,6 +16,7 @@ import com.inofarm.jogja.core.database.QueuedOperation
 import com.inofarm.jogja.core.design.FarmPageTitle
 import com.inofarm.jogja.core.design.FarmDraftStatus
 import com.inofarm.jogja.core.design.FarmFact
+import com.inofarm.jogja.core.design.FarmMenuHeader
 import com.inofarm.jogja.core.design.FarmPanel
 import com.inofarm.jogja.core.design.FarmSection
 import com.inofarm.jogja.core.design.FarmShape
@@ -37,42 +38,49 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun FinancialHub(session:FinanceSession,context:CultivationUiState,entry:FinancialEntryViewModel,
-    expense:HistoryUiState,expenseVm:HistoryViewModel,allocation:HistoryUiState,allocationVm:HistoryViewModel,queue:List<QueuedOperation>,sales:com.inofarm.jogja.feature.sales.SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:com.inofarm.jogja.feature.assets.AssetWorkspace,reports:com.inofarm.jogja.feature.reports.SeasonReportWorkspace,investments:com.inofarm.jogja.feature.investments.InvestmentWorkspace) {
+    expense:HistoryUiState,expenseVm:HistoryViewModel,allocation:HistoryUiState,allocationVm:HistoryViewModel,queue:List<QueuedOperation>,sales:com.inofarm.jogja.feature.sales.SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:com.inofarm.jogja.feature.assets.AssetWorkspace,reports:com.inofarm.jogja.feature.reports.SeasonReportWorkspace,investments:com.inofarm.jogja.feature.investments.InvestmentWorkspace,onSync:()->Unit) {
     var gh by rememberSaveable {mutableStateOf("")};var selected by rememberSaveable {mutableStateOf(RecordKind.EXPENSE.wire)}
-    LaunchedEffect(context.greenhouses.map {it.optString("id")}) {if(gh.isNotBlank() && context.greenhouses.none {it.optString("id")==gh}) gh=""}
+    val greenhouses = context.greenhouses.filter { it.optBoolean("active", true) }
+    val canRecord = greenhouses.any { it.optString("id") == gh }
+    LaunchedEffect(context.greenhouses,context.lastSyncedAt) {
+        if (gh.isNotBlank() && !canRecord && (context.greenhouses.isNotEmpty() || context.lastSyncedAt != null)) gh=""
+    }
     val kind=RecordKind.entries.single {it.wire==selected}
     var showTools by rememberSaveable { mutableStateOf(false) }
     key(kind) {
         HistoryScreen(session,context,when(kind) {RecordKind.ASSET -> asset.history;RecordKind.DEPRECIATION -> asset.depreciation;RecordKind.EXPENSE -> expense;RecordKind.SALE -> saleHistory;else -> allocation},when(kind) {RecordKind.ASSET -> asset.historyVm;RecordKind.DEPRECIATION -> asset.depreciationVm;RecordKind.EXPENSE -> expenseVm;RecordKind.SALE -> saleHistoryVm;else -> allocationVm},queue,
-            onEdit={record,replace -> if(kind in setOf(RecordKind.ASSET,RecordKind.DEPRECIATION)) {asset.vm.open(record,replace);if(kind==RecordKind.ASSET) asset.historyVm.close() else asset.depreciationVm.close()} else if(kind==RecordKind.SALE) {sales.open(record,replace);saleHistoryVm.close()} else {entry.open(record,replace);if(kind==RecordKind.EXPENSE) expenseVm.close() else allocationVm.close()}},kind=kind) {
-            item("finance-workspace") {
-                FarmPageTitle("Keuangan")
-                Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                    Choice("Greenhouse untuk catatan baru",gh,context.greenhouses.filter {it.optBoolean("active",true)},"expense-gh") {gh=it}
-                    Button(onClick={entry.new(RecordKind.EXPENSE,gh)},enabled=gh.isNotBlank(),shape=FarmShape.Control,
-                        modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("expense-new")) {Text("Catat pengeluaran")}
-                    TextButton(onClick={showTools=true},shape=FarmShape.Control,
-                        modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-tools")) {Text("Alat keuangan")}
-                }
-            }
-            item("finance-history-kind") {
+            onEdit={record,replace -> if(kind in setOf(RecordKind.ASSET,RecordKind.DEPRECIATION)) {asset.vm.open(record,replace);if(kind==RecordKind.ASSET) asset.historyVm.close() else asset.depreciationVm.close()} else if(kind==RecordKind.SALE) {sales.open(record,replace);saleHistoryVm.close()} else {entry.open(record,replace);if(kind==RecordKind.EXPENSE) expenseVm.close() else allocationVm.close()}},kind=kind,onSync=onSync,
+            historyKindPicker={
                 Choice("Riwayat keuangan",selected,listOf(option(RecordKind.EXPENSE.wire,"Pembayaran aktual"),option(RecordKind.COST_ALLOCATION.wire,"Alokasi biaya musim"),option(RecordKind.SALE.wire,"Penjualan lunas"),option(RecordKind.ASSET.wire,"Aset"),option(RecordKind.DEPRECIATION.wire,"Alokasi penyusutan")),"expense-history-kind") {selected=it}
+            }) {
+            item("finance-workspace") {
+                FarmMenuHeader("Keuangan", "Greenhouse untuk catatan baru dipilih di sini.") {
+                    Choice("Greenhouse pencatatan",gh,greenhouses,"expense-gh") {gh=it}
+                    FlowRow(horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small),
+                        verticalArrangement=Arrangement.spacedBy(FarmSpace.Small)) {
+                        Button(onClick={entry.new(RecordKind.EXPENSE,gh)},enabled=canRecord,shape=FarmShape.Control,
+                            modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("expense-new")) {Text("Catat pengeluaran")}
+                        OutlinedButton(onClick={showTools=true},shape=FarmShape.Control,
+                            modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-tools")) {Text("Alat keuangan")}
+                    }
+                }
             }
         }
     }
     if (showTools) ModalBottomSheet(
         onDismissRequest = { showTools = false },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface
     ) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(FarmSpace.Page),
             verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
             FarmPageTitle("Alat keuangan")
-            if (gh.isBlank()) Text("Pilih greenhouse untuk mencatat transaksi atau aset.")
+            if (!canRecord) Notice("Pilih greenhouse pencatatan di Keuangan untuk mencatat transaksi atau aset.")
             FarmSection(title = "Transaksi dan aset") {
-                FinanceTool("Alokasikan biaya", "allocation-new", gh.isNotBlank()) {showTools=false;entry.new(RecordKind.COST_ALLOCATION,gh)}
-                FinanceTool("Catat penjualan lunas", "sale-new", gh.isNotBlank()) {showTools=false;sales.new(gh)}
-                FinanceTool("Catat aset", "asset-new", gh.isNotBlank()) {showTools=false;asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ASSET)}
-                FinanceTool("Alokasi penyusutan", "depreciation-new", gh.isNotBlank()) {showTools=false;asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ALLOCATION)}
+                FinanceTool("Alokasikan biaya", "allocation-new", canRecord) {showTools=false;entry.new(RecordKind.COST_ALLOCATION,gh)}
+                FinanceTool("Catat penjualan lunas", "sale-new", canRecord) {showTools=false;sales.new(gh)}
+                FinanceTool("Catat aset", "asset-new", canRecord) {showTools=false;asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ASSET)}
+                FinanceTool("Alokasi penyusutan", "depreciation-new", canRecord) {showTools=false;asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ALLOCATION)}
             }
             FarmSection(title = "Evaluasi dan pemulihan") {
                 FinanceTool("Evaluasi musim", "report-open") {showTools=false;reports.vm.show(gh)}

@@ -88,4 +88,3 @@ class RecoveryViewModel(private val repository:RecoveryRepository):ViewModel() {
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recovery-open")
     ) { Text("Cadangan dan pemeriksaan pemulihan") }
 }
-@Composable fun RecoveryReviewButton(op:QueuedOperation) {val actions=LocalRecoveryActions.current ?: return;if(actions.canReview(op)) OutlinedButton(onClick={actions.review(op)},modifier=Modifier.testTag("recovery-review-${op.id}")){Text("Periksa tanda terima setelah pemulihan")}}

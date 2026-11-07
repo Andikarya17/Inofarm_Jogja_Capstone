@@ -16,7 +16,8 @@ import org.json.JSONObject
 
 data class HistoryUiState(val records:List<LocalRecord> = emptyList(),val filter:LocalHistoryFilter=LocalHistoryFilter(),val hasMore:Boolean=false,val loading:Boolean=false,
     val selected:LocalRecord?=null,val comparison:LocalRecord?=null,val audit:AuditPage?=null,val archives:List<JSONObject> = emptyList(),val auditLoading:Boolean=false,
-    val message:String?=null,val busy:Boolean=false,val changed:Long=0,val pending:List<QueuedOperation> = emptyList())
+    val message:String?=null,val busy:Boolean=false,val changed:Long=0,val pending:List<QueuedOperation> = emptyList(),
+    val loaded:Boolean=false,val loadError:String?=null,val filterSeason:String?=null)
 
 class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
     private val vault get()=repository.vault
@@ -27,7 +28,11 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
         if(boundScope==session?.scope?.key) return
         boundScope=session?.scope?.key;selectionVersion++;query?.cancel();auditJob?.cancel();selectJob?.cancel();mutable.value=HistoryUiState();count=50;if(session!=null) reload()
     }
-    fun filter(filter:LocalHistoryFilter) {count=50;mutable.value=state.value.copy(filter=filter);reload()}
+    fun filter(filter:LocalHistoryFilter, season:String?=filter.seasonId) {
+        count=50
+        mutable.value=state.value.copy(filter=filter,filterSeason=season,records=emptyList(),hasMore=false,loaded=false,loadError=null)
+        reload()
+    }
     fun more() {count+=50;reload()}
     fun reload() {
         val session=vault.current ?: return;val ticket=vault.generation
@@ -40,25 +45,36 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
                 val selected=detail?.record;val pending=detail?.pending ?: emptyList();val archives=detail?.archives ?: emptyList()
                 if(vault.matches(ticket,session.scope)) {
                     val current=state.value;val sameSelection=selectionVersion==selection && current.selected?.id==selectedId
-                    mutable.value=current.copy(records=rows.take(count),hasMore=rows.size>count,selected=if(sameSelection) selected else current.selected,
+                    mutable.value=current.copy(records=rows.take(count),hasMore=rows.size>count,loaded=true,loadError=null,selected=if(sameSelection) selected else current.selected,
                         pending=if(sameSelection) pending else current.pending,archives=if(sameSelection) archives else current.archives,
                         comparison=if(sameSelection && selected==null) null else current.comparison)
                 }
             } catch(cancelled:CancellationException) {throw cancelled}
-            catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error))}
+            catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(loadError=userMessage(error))}
             finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(loading=false)}
         }
     }
-    fun select(id:String) {
+    fun select(id:String, onResult: ((String?) -> Unit)? = null) {
         val session=vault.current ?: return;val ticket=vault.generation
         selectionVersion++
         auditJob?.cancel();selectJob?.cancel();selectJob=viewModelScope.launch {
             try {
                 val detail=repository.detail(session,id)
                 val record=detail?.record;val archived=detail?.archives ?: emptyList();val pending=detail?.pending ?: emptyList()
-                if(vault.matches(ticket,session.scope)) {selectionVersion++;mutable.value=state.value.copy(selected=record,comparison=null,audit=null,archives=archived,pending=pending,message=if(record==null) "Catatan tidak tersedia dalam penugasan saat ini." else null);reload()}
+                if(vault.matches(ticket,session.scope)) {
+                    val error = if(record==null) "Catatan tidak tersedia dalam penugasan saat ini." else null
+                    selectionVersion++
+                    mutable.value=state.value.copy(selected=record,comparison=null,audit=null,archives=archived,pending=pending,message=error.takeIf { onResult == null })
+                    onResult?.invoke(error)
+                    reload()
+                }
             } catch(cancelled:CancellationException) {throw cancelled}
-            catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error))}
+            catch(error:Exception) {
+                if(vault.matches(ticket,session.scope)) {
+                    if(onResult == null) mutable.value=state.value.copy(message=userMessage(error))
+                    else onResult(userMessage(error))
+                }
+            }
         }
     }
     fun close() {selectionVersion++;selectJob?.cancel();auditJob?.cancel();mutable.value=state.value.copy(selected=null,comparison=null,audit=null,archives=emptyList(),pending=emptyList())}

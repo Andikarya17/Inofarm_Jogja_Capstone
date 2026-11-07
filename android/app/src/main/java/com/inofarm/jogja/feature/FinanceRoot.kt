@@ -176,6 +176,22 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val runtime:FinanceRuntime=viewModel()
     val tabState = rememberSaveableStateHolder()
     var tab by rememberSaveable { mutableStateOf(0) };var gh by rememberSaveable { mutableStateOf<String?>(null) };var season by rememberSaveable { mutableStateOf<String?>(null) };var group by rememberSaveable { mutableStateOf<String?>(null) }
+    var queueReviewError by rememberSaveable { mutableStateOf<String?>(null) }
+    var queueReviewOperation by rememberSaveable { mutableStateOf<String?>(null) }
+    var queueOpening by remember { mutableStateOf(false) }
+    val manager = session.role == UserRole.MANAGER
+    val queueHistory = buildMap {
+        put(OperationalKind.ACTIVITY.wire, historyVm)
+        put(OperationalKind.HARVEST.wire, harvestHistoryVm)
+        if (manager) {
+            put(OperationalKind.EXPENSE.wire, expenseHistoryVm)
+            put(OperationalKind.COST_ALLOCATION.wire, allocationHistoryVm)
+            put(OperationalKind.SALE.wire, saleHistoryVm)
+            put(OperationalKind.ASSET.wire, asset.historyVm)
+            put(OperationalKind.DEPRECIATION.wire, asset.depreciationVm)
+        }
+    }
+    val investmentQueueKinds = setOf("investment_scenario", "investment_report")
     val writing=investments.state.busy || reports.state.busy || asset.entry.busy || asset.history.busy || asset.depreciation.busy || sale.busy || saleHistory.busy || attachment.busy || activity.busy || harvest.busy || history.busy || harvestHistory.busy || financial.busy || expenseHistory.busy || allocationHistory.busy
     val keyboard=LocalSoftwareKeyboardController.current;val ime=WindowInsets.ime.getBottom(LocalDensity.current)>0
     val selectedGreenhouse = context.greenhouses.find { it.optString("id") == gh && it.optBoolean("active", true) }
@@ -189,7 +205,40 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         }
     }
     BackHandler(investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
-        when { writing -> Unit;ime -> keyboard?.hide();investments.state.active -> investments.vm.back();reports.state.active -> reports.vm.back();asset.entry.draft!=null && asset.entry.reviewing -> asset.vm.backToForm();asset.entry.draft!=null -> asset.vm.saveAndClose();asset.history.comparison!=null -> asset.historyVm.closeComparison();asset.history.selected!=null -> asset.historyVm.close();asset.depreciation.comparison!=null -> asset.depreciationVm.closeComparison();asset.depreciation.selected!=null -> asset.depreciationVm.close();attachment.parentReview!=null || attachment.reviewing -> attachmentVm.backToDetails();attachment.selected!=null -> attachmentVm.closeSelected();attachment.parent!=null -> attachmentVm.close();sale.draft!=null && sale.reviewing -> saleVm.backToForm();sale.draft!=null -> saleVm.saveAndClose();saleHistory.comparison!=null -> saleHistoryVm.closeComparison();saleHistory.selected!=null -> saleHistoryVm.close();activity.draft!=null && activity.reviewing -> vm.backToForm();activity.draft!=null -> vm.saveAndClose();harvest.draft!=null && harvest.reviewing -> harvestVm.backToForm();harvest.draft!=null -> harvestVm.saveAndClose();financial.draft!=null && financial.reviewing -> financialVm.backToForm();financial.draft!=null -> financialVm.saveAndClose();expenseHistory.comparison!=null -> expenseHistoryVm.closeComparison();expenseHistory.selected!=null -> expenseHistoryVm.close();allocationHistory.comparison!=null -> allocationHistoryVm.closeComparison();allocationHistory.selected!=null -> allocationHistoryVm.close();history.comparison!=null -> historyVm.closeComparison();history.selected!=null -> historyVm.close();harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison();harvestHistory.selected!=null -> harvestHistoryVm.close();else -> tab=0 }
+        when {
+            writing || queueOpening -> Unit
+            ime -> keyboard?.hide()
+            investments.state.active -> investments.vm.back(tab==1)
+            reports.state.active -> reports.vm.back(tab==1)
+            asset.entry.draft!=null && asset.entry.reviewing -> asset.vm.backToForm()
+            asset.entry.draft!=null -> asset.vm.saveAndClose()
+            asset.history.comparison!=null -> asset.historyVm.closeComparison()
+            asset.history.selected!=null -> asset.historyVm.close()
+            asset.depreciation.comparison!=null -> asset.depreciationVm.closeComparison()
+            asset.depreciation.selected!=null -> asset.depreciationVm.close()
+            attachment.parentReview!=null || attachment.reviewing -> attachmentVm.backToDetails()
+            attachment.selected!=null -> attachmentVm.closeSelected()
+            attachment.parent!=null -> attachmentVm.close()
+            sale.draft!=null && sale.reviewing -> saleVm.backToForm()
+            sale.draft!=null -> saleVm.saveAndClose()
+            saleHistory.comparison!=null -> saleHistoryVm.closeComparison()
+            saleHistory.selected!=null -> saleHistoryVm.close()
+            activity.draft!=null && activity.reviewing -> vm.backToForm()
+            activity.draft!=null -> vm.saveAndClose()
+            harvest.draft!=null && harvest.reviewing -> harvestVm.backToForm()
+            harvest.draft!=null -> harvestVm.saveAndClose()
+            financial.draft!=null && financial.reviewing -> financialVm.backToForm()
+            financial.draft!=null -> financialVm.saveAndClose()
+            expenseHistory.comparison!=null -> expenseHistoryVm.closeComparison()
+            expenseHistory.selected!=null -> expenseHistoryVm.close()
+            allocationHistory.comparison!=null -> allocationHistoryVm.closeComparison()
+            allocationHistory.selected!=null -> allocationHistoryVm.close()
+            history.comparison!=null -> historyVm.closeComparison()
+            history.selected!=null -> historyVm.close()
+            harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison()
+            harvestHistory.selected!=null -> harvestHistoryVm.close()
+            else -> tab=0
+        }
     }
     val showNavigation = !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
     val sessionExpired = session.expired()
@@ -208,9 +257,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             FinanceToolbar(session, context.loading, writing, sessionExpired, onSync, onLogout, onAdmin)
         }
     } },bottomBar={
-        if (showNavigation) FinanceNavigation(tab, session.role == UserRole.MANAGER, translucentNavigation) { tab = it }
+        if (showNavigation) FinanceNavigation(tab, manager, translucentNavigation) { if (!queueOpening) tab = it }
     }) { padding ->
-        if (showNavigation && tab == 0) BotanicalBackdrop(R.drawable.background_dashboard)
+        val menuViewport = showNavigation && !writing
+        if (menuViewport) BotanicalBackdrop(R.drawable.background_dashboard)
         val systemBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val contentPadding = if (translucentNavigation) {
             PaddingValues(start = padding.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current),
@@ -221,22 +271,22 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             contentAlignment = Alignment.TopCenter) {
         Box(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
             when {
-                session.role==UserRole.MANAGER && investments.state.active -> InvestmentScreen(investments,context)
-                session.role==UserRole.MANAGER && reports.state.active -> SeasonReportScreen(reports,context)
+                session.role==UserRole.MANAGER && investments.state.active -> InvestmentScreen(investments,context,returnToQueue=tab==1)
+                session.role==UserRole.MANAGER && reports.state.active -> SeasonReportScreen(reports,context,returnToQueue=tab==1)
                 attachment.parent!=null -> AttachmentScreen(session,context,attachment,attachmentVm,ticket)
                 asset.entry.busy || sale.busy || activity.busy || harvest.busy || financial.busy -> Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Text("Menyimpan isian ke perangkat…")}
-                session.role==UserRole.MANAGER && asset.entry.draft!=null -> if(asset.entry.reviewing) FarmReviewEntrance { AssetReview(asset.entry.draft,asset.entry.busy,asset.vm::backToForm,asset.vm::queue) } else AssetForm(asset.entry,context,asset.vm)
-                session.role==UserRole.MANAGER && asset.history.selected!=null -> HistoryScreen(session,context,asset.history,asset.historyVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.historyVm.close()},kind=OperationalKind.ASSET)
-                session.role==UserRole.MANAGER && asset.depreciation.selected!=null -> HistoryScreen(session,context,asset.depreciation,asset.depreciationVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.depreciationVm.close()},kind=OperationalKind.DEPRECIATION)
+                session.role==UserRole.MANAGER && asset.entry.draft!=null -> if(asset.entry.reviewing) FarmReviewEntrance { AssetReview(asset.entry.draft,context,asset.entry.busy,asset.vm::backToForm,asset.vm::queue) } else AssetForm(asset.entry,context,asset.vm)
+                session.role==UserRole.MANAGER && asset.history.selected!=null -> HistoryScreen(session,context,asset.history,asset.historyVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.historyVm.close()},kind=OperationalKind.ASSET,returnToQueue=tab==1)
+                session.role==UserRole.MANAGER && asset.depreciation.selected!=null -> HistoryScreen(session,context,asset.depreciation,asset.depreciationVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.depreciationVm.close()},kind=OperationalKind.DEPRECIATION,returnToQueue=tab==1)
                 activity.draft!=null -> if(activity.reviewing) FarmReviewEntrance { ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue) } else ActivityForm(activity,context,vm)
                 harvest.draft!=null -> if(harvest.reviewing) FarmReviewEntrance { HarvestReview(harvest.draft,context,harvest.busy,harvestVm::backToForm,harvestVm::queue) } else HarvestForm(harvest,context,harvestVm)
                 session.role==UserRole.MANAGER && sale.draft!=null -> if(sale.reviewing) FarmReviewEntrance { SaleReview(sale.draft,context,sale.busy,saleVm::backToForm,saleVm::queue) } else SaleForm(sale,context,saleVm)
-                session.role==UserRole.MANAGER && saleHistory.selected!=null -> HistoryScreen(session,context,saleHistory,saleHistoryVm,activity.queue,onEdit={record,replace -> saleVm.open(record,replace);saleHistoryVm.close()},kind=OperationalKind.SALE)
+                session.role==UserRole.MANAGER && saleHistory.selected!=null -> HistoryScreen(session,context,saleHistory,saleHistoryVm,activity.queue,onEdit={record,replace -> saleVm.open(record,replace);saleHistoryVm.close()},kind=OperationalKind.SALE,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && financial.draft!=null -> if(financial.reviewing) FarmReviewEntrance { FinancialReview(financial.draft,context,financial.busy,financialVm::backToForm,financialVm::queue) } else FinancialForm(financial,context,financialVm)
-                session.role==UserRole.MANAGER && expenseHistory.selected!=null -> HistoryScreen(session,context,expenseHistory,expenseHistoryVm,activity.queue,onEdit={record,replace -> financialVm.open(record,replace);expenseHistoryVm.close()},kind=OperationalKind.EXPENSE)
-                session.role==UserRole.MANAGER && allocationHistory.selected!=null -> HistoryScreen(session,context,allocationHistory,allocationHistoryVm,activity.queue,onEdit={record,replace -> financialVm.open(record,replace);allocationHistoryVm.close()},kind=OperationalKind.COST_ALLOCATION)
-                history.selected!=null -> HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()})
-                harvestHistory.selected!=null -> HistoryScreen(session,context,harvestHistory,harvestHistoryVm,activity.queue,onEdit={record,replace -> harvestVm.open(record,replace);harvestHistoryVm.close()},kind=OperationalKind.HARVEST)
+                session.role==UserRole.MANAGER && expenseHistory.selected!=null -> HistoryScreen(session,context,expenseHistory,expenseHistoryVm,activity.queue,onEdit={record,replace -> financialVm.open(record,replace);expenseHistoryVm.close()},kind=OperationalKind.EXPENSE,returnToQueue=tab==1)
+                session.role==UserRole.MANAGER && allocationHistory.selected!=null -> HistoryScreen(session,context,allocationHistory,allocationHistoryVm,activity.queue,onEdit={record,replace -> financialVm.open(record,replace);allocationHistoryVm.close()},kind=OperationalKind.COST_ALLOCATION,returnToQueue=tab==1)
+                history.selected!=null -> HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()},returnToQueue=tab==1)
+                harvestHistory.selected!=null -> HistoryScreen(session,context,harvestHistory,harvestHistoryVm,activity.queue,onEdit={record,replace -> harvestVm.open(record,replace);harvestHistoryVm.close()},kind=OperationalKind.HARVEST,returnToQueue=tab==1)
                 tab==0 -> tabState.SaveableStateProvider(0) { LazyColumn(
                     modifier=Modifier.fillMaxSize().testTag("finance-home-list"),
                     verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium),
@@ -308,29 +358,57 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     }
                     item { activity.message?.let { Notice(it) } }
                 } }
-                tab==1 -> tabState.SaveableStateProvider(1) { LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
-                    item { FarmPageTitle("Antrean akun ini","Disimpan lokal belum berarti diterima server. Operasi yang ditahan tetap disimpan.") }
-                    item {
-                        if (sessionExpired) ExpiredSessionNotice()
-                        else context.message?.let { Text(it, modifier = Modifier.testTag("finance-sync-message")) }
-                    }
-                    val waiting = activity.queue.count { it.state == "QUEUED" }
-                    val attention = activity.queue.count { it.state in setOf("REJECTED", "CONFLICT", "AUTH_REQUIRED", "SCOPE_REVOKED", "EPOCH_REVIEW") }
-                    if (attention > 0) item { FarmAttention("$attention pengajuan perlu ditinjau.") }
-                    if (waiting > 0) item { Text("$waiting pengajuan menunggu pengiriman.", style = MaterialTheme.typography.bodyMedium) }
-                    if(activity.queue.isEmpty()) item { Notice("Belum ada operasi dalam antrean.") }
-                    items(activity.queue,key={it.id}) { op -> FarmSection(title = if(op.state=="SUPERSEDED") "Digantikan setelah ditinjau" else runCatching { SyncState.valueOf(op.state).label() }.getOrDefault("Perlu ditinjau")) {
-                        OperationalKind.entries.find { it.wire == op.envelope.optString("entity_type") }?.let { Text(it.label.replaceFirstChar { char -> char.uppercaseChar() }) }
-                        Text("Catatan ${op.entityId.take(8)} · percobaan ${op.attempts}",style=MaterialTheme.typography.bodySmall)
-                        op.error?.let { ErrorReasons(it) }
-                        com.inofarm.jogja.feature.recovery.RecoveryReviewButton(op)
-                        if(op.envelope.optString("entity_type") in setOf("activity","harvest","expense","cost_allocation","sale","asset","depreciation_allocation","season_report","investment_scenario","investment_report")) TextButton(onClick={when(op.envelope.optString("entity_type")) {"investment_scenario","investment_report" -> {investments.vm.select(op.entityId);tab=4};"season_report" -> {reports.vm.select(op.entityId);tab=4};"asset" -> {asset.historyVm.select(op.entityId);tab=4};"depreciation_allocation" -> {asset.depreciationVm.select(op.entityId);tab=4};"sale" -> {saleHistoryVm.select(op.entityId);tab=4};"harvest" -> {harvestHistoryVm.select(op.entityId);tab=3};"expense" -> {expenseHistoryVm.select(op.entityId);tab=4};"cost_allocation" -> {allocationHistoryVm.select(op.entityId);tab=4};else -> {historyVm.select(op.entityId);tab=2}}},modifier=Modifier.testTag("finance-review-${op.id}")) {Text("Tinjau catatan")}
-                        Text(if(op.state=="ACCEPTED") "Penerimaan tersimpan. Ini tidak menyatakan kesesuaian agronomi." else "ID operasi tetap sama saat dicoba kembali.",style=MaterialTheme.typography.bodySmall)
-                    } }
-                } }
-                tab==4 && session.role==UserRole.MANAGER -> tabState.SaveableStateProvider(4) { FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments) }
-                tab==2 -> tabState.SaveableStateProvider(2) { HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()}) }
-                else -> tabState.SaveableStateProvider(3) { HistoryScreen(session,context,harvestHistory,harvestHistoryVm,activity.queue,onEdit={record,replace -> harvestVm.open(record,replace);harvestHistoryVm.close()},kind=OperationalKind.HARVEST) }
+                tab==1 -> tabState.SaveableStateProvider(1) {
+                    QueueScreen(activity, context, sessionExpired, queueReviewOperation, queueReviewError, queueOpening, vm::reload,
+                        onReview = { op ->
+                            queueReviewError = null
+                            queueReviewOperation = op.id
+                            val kind = op.envelope.optString("entity_type")
+                            val destination = queueHistory[kind]
+                            when {
+                                destination != null -> {
+                                    queueOpening = true
+                                    destination.select(op.entityId) { error ->
+                                        queueOpening = false
+                                        queueReviewError = error
+                                    }
+                                }
+                                manager && kind in investmentQueueKinds -> investments.vm.select(op.entityId,fromQueue=true)
+                                manager && kind == "season_report" -> reports.vm.select(op.entityId)
+                            }
+                        },
+                        canReview = { op ->
+                            val kind = op.envelope.optString("entity_type")
+                            kind in queueHistory || manager && (kind in investmentQueueKinds || kind == "season_report")
+                        })
+                }
+                tab==4 && manager -> tabState.SaveableStateProvider(4) {
+                    FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync)
+                }
+                tab==2 || tab==3 -> tabState.SaveableStateProvider(tab) {
+                    val isActivity = tab == 2
+                    val canRecord = selectedGreenhouse != null && selectedGroup != null && selectedSeason?.optString("status") == "open"
+                    HistoryScreen(session,context,if (isActivity) history else harvestHistory,
+                        if (isActivity) historyVm else harvestHistoryVm,activity.queue,
+                        onEdit={record,replace ->
+                            if (isActivity) { vm.open(record,replace);historyVm.close() }
+                            else { harvestVm.open(record,replace);harvestHistoryVm.close() }
+                        },
+                        kind=if (isActivity) OperationalKind.ACTIVITY else OperationalKind.HARVEST,
+                        onRecord={
+                            if (!canRecord) tab=0
+                            else if (isActivity) vm.new(selectedGreenhouse!!.getString("id"), selectedGroup!!.getString("id"))
+                            else harvestVm.new(selectedGreenhouse!!.getString("id"), selectedGroup!!.getString("id"))
+                        },
+                        recordLabel=when {
+                            !canRecord -> "Lihat konteks di Beranda"
+                            isActivity -> "Catat kegiatan"
+                            else -> "Catat panen"
+                        },
+                        recordScope=if (canRecord) listOf(selectedGreenhouse,selectedSeason,selectedGroup)
+                            .joinToString(" · ") { it!!.getString("name") } else null,
+                        onSync=onSync)
+                }
             }
         }
         }
@@ -392,7 +470,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
 }
 
 @Composable
-private fun ExpiredSessionNotice() {
+internal fun ExpiredSessionNotice() {
     Notice("Sesi berakhir. Masuk kembali dengan akun yang sama untuk mengirim antrean. Draf tetap dapat disimpan.", true)
 }
 
@@ -412,9 +490,11 @@ private fun ExpiredSessionNotice() {
             FinanceField("Tanggal kejadian (YYYY-MM-DD)",draft.date,{value -> vm.edit {it.copy(date=value)}},"finance-date",state.errors["occurred_at"])
             FinanceField("Jam kejadian WIB (HH:mm)",draft.time,{value -> vm.edit {it.copy(time=value)}},"finance-time",hint="Detik boleh ditulis HH:mm:ss dan tetap dipertahankan.")
         }
-        FarmCheckbox("Kegiatan dilewati", draft.skipped, { value -> vm.edit { it.copy(skipped = value) } },
-            Modifier.testTag("finance-skipped"))
-        if(draft.skipped) FinanceField("Alasan kegiatan dilewati",draft.skippedReason,{value -> vm.edit {it.copy(skippedReason=value)}},"finance-skipped-reason",state.errors["skipped_reason"])
+        FarmSection(title = "Pelaksanaan") {
+            FarmCheckbox("Kegiatan dilewati", draft.skipped, { value -> vm.edit { it.copy(skipped = value) } },
+                Modifier.testTag("finance-skipped"))
+            if(draft.skipped) FinanceField("Alasan kegiatan dilewati",draft.skippedReason,{value -> vm.edit {it.copy(skippedReason=value)}},"finance-skipped-reason",state.errors["skipped_reason"],singleLine=false)
+        }
         if(draft.type in setOf(ActivityType.MEASUREMENT,ActivityType.NUTRITION) || draft.ec.isNotBlank() || draft.ppm.isNotBlank() || draft.ph.isNotBlank()) {
             FarmSection(title = "Hasil ukur aktual") {
                 FinanceField("EC manual (mS/cm)",draft.ec,{value -> vm.edit {it.copy(ec=value)}},"finance-ec",state.errors["manual_ec"],keyboard=KeyboardType.Decimal)
@@ -424,17 +504,20 @@ private fun ExpiredSessionNotice() {
         }
         if(draft.type==ActivityType.STAGE || draft.stage.isNotBlank()) FinanceField("Kondisi stadia aktual",draft.stage,{value -> vm.edit {it.copy(stage=value)}},"finance-stage",state.errors["actual_stage"],hint="Dipilih dari kondisi aktual, bukan umur")
         if(draft.type in setOf(ActivityType.NUTRITION,ActivityType.SPRAY) || draft.materials.isNotEmpty()) {
-            Text("Bahan aktual",style=MaterialTheme.typography.titleLarge)
-            draft.materials.forEachIndexed { index,row -> OutlinedCard { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+            FarmSection(title = "Bahan aktual") {
+            draft.materials.forEachIndexed { index,row -> FarmPanel {
                 fun change(updated:MaterialDraft) { vm.edit {it.copy(materials=it.materials.toMutableList().apply {set(index,updated)})} }
                 val material=context.materials.find {it.optString("id")==row.materialId}
                 Choice("Bahan ${index+1}",row.materialId,context.materials.filter {it.optString("greenhouse_id")==draft.greenhouseId && (it.optBoolean("active",true) || it.optString("id")==row.materialId)},"finance-material-$index") {change(row.copy(materialId=it,unitId=""))}
                 Choice("Satuan ${index+1}",row.unitId,context.units.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("dimension")==material?.optString("dimension") && (it.optBoolean("active",true) || it.optString("id")==row.unitId)},"finance-unit-$index") {change(row.copy(unitId=it))}
                 FinanceField("Jumlah ${index+1}",row.quantity,{change(row.copy(quantity=it))},"finance-quantity-$index",state.errors["materials.$index"],KeyboardType.Decimal,hint="Desimal boleh koma; tanpa pemisah ribuan")
-                TextButton(onClick={vm.edit {it.copy(materials=it.materials.filterIndexed { i,_ -> i!=index })}}) {Text("Hapus bahan ${index+1}")}
-            } } }
-            OutlinedButton(onClick={vm.edit {it.copy(materials=it.materials+MaterialDraft())}},enabled=draft.materials.size<30,modifier=Modifier.fillMaxWidth().testTag("finance-add-material")) {Text("Tambah bahan")}
+                TextButton(onClick={vm.edit {it.copy(materials=it.materials.filterIndexed { i,_ -> i!=index })}},
+                    modifier=Modifier.heightIn(min=FarmSpace.Touch)) {Text("Hapus bahan ${index+1}")}
+            } }
+            OutlinedButton(onClick={vm.edit {it.copy(materials=it.materials+MaterialDraft())}},enabled=draft.materials.size<30,
+                shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("finance-add-material")) {Text("Tambah bahan")}
             state.errors["materials"]?.let { Notice(it,true) }
+            }
         }
         FarmSection(title = "Catatan lapangan") {
             FinanceField("Keterangan pekerjaan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"finance-notes",state.errors["notes"],singleLine=false)
@@ -461,16 +544,21 @@ private fun ExpiredSessionNotice() {
         FarmPageTitle("Periksa catatan")
         if(draft.replaceValidationRejected) Notice("Perbaikan ini membuat operasi baru. Operasi yang ditolak tetap disimpan sebagai riwayat dan tidak dikirim ulang.")
         FarmPanel(title = draft.type.label) {
-        Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
-        FarmFact("Waktu kejadian", "${draft.date} ${draft.time} WIB")
-        Text(if(draft.skipped) "Dilewati: ${draft.skippedReason}" else "Kegiatan selesai")
-        if(draft.ec.isNotBlank()) FarmFact("EC manual", "${draft.ec} mS/cm", prominent = true)
-        if(draft.ppm.isNotBlank()) FarmFact("PPM manual", "${draft.ppm} ppm", prominent = true)
-        if(draft.ph.isNotBlank()) Text("pH manual: ${draft.ph}")
-        if(draft.stage.isNotBlank()) Text("Stadia aktual: ${draft.stage}")
-        draft.materials.forEach { item -> Text("${context.materials.find {it.optString("id")==item.materialId}?.optString("name") ?: "Bahan"}: ${item.quantity} ${context.units.find {it.optString("id")==item.unitId}?.optString("name").orEmpty()}") }
-        if (draft.notes.isNotBlank()) Text(draft.notes)
-        if(draft.reason.isNotBlank()) Text("Alasan koreksi: ${draft.reason}")
+            FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
+            FarmFact("Waktu kejadian", "${draft.date} ${draft.time} WIB")
+            if (draft.skipped) FarmFact("Alasan kegiatan dilewati", draft.skippedReason)
+            else Text("Kegiatan selesai",style=MaterialTheme.typography.labelMedium)
+            if(draft.ec.isNotBlank()) FarmFact("EC manual", "${draft.ec} mS/cm", prominent = true)
+            if(draft.ppm.isNotBlank()) FarmFact("PPM manual", "${draft.ppm} ppm", prominent = true)
+            if(draft.ph.isNotBlank()) FarmFact("pH manual", draft.ph)
+            if(draft.stage.isNotBlank()) FarmFact("Stadia aktual", draft.stage)
+            draft.materials.forEach { item ->
+                val name=context.materials.find {it.optString("id")==item.materialId}?.optString("name") ?: "Bahan"
+                val unit=context.units.find {it.optString("id")==item.unitId}?.optString("name").orEmpty()
+                FarmFact(name, "${item.quantity} $unit".trim())
+            }
+            if (draft.notes.isNotBlank()) FarmFact("Keterangan", draft.notes)
+            if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi", draft.reason)
         }
         Notice("Catatan akan disimpan lokal dan diantrekan. Status diterima diberikan setelah server mengonfirmasi.")
         Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-queue")) {Text(if(busy) "Menyimpan…" else "Simpan lokal & antrekan")}
@@ -478,17 +566,20 @@ private fun ExpiredSessionNotice() {
     }
 }
 
-@Composable internal fun RecordDetail(record:LocalRecord,session:FinanceSession,context:CultivationUiState,onClose:()->Unit,onEdit:()->Unit,kind:OperationalKind=OperationalKind.ACTIVITY,actions:@Composable ()->Unit={}) {
+@Composable internal fun RecordDetail(record:LocalRecord,session:FinanceSession,context:CultivationUiState,onClose:()->Unit,onEdit:()->Unit,kind:OperationalKind=OperationalKind.ACTIVITY,returnToQueue:Boolean=false,actions:@Composable ()->Unit={}) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         FarmPageTitle("Detail ${kind.label}")
-        FarmPanel(title = record.syncState.label()) {
+        FarmPanel {
+            RecordStatus(record.syncState)
             RecordFacts(record,session,context,kind)
             record.error?.let { ErrorReasons(it) }
         }
         val own=record.recorderId().let {it.isBlank() || it==session.scope.accountId}
         if(record.body.optString("record_state")!="cancelled" && (own || session.role==UserRole.MANAGER)) OutlinedButton(onClick=onEdit,modifier=Modifier.fillMaxWidth().testTag("finance-edit")) {Text(if(record.serverVersion==null) "Lanjutkan draf" else "Koreksi catatan")}
         actions()
-        OutlinedButton(onClick=onClose,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke riwayat")}
+        OutlinedButton(onClick=onClose,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {
+            Text(if (returnToQueue) "Kembali ke antrean" else "Kembali ke riwayat")
+        }
     }
 }
 @Composable internal fun ActivityFacts(record:LocalRecord,session:FinanceSession,context:CultivationUiState) {

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
+import com.inofarm.jogja.core.design.InofarmTheme
 import com.inofarm.jogja.core.contracts.*
 import com.inofarm.jogja.core.database.*
 import com.inofarm.jogja.core.network.FinanceHttpApi
@@ -94,10 +95,15 @@ class FinanceRecoveryTest {
     }
     @Test fun operatorBackupRequiresReasonAndConfirmationAndShowsBackupNotRestoreSuccess() {
         available.set(true)
-        rule.setContent {RecoveryHost(session,repository,{}){RecoveryBackupButton()}}
+        rule.setContent {InofarmTheme {RecoveryHost(session,repository,{}){RecoveryBackupButton()}}}
         rule.onNodeWithTag("recovery-open").performClick();rule.waitUntil(10000){rule.onAllNodesWithTag("recovery-reason").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)==false}
         rule.onNodeWithTag("recovery-create").performScrollTo().assertIsNotEnabled()
         rule.onNodeWithTag("recovery-reason").performScrollTo().performTextInput("Latihan cadangan UI")
+        if (InstrumentationRegistry.getArguments().getString("secondaryEvidence") == "true") {
+            androidx.test.espresso.Espresso.closeSoftKeyboard()
+            rule.onNodeWithTag("recovery-create").performScrollTo()
+            rule.captureBotanicalWindow("secondary-recovery")
+        }
         rule.onNodeWithTag("recovery-create").performScrollTo().performClick();assertNull(created)
         rule.onNodeWithText("Cadangkan sekarang").performClick()
         rule.waitUntil(10000){rule.onAllNodesWithText("Cadangan dibuat. Keberhasilan restore belum dibuktikan.").fetchSemanticsNodes().isNotEmpty()}

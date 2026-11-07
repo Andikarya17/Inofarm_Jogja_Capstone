@@ -1,5 +1,9 @@
 # Status implementasi nyata — 7 November 2026
 
+## Menu lanjutan Android — 7 November 2026
+
+Antrean, Kegiatan, Panen, dan Keuangan memakai shell botani pada halaman utama. Riwayat merangkum filter aktif, Antrean mempertahankan tab asal saat meninjau catatan, dan form serta review memakai bidang solid. Matriks perubahan, pengujian dan bukti per alur ada di [verifikasi menu lanjutan](ANDROID_SECONDARY_MENUS_20261107.md).
+
 ## Frontend botani Android — 7 November 2026
 
 Login dan beranda memakai dua ilustrasi lokal. Navigasi menyesuaikan lebar dan skala teks. Form, antrean, riwayat, panen, keuangan, laporan dan layar sekunder memakai sistem visual bersama. Bukti build, tes, render emulator, provenance dan batas penerimaan ada di [catatan verifikasi frontend botani](ANDROID_BOTANICAL_FRONTEND_20261107.md).

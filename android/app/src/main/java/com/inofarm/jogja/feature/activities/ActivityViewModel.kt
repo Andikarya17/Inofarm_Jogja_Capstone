@@ -17,7 +17,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-data class ActivityUiState(val records:List<LocalRecord> = emptyList(),val queue:List<QueuedOperation> = emptyList(),val draft:ActivityDraft?=null,val errors:Map<String,String> = emptyMap(),val busy:Boolean=false,val reviewing:Boolean=false,val saved:Boolean=false,val message:String?=null)
+data class ActivityUiState(val records:List<LocalRecord> = emptyList(),val queue:List<QueuedOperation> = emptyList(),val draft:ActivityDraft?=null,val errors:Map<String,String> = emptyMap(),val busy:Boolean=false,val reviewing:Boolean=false,val saved:Boolean=false,val message:String?=null,
+    val queueLoaded:Boolean=false,val queueLoadError:String?=null)
 class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
     private val vault get()=repository.vault
     private val mutable=MutableStateFlow(ActivityUiState());val state=mutable.asStateFlow();private var saveJob:Job?=null
@@ -28,12 +29,22 @@ class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
     }
     fun reload() {
         val session=vault.current ?: return;val ticket=vault.generation
-        viewModelScope.launch { val data=repository.snapshot(session)
-            if(vault.matches(ticket,session.scope)) {
-                val draft=state.value.draft
-                val known=draft?.let { d -> data.records.find {it.id==d.id}?.baseVersion }
-                mutable.value=state.value.copy(records=data.records,queue=data.queue,draft=if(draft?.baseVersion==null && known!=null) draft?.copy(baseVersion=known) else draft)
-            } }
+        viewModelScope.launch {
+            try {
+                val data=repository.snapshot(session)
+                if(vault.matches(ticket,session.scope)) {
+                    val draft=state.value.draft
+                    val known=draft?.let { d -> data.records.find {it.id==d.id}?.baseVersion }
+                    mutable.value=state.value.copy(records=data.records,queue=data.queue,
+                        draft=if(draft?.baseVersion==null && known!=null) draft?.copy(baseVersion=known) else draft,
+                        queueLoaded=true,queueLoadError=null)
+                }
+            } catch(cancelled:CancellationException) {
+                throw cancelled
+            } catch(error:Exception) {
+                if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(queueLoadError=userMessage(error))
+            }
+        }
     }
     fun new(gh:String,group:String,type:ActivityType=ActivityType.GENERAL,scheduleId:String?=null) { saveJob?.cancel();mutable.value=state.value.copy(draft=ActivityDraft(greenhouseId=gh,groupId=group,type=type,scheduleId=scheduleId),errors=emptyMap(),saved=false,reviewing=false,message=null) }
     fun open(record:LocalRecord,replaceRejected:Boolean=false) {

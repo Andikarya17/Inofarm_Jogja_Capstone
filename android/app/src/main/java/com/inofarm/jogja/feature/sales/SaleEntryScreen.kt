@@ -8,15 +8,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.design.FarmCheckbox
 import com.inofarm.jogja.core.design.FarmDraftStatus
+import com.inofarm.jogja.core.design.FarmFact
 import com.inofarm.jogja.core.design.FarmPageTitle
 import com.inofarm.jogja.core.design.FarmPanel
 import com.inofarm.jogja.core.design.FarmSection
 import com.inofarm.jogja.core.design.FarmShape
+import com.inofarm.jogja.core.design.FarmSpace
 import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.expenses.moneyLabel
@@ -67,23 +70,39 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
         FarmPanel(title = "Rincian transaksi") { SaleDraftFacts(draft,context) }
         Notice("Pratinjau dihitung dari harga/bobot manual, total dibulatkan sekali. Saldo terakhir diketahui dan kelengkapan diperiksa ulang server.")
         if(draft.replaceValidationRejected) Notice("Perbaikan membuat operasi baru; pengajuan yang ditolak tetap disimpan.")
-        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("sale-queue")) {Text("Simpan lokal dan antrekan")}
-        OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke isian")}
+        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,
+            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("sale-queue")) {Text("Simpan lokal & antrekan")}
+        OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,
+            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Kembali ke isian")}
     }
 }
-@Composable private fun SaleDraftFacts(draft:SaleDraft,context:CultivationUiState) {
-    Text("Musim: ${context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "terakhir tersimpan"}")
-    Text("Pembayaran: ${draft.date} ${draft.time} WIB · ${if(draft.paid) "Lunas" else "Belum dikonfirmasi"}");Text("Pembeli: ${draft.customer.ifBlank {"Tidak dicatat"}}")
+@Composable private fun SaleDraftFacts(draft:SaleDraft,context:CultivationUiState,acceptedTotal:String?=null) {
+    val preview=runCatching { draft.preview() }.getOrNull()
+    if(acceptedTotal!=null) FarmFact("Total diterima server", moneyLabel(acceptedTotal),
+        Modifier.testTag("sale-accepted-total").semantics(mergeDescendants=true) {}, prominent=true)
+    else if(preview!=null) FarmFact("Pratinjau total penjualan",moneyLabel(preview.total.toPlainString()),
+        Modifier.testTag("sale-total-fact").semantics(mergeDescendants=true) {},prominent=true)
+    else Notice("Total belum dapat dihitung dari isian ini.",true)
+    preview?.let { FarmFact("Bobot dari rincian", "${it.weightKg.toPlainString()} kg") }
+    FarmFact("Musim",context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "Nama belum tersedia")
+    FarmFact("Pembayaran","${draft.date} ${draft.time} WIB · ${if(draft.paid) "Lunas" else "Belum dikonfirmasi"}")
+    if(draft.customer.isNotBlank()) FarmFact("Pembeli",draft.customer)
     val options=sources(context,draft)
-    draft.items.forEachIndexed {index,line -> Text("${index+1}. ${options.find {it.optString("id")==line.sourceId}?.optString("name") ?: "Sumber belum tersedia pada cache"}");Text("${line.quantity} kg × ${line.price} IDR/kg")}
-    runCatching {draft.preview()}.getOrNull()?.let {Text("Pratinjau: ${moneyLabel(it.total.toPlainString())} · bobot ${it.weightKg.toPlainString()} kg",modifier=Modifier.testTag("sale-total-fact"))} ?: Notice("Total belum dapat dihitung dari isian ini.",true)
-    Text(draft.notes);if(draft.reason.isNotBlank()) Text("Alasan koreksi: ${draft.reason}")
+    draft.items.forEachIndexed {index,line ->
+        HorizontalDivider()
+        FarmFact("Sumber panen ${index+1}",options.find {it.optString("id")==line.sourceId}
+            ?.optString("name") ?: "Sumber belum tersedia pada data tersimpan")
+        Text("${line.quantity} kg × ${line.price} IDR/kg")
+    }
+    if(draft.notes.isNotBlank()) FarmFact("Keterangan",draft.notes)
+    if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi",draft.reason)
 }
 @Composable fun SaleFacts(record:LocalRecord,context:CultivationUiState) {
     val draft=runCatching {SaleDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion)}.getOrNull()
     if(draft==null) {Notice("Rincian penjualan belum lengkap. Data tetap disimpan untuk ditinjau.",true);return}
-    SaleDraftFacts(draft,context)
-    if(record.body.has("total_amount")) Text("Total diterima server: ${moneyLabel(record.body.getString("total_amount"))}",modifier=Modifier.testTag("sale-accepted-total"))
+    SaleDraftFacts(draft,context,record.body.optString("total_amount").takeUnless {
+        record.body.isNull("total_amount") || it.isBlank()
+    })
     record.body.optJSONArray("items")?.let {items -> repeat(items.length()) {val line=items.getJSONObject(it);if(line.has("grade_name")) Text("Grade saat diterima: ${line.getString("grade_name")} · versi panen ${line.optLong("harvest_version")}")}}
     if(record.body.optString("record_state")=="cancelled") Notice("Penjualan dibatalkan dan dikecualikan dari penerimaan aktif.",true)
     record.body.optString("recorded_by_name").takeIf {it.isNotBlank()}?.let {Text("Dicatat oleh: $it")}
