@@ -2,6 +2,12 @@
 
 Menu lanjutan 7 November 2026. [Implementasi dan bukti Android](ANDROID_SECONDARY_MENUS_20261107.md) mencakup Antrean, Kegiatan, Panen, Keuangan, dan alur turunannya. Catatan audit berikut merekam status saat disusun.
 
+Perancangan menu lanjutan dari baseline `dc97705` tercatat di [audit Antrean, Kegiatan, Panen, dan Keuangan](SECONDARY_MENUS_UI_AUDIT.md) serta [master prompt alur turunan](MASTER_PROMPT_SECONDARY_MENUS.md).
+
+Frontend botani 7 November 2026. [Penilaian dua aset pengguna](FRONTEND_ASSET_REVIEW_20261107.md) dan [master prompt botani](MASTER_PROMPT_FRONTEND_BOTANICAL.md) merekam alasan pemilihan ilustrasi. [Hasil implementasi login dan Beranda](ANDROID_BOTANICAL_FRONTEND_20261107.md) mencatat aset Android dan hasil pengujiannya.
+
+Riset visual 5 November 2026. [Audit frontend dan referensi UI](FRONTEND_INSPIRATION_AUDIT_20261105.md) serta [daftar kandidat foto](FRONTEND_PHOTO_SOURCES_20261105.md) merekam opsi yang dipertimbangkan sebelum ilustrasi dipilih.
+
 Frontend 5 November 2026. [Rombak alur Android dan hasil verifikasi](ANDROID_OPERATIONAL_FRONTEND_20261105.md), termasuk login, konteks budidaya, riwayat, keuangan, motion dan material navigasi.
 
 Frontend3 November2026: [perubahan visual Android, hasil uji dan batas acceptance](ANDROID_FRONTEND_EVIDENCE_20261103.md). Tema kaca tonal light/dark tersedia; bukan klaim seluruh gate frontend/UAT selesai.
