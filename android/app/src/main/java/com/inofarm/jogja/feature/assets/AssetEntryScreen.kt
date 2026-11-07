@@ -12,9 +12,12 @@ import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.core.contracts.DepreciationAmounts
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.design.FarmDraftStatus
+import com.inofarm.jogja.core.design.FarmFact
 import com.inofarm.jogja.core.design.FarmPageTitle
 import com.inofarm.jogja.core.design.FarmPanel
 import com.inofarm.jogja.core.design.FarmSection
+import com.inofarm.jogja.core.design.FarmShape
+import com.inofarm.jogja.core.design.FarmSpace
 import com.inofarm.jogja.feature.Choice
 import com.inofarm.jogja.feature.Notice
 import com.inofarm.jogja.feature.context.CultivationUiState
@@ -75,32 +78,50 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
     }
 }
 
-@Composable fun AssetReview(draft:AssetDraft,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
+@Composable fun AssetReview(draft:AssetDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
+    val acquisition = draft.kind == AssetKind.ASSET
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        FarmPageTitle("Periksa catatan aset")
-        FarmPanel(title = if (draft.kind == AssetKind.ASSET) "Perolehan aset" else "Alokasi penyusutan") { AssetDraftFacts(draft) }
-        Notice("Alokasi ini nominal manual, bukan pembagian otomatis. Server memeriksa sisa pembayaran, anggaran tahunan, A−S dan duplikasi pemakaian.")
+        FarmPageTitle(if (acquisition) "Periksa perolehan aset" else "Periksa alokasi penyusutan")
+        FarmPanel { AssetDraftFacts(draft,context) }
+        Notice(if (acquisition) "Pengajuan disimpan di perangkat. Server memeriksa sumber pembayaran dan nilai perolehan saat menerima pengajuan."
+            else "Nominal alokasi diisi manual. Server memeriksa anggaran tahunan, batas penyusutan, dan duplikasi pemakaian.")
         if(draft.replaceValidationRejected) Notice("Perbaikan membuat operasi baru; pengajuan lama yang ditolak tetap disimpan.")
-        Button(onClick=onQueue,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("asset-queue")) {Text("Simpan lokal dan antrekan")}
-        OutlinedButton(onClick=onBack,enabled=!busy) {Text("Kembali ke isian")}
+        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,
+            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("asset-queue")) {Text("Simpan lokal & antrekan")}
+        OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,
+            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Kembali ke isian")}
     }
 }
 
-@Composable private fun AssetDraftFacts(draft:AssetDraft) {
+@Composable private fun AssetDraftFacts(draft:AssetDraft,context:CultivationUiState) {
+    fun nominal(value:String) = runCatching { moneyLabel(AssetDraft.money(value).toPlainString()) }
+        .getOrDefault(if (value.isBlank()) "Belum diisi" else "Isian belum valid")
     if(draft.kind==AssetKind.ASSET) {
-        Text("Aset: ${draft.name}");Text("Harga ${draft.cost} IDR · nilai sisa ${draft.residual} IDR")
-        Text("Umur ${draft.lifeYears} tahun · mulai ${draft.inServiceDate}");Text("Pembayaran: ${draft.expenseId.take(8)}")
+        FarmFact("Aset",draft.name.ifBlank { "Belum diisi" })
+        FarmFact("Harga perolehan",nominal(draft.cost),Modifier.testTag("asset-cost-fact"),prominent=true)
+        FarmFact("Nilai sisa",nominal(draft.residual))
+        FarmFact("Umur pemakaian",draft.lifeYears.takeIf { it.isNotBlank() }?.let { "$it tahun" } ?: "Belum diisi")
+        FarmFact("Mulai dipakai",draft.inServiceDate.ifBlank { "Belum diisi" })
+        val source=context.expenses.find { it.optString("id")==draft.expenseId && it.optString("greenhouse_id")==draft.greenhouseId }
+        val payment=source?.let { listOf(nominal(it.optString("amount")), it.optString("notes")).filter(String::isNotBlank).joinToString(" · ") }
+        FarmFact("Pembayaran sumber",payment ?: draft.expenseId.takeIf { it.isNotBlank() } ?: "Belum tersedia")
     } else {
-        Text("Aset ${draft.assetId.take(8)} · musim ${draft.seasonId.take(8)} · pemakaian ${draft.usageReference.take(8)}")
-        Text("Tahun ${draft.usageYear} · ${draft.periodStart} hingga ${draft.periodEnd} (akhir tidak termasuk)")
-        Text("Nominal alokasi ${draft.amount} IDR")
+        FarmFact("Nominal alokasi",nominal(draft.amount),prominent=true)
+        val asset=context.assets.find { it.optString("id")==draft.assetId && it.optString("greenhouse_id")==draft.greenhouseId }
+        val season=context.seasons.find { it.optString("id")==draft.seasonId && it.optString("greenhouse_id")==draft.greenhouseId }
+        FarmFact("Aset sumber",asset?.optString("name") ?: draft.assetId.ifBlank { "Belum tersedia" })
+        FarmFact("Musim tujuan",season?.optString("name") ?: draft.seasonId.ifBlank { "Belum tersedia" })
+        FarmFact("Tahun pemakaian ke",draft.usageYear.ifBlank { "Belum diisi" })
+        FarmFact("Periode pemakaian", "${draft.periodStart.ifBlank { "Awal belum diisi" }} hingga ${draft.periodEnd.ifBlank { "akhir belum diisi" }} (akhir tidak termasuk)")
+        FarmFact("Referensi pemakaian",draft.usageReference.ifBlank { "Belum tersedia" })
     }
-    Text("Dasar: ${draft.basis}");if(draft.reason.isNotBlank()) Text("Alasan: ${draft.reason}")
+    FarmFact("Dasar pemakaian / pembagian",draft.basis.ifBlank { "Belum diisi" })
+    if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi",draft.reason)
 }
 
-@Composable fun AssetFacts(record:LocalRecord) {
+@Composable fun AssetFacts(record:LocalRecord,context:CultivationUiState) {
     val kind=AssetKind.entries.single {it.wire==record.kind}
-    AssetDraftFacts(AssetDraft.from(record.id,record.greenhouseId,kind,record.body,record.baseVersion ?: record.serverVersion))
+    AssetDraftFacts(AssetDraft.from(record.id,record.greenhouseId,kind,record.body,record.baseVersion ?: record.serverVersion),context)
     record.body.optString("formula_version").takeIf {it.isNotBlank()}?.let {Text("Metode: penyusutan garis lurus, anggaran ulang tahun pemakaian; pembulatan kumulatif.")}
     if(record.body.has("year_budget")) Text("Anggaran tahun saat diterima: ${moneyLabel(record.body.getString("year_budget"))}")
     if(record.body.optString("record_state")=="cancelled") Notice("Dibatalkan; tidak dihitung sebagai alokasi aktif.",true)

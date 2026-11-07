@@ -102,9 +102,9 @@ components:
 
 ## Overview
 
-Inofarm membantu pekerja dan pengelola mencatat pekerjaan greenhouse melon hidroponik dan meninjau hasilnya. Ilustrasi daun membingkai login dan beranda. Bidang forest menandai pintu masuk dan konteks budidaya, sementara bidang solid memudahkan pengguna membaca angka, mengisi form, dan memeriksa transaksi. Material 3 memberi pola sentuh, fokus, Back, keyboard, dialog, dan sheet yang konsisten dengan Android. [Konteks produk](PRODUCT.md) · [Brief botani](docs/context/MASTER_PROMPT_FRONTEND_BOTANICAL.md)
+Inofarm membantu pekerja dan pengelola mencatat pekerjaan greenhouse melon hidroponik dan meninjau hasilnya. Ilustrasi daun membingkai login, Beranda, dan halaman utama Antrean, Kegiatan, Panen, serta Keuangan. Bidang forest menandai pintu masuk dan konteks kerja. Bidang solid memudahkan pengguna membaca angka, mengisi form, dan memeriksa transaksi. Material 3 memberi pola sentuh, fokus, Back, keyboard, dialog, dan sheet yang konsisten dengan Android. [Konteks produk](PRODUCT.md) · [Menu lanjutan](docs/context/ANDROID_SECONDARY_MENUS_20261107.md)
 
-Fokus login ada pada Masuk. Beranda membawa pengguna dari greenhouse, musim, dan kelompok ke hasil pengukuran dan tindakan. Form, riwayat, dan laporan mengutamakan isi dan status dengan lebih sedikit ornamen. Arah ENERGY / RHYTHM / MOTION dari brief adalah 2 / 2 / 1 untuk login, 2 / 2 / 2 untuk beranda, dan 1 / 2 / 1 untuk layar kerja.
+Fokus login ada pada Masuk. Beranda membawa pengguna dari greenhouse, musim, dan kelompok ke hasil pengukuran dan tindakan. Arah ENERGY / RHYTHM / MOTION adalah 2 / 2 / 1 untuk login dan menu lanjutan, 2 / 2 / 2 untuk Beranda, dan 1 / 2 / 1 untuk form, detail, dan laporan.
 
 ## Colors
 
@@ -133,7 +133,7 @@ Kartu EC dan PPM berjajar pada ruang cukup dan menumpuk ketika lebar konten kura
 
 ## Elevation & Depth
 
-`BotanicalBackdrop` menempatkan `background_login.jpg` dan `background_dashboard.jpg` dari `drawable-nodpi` di belakang viewport login dan beranda. Gambar dekoratif tidak memiliki deskripsi aksesibilitas. Crop terpusat mempertahankan proporsi, sementara tinggi daftar dan form tumbuh sendiri. Ilustrasi muncul jika lebar viewport lebih kecil dari tingginya dan di bawah 600 dp. Pada kondisi lain, warna latar tema menjadi fallback solid. Tema gelap melapisi ilustrasi dengan warna latar tema pada alpha 86%. [Implementasi latar](android/app/src/main/java/com/inofarm/jogja/core/design/BotanicalBackdrop.kt) · [Asal aset pengguna](docs/context/FRONTEND_ASSET_REVIEW_20261107.md)
+`BotanicalBackdrop` menempatkan `background_login.jpg` pada login dan `background_dashboard.jpg` pada viewport halaman utama setelah masuk. Gambar dekoratif tidak memiliki deskripsi aksesibilitas. Crop terpusat mempertahankan proporsi, sementara tinggi daftar dan form tumbuh sendiri. Ilustrasi muncul jika lebar viewport lebih kecil dari tingginya dan di bawah 600 dp. Pada kondisi lain, warna latar tema menjadi fallback solid. Tema gelap melapisi ilustrasi dengan warna latar tema pada alpha 86%. Form, detail, review, dialog, sheet, dan workspace laporan memakai bidang solid. [Implementasi latar](android/app/src/main/java/com/inofarm/jogja/core/design/BotanicalBackdrop.kt)
 
 Login, konteks, metrik, form, dan panel review memakai bidang solid. Lapisan kaca terbatas pada navigasi bawah beranda saat navigasi tampil, penyimpanan sedang tidak berlangsung, API minimal 31, window memakai akselerasi hardware, dan skala font maksimal 1,4. Komposit memakai tint dasar dengan alpha 94%, highlight tonal, garis tepi 1 dp, dan elevasi 2 dp. Ikon dan label tetap opak. Konten dapat bergulir di belakang tint dan mendapat ruang ekstra di akhir daftar. Pada kondisi lain, navigasi memakai bidang opak dengan ruang terpisah dari konten. [Material navigasi](android/app/src/main/java/com/inofarm/jogja/core/design/FarmChrome.kt) · [Shell aplikasi](android/app/src/main/java/com/inofarm/jogja/feature/FinanceRoot.kt)
 
@@ -159,11 +159,11 @@ Beranda menampilkan dua kartu setara, EC dalam mS/cm dan PPM dalam ppm, dari sat
 
 `FarmSection` mengelompokkan isian berdasarkan pekerjaan, misalnya waktu, konteks, hasil, atau catatan. Pertahankan satuan, bantuan, jenis keyboard dan kesalahan di dekat isian. Review memakai pasangan label dan nilai dalam panel. Bedakan `Simpan draf dan kembali`, tindakan periksa, `Kembali ke isian`, serta `Simpan lokal & antrekan`. Status draf menyebut penyimpanan di perangkat. Antrean dan riwayat menyebut penerimaan server secara eksplisit.
 
-Baris riwayat mendahulukan jenis catatan dan nominal jika tersedia, disusul konteks, waktu, serta status. Filter aktif terlihat dan detail tetap dapat dibuka. Saat pengguna meninjau konflik, gunakan dua panel untuk versi lokal dan server serta tampilkan alasan yang tersedia. Antrean membedakan pengajuan yang menunggu pengiriman dari yang perlu ditinjau. Panen menampilkan rincian per grade dan penjualan memiliki alur sendiri. [HistoryScreen.kt](android/app/src/main/java/com/inofarm/jogja/feature/history/HistoryScreen.kt) · [HarvestScreen.kt](android/app/src/main/java/com/inofarm/jogja/feature/harvest/HarvestScreen.kt)
+Header forest memberi orientasi pada keempat menu. Toolbar merangkum cakupan riwayat dan memberi akses ke filter. Baris solid mendahulukan jenis catatan, grade atau nominal, disusul konteks, waktu, dan status. Panen menampilkan cuplikan per grade di riwayat dan rincian lengkap di detail. Saat pengguna meninjau konflik, dua panel memisahkan versi lokal dan server beserta alasannya. Antrean mendahulukan pengajuan yang perlu ditinjau dalam urutan tampilan dan menyimpan ID serta percobaan di rincian operasi. Back dari detail yang dibuka lewat Antrean kembali ke Antrean. [Komponen menu](android/app/src/main/java/com/inofarm/jogja/core/design/FarmMenu.kt) · [Riwayat](android/app/src/main/java/com/inofarm/jogja/feature/history/HistoryScreen.kt)
 
 ### Keuangan dan laporan
 
-Keuangan memuat konteks untuk catatan baru, `Catat pengeluaran`, pilihan jenis riwayat dan daftar transaksi dalam satu area gulir. `Alat keuangan` membuka sheet untuk transaksi, aset, evaluasi, investasi, dan pemulihan. Tampilkan pembayaran, alokasi biaya, aset, penyusutan, dan penjualan dengan labelnya masing-masing. Laporan dan investasi mendahulukan hasil yang tersedia beserta status, periode, dan basis. Rincian rumus dan sumber dapat dibuka, termasuk alasan saat hasil belum tersedia atau tidak valid. [FinancialEntryScreen.kt](android/app/src/main/java/com/inofarm/jogja/feature/expenses/FinancialEntryScreen.kt) · [Kontrak operasional](contracts/v2/README.md)
+Keuangan memuat konteks catatan baru dan `Catat pengeluaran` di header. Pemilih jenis riwayat, cakupan, dan tombol filter dikelompokkan pada toolbar tersendiri. `Alat keuangan` membuka sheet untuk transaksi, aset, evaluasi, investasi, dan pemulihan. Pembayaran, alokasi biaya, aset, penyusutan, dan penjualan memiliki label masing-masing. Laporan dan investasi mendahulukan hasil yang tersedia beserta status, periode, dan basis. Rincian rumus dan sumber dapat dibuka, termasuk alasan saat hasil belum tersedia atau tidak valid. [FinancialEntryScreen.kt](android/app/src/main/java/com/inofarm/jogja/feature/expenses/FinancialEntryScreen.kt) · [Kontrak operasional](contracts/v2/README.md)
 
 ### Motion dan umpan balik
 
@@ -171,7 +171,7 @@ Indikator tab dan warna status draf bertransisi selama 200 ms. Review masuk deng
 
 ## Do's and Don'ts
 
-- Gunakan ilustrasi sebagai bingkai viewport. Batasi aset dekoratif pada login dan beranda.
+- Gunakan ilustrasi sebagai bingkai viewport pada login dan halaman utama tiap menu.
 - Pertahankan teks, angka, dan pesan di atas bidang yang stabil. Simpan status dalam teks, dengan warna sebagai penanda tambahan.
 - Tampilkan sumber, waktu WIB, dan alasan yang relevan. Gunakan keterangan belum tersedia untuk data kosong dan label penerimaan server untuk operasi yang sudah diterima.
 - Pertahankan skala font pengguna, urutan fokus, inset sistem, dan ruang gulir. Pakai sheet ketika seluruh tujuan navigasi perlu lebih banyak ruang.

@@ -27,42 +27,91 @@ import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.database.QueuedOperation
 import com.inofarm.jogja.core.design.FarmMotion
 import com.inofarm.jogja.core.design.FarmAmount
+import com.inofarm.jogja.core.design.FarmMenuHeader
+import com.inofarm.jogja.core.design.FarmMenuList
 import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmRecordCard
 import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.design.FarmSpace
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.activities.domain.ActivityType
+import com.inofarm.jogja.feature.assets.AssetDraft
 import com.inofarm.jogja.feature.context.CultivationUiState
+import com.inofarm.jogja.feature.expenses.FinancialDraft
 import com.inofarm.jogja.feature.expenses.moneyLabel
 import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 
-@Composable fun HistoryScreen(session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind=OperationalKind.ACTIVITY,header:LazyListScope.()->Unit={}) {
+@Composable fun HistoryScreen(session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind=OperationalKind.ACTIVITY,
+    returnToQueue:Boolean=false, onRecord:(()->Unit)?=null, recordLabel:String="", recordScope:String?=null, onSync:(()->Unit)?=null,
+    historyKindPicker:(@Composable ()->Unit)?=null, header:LazyListScope.()->Unit={}) {
     when {
         state.comparison!=null -> ConflictReview(state.comparison,session,context,state.busy,state.message,vm::resolve,vm::closeComparison,kind)
-        state.selected!=null -> HistoryDetail(state.selected,session,context,state,vm,queue,onEdit,kind)
-        else -> LazyColumn(verticalArrangement=Arrangement.spacedBy(FarmSpace.Small),contentPadding=PaddingValues(vertical=16.dp),modifier=Modifier.testTag("finance-history-list")) {
+        state.selected!=null -> HistoryDetail(state.selected,session,context,state,vm,queue,onEdit,kind,returnToQueue)
+        else -> FarmMenuList(Modifier.testTag("finance-history-list")) {
+            if (!kind.financial) item("history-heading") {
+                FarmMenuHeader(kind.label.replaceFirstChar { it.uppercaseChar() }, "Riwayat dalam penugasan akun ini.")
+            }
             header()
             item("history-filters") {
-                com.inofarm.jogja.core.design.FarmPageTitle("Riwayat ${kind.label}")
-                HistoryFilters(context,state.filter,vm::filter,kind)
+                FarmRecordCard {
+                    historyKindPicker?.invoke()
+                    Text(historyScope(context,state,kind),style=MaterialTheme.typography.bodySmall,
+                        color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small),
+                        verticalArrangement=Arrangement.spacedBy(FarmSpace.Small)) {
+                        HistoryFilters(context,state.filter,state.filterSeason,vm::filter,kind)
+                        if (onRecord != null) FilledTonalButton(onClick=onRecord,shape=FarmShape.Control,
+                            modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("history-new")) { Text(recordLabel) }
+                    }
+                    recordScope?.let {
+                        Text("Catatan baru · $it",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
-            item {
-                context.message?.let { Text(it, Modifier.testTag("finance-sync-message"),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                state.message?.let { Notice(it, true) }
+            if (session.expired()) item("history-session") { ExpiredSessionNotice() }
+            else if (context.message != null || context.lastSyncedAt != null) item("history-sync") {
+                FarmRecordCard {
+                    context.message?.let { Text(it, Modifier.testTag("finance-sync-message"),
+                        style=MaterialTheme.typography.bodySmall, color=MaterialTheme.colorScheme.onSurfaceVariant) }
+                    context.lastSyncedAt?.let {
+                        Text("Sinkron terakhir ${timeLabel(Instant.ofEpochMilli(it).toString())}",
+                            style=MaterialTheme.typography.bodySmall, color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
-            if(state.loading) item {Text("Memuat riwayat…"); LinearProgressIndicator(Modifier.fillMaxWidth())}
-            if(!state.loading && state.records.isEmpty()) item {
-                Notice(if (state.filter == LocalHistoryFilter()) "Belum ada catatan ${kind.label} dalam riwayat akun ini."
-                    else "Belum ada catatan yang cocok dengan filter ini.")
+            state.message?.let { item("history-message") { Notice(it,true) } }
+            val filtered = state.filter != LocalHistoryFilter()
+            when {
+                state.loading || !state.loaded && state.loadError == null -> item("history-loading") {
+                    FarmRecordCard { Text("Memuat riwayat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                }
+                state.loadError != null -> item("history-error") {
+                    FarmPanel(title="Riwayat belum dapat dimuat") {
+                        Text(state.loadError)
+                        OutlinedButton(onClick=vm::reload,shape=FarmShape.Control,
+                            modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Muat ulang riwayat") }
+                    }
+                }
+                state.records.isEmpty() -> item("history-empty") {
+                    FarmPanel(title=if (filtered) "Belum ada catatan yang cocok dengan filter ini."
+                        else "Belum ada catatan ${kind.label} dalam riwayat akun ini.") {
+                        if (filtered) TextButton(onClick={vm.filter(LocalHistoryFilter())},
+                            modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Hapus filter") }
+                        else if (onSync != null && !session.expired()) TextButton(onClick=onSync,enabled=!context.loading,
+                            modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Sinkronkan riwayat") }
+                    }
+                }
             }
             items(state.records, key = { it.id }) { record ->
                 HistoryRecordRow(record, kind, context) { vm.select(record.id) }
             }
-            if(state.hasMore) item {OutlinedButton(onClick=vm::more,enabled=!state.loading,modifier=Modifier.fillMaxWidth().testTag("finance-history-more")) {Text("Muat 50 berikutnya")}}
+            if(state.hasMore) item {
+                Button(onClick=vm::more,enabled=!state.loading,shape=FarmShape.Control,
+                    modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("finance-history-more")) {Text("Muat 50 berikutnya")}
+            }
         }
     }
 }
@@ -70,9 +119,12 @@ import java.time.LocalDate
 @Composable
 private fun HistoryRecordRow(record: LocalRecord, kind: OperationalKind, context: CultivationUiState, onOpen: () -> Unit) {
     val data = record.body
+    val local = data.optJSONObject("_local_form")
+    val facts = local ?: data
     val title = if (kind == OperationalKind.ACTIVITY) {
         ActivityType.entries.find { it.wire == data.optString("activity_type") }?.label ?: "Draf kegiatan"
-    } else kind.label.replaceFirstChar { it.uppercaseChar() }
+    } else if (kind == OperationalKind.ASSET) facts.optString("name").ifBlank { "Aset" }
+    else kind.label.replaceFirstChar { it.uppercaseChar() }
     val time = listOf("occurred_at", "paid_at", "created_at").firstNotNullOfOrNull { key ->
         data.optString(key).takeUnless { data.isNull(key) || it.isBlank() }
     }?.let(::timeLabel)
@@ -81,41 +133,88 @@ private fun HistoryRecordRow(record: LocalRecord, kind: OperationalKind, context
     val notes = listOf("notes", "allocation_basis").firstNotNullOfOrNull { key ->
         data.optString(key).takeUnless { data.isNull(key) || it.isBlank() }
     }
-    val amountKey = if (kind == OperationalKind.SALE) "total_amount" else "amount"
-    Surface(onClick = onOpen, modifier = Modifier.fillMaxWidth().testTag("finance-record-${record.id}"),
-        color = MaterialTheme.colorScheme.surface) {
-        Column {
-            Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Large, vertical = FarmSpace.Medium),
-                verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                if (kind.financial && !data.isNull(amountKey) && data.optString(amountKey).isNotBlank()) {
-                    FarmAmount(moneyLabel(data.optString(amountKey)))
-                }
-                if (notes != null) Text(notes, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(listOfNotNull(greenhouse, time ?: "Draf waktu belum lengkap").joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                val needsReview = record.syncState in setOf(SyncState.REJECTED, SyncState.CONFLICT,
-                    SyncState.AUTH_REQUIRED, SyncState.SCOPE_REVOKED, SyncState.EPOCH_REVIEW)
-                Text(record.syncState.label(), style = MaterialTheme.typography.labelMedium,
-                    color = if (needsReview) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                if (data.optString("record_state") == "cancelled") Text("Dibatalkan", color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelMedium)
-            }
-            HorizontalDivider()
+    val groupId = local?.optString("group_id") ?: data.optString("planting_group_id")
+    val group = context.groups.find { it.optString("id") == groupId }?.optString("name")
+    val amountKey = when (kind) {
+        OperationalKind.SALE -> "total_amount"
+        OperationalKind.ASSET -> "cost"
+        else -> "amount"
+    }
+    FarmRecordCard(Modifier.testTag("finance-record-${record.id}"), onOpen) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        val amount = facts.optString(amountKey).takeUnless { facts.isNull(amountKey) || it.isBlank() }
+        if (kind.financial && amount != null) {
+            val displayAmount = if (local == null) amount else runCatching {
+                when (kind) {
+                    OperationalKind.ASSET, OperationalKind.DEPRECIATION -> AssetDraft.money(amount)
+                    else -> FinancialDraft.money(amount)
+                }.toPlainString()
+            }.getOrNull()
+            if (displayAmount != null) FarmAmount(moneyLabel(displayAmount))
+            else Text("Nominal draf belum valid",style=MaterialTheme.typography.bodySmall)
         }
+        if (kind == OperationalKind.HARVEST) facts.optJSONArray("items")?.let { grades ->
+            repeat(minOf(grades.length(), 2)) { index ->
+                grades.optJSONObject(index)?.let { line ->
+                    val name = line.optString("grade_name").ifBlank {
+                        context.grades.find { it.optString("id") == line.optString("grade_id") }
+                            ?.optString("name") ?: "Grade belum tersedia"
+                    }
+                    val count = line.optString("fruit_count").takeUnless { line.isNull("fruit_count") || it.isBlank() }
+                    val weight = line.optString("weight_kg").takeUnless { line.isNull("weight_kg") || it.isBlank() }
+                        ?.let { it.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString()?.replace('.', ',') ?: it }
+                    Text("$name · ${count?.let { "$it buah" } ?: "Jumlah belum diisi"} · ${weight?.let { "$it kg" } ?: "Bobot belum diisi"}",
+                        style=MaterialTheme.typography.bodyMedium)
+                }
+            }
+            if (grades.length() > 2) Text("${grades.length() - 2} grade lainnya di detail",style=MaterialTheme.typography.bodySmall)
+        }
+        if (notes != null) Text(notes, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(listOfNotNull(group, greenhouse, time ?: "Waktu belum tersedia").joinToString(" · "),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        RecordStatus(record.syncState)
+        if (data.optString("record_state") == "cancelled") Text("Dibatalkan", color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.labelMedium)
+        if (kind == OperationalKind.ACTIVITY && (local?.optBoolean("skipped") ?: (data.optString("work_state") == "skipped")))
+            Text("Kegiatan dilewati", style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:OperationalKind):String {
+    val filter=state.filter
+    fun name(rows:List<JSONObject>,id:String?,fallback:String) =
+        id?.let { rows.find { row -> row.optString("id")==it }?.optString("name") ?: fallback }
+    val season=name(context.seasons,state.filterSeason,"Musim terpilih")
+    val greenhouse=name(context.greenhouses,filter.greenhouseId,"Greenhouse terpilih")
+    val group=name(context.groups,filter.groupId,"Kelompok terpilih")
+    val period=listOfNotNull(filter.from?.let { "Dari $it" },filter.until?.let { "Sampai $it" })
+        .joinToString(" · ").takeIf { it.isNotEmpty() }?.plus(" WIB")
+    val type=ActivityType.entries.find { it.wire==filter.type }?.label
+    val status=when(filter.recordState) {"active" -> "Aktif"; "cancelled" -> "Dibatalkan"; else -> null}
+    val scope=listOfNotNull(greenhouse,season,group,type,status,period).joinToString(" · ")
+    if(scope.isBlank()) return "Riwayat semua greenhouse dalam penugasan"
+    return when {
+        season!=null && kind==OperationalKind.EXPENSE -> "Pembayaran yang dialokasikan · $scope"
+        season!=null && kind==OperationalKind.ASSET -> "Aset dengan alokasi penyusutan · $scope"
+        else -> scope
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun HistoryFilters(context:CultivationUiState,filter:LocalHistoryFilter,onApply:(LocalHistoryFilter)->Unit,kind:OperationalKind) {
+@Composable private fun HistoryFilters(context:CultivationUiState,filter:LocalHistoryFilter,filterSeason:String?,onApply:(LocalHistoryFilter,String?)->Unit,kind:OperationalKind) {
     var expanded by rememberSaveable {mutableStateOf(false)}
     var gh by rememberSaveable {mutableStateOf(filter.greenhouseId.orEmpty())};var season by rememberSaveable {mutableStateOf(filter.seasonId.orEmpty())};var group by rememberSaveable {mutableStateOf(filter.groupId.orEmpty())}
     var type by rememberSaveable {mutableStateOf(filter.type.orEmpty())};var status by rememberSaveable {mutableStateOf(filter.recordState.orEmpty())}
     var from by rememberSaveable {mutableStateOf(filter.from.orEmpty())};var until by rememberSaveable {mutableStateOf(filter.until.orEmpty())};var error by rememberSaveable {mutableStateOf<String?>(null)}
-    OutlinedButton(onClick={expanded=true},shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-history-filters")) {
-        Text(if (filter == LocalHistoryFilter()) "Filter riwayat" else "Filter aktif · Ubah")
+    OutlinedButton(onClick={
+        gh=filter.greenhouseId.orEmpty();season=filterSeason.orEmpty();group=filter.groupId.orEmpty()
+        type=filter.type.orEmpty();status=filter.recordState.orEmpty()
+        from=filter.from.orEmpty();until=filter.until.orEmpty();error=null;expanded=true
+    },shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-history-filters")) {
+        Text(if (filter == LocalHistoryFilter()) "Filter riwayat" else "Ubah filter")
     }
-    if(expanded) ModalBottomSheet(onDismissRequest={expanded=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)) {
+    if(expanded) ModalBottomSheet(onDismissRequest={expanded=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
+        containerColor=MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(FarmSpace.Page),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         Text("Filter riwayat", style = MaterialTheme.typography.titleLarge)
         fun choices(rows:List<JSONObject>)=listOf(JSONObject().put("id","").put("name","Semua"))+rows
@@ -131,19 +230,33 @@ private fun HistoryRecordRow(record: LocalRecord, kind: OperationalKind, context
         Button(onClick={
             val valid=runCatching {val start=from.takeIf {it.isNotBlank()}?.let(LocalDate::parse);val end=until.takeIf {it.isNotBlank()}?.let(LocalDate::parse);require(start==null || end==null || !end.isBefore(start))}.isSuccess
             if(!valid) error="Gunakan tanggal YYYY-MM-DD yang sah; tanggal akhir tidak sebelum awal."
-            else {error=null;onApply(if(kind.financial) LocalHistoryFilter(from=from.takeIf {it.isNotBlank()},until=until.takeIf {it.isNotBlank()},recordState=status.takeIf {it.isNotBlank()},greenhouseId=gh.takeIf {it.isNotBlank()},seasonId=season.takeIf {it.isNotBlank()}) else LocalHistoryFilter(group.takeIf {it.isNotBlank()},type.takeIf {it.isNotBlank()},from.takeIf {it.isNotBlank()},until.takeIf {it.isNotBlank()},status.takeIf {it.isNotBlank()},gh.takeIf {it.isNotBlank()},if(season.isBlank()) null else groups.map {it.getString("id")}.toSet()));expanded=false}
-        },modifier=Modifier.fillMaxWidth().testTag("history-apply")) {Text("Terapkan filter")}
-        TextButton(onClick={gh="";season="";group="";type="";status="";from="";until="";error=null;onApply(LocalHistoryFilter());expanded=false},modifier=Modifier.fillMaxWidth()) {Text("Hapus semua filter")}
+            else {
+                val selectedSeason = season.takeIf { it.isNotBlank() }
+                onApply(LocalHistoryFilter(
+                    groupId = group.takeIf { !kind.financial && it.isNotBlank() },
+                    type = type.takeIf { kind == OperationalKind.ACTIVITY && it.isNotBlank() },
+                    from = from.takeIf { it.isNotBlank() },
+                    until = until.takeIf { it.isNotBlank() },
+                    recordState = status.takeIf { it.isNotBlank() },
+                    greenhouseId = gh.takeIf { it.isNotBlank() },
+                    groups = if (!kind.financial && selectedSeason != null) groups.map { it.getString("id") }.toSet() else null,
+                    seasonId = selectedSeason.takeIf { kind.financial }
+                ), selectedSeason)
+                expanded=false
+            }
+        },shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("history-apply")) {Text("Terapkan filter")}
+        TextButton(onClick={onApply(LocalHistoryFilter(),null);expanded=false},
+            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Hapus semua filter")}
         }
     }
 }
 
-@Composable private fun HistoryDetail(record:LocalRecord,session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind) {
+@Composable private fun HistoryDetail(record:LocalRecord,session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind,returnToQueue:Boolean) {
     var cancelReview by remember {mutableStateOf<LocalRecord?>(null)}
     val pending=state.pending
     val reviewable=pending.isNotEmpty() && pending.all {it.state=="REJECTED" && ReviewableRejections.mayReplace(kind.wire,it.error?.optString("code"))}
     val own=record.recorderId().let {it.isBlank() || it==session.scope.accountId}
-    RecordDetail(record,session,context,vm::close,onEdit={onEdit(record,reviewable)},kind=kind) {
+    RecordDetail(record,session,context,vm::close,onEdit={onEdit(record,reviewable)},kind=kind,returnToQueue=returnToQueue) {
         val attachments=com.inofarm.jogja.feature.attachments.LocalAttachmentAction.current
         if(attachments!=null && kind in setOf(OperationalKind.ACTIVITY,OperationalKind.HARVEST,OperationalKind.EXPENSE) && record.serverVersion!=null) OutlinedButton(onClick={attachments(record)},modifier=Modifier.fillMaxWidth().testTag("history-attachments")) {Text("Lampiran dan bukti catatan")}
         state.message?.let {Notice(it,true)}
@@ -236,5 +349,11 @@ private fun HistoryRecordRow(record: LocalRecord, kind: OperationalKind, context
 }
 
 @Composable internal fun RecordFacts(record:LocalRecord,session:FinanceSession,context:CultivationUiState,kind:OperationalKind) {
-    when(kind) {OperationalKind.ACTIVITY -> ActivityFacts(record,session,context);OperationalKind.HARVEST -> HarvestFacts(record,session,context);OperationalKind.EXPENSE,OperationalKind.COST_ALLOCATION -> FinancialFacts(record,context);OperationalKind.ASSET,OperationalKind.DEPRECIATION -> com.inofarm.jogja.feature.assets.AssetFacts(record);OperationalKind.SALE -> com.inofarm.jogja.feature.sales.SaleFacts(record,context)}
+    when(kind) {
+        OperationalKind.ACTIVITY -> ActivityFacts(record,session,context)
+        OperationalKind.HARVEST -> HarvestFacts(record,session,context)
+        OperationalKind.EXPENSE,OperationalKind.COST_ALLOCATION -> FinancialFacts(record,context)
+        OperationalKind.ASSET,OperationalKind.DEPRECIATION -> com.inofarm.jogja.feature.assets.AssetFacts(record,context)
+        OperationalKind.SALE -> com.inofarm.jogja.feature.sales.SaleFacts(record,context)
+    }
 }

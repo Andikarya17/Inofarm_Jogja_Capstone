@@ -38,14 +38,20 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
     Choice(label,value,listOf(option("","Belum dinyatakan"),option("actual","Aktual yang dinyatakan"),option("projection","Proyeksi")),tag,change)
 }
 
-@Composable fun InvestmentScreen(workspace:InvestmentWorkspace,context:CultivationUiState) {
+@Composable fun InvestmentScreen(workspace:InvestmentWorkspace,context:CultivationUiState,returnToQueue:Boolean=false) {
     val state=workspace.state;val vm=workspace.vm
     LazyColumn(Modifier.fillMaxSize().testTag("investment-list"),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
-        item {com.inofarm.jogja.core.design.FarmPageTitle("Evaluasi investasi");TextButton(onClick=vm::back,enabled=!state.busy,modifier=Modifier.testTag("investment-back")) {Text(if(state.scenarioDraft!=null || state.reportDraft!=null || state.cancelReason!=null) "Simpan draf dan kembali" else "Kembali")}}
+        item {
+            com.inofarm.jogja.core.design.FarmPageTitle("Evaluasi investasi")
+            TextButton(onClick={vm.back(returnToQueue)},enabled=!state.busy,modifier=Modifier.heightIn(min=48.dp).testTag("investment-back")) {
+                Text(if(state.scenarioDraft!=null || state.reportDraft!=null || state.cancelReason!=null) "Simpan draf dan kembali"
+                    else if(returnToQueue) "Kembali ke antrean" else "Kembali")
+            }
+        }
         state.message?.let {item {Notice(it,true)}}
         if(state.denied) item {Notice("Akses perlu diperiksa kembali. Sinkronkan atau masuk ulang. Draf tetap disimpan.",true)}
         else if(state.busy) item {CircularProgressIndicator();Text("Memeriksa atau menyimpan catatan investasi…")}
-        else if(state.scenarioDraft!=null) scenarioForm(state.scenarioDraft,state,vm,context)
+        else if(state.scenarioDraft!=null) scenarioForm(state.scenarioDraft,state,vm,context,returnToQueue)
         else if(state.reportDraft!=null) {
             val draft=state.reportDraft
             item {FarmPanel(title = "Tinjau skenario sebelum menerbitkan laporan") { FarmDraftStatus(state.saved, Modifier.testTag("investment-draft-status")) }}
@@ -114,7 +120,7 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
     }
 }
 
-private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:InvestmentState,vm:InvestmentViewModel,context:CultivationUiState) {
+private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:InvestmentState,vm:InvestmentViewModel,context:CultivationUiState,returnToQueue:Boolean) {
     item {FarmSection(title = if(draft.baseVersion==null) "Skenario baru" else "Koreksi skenario versi ${draft.baseVersion}") {
         Text(context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse tersimpan")
         FarmDraftStatus(state.saved, Modifier.testTag("investment-draft-status"))
@@ -147,7 +153,7 @@ private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:Inves
     if(draft.baseVersion!=null) item {FinanceField("Alasan koreksi",draft.reason,{v->vm.editScenario {it.copy(reason=v)}},"investment-reason",state.errors["reason"])}
     state.errors.filterKeys {it !in setOf("name","base_date","horizon","initial","discount","initial_source","notes","reason") && !it.startsWith("flow-")}.values.forEach {item {Notice(it,true)}}
     item {Button(onClick=vm::queueScenario,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("investment-scenario-queue")) {Text("Simpan skenario dan antrekan")}}
-    item {OutlinedButton(onClick=vm::back,modifier=Modifier.fillMaxWidth().testTag("investment-save-draft")) {Text("Simpan draf dan kembali")}}
+    item {OutlinedButton(onClick={vm.back(returnToQueue)},shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("investment-save-draft")) {Text("Simpan draf dan kembali")}}
 }
 private fun LazyListScope.rawScenario(d:InvestmentScenarioDraft) {
     item {Text("Isian lokal",style=MaterialTheme.typography.titleLarge);Text("${d.name} · tanggal ${d.baseDate} · ${d.horizon} tahun");Text("Investasi awal: ${d.initial.ifBlank {"belum diketahui"}} IDR; ${sourceLabel(d.initialKind)}");Text("${d.initialReference}\n${d.initialBasis}");Text("Diskonto: ${d.discountPercent.ifBlank {"belum diketahui"}}%; konvensi: ${d.convention.ifBlank {"belum dipilih"}}");Text("${d.notes}\nAlasan: ${d.reason}")}

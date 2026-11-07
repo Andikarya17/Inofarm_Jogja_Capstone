@@ -1,5 +1,7 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+Menu lanjutan 7 November 2026. [Implementasi dan bukti Android](ANDROID_SECONDARY_MENUS_20261107.md) mencakup Antrean, Kegiatan, Panen, Keuangan, dan alur turunannya. Catatan audit berikut merekam status saat disusun.
+
 Frontend 5 November 2026. [Rombak alur Android dan hasil verifikasi](ANDROID_OPERATIONAL_FRONTEND_20261105.md), termasuk login, konteks budidaya, riwayat, keuangan, motion dan material navigasi.
 
 Frontend3 November2026: [perubahan visual Android, hasil uji dan batas acceptance](ANDROID_FRONTEND_EVIDENCE_20261103.md). Tema kaca tonal light/dark tersedia; bukan klaim seluruh gate frontend/UAT selesai.

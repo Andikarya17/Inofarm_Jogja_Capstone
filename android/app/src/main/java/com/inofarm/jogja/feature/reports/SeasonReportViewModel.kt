@@ -50,16 +50,16 @@ class SeasonReportViewModel(private val repository:SeasonReportRepository):ViewM
             reload()
         } catch(c:CancellationException) {throw c} catch(error:Exception) {failure(session,ticket,error)} finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(busy=false)}}
     }
-    private suspend fun save(draft:SeasonReportDraft,close:Boolean) {
+    private suspend fun save(draft:SeasonReportDraft,close:Boolean,exitWorkspace:Boolean=false) {
         val session=vault.current ?: return;val ticket=vault.generation
-        try {repository.flush(session,ticket,draft);if(vault.matches(ticket,session.scope) && state.value.draft==draft) mutable.value=state.value.copy(draft=if(close) null else draft,saved=true,changed=if(close) state.value.changed+1 else state.value.changed);if(close) reload()}
+        try {repository.flush(session,ticket,draft);if(vault.matches(ticket,session.scope) && state.value.draft==draft) mutable.value=state.value.copy(active=state.value.active && !exitWorkspace,draft=if(close) null else draft,saved=true,changed=if(close) state.value.changed+1 else state.value.changed);if(close && !exitWorkspace) reload()}
         catch(c:CancellationException) {throw c} catch(error:Exception) {failure(session,ticket,error)}
     }
-    fun back() {
+    fun back(exitWorkspace:Boolean=false) {
         if(state.value.busy) return
         val draft=state.value.draft
-        if(draft!=null) {val session=vault.current ?: return;val ticket=vault.generation;pauseAutosave();mutable.value=state.value.copy(busy=true);viewModelScope.launch {try {save(draft,true)} finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(busy=false)}}}
-        else if(state.value.selected!=null) mutable.value=state.value.copy(selected=null,sources=null,message=null)
+        if(draft!=null) {val session=vault.current ?: return;val ticket=vault.generation;pauseAutosave();mutable.value=state.value.copy(busy=true);viewModelScope.launch {try {save(draft,true,exitWorkspace)} finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(busy=false)}}}
+        else if(state.value.selected!=null) mutable.value=state.value.copy(active=!exitWorkspace,selected=null,sources=null,message=null)
         else mutable.value=state.value.copy(active=false,sources=null)
     }
     fun reload(more:Boolean=false) {

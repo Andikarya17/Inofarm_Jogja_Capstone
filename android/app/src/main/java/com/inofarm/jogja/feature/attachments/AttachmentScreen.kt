@@ -13,7 +13,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.core.contracts.*
+import com.inofarm.jogja.core.database.LocalRecord
+import com.inofarm.jogja.core.design.FarmFact
 import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmRecordCard
 import com.inofarm.jogja.core.design.FarmSection
 import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.session.FinanceSession
@@ -22,7 +25,6 @@ import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.history.RecordFacts
 import org.json.JSONObject
 import java.time.Instant
-import com.inofarm.jogja.core.database.LocalRecord
 
 val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null}
 
@@ -36,7 +38,11 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
         vm.previewHandled(if(error!=null) "Aplikasi pembuka berkas belum tersedia atau pratinjau tidak dapat dibuka. Salinan terenkripsi tetap disimpan." else null)
     }}
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp).testTag("attachment-screen"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        com.inofarm.jogja.core.design.FarmPageTitle("Lampiran catatan")
+        com.inofarm.jogja.core.design.FarmPageTitle(when {
+            state.parentReview!=null -> "Periksa versi induk"
+            state.reviewing -> "Periksa lampiran"
+            else -> "Lampiran catatan"
+        })
         if(state.busy || state.loading) {
             Text(if (state.busy) "Memproses berkas…" else "Memuat lampiran…")
             LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -57,39 +63,42 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
             val canChoose=session.role==UserRole.MANAGER || parent.recorderId()==session.scope.accountId
             if(canChoose) Button(onClick={pickerScope=session.scope.key;pickerOwner=parent.id;pickerTicket=ticket;picker.launch(AttachmentContract.supportedMimes.toTypedArray())},enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("attachment-choose")) {Text("Pilih berkas sebagai draf")}
             if(state.rows.isEmpty() && !state.loading) Notice("Belum ada lampiran atau draf berkas pada catatan ini.")
-            state.rows.forEach {row -> Card(onClick={vm.select(row.id)},shape=FarmShape.Card,colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface),modifier=Modifier.fillMaxWidth().testTag("attachment-${row.id}")) {
-                Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+            state.rows.forEach {row -> FarmRecordCard(
+                Modifier.testTag("attachment-${row.id}"), onOpen={vm.select(row.id)}) {
                     Text(row.body.optString("original_name","Berkas belum selesai disalin"),style=MaterialTheme.typography.titleMedium)
                     Text(copyLabel(row.body),style=MaterialTheme.typography.bodyMedium)
-                    Text(row.syncState.label(),style=MaterialTheme.typography.labelLarge)
+                    RecordStatus(row.syncState)
                     if(row.body.optString("record_state")=="cancelled") Text("Lampiran dibatalkan; riwayat tetap tersedia.")
-                }
             }}
             if(state.hasMore) OutlinedButton(onClick=vm::more,enabled=!state.loading) {Text("Muat 50 berikutnya")}
             OutlinedButton(onClick=vm::close,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-close")) {Text("Kembali ke catatan")}
         } else {
             val row=state.selected
             FarmPanel(title = row.body.optString("original_name").ifBlank { "Rincian berkas" }) {
-                Text(row.syncState.label(), style = MaterialTheme.typography.labelLarge)
+                RecordStatus(row.syncState)
                 Text(copyLabel(row.body))
                 if(row.body.has("bytes")) Text("${row.body.getLong("bytes")} byte · ${typeLabel(row.body.optString("mime"))}",
                     style = MaterialTheme.typography.bodySmall)
-                Text("Versi catatan induk saat ditinjau: ${row.body.optLong("owner_version")}", style = MaterialTheme.typography.bodySmall)
+                FarmFact("Versi catatan induk saat ditinjau",
+                    row.body.optLong("owner_version").takeIf { it > 0 }?.toString() ?: "Belum tersedia")
             }
             row.error?.let {ErrorReasons(it)};state.pending.forEach {op -> op.error?.let {ErrorReasons(it)}}
             val ready=row.body.optString("_copy_state")=="READY"
             when {
                 state.parentReview!=null -> {
-                    Text("Tinjau catatan induk terbaru",style=MaterialTheme.typography.titleLarge)
                     val snapshot=state.parentReview
-                    RecordFacts(parent.copy(body=snapshot,serverBody=snapshot,serverVersion=snapshot.getLong("version")),session,context,RecordKind.entries.single {it.wire==parent.kind})
+                    FarmPanel(title="Catatan induk terbaru") {
+                        RecordFacts(parent.copy(body=snapshot,serverBody=snapshot,serverVersion=snapshot.getLong("version")),session,context,RecordKind.entries.single {it.wire==parent.kind})
+                    }
                     Notice("Pengajuan baru memakai versi induk yang ditinjau dan salinan berkas yang sama. Pengajuan lama disimpan sebagai riwayat.")
                     Button(onClick=vm::confirmParent,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-confirm-parent")) {Text("Setujui versi induk dan antrekan")}
                     TextButton(onClick=vm::backToDetails) {Text("Kembali tanpa mengajukan")}
                 }
                 state.reviewing -> {
                     Notice("Berkas ini terikat pada catatan induk. Server memeriksa ulang versi, akses, ukuran, jenis, dan jumlah saat menerima unggahan.")
-                    RecordFacts(parent,session,context,RecordKind.entries.single {it.wire==parent.kind})
+                    FarmPanel(title="Catatan induk") {
+                        RecordFacts(parent,session,context,RecordKind.entries.single {it.wire==parent.kind})
+                    }
                     Button(onClick=vm::queue,enabled=!state.busy && policy?.optBoolean("configured")==true && policy.optBoolean("upload_allowed"),modifier=Modifier.fillMaxWidth().testTag("attachment-queue")) {Text("Simpan dan antrekan lampiran")}
                     TextButton(onClick=vm::backToDetails) {Text("Kembali ke detail berkas")}
                 }

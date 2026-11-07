@@ -15,6 +15,7 @@ import com.inofarm.jogja.feature.FinanceRoot
 import com.inofarm.jogja.core.design.InofarmTheme
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.espresso.Espresso
+import androidx.test.platform.app.InstrumentationRegistry
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -279,9 +280,7 @@ class FinanceEntryUiTest {
     private fun focusedWindow() = android.view.inspector.WindowInspector.getGlobalWindowViews()
         .lastOrNull { it.hasWindowFocus() } ?: rule.activity.window.decorView
 
-    private fun frontendEvidence(name: String) = File(
-        File(rule.activity.getExternalFilesDir(null), "frontend-botanical").apply { mkdirs() }, name
-    )
+    private fun frontendEvidence(name: String) = File(botanicalEvidenceDirectory(rule.activity), name)
 
     private fun capture(name: String) {
         rule.waitForIdle()
@@ -291,6 +290,12 @@ class FinanceEntryUiTest {
 
     private fun captureWindow(name: String) {
         rule.captureBotanicalWindow(name)
+    }
+
+    private fun captureSecondary(name: String) {
+        if (InstrumentationRegistry.getArguments().getString("secondaryEvidence") == "true") {
+            captureWindow("secondary-$name")
+        }
     }
 
     private fun deviceShell(command: String): String {
@@ -376,13 +381,13 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasText(expiredMessage))
         readyText(expiredMessage).assertIsDisplayed()
         rule.selectFinanceTab(1)
-        readyText("Antrean akun ini").assertIsDisplayed()
+        readyNode("finance-queue-list").assertIsDisplayed()
         capture("manager-expired-session")
         if (rule.activity.resources.configuration.fontScale > 1.5f) {
             try {
                 rule.runOnUiThread { rule.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
                 rule.waitUntil(10_000) { rule.activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE }
-                readyText("Antrean akun ini").assertIsDisplayed()
+                readyNode("finance-queue-list").assertIsDisplayed()
                 readyNode("finance-account").assertIsDisplayed()
                 captureWindow("manager-expired-landscape")
             } finally {
@@ -479,11 +484,11 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
         Espresso.pressBack()
         rule.selectFinanceTab(1)
-        readyText("Antrean akun ini").assertIsDisplayed()
+        readyNode("finance-queue-list").assertIsDisplayed()
         rule.selectFinanceTab(2)
-        readyText("Riwayat kegiatan").assertIsDisplayed()
+        readyText("Riwayat dalam penugasan akun ini.").assertIsDisplayed()
         rule.selectFinanceTab(3)
-        readyText("Riwayat panen").assertIsDisplayed()
+        readyText("Riwayat dalam penugasan akun ini.").assertIsDisplayed()
         rule.selectFinanceTab(0)
         readyNode("finance-context-open").assertIsDisplayed()
 
@@ -492,6 +497,7 @@ class FinanceEntryUiTest {
         assertTrue(rule.openCompactNavigationIfPresent())
         captureWindow("manager-compact-navigation")
         rule.onNodeWithTag("finance-tab-4").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-history-list").performScrollToNode(hasTestTag("finance-tools"))
         readyNode("finance-tools").assertIsDisplayed()
         assertTrue(rule.openCompactNavigationIfPresent())
         rule.onNodeWithTag("finance-tab-4").assertIsSelected()
@@ -551,12 +557,23 @@ class FinanceEntryUiTest {
     }
 
     @Test fun offlineQueueRecreationReconnectAndManagerHistoryKeepHonestStatus() {
+        rule.selectFinanceTab(1)
+        captureSecondary("queue-empty")
+        rule.selectFinanceTab(0)
         chooseContext();offline.set(true)
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Catatan offline UI sintetis")
-        hideKeyboard();rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        hideKeyboard()
+        captureSecondary("activity-form")
+        rule.onNodeWithTag("finance-review").performScrollTo().performClick()
+        captureSecondary("activity-review")
+        rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
+        rule.selectFinanceTab(1)
+        rule.waitUntil(10000) { rule.onAllNodesWithText("Menunggu pengiriman").fetchSemanticsNodes().isNotEmpty() }
+        captureSecondary("queue-waiting")
         rule.onNodeWithTag("finance-tab-2").performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Menunggu pengiriman").fetchSemanticsNodes().isNotEmpty()}
+        captureSecondary("activities")
         assertEquals(0,posts.get())
         rule.activityRule.scenario.recreate()
         rule.onNodeWithTag("finance-tab-2").performClick()
@@ -599,8 +616,7 @@ class FinanceEntryUiTest {
         chooseContext();rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement(note);hideKeyboard()
         rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
         rule.waitUntil(10000) {posts.get()==1}
-        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("finance-tab-2").performClick()
+        rule.selectFinanceTab(2)
         val id=receipts.values.single().getString("entity_id")
         awaitRecord("finance-record-$id")
         rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
@@ -621,8 +637,10 @@ class FinanceEntryUiTest {
     }
     @Test fun attachmentUnknownPolicyKeepsEncryptedDraftAndPreventsQueue() {
         val (vm,_)=attachmentDraft()
+        captureSecondary("attachment-detail")
         rule.onNodeWithTag("attachment-review").performScrollTo().performClick()
         rule.onNodeWithTag("attachment-queue").performScrollTo().assertIsNotEnabled()
+        captureSecondary("attachment-review")
         assertTrue(runtime().store.outbox(runtime().vault.current!!.scope.key).none {it.entityId==vm.state.value.selected!!.id})
         rule.activityRule.scenario.recreate()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("attachment-queue").fetchSemanticsNodes().isNotEmpty()}
@@ -708,12 +726,41 @@ class FinanceEntryUiTest {
         File(rule.activity.getExternalFilesDir(null),"finance-conflict-review.png").outputStream().use {image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
     }
     @Test fun conflictUseServerPreservesLocalCopyAndWorkerHasNoCancel() {
-        createAccepted("Catatan awal konflik");rule.onNodeWithTag("history-cancel").assertDoesNotExist();makeConflict()
+        createAccepted("Catatan awal konflik");rule.onNodeWithTag("history-cancel").assertDoesNotExist()
+        captureSecondary("activity-detail")
+        makeConflict()
+        captureSecondary("activity-conflict")
         rule.onNodeWithTag("conflict-use-server").performScrollTo().performClick();rule.onNodeWithTag("conflict-confirm-server").performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("history-archive-0").fetchSemanticsNodes().isNotEmpty()}
         readyNode("history-archive-0").performScrollTo().performClick()
         rule.onNodeWithText("Koreksi lokal sintetis").performScrollTo().assertExists()
         assertEquals(1,posts.get())
+    }
+    @Test fun queueReviewOpensConflictedRecordAndBackReturnsToSameQueue() {
+        createAccepted("Catatan dari antrean")
+        makeConflict()
+        Espresso.pressBack()
+        Espresso.pressBack()
+        rule.selectFinanceTab(1)
+
+        val session = runtime().vault.current!!
+        val operation = runtime().store.outbox(session.scope.key).single { it.state == "CONFLICT" }
+        val queue = rule.onNodeWithTag("finance-queue-list")
+        queue.performScrollToNode(hasTestTag("finance-review-${operation.id}"))
+        captureSecondary("queue-attention")
+        readyNode("queue-operation-${operation.id}").performClick()
+        queue.performScrollToNode(hasText(operation.id))
+        readyText(operation.id).assertIsDisplayed()
+
+        queue.performScrollToNode(hasTestTag("finance-review-${operation.id}"))
+        readyNode("finance-review-${operation.id}").performClick()
+        readyNode("history-compare").assertExists()
+        readyText("Koreksi lokal sintetis").assertExists()
+        queue.assertDoesNotExist()
+        Espresso.pressBack()
+        queue.assertIsDisplayed()
+        queue.performScrollToNode(hasText(operation.id))
+        readyText(operation.id).assertIsDisplayed()
     }
     @Test fun conflictKeepLocalRequiresReasonAndManagerCanAuditAndCancel() {
         val id=createAccepted("Catatan awal penyelesaian");makeConflict()
@@ -749,11 +796,61 @@ class FinanceEntryUiTest {
         val id=createAccepted("Catatan filter UI")
         Espresso.pressBack()
         rule.onNodeWithTag("finance-history-filters").performClick();choose("history-type","nutrition")
+        captureSecondary("activities-filter")
         readyNode("history-apply").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Belum ada catatan yang cocok dengan filter ini.").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("finance-record-$id").assertDoesNotExist()
         rule.onNodeWithTag("finance-history-filters").performClick();rule.onNodeWithText("Hapus semua filter").performScrollTo().performClick()
         awaitRecord("finance-record-$id")
+    }
+
+    @Test fun secondaryMenusReflowAndKeepSheetActionsReachable() {
+        val historyList = rule.onNodeWithTag("finance-history-list")
+        rule.selectFinanceTab(1)
+        readyNode("finance-queue-list").assertIsDisplayed()
+        captureSecondary("queue-responsive")
+        rule.selectFinanceTab(2)
+        historyList.assertIsDisplayed()
+        captureSecondary("activities-responsive")
+        historyList.performScrollToNode(hasTestTag("finance-history-filters"))
+        readyNode("finance-history-filters").performClick()
+        readyNode("history-apply").performScrollTo().assertIsDisplayed()
+        captureSecondary("filter-responsive")
+        Espresso.pressBack()
+        rule.selectFinanceTab(3)
+        historyList.assertIsDisplayed()
+        captureSecondary("harvest-responsive")
+        managerLogin()
+        rule.selectFinanceTab(4)
+        historyList.assertIsDisplayed()
+        captureSecondary("finance-responsive")
+        rule.openFinanceTools()
+        readyText("Transaksi dan aset").assertExists()
+        captureSecondary("tools-responsive")
+        readyNode("investment-open").performScrollTo().assertIsDisplayed()
+        Espresso.pressBack()
+        historyList.assertIsDisplayed()
+    }
+
+    @Test fun activityMenuEntryKeepsSkippedReasonAndReturnsToHistory() {
+        rule.selectFinanceTab(2)
+        val historyList = rule.onNodeWithTag("finance-history-list")
+        historyList.performScrollToNode(hasTestTag("history-new"))
+        readyNode("history-new").assertTextContains("Lihat konteks di Beranda").performClick()
+        choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
+        rule.selectFinanceTab(2)
+        historyList.performScrollToNode(hasTestTag("history-new"))
+        readyNode("history-new").assertTextContains("Catat kegiatan").performClick()
+        readyNode("finance-skipped").performScrollTo().performClick()
+        readyNode("finance-skipped-reason").performScrollTo().performTextReplacement("Pekerjaan ditunda karena akses bedeng")
+        hideKeyboard()
+        readyNode("finance-review").performScrollTo().performClick()
+        readyText("Pekerjaan ditunda karena akses bedeng").performScrollTo().assertIsDisplayed()
+        captureSecondary("activity-skipped-review")
+        readyNode("finance-queue").performScrollTo().performClick()
+        readyNode("finance-history-list").assertIsDisplayed()
+        rule.waitUntil(10_000) { receipts.isNotEmpty() }
+        assertEquals("skipped", receipts.values.single().getJSONObject("data").getString("work_state"))
     }
     private fun fillHarvest(note:String,twoGrades:Boolean=false) {
         chooseContext(true)
@@ -771,14 +868,22 @@ class FinanceEntryUiTest {
     @Test fun offlineMultigradeHarvestRecreationReconnectManagerAuditAndCancel() {
         fillHarvest("Panen offline UI sintetis",true);offline.set(true)
         rule.activityRule.scenario.recreate();rule.onNodeWithTag("harvest-weight-0").performScrollTo().assertTextContains("15,25")
-        rule.onNodeWithTag("harvest-count-1").performScrollTo().assertTextContains("0");queueHarvest()
+        rule.onNodeWithTag("harvest-count-1").performScrollTo().assertTextContains("0")
+        captureSecondary("harvest-form")
+        rule.onNodeWithTag("harvest-review").performScrollTo().performClick()
+        captureSecondary("harvest-review")
+        rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+        readyNode("finance-tab-3").performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Menunggu pengiriman").fetchSemanticsNodes().isNotEmpty()};assertEquals(0,harvestPosts.get())
+        rule.onNodeWithText("10 buah · 15,25 kg", substring=true).assertIsDisplayed()
+        captureSecondary("harvest")
         offline.set(false);rule.onNodeWithTag("finance-sync").performClick();rule.waitUntil(10000) {harvestPosts.get()==1}
         val id=harvestReceipts.values.single().getString("entity_id");val data=harvestReceipts.values.single().getJSONObject("data")
         assertEquals(2,data.getJSONArray("items").length());assertEquals("15.250000",data.getJSONArray("items").getJSONObject(0).getString("weight_kg"))
         rule.onNodeWithTag("finance-tab-2").performClick();rule.onNodeWithText("Panen offline UI sintetis").assertDoesNotExist();rule.onNodeWithTag("finance-tab-3").performClick()
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
         rule.onNodeWithTag("history-cancel").assertDoesNotExist();readyText("Pencatat: Pekerja sintetis").performScrollTo().assertExists()
+        captureSecondary("harvest-detail")
         rule.logoutFromAccount();login("manager@example.invalid");rule.onNodeWithTag("finance-tab-3").performClick()
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
         readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit panen sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
@@ -911,7 +1016,10 @@ class FinanceEntryUiTest {
     @Test fun saleOfflineDraftRecreationExactTotalAndAuditUseDedicatedFlow() {
         saleFormWithSources();offline.set(true)
         rule.activityRule.scenario.recreate();rule.onNodeWithTag("sale-price-0").performScrollTo().assertTextContains("0,004")
-        rule.onNodeWithTag("sale-review").performScrollTo().performClick();rule.onNodeWithTag("sale-queue").performScrollTo().performClick()
+        captureSecondary("sale-form")
+        rule.onNodeWithTag("sale-review").performScrollTo().performClick()
+        captureSecondary("sale-review")
+        rule.onNodeWithTag("sale-queue").performScrollTo().performClick()
         val session=runtime().vault.current!!
         rule.waitUntil(10000) {runtime().store.outbox(session.scope.key).any {it.envelope.optString("entity_type")=="sale"}}
         val op=runtime().store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="sale"};assertEquals("QUEUED",op.state)
@@ -920,6 +1028,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","sale")
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
         readyNode("sale-accepted-total").performScrollTo().assertTextContains("0,01",substring=true)
+        captureSecondary("sale-detail")
         readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
     }
     @Test fun saleRejectedSourceReviewRetainsOldOperationAndRequiresNewExplicitCorrection() {
@@ -976,12 +1085,19 @@ class FinanceEntryUiTest {
         offline.set(false);Thread.sleep(1200);rule.onNodeWithTag("finance-sync").performClick()
         val source=acceptedFinancial("expense");assertEquals("100.01",runtime().store.record(session.scope.key,source)!!.body.getString("amount"))
         rule.onNodeWithTag("finance-tab-4").performClick();awaitRecord("finance-record-$source")
+        captureSecondary("finance-records")
         rule.onNodeWithTag("finance-record-$source").performScrollTo().performClick();readyNode("history-audit").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()};Espresso.pressBack()
-        financialForm(true);fillAllocation(source);queueFinancial();val allocationId=acceptedFinancial("cost_allocation")
+        financialForm(true);fillAllocation(source)
+        captureSecondary("allocation-form")
+        rule.onNodeWithTag("expense-review").performScrollTo().performClick()
+        captureSecondary("allocation-review")
+        rule.onNodeWithTag("expense-queue").performScrollTo().performClick()
+        val allocationId=acceptedFinancial("cost_allocation")
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","cost_allocation")
         awaitRecord("finance-record-$allocationId");rule.onNodeWithTag("finance-record-$allocationId").performScrollTo().performClick()
         readyText("Sisa untuk alokasi:",substring=true).performScrollTo().assertTextContains("40,00",substring=true)
+        captureSecondary("allocation-detail")
         assertEquals(2,financePosts.get());assertEquals(original.id,runtime().store.outbox(session.scope.key).first {it.entityId==source}.id)
     }
     @Test fun rejectedAllocationRequiresExplicitReviewAndKeepsOriginalEnvelope() {
@@ -1102,21 +1218,35 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new");choose("asset-expense",expense)
         for((tag,value) in listOf("asset-name" to "Pompa UI sintetis","asset-cost" to "100,00","asset-residual" to "0","asset-life" to "3","asset-start" to "2026-01-01","asset-basis" to "Basis manual eksplisit")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
         hideKeyboard();rule.activityRule.scenario.recreate();rule.onNodeWithTag("asset-name").performScrollTo().assertTextContains("Pompa UI sintetis")
-        rule.onNodeWithTag("asset-review").performScrollTo().performClick();rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
+        captureSecondary("asset-form")
+        rule.onNodeWithTag("asset-review").performScrollTo().performClick()
+        captureSecondary("asset-review")
+        rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
         rule.waitUntil(15000) {financeKinds.values.count {it=="asset"}==1};val id=financeKinds.entries.single {it.value=="asset"}.key
         choose("expense-history-kind","asset")
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
-        rule.waitUntil(10000) {rule.onAllNodesWithText("Harga 100.00 IDR · nilai sisa 0.00 IDR").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithText("Harga 100.00 IDR · nilai sisa 0.00 IDR").assertExists()
+        readyNode("asset-cost-fact").performScrollTo().assertExists()
+        rule.onNode(hasAnyAncestor(hasTestTag("asset-cost-fact")) and hasText("100,00", substring=true)).assertExists()
+        captureSecondary("asset-detail")
     }
     @Test fun depreciationRequiresExplicitUsagePeriodBasisAndDoesNotInventAmount() {
         val asset=assetSources(true);rule.logoutFromAccount();login("manager@example.invalid")
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("depreciation-new");choose("asset-source",asset);choose("asset-season",season)
         assertEquals("",rule.onNodeWithTag("asset-amount").performScrollTo().fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.EditableText].text)
         for((tag,value) in listOf("asset-usage-year" to "1","asset-period-start" to "2026-01-01","asset-period-end" to "2027-01-01","asset-amount" to "33,33","asset-basis" to "Pemakaian musim sintetis")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
-        hideKeyboard();rule.onNodeWithTag("asset-new-usage").performScrollTo().performClick();rule.onNodeWithTag("asset-review").performScrollTo().performClick();rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
+        hideKeyboard();rule.onNodeWithTag("asset-new-usage").performScrollTo().performClick()
+        captureSecondary("depreciation-form")
+        rule.onNodeWithTag("asset-review").performScrollTo().performClick()
+        captureSecondary("depreciation-review")
+        rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
         rule.waitUntil(15000) {financeKinds.values.any {it=="depreciation_allocation"}}
         val receipt=financeReceipts.values.single {financeKinds[it.getString("entity_id")]=="depreciation_allocation"};assertEquals("33.33",receipt.getJSONObject("data").getString("amount"))
+        choose("expense-history-kind","depreciation_allocation")
+        val id=receipt.getString("entity_id")
+        awaitRecord("finance-record-$id")
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        readyNode("finance-edit").assertExists()
+        captureSecondary("depreciation-detail")
     }
     @Test fun assetImmediateLogoutFlushesLatestIncompleteRawInput() {
         assetSources();rule.logoutFromAccount();login("manager@example.invalid");rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new")

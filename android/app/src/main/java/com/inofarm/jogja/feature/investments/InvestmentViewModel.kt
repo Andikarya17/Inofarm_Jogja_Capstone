@@ -45,21 +45,24 @@ class InvestmentViewModel(private val repository:InvestmentRepository):ViewModel
         snapshot.selected?.let {row->snapshot.cancelReason?.let {repository.flushCancel(session,ticket,row,it)}}
     }
     fun persist(session:FinanceSession,ticket:Long,snapshot:InvestmentState) {viewModelScope.launch {try {flush(session,ticket,snapshot)} catch(c:CancellationException) {throw c} catch(e:Exception) {failure(session,ticket,e)}}}
-    private suspend fun persistCurrent(close:Boolean) {
+    private suspend fun persistCurrent(close:Boolean,exitWorkspace:Boolean=false) {
         val session=vault.current ?: return;val ticket=vault.generation;val snapshot=state.value
         try {
             flush(session,ticket,snapshot)
             if(vault.matches(ticket,session.scope) && state.value.scenarioDraft==snapshot.scenarioDraft && state.value.reportDraft==snapshot.reportDraft && state.value.cancelReason==snapshot.cancelReason) {
-                mutable.value=if(close) reset().copy(saved=true,changed=state.value.changed+1) else state.value.copy(saved=true)
-                if(close) reload()
+                mutable.value=if(close) reset().copy(active=!exitWorkspace,saved=true,changed=state.value.changed+1) else state.value.copy(saved=true)
+                if(close && !exitWorkspace) reload()
             }
         } catch(c:CancellationException) {throw c} catch(e:Exception) {failure(session,ticket,e)}
     }
-    fun back() {
+    fun back(exitWorkspace:Boolean=false) {
         if(state.value.busy) return
         pauseAutosave();selection++
-        if(state.value.scenarioDraft!=null || state.value.reportDraft!=null || state.value.cancelReason!=null) action {_,_->persistCurrent(true)}
-        else if(state.value.selected!=null) {mutable.value=reset();reload()}
+        if(state.value.scenarioDraft!=null || state.value.reportDraft!=null || state.value.cancelReason!=null) action {_,_->persistCurrent(true,exitWorkspace)}
+        else if(state.value.selected!=null) {
+            mutable.value=reset().copy(active=!exitWorkspace)
+            if (!exitWorkspace) reload()
+        }
         else mutable.value=state.value.copy(active=false)
     }
     fun reload(more:Boolean=false) {
@@ -71,7 +74,8 @@ class InvestmentViewModel(private val repository:InvestmentRepository):ViewModel
             if(vault.matches(ticket,session.scope) && state.value.kind==snapshot.kind && state.value.greenhouse==snapshot.greenhouse) mutable.value=state.value.copy(records=((if(more) snapshot.records else emptyList())+rows.take(50)).distinctBy {it.id},more=rows.size>50,denied=!visible,selected=if(visible) state.value.selected else null,sources=if(visible) state.value.sources else null,audit=if(visible) state.value.audit else null)
         } catch(c:CancellationException) {throw c} catch(e:Exception) {failure(session,ticket,e)}}
     }
-    fun select(id:String) {
+    fun select(id:String,fromQueue:Boolean=false) {
+        if (fromQueue && vault.current != null) mutable.value=state.value.copy(active=true)
         pauseAutosave();val token=++selection
         action {session,ticket->
             val row=repository.detail(session,id);if(token!=selection) return@action

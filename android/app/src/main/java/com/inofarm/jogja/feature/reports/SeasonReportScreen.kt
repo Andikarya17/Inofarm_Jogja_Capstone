@@ -31,15 +31,15 @@ import java.util.Locale
 
 data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReportViewModel)
 
-@Composable fun SeasonReportScreen(workspace:SeasonReportWorkspace,context:CultivationUiState) {
+@Composable fun SeasonReportScreen(workspace:SeasonReportWorkspace,context:CultivationUiState,returnToQueue:Boolean=false) {
     val state=workspace.state;val vm=workspace.vm;val draft=state.draft;val selected=state.selected
     val accepted=selected?.serverVersion!=null
     val data=runCatching {draft?.preview() ?: if(accepted) selected?.serverBody ?: selected?.body else selected?.body?.optJSONObject("_local_form")?.optJSONObject("preview")}.getOrNull()
     LazyColumn(Modifier.fillMaxSize().testTag("report-list"),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
         item {
             FarmPageTitle("Evaluasi musim")
-            TextButton(onClick = vm::back, enabled = !state.busy, modifier = Modifier.testTag("report-back")) {
-                Text(if (draft != null) "Simpan draf" else "Kembali")
+            TextButton(onClick = {vm.back(returnToQueue)}, enabled = !state.busy, modifier = Modifier.heightIn(min=48.dp).testTag("report-back")) {
+                Text(if (draft != null) "Simpan draf dan kembali" else if(returnToQueue) "Kembali ke antrean" else "Kembali")
             }
         }
         state.message?.let {message -> item {Notice(message,true)}}
@@ -65,7 +65,7 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
                 item {OutlinedButton(onClick=vm::sources,modifier=Modifier.fillMaxWidth().testTag("report-sources")) {Text("Tinjau sumber dan versinya")}}
                 item {Button(onClick=vm::queue,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("report-queue")) {Text("Simpan permintaan dan antrekan")}}
             }
-            item {OutlinedButton(onClick=vm::back,modifier=Modifier.fillMaxWidth().testTag("report-save-draft")) {Text("Simpan draf dan kembali")}}
+            item {OutlinedButton(onClick={vm.back(returnToQueue)},shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("report-save-draft")) {Text("Simpan draf dan kembali")}}
         } else if(selected!=null) {
             item {Notice(if(accepted) {if(state.fresh) "Laporan tersimpan telah diperiksa ke server pada sesi ini." else "Menampilkan salinan laporan tersimpan. Pemeriksaan terbaru belum terkonfirmasi."} else "Permintaan lokal belum diterima server. Hasil berikut hanya pratinjau yang pernah ditinjau.",!accepted)}
             selected.error?.let {error ->item {ErrorReasons(error)}}
