@@ -46,6 +46,11 @@ Build normal langsung finance tanpa flag. Paket review **`com.inofarm.jogja.fina
 
 Paket release mengambil endpoint HTTPS v2 dari `-PinofarmFinanceApiUrl=<alamat-api>` serta mengikuti rencana signing dan distribusi. Saat memasang APK pengganti, konfigurasi alamat server yang sama dengan sesi asal agar setelah masuk kembali akun menemukan draf dan antrean pada scope server yang sama. Jika alamat tidak valid atau kosong, layar Masuk menampilkan pesan konfigurasi.
 
+## Run dari Android Studio
+
+Buka folder `android/` sebagai proyek, lalu pilih **Sync Project with Gradle Files**. Pilih varian `debug`, konfigurasi **Inofarm MainActivity**, dan emulator. Tombol **Run** menjalankan `:app:assembleDebug` sebelum memasang dan membuka aplikasi.
+
+Emulator mengakses Laravel pada port 8000 di komputer. Untuk akun demo yang telah dibuat oleh `scripts/finance-device-fixture.php`, jalankan API dengan `--env=testing --no-reload --host=127.0.0.1 --port=8000`. Guard Laravel memeriksa bahwa koneksi efektif memakai MySQL `inofarm_test`.
 
 ## Upgrade pengukuran manual dan batas identitas
 
