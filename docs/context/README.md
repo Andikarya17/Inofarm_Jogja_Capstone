@@ -1,5 +1,9 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+## Rancangan pematangan UI pengelola, 9 November 2026
+
+[Audit seluruh menu pengelola](MANAGER_UI_REVIEW_20261109.md) menilai source `9ac7b3f` dan screenshot historis 7–8 November. [Master prompt frontend](MASTER_PROMPT_MANAGER_UI_POLISH.md) mencakup popup/pemilih, lima tab, seluruh alur turunan dan animasi login. Pengguna mempertahankan palet hijau–krem serta membolehkan pengurangan ilustrasi. Status: **spesifikasi, belum diimplementasikan atau diuji ulang pada runtime**. Evidence dan acceptance aktual di bawah tetap berlaku sebagai histori implementasi.
+
 ## Titik lanjut terverifikasi, 8 November 2026
 
 Mulai sesi baru dari [ringkasan proyek dan prompt serah terima](HANDOFF_20261108.md). [Audit riwayat/dokumentasi](DOCUMENTATION_AUDIT_20261108.md) mencatat apa yang diperiksa dan yang belum. Source terakhir `d6774fc` pada `codex/manager-home-overview` sudah dipush, sedangkan `github/main` masih `0ea7f66` setelah fetch pada audit ini. Branch paket dokumentasi `codex/docs-project-handoff-20261108` berangkat dari source terbaru tersebut. Jangan kehilangan upgrade Beranda dengan melanjutkan dari main lama.
