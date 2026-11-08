@@ -1,8 +1,8 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
-## Rancangan pematangan UI pengelola, 9 November 2026
+## Pematangan UI pengelola, 9 November 2026
 
-[Audit seluruh menu pengelola](MANAGER_UI_REVIEW_20261109.md) menilai source `9ac7b3f` dan screenshot historis 7–8 November. [Master prompt frontend](MASTER_PROMPT_MANAGER_UI_POLISH.md) mencakup popup/pemilih, lima tab, seluruh alur turunan dan animasi login. Pengguna mempertahankan palet hijau–krem serta membolehkan pengurangan ilustrasi. Status: **spesifikasi, belum diimplementasikan atau diuji ulang pada runtime**. Evidence dan acceptance aktual di bawah tetap berlaku sebagai histori implementasi.
+Branch `codex/manager-ui-polish` mematangkan lima tab pengelola, pemilih, Alat keuangan, layar turunannya dan login. [Bukti implementasi](MANAGER_UI_POLISH_EVIDENCE_20261109.md) mencatat APK baseline `1e721f7`, perbandingan screenshot, verifikasi emulator, dan batas penerimaan. [Audit awal](MANAGER_UI_REVIEW_20261109.md) dan [master prompt](MASTER_PROMPT_MANAGER_UI_POLISH.md) menyimpan dasar desain.
 
 ## Titik lanjut terverifikasi, 8 November 2026
 

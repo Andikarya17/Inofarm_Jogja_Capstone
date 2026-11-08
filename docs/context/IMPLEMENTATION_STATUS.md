@@ -1,4 +1,8 @@
-# Status implementasi nyata — 8 November 2026
+# Status implementasi nyata, 9 November 2026
+
+## Pematangan UI pengelola
+
+Perubahan presentasi Compose mencakup baris pemilih bersama, pengelompokan Alat keuangan, hierarki form dan laporan, serta motion login. Scope akun, antrean, perhitungan dan kontrak v2 tetap mengikuti implementasi yang ada. [Matriks perubahan, hasil perangkat uji dan batas](MANAGER_UI_POLISH_EVIDENCE_20261109.md)
 
 ## Snapshot integrasi dan serah terima
 

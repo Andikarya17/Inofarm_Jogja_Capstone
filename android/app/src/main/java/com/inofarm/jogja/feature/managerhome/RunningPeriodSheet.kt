@@ -13,10 +13,15 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import com.inofarm.jogja.core.contracts.OperationalKind
 import com.inofarm.jogja.core.database.LocalHistoryFilter
 import com.inofarm.jogja.core.design.FarmMotion
 import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmFact
+import com.inofarm.jogja.core.design.FarmSheetHeading
+import com.inofarm.jogja.core.design.FarmRowDivider
 import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.design.FarmSpace
 import com.inofarm.jogja.feature.Notice
@@ -52,7 +57,7 @@ internal fun RunningPeriodSheet(
         group = id
         reason = ""
         editing = true
-        scope.launch { list.scrollToItem(1) }
+        scope.launch { list.scrollToItem(0) }
     }
     val submit = {
         busy = true
@@ -72,13 +77,16 @@ internal fun RunningPeriodSheet(
         Unit
     }
     ModalBottomSheet(onDismissRequest = { if (!busy) onVisible(false) },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.surface) {
-        LazyColumn(Modifier.fillMaxWidth().imePadding().testTag("manager-period-list"), state = list, contentPadding = PaddingValues(FarmSpace.Page),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = { WindowInsets.safeDrawing }) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Page)) {
+        FarmSheetHeading(if (editing) "Tinjau penetapan" else "Riwayat periode tanam", { onVisible(false) }, enabled = !busy)
+        LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false).imePadding().testTag("manager-period-list"), state = list,
+            contentPadding = PaddingValues(bottom = FarmSpace.Large),
             verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
             item("title") {
                 Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                    SectionTitle("Riwayat periode tanam")
-                    Text(greenhouse.getString("name"), style = MaterialTheme.typography.titleLarge)
+                    Text(greenhouse.getString("name"), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
                     Caption("Pilihan periode berjalan dipakai untuk catatan baru. Riwayat dan draf mempertahankan konteks aslinya.")
                     if (state.cached) Caption("Periksa koneksi untuk menetapkan periode.")
                     if (error != null) Notice(error!!, true)
@@ -117,6 +125,7 @@ internal fun RunningPeriodSheet(
                     }
                 }
             }
+            if (!editing) {
             val seasons = snapshot.detail?.rows("seasons").orEmpty()
             if (seasons.isEmpty()) item("empty") { Caption("Belum ada periode tanam untuk greenhouse ini.") }
             items(seasons, key = { it.getString("id") }) { season ->
@@ -124,12 +133,23 @@ internal fun RunningPeriodSheet(
                 FarmPanel(title = season.getString("name")) {
                     Caption("Mulai ${dateLabel(season.getString("start_date"))} · ${if (season.text("status") == "open") "Terbuka untuk transaksi" else "Ditutup"}")
                     val seasonGroups = candidates.filter { it.text("season_id") == seasonId }
-                    seasonGroups.forEach { candidate ->
+                    seasonGroups.forEachIndexed { index, candidate ->
+                        if (index > 0) FarmRowDivider(inset = FarmSpace.Tiny)
                         val id = candidate.getString("group_id")
-                        if (seasonGroups.size > 1) candidate.text("group_name")?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
-                        Caption("${candidate.getString("variety")} · semai ${dateLabel(candidate.getString("sowing_date"))}")
-                        if (id == current) Text("Periode berjalan", style = MaterialTheme.typography.labelLarge)
-                        else if (candidate.optBoolean("eligible") && greenhouse.optBoolean("active") && pending == null) {
+                        val label = candidate.text("group_name").takeIf { seasonGroups.size > 1 } ?: candidate.getString("variety")
+                        val detail = listOfNotNull(candidate.getString("variety").takeIf { it != label },
+                            "Semai ${dateLabel(candidate.getString("sowing_date"))}").joinToString(" · ")
+                        if (id == current) Surface(shape = FarmShape.Control, color = MaterialTheme.colorScheme.primaryContainer) {
+                            Column(Modifier.padding(FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
+                                Text("Periode berjalan", style = MaterialTheme.typography.labelLarge)
+                                Text(label, style = MaterialTheme.typography.titleMedium)
+                                Text(detail, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        else {
+                            FarmFact(label, detail)
+                        }
+                        if (id != current && candidate.optBoolean("eligible") && greenhouse.optBoolean("active") && pending == null) {
                             TextButton(onClick = { review(id) }, enabled = !state.cached && !busy,
                                 modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-period-option-$id")) {
                                 Text("Tinjau penetapan")
@@ -155,6 +175,8 @@ internal fun RunningPeriodSheet(
                     Text("Kelola periode tanam")
                 }
             }
+            }
+        }
         }
     }
 }

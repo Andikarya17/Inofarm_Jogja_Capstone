@@ -28,7 +28,10 @@ import org.json.JSONObject
 private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject> = context.harvests.filter {harvest -> harvest.optString("record_state")=="active" && context.groups.any {it.optString("id")==harvest.optString("planting_group_id") && it.optString("season_id")==draft.seasonId}}
     .flatMap {harvest -> val rows=harvest.optJSONArray("items");(0 until (rows?.length() ?: 0)).map {index ->
         val item=rows!!.getJSONObject(index);val balance=context.harvestBalances.find {it.optString("id")==item.optString("id") && it.optLong("harvest_version")==harvest.optLong("version")}
-        JSONObject().put("id",item.getString("id")).put("name","${item.optString("grade_name")} · ${timeLabel(harvest.optString("occurred_at"))} · ${balance?.optString("available_weight_kg")?.let {"sisa $it kg"} ?: "saldo belum tersedia"}")
+        val grade = item.optString("grade_name").ifBlank { "Grade belum tersedia" }
+        val detail = "${timeLabel(harvest.optString("occurred_at"))} · ${balance?.optString("available_weight_kg")?.let { "sisa $it kg" } ?: "saldo belum tersedia"}"
+        JSONObject().put("id", item.getString("id")).put("name", "$grade · $detail")
+            .put("choice_label", grade).put("choice_detail", detail)
     }}
 
 @Composable fun SaleForm(state:SaleEntryState,context:CultivationUiState,vm:SaleEntryViewModel) {
@@ -58,7 +61,12 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
         FinanceField("Keterangan penjualan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"sale-notes",state.errors["notes"],singleLine=false)
         if(draft.baseVersion!=null) FinanceField("Alasan koreksi",draft.reason,{value -> vm.edit {it.copy(reason=value)}},"sale-reason",state.errors["reason"],singleLine=false)
         Notice("Saldo adalah data terakhir tersimpan dan dapat berubah. Penerimaan transaksi dipastikan server; draf/offline belum menjadi penjualan diterima.")
-        runCatching {draft.preview()}.getOrNull()?.let {Text("Pratinjau total: ${moneyLabel(it.total.toPlainString())} · ${it.weightKg.toPlainString()} kg")}
+        runCatching { draft.preview() }.getOrNull()?.let {
+            FarmPanel {
+                FarmFact("Pratinjau total penjualan", moneyLabel(it.total.toPlainString()), prominent = true)
+                FarmFact("Bobot dari rincian", "${it.weightKg.toPlainString()} kg")
+            }
+        }
         state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
         Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("sale-review")) {Text("Periksa penjualan")}
         OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("sale-save-draft")) {Text("Simpan draf dan kembali")}
@@ -92,7 +100,8 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
         HorizontalDivider()
         FarmFact("Sumber panen ${index+1}",options.find {it.optString("id")==line.sourceId}
             ?.optString("name") ?: "Sumber belum tersedia pada data tersimpan")
-        Text("${line.quantity} kg × ${line.price} IDR/kg")
+        FarmFact("Bobot", line.quantity.takeIf(String::isNotBlank)?.let { "$it kg" } ?: "Belum diisi")
+        FarmFact("Harga per kg", line.price.takeIf(String::isNotBlank)?.let { "$it IDR/kg" } ?: "Belum diisi")
     }
     if(draft.notes.isNotBlank()) FarmFact("Keterangan",draft.notes)
     if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi",draft.reason)

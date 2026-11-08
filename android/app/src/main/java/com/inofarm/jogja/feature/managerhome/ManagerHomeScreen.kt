@@ -1,13 +1,11 @@
 package com.inofarm.jogja.feature.managerhome
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -15,7 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.inofarm.jogja.core.contracts.OperationalKind
@@ -85,7 +82,7 @@ internal fun ManagerHomeScreen(
     ) {
         item("scope") {
             FarmMenuHeader(if (selection == null) "Ringkasan kebun" else selected?.text("name") ?: "Ringkasan greenhouse",
-                if (snapshot == null) dateLabel(today.toString()) + " WIB" else dateLabel(snapshot.day.toString()) + " WIB") {
+                dateLabel((snapshot?.day ?: today).toString()) + " WIB", contextual = true) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                     FilledTonalButton(onClick = { picker = true }, enabled = !state.denied, shape = FarmShape.Control,
                         modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-home-picker")) {
@@ -118,7 +115,7 @@ internal fun ManagerHomeScreen(
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                         Text(card.getString("name"), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                        FarmNavigationIcon(0)
+                        FarmControlIcon(FarmIcon.ChevronRight, null)
                     }
                     PeriodFacts(card.getJSONObject("period"), expanded = false)
                     Caption(card.text("last_operational_at")?.let { "Catatan terakhir ${timeLabel(it)}" } ?: "Belum ada catatan operasional")
@@ -166,14 +163,13 @@ internal fun ManagerHomeScreen(
                 FarmPanel(title = "Kegiatan dan jadwal") {
                     val schedules = snapshot.detail?.rows("schedules").orEmpty()
                     if (period != null && schedules.isEmpty()) Caption("Belum ada jadwal aktif mulai tanggal ringkasan.")
-                    schedules.forEach { schedule ->
+                    schedules.forEachIndexed { index, schedule ->
+                        if (index > 0) HorizontalDivider()
                         val type = ActivityType.entries.find { it.wire == schedule.text("activity_type") }
-                        Text(type?.label ?: "Kegiatan")
-                        Caption(timeLabel(schedule.getString("planned_at")))
-                        schedule.text("notes")?.let { Caption(it) }
+                        FarmFact(timeLabel(schedule.getString("planned_at")), type?.label ?: "Kegiatan")
+                        schedule.text("notes")?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                         if (type != null) TextButton(onClick = { onRecord(type, schedule.getString("id")) },
                             modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Catat realisasi") }
-                        HorizontalDivider()
                     }
                     TextButton(onClick = { onOpen(HomeDestination(OperationalKind.ACTIVITY, activities, seasonLabelId = periodId)) },
                         modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat kegiatan") }
@@ -280,36 +276,18 @@ internal fun ManagerHomeScreen(
         }
     }
 
-    if (picker) ModalBottomSheet(
-        onDismissRequest = { picker = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
-        LazyColumn(contentPadding = PaddingValues(FarmSpace.Page), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-            item { SectionTitle("Pilih greenhouse") }
-            item {
-                ScopeOption("Semua greenhouse", selection == null, "manager-picker-all") { picker = false; onSelect(null) }
-            }
-            items(snapshot?.choices.orEmpty(), key = { it.getString("id") }) { option ->
-                val id = option.getString("id")
-                ScopeOption(option.getString("name"), id == selection, "manager-picker-$id") { picker = false; onSelect(id) }
-            }
-        }
-    }
+    if (picker) FarmPicker(
+        title = "Pilih greenhouse",
+        options = listOf(FarmOption("", "Semua greenhouse")) + snapshot?.choices.orEmpty().map {
+            FarmOption(it.getString("id"), it.getString("name"))
+        },
+        selected = selection.orEmpty(),
+        optionTag = { "manager-picker-${it.ifEmpty { "all" }}" },
+        onDismiss = { picker = false },
+        onSelect = { picker = false; onSelect(it.ifEmpty { null }) },
+        sheet = true
+    )
     if (periodReview && snapshot?.selected != null) RunningPeriodSheet(snapshot, state, onPeriodReview, onAdmin, onOpen, seasonActions, onDesignate)
-}
-
-@Composable
-private fun ScopeOption(label: String, selected: Boolean, tag: String, onClick: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    val background by animateColorAsState(if (selected) colors.secondaryContainer else colors.surface, tween(FarmMotion.State), label = "Pilihan greenhouse")
-    Surface(shape = FarmShape.Control, color = background, contentColor = if (selected) colors.onSecondaryContainer else colors.onSurface) {
-        Row(Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag(tag)
-            .selectable(selected, role = Role.RadioButton, onClick = onClick).padding(FarmSpace.Small),
-            horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small), verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(selected, onClick = null)
-            Text(label, Modifier.weight(1f))
-        }
-    }
 }
 
 @Composable
@@ -371,10 +349,8 @@ private fun CashAmount(label: String, description: String, total: JSONObject) {
 
 @Composable
 internal fun SectionTitle(label: String) {
-    Surface(shape = FarmShape.Control, color = MaterialTheme.colorScheme.background) {
-        Text(label, Modifier.padding(horizontal = FarmSpace.Small, vertical = FarmSpace.Tiny).semantics { heading() },
-            style = MaterialTheme.typography.titleMedium)
-    }
+    Text(label, Modifier.padding(top = FarmSpace.Small).semantics { heading() },
+        style = MaterialTheme.typography.titleMedium)
 }
 
 @Composable

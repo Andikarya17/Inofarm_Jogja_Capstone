@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import com.inofarm.jogja.core.design.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -165,7 +168,25 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             FinanceLogin(authState, endpoint, auth::login)
         }
         else if(authState.loading) Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Spacer(Modifier.height(16.dp));Text("Menyimpan isian terakhir sebelum keluar…")}
-        else key(authState.session!!.scope.key,authState.session!!.role,authState.session!!.token) { CompositionLocalProvider(LocalAttachmentAction provides attachments::open) { com.inofarm.jogja.feature.exports.ReportExportHost(authState.session!!,runtime.reportExports) { com.inofarm.jogja.feature.recovery.RecoveryHost(authState.session!!,runtime.recovery,activities::reload) { FinanceHome(authState.session!!,contextState,activityState,context::refresh,logout,activities,historyState,history,harvestState,harvest,harvestHistoryState,harvestHistory,financialState,financial,expenseHistoryState,expenseHistory,allocationHistoryState,allocationHistory,attachmentState,attachments,runtime.vault.generation,saleState,sales,saleHistoryState,saleHistory,assetWorkspace,reportWorkspace,investmentWorkspace,openAdmin,{adminOpen=false}) } } } }
+        else {
+            val session = requireNotNull(authState.session)
+            key(session.scope.key, session.role, session.token) {
+                Box(Modifier.fillMaxSize().farmFadeEntrance()) {
+                    CompositionLocalProvider(LocalAttachmentAction provides attachments::open) {
+                        com.inofarm.jogja.feature.exports.ReportExportHost(session, runtime.reportExports) {
+                            com.inofarm.jogja.feature.recovery.RecoveryHost(session, runtime.recovery, activities::reload) {
+                                FinanceHome(session, contextState, activityState, context::refresh, logout, activities,
+                                    historyState, history, harvestState, harvest, harvestHistoryState, harvestHistory,
+                                    financialState, financial, expenseHistoryState, expenseHistory, allocationHistoryState,
+                                    allocationHistory, attachmentState, attachments, runtime.vault.generation, saleState,
+                                    sales, saleHistoryState, saleHistory, assetWorkspace, reportWorkspace,
+                                    investmentWorkspace, openAdmin, { adminOpen = false })
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     if(adminOpen && authState.session?.role==UserRole.MANAGER && authState.session?.rejected==false) com.inofarm.jogja.feature.admin.AdminHost(authState.session!!,runtime.admin,context::refresh) {adminOpen=false}
     if(authState.session!=null && !authState.loading && authState.error!=null) AlertDialog(onDismissRequest=auth::clearError,title={Text("Belum keluar")},text={Text(authState.error!!)},confirmButton={TextButton(onClick=auth::clearError) {Text("Kembali ke isian")}})
@@ -320,7 +341,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         }
     }) { padding ->
         val menuViewport = showNavigation && !writing
-        if (menuViewport) BotanicalBackdrop(R.drawable.background_dashboard)
+        if (menuViewport && tab == 0) BotanicalBackdrop(R.drawable.background_dashboard, accentHeight = 152.dp)
         val systemBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val contentPadding = if (translucentNavigation) {
             PaddingValues(start = padding.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current),
@@ -526,19 +547,27 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             IconButton(onClick = { accountOpen = true }, modifier = Modifier.testTag("finance-account")) {
                 FarmControlIcon(FarmIcon.Account, if (sessionExpired) "Menu akun. Sesi berakhir." else "Menu akun")
             }
-            DropdownMenu(expanded = accountOpen, onDismissRequest = { accountOpen = false }) {
-                Column(Modifier.widthIn(max = 240.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
+            DropdownMenu(expanded = accountOpen, onDismissRequest = { accountOpen = false },
+                containerColor = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.widthIn(max = 248.dp).padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Small)) {
                     Text(session.name, style = MaterialTheme.typography.titleMedium)
-                    Text(if (session.role == UserRole.WORKER) "Pekerja" else "Pengelola", style = MaterialTheme.typography.bodySmall)
+                    Text(if (session.role == UserRole.WORKER) "Pekerja" else "Pengelola",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (session.role == UserRole.MANAGER) DropdownMenuItem(
-                    text = { Text("Kelola akun, budidaya dan acuan") },
-                    onClick = { accountOpen = false; onAdmin() },
-                    enabled = !writing,
-                    modifier = Modifier.testTag("finance-admin")
-                )
+                HorizontalDivider(Modifier.padding(horizontal = FarmSpace.Page))
+                if (session.role == UserRole.MANAGER) {
+                    DropdownMenuItem(
+                        text = { Text("Administrasi") },
+                        leadingIcon = { FarmControlIcon(FarmIcon.Account, null) },
+                        onClick = { accountOpen = false; onAdmin() },
+                        enabled = !writing,
+                        modifier = Modifier.testTag("finance-admin")
+                    )
+                    HorizontalDivider(Modifier.padding(horizontal = FarmSpace.Page))
+                }
                 DropdownMenuItem(
                     text = { Text("Keluar") },
+                    leadingIcon = { FarmControlIcon(FarmIcon.Logout, null) },
                     onClick = { accountOpen = false; onLogout() },
                     enabled = !writing,
                     modifier = Modifier.testTag("finance-logout")
@@ -753,23 +782,53 @@ internal fun ExpiredSessionNotice() {
         )
     }
 }
-@Composable internal fun Choice(label:String,selected:String?,options:List<JSONObject>,tag:String,onSelect:(String)->Unit) {
-    var expanded by rememberSaveable {mutableStateOf(false)}
-    val value=options.find {it.optString("id")==selected}?.optString("name")
+@Composable internal fun Choice(
+    label: String, selected: String?, options: List<JSONObject>, tag: String,
+    loading: Boolean = false, onSelect: (String) -> Unit
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    var sheet by rememberSaveable { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    var focused by remember { mutableStateOf(false) }
+    var restoreFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(expanded) {
+        if (!expanded && restoreFocus) {
+            focus.requestFocus()
+            restoreFocus = false
+        }
+    }
+    val dialogOnly = LocalFarmDialogPicker.current
+    val value = options.find { it.optString("id") == selected }?.optString("name")
+        ?: if (selected.isNullOrEmpty()) "Belum dipilih" else "Pilihan tersimpan belum tersedia"
     OutlinedButton(
-        onClick = { expanded = true }, shape = FarmShape.Control,
+        onClick = {
+            restoreFocus = focused
+            sheet = !dialogOnly && options.size > 6
+            expanded = true
+        }, shape = FarmShape.Control,
         colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag(tag)
+            .focusRequester(focus).onFocusChanged { focused = it.isFocused }
     ) {
-        Column(Modifier.weight(1f).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.weight(1f).padding(vertical = FarmSpace.Tiny), verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value ?: "Belum dipilih", style = MaterialTheme.typography.bodyLarge)
+            Text(value, style = MaterialTheme.typography.bodyLarge)
         }
-        if (LocalDensity.current.fontScale <= 1.5f) Text("Pilih", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(FarmSpace.Small))
+        FarmControlIcon(FarmIcon.ChevronDown, null)
     }
-    if(expanded) AlertDialog(onDismissRequest={expanded=false},title={Text("Pilih $label")},text={LazyColumn(Modifier.heightIn(max=380.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-        if(options.isEmpty()) item {Text("Belum ada pilihan yang tersedia.")}
-        items(options,key={it.getString("id")}) { row -> TextButton(onClick={onSelect(row.getString("id"));expanded=false},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("$tag-option-${row.getString("id")}")) {Text(row.getString("name"),Modifier.fillMaxWidth())} }
-    }},confirmButton={TextButton(onClick={expanded=false}) {Text("Tutup")}})
+    if (expanded) FarmPicker(
+        title = "Pilih ${label.replaceFirstChar { it.lowercaseChar() }}",
+        options = options.map {
+            FarmOption(it.getString("id"), it.optString("choice_label").ifBlank { it.getString("name") },
+                it.optString("choice_detail").takeIf(String::isNotBlank))
+        },
+        selected = selected,
+        optionTag = { "$tag-option-$it" },
+        onDismiss = { expanded = false },
+        onSelect = { expanded = false; onSelect(it) },
+        sheet = sheet && !dialogOnly,
+        loading = loading
+    )
 }

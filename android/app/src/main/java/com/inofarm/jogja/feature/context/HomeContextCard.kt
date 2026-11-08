@@ -15,6 +15,8 @@ import com.inofarm.jogja.core.cultivation.PlantAge
 import com.inofarm.jogja.core.design.ForestScheme
 import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.design.FarmSpace
+import com.inofarm.jogja.core.design.FarmSheetHeading
+import com.inofarm.jogja.core.design.LocalFarmDialogPicker
 import com.inofarm.jogja.feature.Choice
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import org.json.JSONObject
@@ -83,26 +85,30 @@ internal fun HomeContextCard(
     if (editing) {
         ModalBottomSheet(
             onDismissRequest = { editing = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentWindowInsets = { WindowInsets.safeDrawing }
         ) {
-            Column(
-                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(FarmSpace.Page),
-                verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)
-            ) {
-                Text("Pilih konteks budidaya", Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
-                Choice("Greenhouse", selected.greenhouse, greenhouses, "finance-gh") {
-                    if (it != selected.greenhouse) onSelect(HomeContext(greenhouse = it))
+            CompositionLocalProvider(LocalFarmDialogPicker provides true) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Page)) {
+                    FarmSheetHeading("Pilih konteks budidaya", { editing = false })
+                    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(bottom = FarmSpace.Large),
+                        verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                        Choice("Greenhouse", selected.greenhouse, greenhouses, "finance-gh", loading = data.loading) {
+                            if (it != selected.greenhouse) onSelect(HomeContext(greenhouse = it))
+                        }
+                        if (greenhouse != null) Choice("Musim", selected.season, seasons, "finance-season", loading = data.loading) {
+                            if (it != selected.season) onSelect(selected.copy(season = it, group = null))
+                        }
+                        if (season != null) Choice("Kelompok tanam", selected.group, groups, "finance-group", loading = data.loading) {
+                            onSelect(selected.copy(group = it))
+                        }
+                        Button(onClick = { editing = false }, shape = FarmShape.Control,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("finance-context-close")) {
+                            Text("Kembali ke beranda")
+                        }
+                    }
                 }
-                if (greenhouse != null) Choice("Musim", selected.season, seasons, "finance-season") {
-                    if (it != selected.season) onSelect(selected.copy(season = it, group = null))
-                }
-                if (season != null) Choice("Kelompok tanam", selected.group, groups, "finance-group") {
-                    onSelect(selected.copy(group = it))
-                }
-                Button(
-                    onClick = { editing = false }, shape = FarmShape.Control,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("finance-context-close")
-                ) { Text("Kembali ke beranda") }
             }
         }
     }

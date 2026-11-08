@@ -1,12 +1,12 @@
 package com.inofarm.jogja.feature.investments
 
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
 import com.inofarm.jogja.core.design.FarmAmount
 import com.inofarm.jogja.core.design.FarmDraftStatus
 import com.inofarm.jogja.core.design.FarmFact
-import com.inofarm.jogja.core.design.FarmMotion
 import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmResultRow
+import com.inofarm.jogja.core.design.FarmSectionHeading
+import com.inofarm.jogja.core.design.FarmSpace
 import com.inofarm.jogja.core.design.FarmSection
 import com.inofarm.jogja.core.design.FarmShape
 import androidx.compose.foundation.layout.*
@@ -35,7 +35,7 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
     return when(unit) {"IDR"->"Rp$number";"percent"->"$number%";else->"$number tahun"}
 }
 @Composable private fun SourceChoice(label:String,value:String,tag:String,change:(String)->Unit) {
-    Choice(label,value,listOf(option("","Belum dinyatakan"),option("actual","Aktual yang dinyatakan"),option("projection","Proyeksi")),tag,change)
+    Choice(label,value,listOf(option("","Belum dinyatakan"),option("actual","Aktual yang dinyatakan"),option("projection","Proyeksi")),tag,onSelect=change)
 }
 
 @Composable fun InvestmentScreen(workspace:InvestmentWorkspace,context:CultivationUiState,returnToQueue:Boolean=false) {
@@ -105,7 +105,7 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
                 if(!audit.isNull("next_cursor")) item {OutlinedButton(onClick=vm::audit,modifier=Modifier.fillMaxWidth().testTag("investment-audit-more")) {Text("Perubahan berikutnya")}}
             }
         } else {
-            item {Choice("Riwayat investasi",state.kind,listOf(option(InvestmentContract.SCENARIO,"Skenario dan arus kas"),option(InvestmentContract.REPORT,"Laporan investasi tersimpan")),"investment-kind",vm::filter)}
+            item {Choice("Riwayat investasi",state.kind,listOf(option(InvestmentContract.SCENARIO,"Skenario dan arus kas"),option(InvestmentContract.REPORT,"Laporan investasi tersimpan")),"investment-kind",onSelect=vm::filter)}
             item {Button(onClick={vm.newScenario()},enabled=state.greenhouse.isNotBlank(),modifier=Modifier.fillMaxWidth().testTag("investment-new")) {Text("Buat skenario investasi")};if(state.greenhouse.isBlank()) Text("Pilih greenhouse di halaman Keuangan untuk skenario baru.")}
             if(state.records.isEmpty()) item {Text("Belum ada catatan tersimpan pada cakupan ini.")}
             items(state.records,key={it.id}) {row->
@@ -180,13 +180,21 @@ private fun LazyListScope.report(data:JSONObject,accepted:Boolean) {
             FarmFact("Tinjauan", data.getString("review_note"))
         }
     }
-    items(InvestmentContract.labels.keys.toList(),key={"metric-$it"}) {key->InvestmentIndicator(key,data.getJSONObject("metrics").getJSONObject(key))}
-    item {val assumptions=data.getJSONArray("assumptions");repeat(assumptions.length()) {Text(assumptions.getString(it))};Text("Versi rumus: ${data.getString("formula_version")}",style=MaterialTheme.typography.bodySmall)}
+    for ((title, keys) in listOf("Nilai dan imbal hasil" to listOf("NPV", "IRR"), "Waktu pengembalian" to listOf("PP", "DPP"))) {
+        item("result-$title") { FarmSectionHeading(title, Modifier.padding(top = FarmSpace.Medium)) }
+        items(keys, key = { "metric-$it" }) { key -> InvestmentIndicator(key, data.getJSONObject("metrics").getJSONObject(key)) }
+    }
+    item {
+        FarmSection("Asumsi evaluasi") {
+            val assumptions = data.getJSONArray("assumptions")
+            repeat(assumptions.length()) { Text(assumptions.getString(it)) }
+            FarmFact("Versi rumus", data.getString("formula_version"))
+        }
+    }
 }
 @Composable private fun InvestmentIndicator(key:String,m:JSONObject) {
-    var expanded by remember(key,m.toString()) {mutableStateOf(false)}
-    FarmPanel(Modifier.animateContentSize(tween(FarmMotion.State)).testTag("investment-metric-$key"),
-        title = "$key · ${InvestmentContract.labels.getValue(key)}") {
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable(key, m.toString()) { mutableStateOf(false) }
+    FarmResultRow("$key · ${InvestmentContract.labels.getValue(key)}", Modifier.testTag("investment-metric-$key")) {
         val unit = m.getString("unit")
         val value = when {
             !m.isNull("value") -> investmentValue(m.getString("value"), unit, m.getInt("display_scale"))
@@ -194,11 +202,32 @@ private fun LazyListScope.report(data:JSONObject,accepted:Boolean) {
             else -> "Belum dapat dihitung"
         }
         if (!m.isNull("value") && unit == "IDR") FarmAmount(value, MaterialTheme.typography.headlineSmall)
-        else Text(value, style = MaterialTheme.typography.headlineSmall)
+        else Text(value, style = if (m.isNull("value")) MaterialTheme.typography.titleMedium
+            else MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"))
         if(m.getString("status")=="provisional") Text("Hasil sementara; periksa kelengkapan input dan sumber.")
         val reasons=m.getJSONArray("reasons");repeat(reasons.length()) {Text(reasons.getString(it))}
         TextButton(onClick={expanded=!expanded},modifier=Modifier.testTag("investment-detail-$key")) {Text(if(expanded) "Tutup perhitungan" else "Rumus, input dan asumsi")}
-        if(expanded) {Text(m.getString("formula"));val input=m.getJSONObject("inputs");Text("Investasi awal: ${nullable(input,"initial_outlay")} IDR");val flows=input.getJSONArray("annual_cash_flows");repeat(flows.length()) {Text("Kas neto tahun ${it+1}: ${if(flows.isNull(it)) "belum diketahui" else flows.getString(it)} IDR")};Text("Diskonto fraksi: ${nullable(input,"discount_rate")}; konvensi: ${nullable(input,"payback_convention")}");val detail=m.getJSONObject("calculation_detail");detail.keys().forEach {name->Text("$name: ${detail.get(name)}",style=MaterialTheme.typography.bodySmall)};m.optJSONObject("exact_fraction")?.let {Text("Pecahan sebelum pembulatan: ${it.getString("numerator")} / ${it.getString("denominator")}")};val assumptions=m.getJSONArray("assumptions");repeat(assumptions.length()) {Text(assumptions.getString(it))}}
+        if (expanded) {
+            FarmFact("Rumus", m.getString("formula"))
+            val input = m.getJSONObject("inputs")
+            FarmSection("Input dan arus kas") {
+                FarmFact("Investasi awal (IDR)", nullable(input, "initial_outlay"))
+                val flows = input.getJSONArray("annual_cash_flows")
+                repeat(flows.length()) { year ->
+                    FarmFact("Kas neto tahun ${year + 1} (IDR)", if (flows.isNull(year)) "Belum diketahui" else flows.getString(year))
+                }
+                FarmFact("Diskonto fraksi", nullable(input, "discount_rate"))
+                FarmFact("Konvensi pengembalian", nullable(input, "payback_convention"))
+                val assumptions = m.getJSONArray("assumptions")
+                repeat(assumptions.length()) { Text(assumptions.getString(it)) }
+            }
+            val detail = m.getJSONObject("calculation_detail")
+            val fraction = m.optJSONObject("exact_fraction")
+            if (detail.length() > 0 || fraction != null) FarmSection("Rincian teknis") {
+                detail.keys().forEach { name -> Text("$name: ${detail.get(name)}", style = MaterialTheme.typography.bodySmall) }
+                fraction?.let { FarmFact("Pecahan sebelum pembulatan", "${it.getString("numerator")} / ${it.getString("denominator")}") }
+            }
+        }
     }
 }
 @Composable private fun SourceCard(source:JSONObject) {

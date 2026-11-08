@@ -35,19 +35,21 @@ internal fun FinanceNavigation(tab: Int, manager: Boolean, transmitBackdrop: Boo
                 }
                 if (expanded) ModalBottomSheet(
                     onDismissRequest = { expanded = false },
-                    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentWindowInsets = { WindowInsets.safeDrawing }
                 ) {
                     Column(
-                        Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                            .padding(horizontal = FarmSpace.Page).padding(bottom = FarmSpace.Large)
+                        Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Page).padding(bottom = FarmSpace.Large)
                     ) {
-                        FarmPageTitle("Pindah halaman")
-                        Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
+                        FarmSheetHeading("Pindah halaman", { expanded = false })
+                        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).selectableGroup()) {
                             labels.forEachIndexed { index, label ->
                                 FarmTab(index, label, tab == index, {
                                     onSelect(index)
                                     expanded = false
                                 }, Modifier.fillMaxWidth().testTag("finance-tab-$index"), inline = true)
+                                if (index < labels.lastIndex) FarmRowDivider(FarmSpace.Medium * 2 + 24.dp)
                             }
                         }
                     }

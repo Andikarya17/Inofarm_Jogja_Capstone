@@ -17,6 +17,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.inofarm.jogja.core.database.LocalRecord
+import com.inofarm.jogja.core.design.FarmFact
+import com.inofarm.jogja.core.design.FarmShape
+import com.inofarm.jogja.core.design.FarmSpace
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.auth.userMessage
 import kotlinx.coroutines.*
@@ -25,7 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
 
 val LocalReportExport=staticCompositionLocalOf<((LocalRecord,String)->Unit)?> {null}
-data class ReportExportState(val busy:Boolean=false,val message:String?=null)
+data class ReportExportState(val busy:Boolean=false,val message:String?=null,val filename:String?=null)
 class ReportExportViewModel(private val repository:ReportExportRepository):ViewModel() {
     private val mutable=MutableStateFlow(ReportExportState());val state=mutable.asStateFlow();private var job:Job?=null
     fun clear() {mutable.value=state.value.copy(message=null)}
@@ -33,7 +36,7 @@ class ReportExportViewModel(private val repository:ReportExportRepository):ViewM
     fun save(selection:ReportExportSelection,uri:Uri) {
         if(state.value.busy) return
         val session=repository.vault.current ?: return;val ticket=repository.vault.generation
-        mutable.value=ReportExportState(busy=true)
+        mutable.value=ReportExportState(busy=true,filename=selection.filename)
         job=viewModelScope.launch {try {
             val name=repository.save(session,ticket,selection,uri)
             if(repository.vault.matches(ticket,session.scope)) mutable.value=ReportExportState(message="Laporan tersimpan: $name")
@@ -60,17 +63,30 @@ class ReportExportViewModel(private val repository:ReportExportRepository):ViewM
             launcher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(selection.mime).putExtra(Intent.EXTRA_TITLE,selection.filename))
         }.onFailure {pending=null;pickerError=userMessage(it)}
     }) {content()}
-    if(state.busy) AlertDialog(onDismissRequest={},title={Text("Menyimpan laporan")},text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {CircularProgressIndicator();Text("Memeriksa akses dan mengunduh snapshot yang dipilih…")}},confirmButton={TextButton(onClick=vm::cancel) {Text("Batalkan")}})
+    if(state.busy) AlertDialog(onDismissRequest={}, containerColor=MaterialTheme.colorScheme.surface,
+        title={Text("Menyimpan laporan")}, text={
+            Column(verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium)) {
+                state.filename?.let { FarmFact("Berkas laporan yang dipilih", it) }
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+                Text("Memeriksa akses dan mengunduh salinan laporan…")
+            }
+        },confirmButton={TextButton(onClick=vm::cancel) {Text("Batalkan")}})
     val message=pickerError ?: state.message
-    if(!state.busy && message!=null) AlertDialog(onDismissRequest={pickerError=null;vm.clear()},title={Text("Unduhan laporan")},text={Text(message)},confirmButton={TextButton(onClick={pickerError=null;vm.clear()}) {Text("Tutup")}})
+    if(!state.busy && message!=null) AlertDialog(onDismissRequest={pickerError=null;vm.clear()},
+        containerColor=MaterialTheme.colorScheme.surface,title={Text("Unduhan laporan")},text={Text(message)},
+        confirmButton={TextButton(onClick={pickerError=null;vm.clear()}) {Text("Tutup")}})
 }
 
 @Composable fun ReportExportActions(row:LocalRecord) {
     val action=LocalReportExport.current ?: return
     com.inofarm.jogja.core.design.FarmSection("Unduh laporan") {
-        OutlinedButton(onClick={action(row,"pdf")},shape=com.inofarm.jogja.core.design.FarmShape.Control,
-            modifier=Modifier.fillMaxWidth().testTag("report-download-pdf")) {Text("Unduh PDF dari laporan ini")}
-        OutlinedButton(onClick={action(row,"csv")},shape=com.inofarm.jogja.core.design.FarmShape.Control,
-            modifier=Modifier.fillMaxWidth().testTag("report-download-csv")) {Text("Unduh CSV dari laporan ini")}
+        Text("Pilih format untuk salinan laporan yang sedang dibuka.", style=MaterialTheme.typography.bodyMedium)
+        FlowRow(horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small),
+            verticalArrangement=Arrangement.spacedBy(FarmSpace.Small)) {
+            OutlinedButton(onClick={action(row,"pdf")},shape=FarmShape.Control,
+                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("report-download-pdf")) {Text("Unduh PDF")}
+            OutlinedButton(onClick={action(row,"csv")},shape=FarmShape.Control,
+                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("report-download-csv")) {Text("Unduh CSV")}
+        }
     }
 }

@@ -1,16 +1,17 @@
 package com.inofarm.jogja.feature.reports
 
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
 import com.inofarm.jogja.core.design.FarmAmount
 import com.inofarm.jogja.core.design.FarmDraftStatus
 import com.inofarm.jogja.core.design.FarmFact
-import com.inofarm.jogja.core.design.FarmMotion
 import com.inofarm.jogja.core.design.FarmPageTitle
 import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmResultRow
+import com.inofarm.jogja.core.design.FarmSectionHeading
+import com.inofarm.jogja.core.design.FarmSpace
 import com.inofarm.jogja.core.design.FarmShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -60,7 +61,7 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
             if(data!=null) {
                 item {Notice("Pratinjau belum menjadi laporan yang diterima server. Perubahan sumber memerlukan peninjauan ulang.");draft.previewFetchedAt?.let {Text("Pratinjau diperiksa pada perangkat: ${timeLabel(Instant.ofEpochMilli(it).toString())}")}}
                 item {ReportHeader(data,false)}
-                items(SeasonReportContract.labels.keys.toList(),key={it}) {key ->Indicator(key,data.getJSONObject("metrics").getJSONObject(key))}
+                seasonIndicators(data.getJSONObject("metrics"))
                 item {ReportAssumptions(data)}
                 item {OutlinedButton(onClick=vm::sources,modifier=Modifier.fillMaxWidth().testTag("report-sources")) {Text("Tinjau sumber dan versinya")}}
                 item {Button(onClick=vm::queue,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("report-queue")) {Text("Simpan permintaan dan antrekan")}}
@@ -71,7 +72,7 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
             selected.error?.let {error ->item {ErrorReasons(error)}}
             if(data!=null) {
                 item {ReportHeader(data,accepted)}
-                items(SeasonReportContract.labels.keys.toList(),key={it}) {key ->Indicator(key,data.getJSONObject("metrics").getJSONObject(key))}
+                seasonIndicators(data.getJSONObject("metrics"))
                 item {ReportAssumptions(data)}
                 if(accepted) {
                     item {OutlinedButton(onClick=vm::sources,modifier=Modifier.fillMaxWidth().testTag("report-sources")) {Text("Lihat sumber laporan")}}
@@ -102,7 +103,7 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
 
 private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",name)
 @Composable private fun Coverage(label:String,value:String,tag:String,onChange:(String)->Unit) {
-    Choice("Kelengkapan $label",value,listOf(option("unknown","Belum diketahui"),option("partial","Belum lengkap"),option("complete","Sudah ditinjau lengkap")),tag,onChange)
+    Choice("Kelengkapan $label",value,listOf(option("unknown","Belum diketahui"),option("partial","Belum lengkap"),option("complete","Sudah ditinjau lengkap")),tag,onSelect=onChange)
 }
 @Composable private fun ReportHeader(data:JSONObject,accepted:Boolean) {
     val scope = data.getJSONObject("scope")
@@ -129,20 +130,38 @@ private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",n
         FarmFact("Tinjauan", data.getString("review_note"))
     }
 }
+private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
+    val groups = listOf(
+        "Hasil usaha" to listOf("L", "RC", "BC"),
+        "Penerimaan dan biaya" to listOf("TR", "Q", "P", "TC", "FC", "VC"),
+        "Titik impas" to listOf("BEP_Q", "BEP_PRICE")
+    )
+    for ((title, keys) in groups) {
+        item("result-$title") { FarmSectionHeading(title, Modifier.padding(top = FarmSpace.Medium)) }
+        items(keys, key = { "result-$it" }) { key -> Indicator(key, metrics.getJSONObject(key)) }
+    }
+}
+
 @Composable private fun Indicator(key:String,metric:JSONObject) {
-    var expanded by remember(key,metric.toString()) {mutableStateOf(false)}
-    FarmPanel(Modifier.animateContentSize(tween(FarmMotion.State)).testTag("report-metric-$key"), title = SeasonReportContract.labels.getValue(key)) {
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable(key, metric.toString()) { mutableStateOf(false) }
+    FarmResultRow(SeasonReportContract.labels.getValue(key), Modifier.testTag("report-metric-$key")) {
         val unit = metric.getString("unit")
         val value = if (metric.isNull("value")) "Belum dapat dihitung"
             else reportValue(metric.getString("value"), unit, metric.getInt("display_scale"))
         if (!metric.isNull("value") && unit in setOf("IDR", "IDR/kg")) FarmAmount(value, MaterialTheme.typography.headlineSmall)
-        else Text(value, style = MaterialTheme.typography.headlineSmall)
-        if(metric.getString("status")=="provisional") Text("Hasil sementara dari sumber yang belum dinyatakan lengkap.")
-        val reasons=metric.getJSONArray("reasons");repeat(reasons.length()) {Text(reasons.getString(it))}
+        else Text(value, style = if (metric.isNull("value")) MaterialTheme.typography.titleMedium
+            else MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"))
+        if(metric.getString("status")=="provisional") Text("Hasil sementara dari sumber yang belum dinyatakan lengkap.",
+            style = MaterialTheme.typography.bodyMedium)
+        val reasons = metric.getJSONArray("reasons")
+        repeat(reasons.length()) { Text(reasons.getString(it), style = MaterialTheme.typography.bodyMedium) }
         TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Tutup perhitungan" else "Rumus, input dan asumsi")}
         if(expanded) {
-            Text(metric.getString("formula"));val inputs=metric.getJSONObject("inputs")
-            inputs.keys().forEach {name->Text("$name: ${if(inputs.isNull(name)) "belum diketahui" else inputs.getString(name)}")}
+            FarmFact("Rumus", metric.getString("formula"))
+            val inputs=metric.getJSONObject("inputs")
+            inputs.keys().forEach { name ->
+                FarmFact(SeasonReportContract.labels[name] ?: name, if(inputs.isNull(name)) "Belum diketahui" else inputs.getString(name))
+            }
             val assumptions=metric.getJSONArray("assumptions");repeat(assumptions.length()) {Text(assumptions.getString(it))}
             metric.optJSONObject("exact_fraction")?.let {Text("Pecahan sebelum pembulatan: ${it.getString("numerator")} / ${it.getString("denominator")}",style=MaterialTheme.typography.bodySmall)}
         }
