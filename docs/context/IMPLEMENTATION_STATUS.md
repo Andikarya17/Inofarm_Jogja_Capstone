@@ -1,4 +1,8 @@
-# Status implementasi nyata — 7 November 2026
+# Status implementasi nyata — 8 November 2026
+
+## Beranda pengelola — 8 November 2026
+
+Ringkasan seluruh penugasan dan satu greenhouse, penetapan periode berjalan yang diaudit, pasangan pengukuran, temuan berbasis data, riwayat terfilter, serta kas bulanan tersedia pada branch `codex/manager-home-overview`. [Matriks bukti dan batas](MANAGER_HOME_UPGRADE_EVIDENCE.md)
 
 ## Menu lanjutan Android — 7 November 2026
 

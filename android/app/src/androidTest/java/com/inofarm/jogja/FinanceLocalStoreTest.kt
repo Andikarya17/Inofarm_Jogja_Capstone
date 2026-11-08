@@ -35,7 +35,7 @@ class FinanceLocalStoreTest {
     private lateinit var helper: FinanceDatabase
     private lateinit var store: LocalFinanceStore
     @Before fun setUp() {
-        assertTrue("Use the finance application identity; no legacy APK data",context.packageName.endsWith(".finance"))
+        assertTrue("Use a finance debug application identity",context.packageName.endsWith(".finance") || context.packageName.endsWith(".finance.performance"))
         helper=FinanceDatabase(context,name);store=LocalFinanceStore(helper,FixtureCipher())
         store.initialize("account-a",epoch,UserRole.WORKER);store.applyPull("account-a",page())
     }
@@ -46,6 +46,32 @@ class FinanceLocalStoreTest {
         .put("sync_epoch",epoch).put("scope",scope).put("data",rows).put("next_cursor","fixture-cursor").put("has_more",false)
     private fun receipt(id: String,op: String,note: String="Accepted",version: Int=1)=JSONObject().put("operation_id",op).put("entity_id",id).put("version",version)
         .put("data",body(note).put("id",id).put("version",version))
+
+    @Test fun managerHomeCacheFollowsScopeRoleAndEpochWithoutDeletingDraft() {
+        val account = "account-a"
+        val month = "2026-11"
+        val draft = UUID.randomUUID().toString()
+        store.initialize(account, epoch, UserRole.MANAGER)
+        store.saveDraft(account, draft, gh, body("Draf pada greenhouse asal"))
+        val snapshot = JSONObject().put("test", "synthetic snapshot")
+        store.cacheManagerHome(account, gh, month, snapshot, epoch, setOf(gh))
+        assertEquals("synthetic snapshot", store.managerHomeCache(account, gh, month)?.getString("test"))
+        store.initialize("account-b", epoch, UserRole.MANAGER)
+        assertNull(store.managerHomeCache("account-b", gh, month))
+        assertNull(store.managerHomeCache(account, gh, "2026-12"))
+        store.applyPull(account, page(scope = JSONArray()))
+        assertNull(store.managerHomeCache(account, gh, month))
+        store.applyPull(account, page())
+        store.cacheManagerHome(account, gh, month, snapshot, epoch, setOf(gh))
+        store.initialize(account, epoch, UserRole.WORKER)
+        assertTrue(runCatching { store.managerHomeCache(account, gh, month) }.isFailure)
+        store.initialize(account, epoch, UserRole.MANAGER)
+        assertNull(store.managerHomeCache(account, gh, month))
+        store.cacheManagerHome(account, gh, month, snapshot, epoch, setOf(gh))
+        store.initialize(account, UUID.randomUUID().toString(), UserRole.MANAGER)
+        assertNull(store.managerHomeCache(account, gh, month))
+        assertEquals("Draf pada greenhouse asal", store.record(account, draft)?.body?.getString("notes"))
+    }
 
     @Test fun durableOutboxSurvivesCloseReopenAndDoesNotCrossAccountOrServer() {
         val id=UUID.randomUUID().toString()

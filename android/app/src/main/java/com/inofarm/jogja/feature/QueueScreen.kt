@@ -48,10 +48,13 @@ internal fun QueueScreen(
     opening: Boolean,
     onReload: () -> Unit,
     onReview: (QueuedOperation) -> Unit,
-    canReview: (QueuedOperation) -> Boolean
+    canReview: (QueuedOperation) -> Boolean,
+    focusOperation: String? = null,
 ) {
     val queue = activity.queue
-    val displayOrder = remember(queue) { queue.sortedBy { it.syncState()?.needsReview != true } }
+    val displayOrder = remember(queue, focusOperation) {
+        queue.sortedWith(compareBy({ it.id != focusOperation }, { it.syncState()?.needsReview != true }))
+    }
     FarmMenuList(Modifier.testTag("finance-queue-list")) {
         item("queue-header") {
             FarmMenuHeader("Antrean", "Pengajuan dari akun ini. Status berubah setelah server memberi tanggapan.") {
@@ -112,13 +115,13 @@ internal fun QueueScreen(
         }
         items(displayOrder, key = { it.id }) { operation ->
             QueueRecord(operation, opening, reviewError.takeIf { reviewOperation == operation.id },
-                if (canReview(operation)) ({ onReview(operation) }) else null)
+                if (canReview(operation)) ({ onReview(operation) }) else null, operation.id == focusOperation)
         }
     }
 }
 
 @Composable
-private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewError: String?, onReview: (() -> Unit)?) {
+private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewError: String?, onReview: (() -> Unit)?, initiallyExpanded: Boolean) {
     val kind = operation.envelope.optString("entity_type")
     val state = operation.syncState()
     val label = OperationalKind.entries.find { it.wire == kind }?.label ?: when (kind) {
@@ -135,7 +138,7 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
     }
     val recovery = LocalRecoveryActions.current
     val reviewReceipt = recovery?.canReview?.invoke(operation) == true
-    var expanded by rememberSaveable(operation.id) { mutableStateOf(false) }
+    var expanded by rememberSaveable(operation.id) { mutableStateOf(initiallyExpanded) }
     FarmRecordCard {
         Text(label.replaceFirstChar { it.uppercaseChar() }, style = MaterialTheme.typography.titleMedium)
         if (state == SyncState.ACCEPTED && reviewReceipt) {

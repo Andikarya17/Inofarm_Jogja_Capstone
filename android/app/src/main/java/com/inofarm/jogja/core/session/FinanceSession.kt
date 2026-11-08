@@ -50,12 +50,12 @@ data class AccountScope(val server: String, val accountId: String) {
     init { WireContract.uuid(accountId) }
     val key: String get() = MessageDigest.getInstance("SHA-256").digest("$server\n$accountId".toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 }
-data class FinanceSession(val scope: AccountScope, val token: String, val expiresAt: String, val name: String, val role: UserRole) {
+data class FinanceSession(val scope: AccountScope, val token: String, val expiresAt: String, val name: String, val role: UserRole, val rejected: Boolean = false) {
     override fun toString() = "FinanceSession(account=${scope.accountId}, role=$role, expiresAt=$expiresAt)"
-    fun expired(now: Instant = Instant.now()) = !now.isBefore(Instant.parse(expiresAt))
-    fun json() = JSONObject().put("server", scope.server).put("account_id", scope.accountId).put("token", token).put("expires_at", expiresAt).put("name", name).put("role", role.wire)
+    fun expired(now: Instant = Instant.now()) = rejected || !now.isBefore(Instant.parse(expiresAt))
+    fun json() = JSONObject().put("server", scope.server).put("account_id", scope.accountId).put("token", token).put("expires_at", expiresAt).put("name", name).put("role", role.wire).put("rejected", rejected)
     companion object {
-        fun parse(json: JSONObject) = FinanceSession(AccountScope(json.getString("server"), json.getString("account_id")), json.getString("token"), json.getString("expires_at"), json.getString("name"), UserRole.parse(json.getString("role")))
+        fun parse(json: JSONObject) = FinanceSession(AccountScope(json.getString("server"), json.getString("account_id")), json.getString("token"), json.getString("expires_at"), json.getString("name"), UserRole.parse(json.getString("role")), json.optBoolean("rejected"))
     }
 }
 
@@ -85,9 +85,10 @@ class FinanceSessionVault(context: Context, private val cipher: PayloadCipher, p
     }
     @Synchronized fun save(ticket: Long, session: FinanceSession): Boolean {
         if(ticket != generation) return false
-        check(preferences.edit().putString("session", cipher.encode("session-v2", session.json().toString())).commit()) { "Sesi gagal disimpan." }
-        snapshot = session; loaded = true
-        mutable.value=session
+        val accepted = if (snapshot?.token == session.token && snapshot?.rejected == true) session.copy(rejected = true) else session
+        check(preferences.edit().putString("session", cipher.encode("session-v2", accepted.json().toString())).commit()) { "Sesi gagal disimpan." }
+        snapshot = accepted; loaded = true
+        mutable.value=accepted
         return true
     }
     @Synchronized fun logout(): FinanceSession? {

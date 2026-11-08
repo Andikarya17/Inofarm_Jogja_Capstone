@@ -155,7 +155,7 @@ class FinanceInvestmentTest {
             db.execSQL("INSERT INTO outbox(scope,operation_id,entity_id,local_revision,envelope,canonical_hash,state,created_at) VALUES(?,?,?,?,?,?,?,?)",arrayOf(key,opId,draft.id,1,cipher.encode(key,envelope.toString()),hash,"QUEUED",1));db.version=8
         }
         val upgraded=FinanceDatabase(context,oldName)
-        try {val migrated=LocalFinanceStore(upgraded,cipher);assertEquals(9,upgraded.readableDatabase.version);assertEquals("cursor-eight",migrated.pullCursor(key));assertEquals(hash,migrated.next(key)!!.hash);assertEquals(opId,migrated.next(key)!!.id);assertEquals(draft,InvestmentScenarioDraft.from(draft.id,gh,migrated.record(key,draft.id)!!.body,null));assertEquals(1,migrated.records(key,kind=InvestmentContract.SCENARIO).size)}
+        try {val migrated=LocalFinanceStore(upgraded,cipher);assertEquals(FinanceDatabase.VERSION,upgraded.readableDatabase.version);assertEquals("cursor-eight",migrated.pullCursor(key));assertEquals(hash,migrated.next(key)!!.hash);assertEquals(opId,migrated.next(key)!!.id);assertEquals(draft,InvestmentScenarioDraft.from(draft.id,gh,migrated.record(key,draft.id)!!.body,null));assertEquals(1,migrated.records(key,kind=InvestmentContract.SCENARIO).size)}
         finally {upgraded.close();assertTrue(oldName.startsWith("finance-test-"));context.deleteDatabase(oldName)}
     }
 }

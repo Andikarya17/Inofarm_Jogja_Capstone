@@ -20,7 +20,7 @@ class FinanceBackendDeviceTest {
     @get:Rule val rule=createAndroidComposeRule<MainActivity>()
     private val context get()=InstrumentationRegistry.getInstrumentation().targetContext
     private fun file(name:String)=File(context.getExternalFilesDir(null),name)
-    private fun fixture():JSONObject { assertTrue(context.packageName.endsWith(".finance"));return JSONObject(file("finance-device-fixture.json").readText()).also {assertEquals("inofarm_test",it.getString("database"))} }
+    private fun fixture():JSONObject { assertTrue(context.packageName.endsWith(".finance") || context.packageName.endsWith(".finance.performance"));return JSONObject(file("finance-device-fixture.json").readText()).also {assertEquals("inofarm_test",it.getString("database"))} }
     private fun login(f:JSONObject,role:String) {
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty() || rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()}
         if(rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()) rule.logoutFromAccount()
@@ -29,8 +29,79 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-email").performScrollTo().performTextReplacement(f.getString("${role}_email"))
         rule.onNodeWithTag("finance-password").performScrollTo().performTextReplacement(f.getString("password"))
         hideKeyboard();rule.onNodeWithTag("finance-login").performScrollTo().performClick()
-        rule.waitUntil(15000) {rule.onAllNodesWithTag("finance-context-open").fetchSemanticsNodes().isNotEmpty()}
-        rule.waitUntil(15000) {rule.onAllNodesWithText("Data server sudah diperiksa.").fetchSemanticsNodes().isNotEmpty()}
+        val landing = if (role == "manager") "manager-home-picker" else "finance-context-open"
+        rule.waitUntil(15000) {rule.onAllNodesWithTag(landing).fetchSemanticsNodes().isNotEmpty()}
+        rule.waitForFinanceMasterPull()
+    }
+
+    @Test fun managerHomeReadsGuardedMysqlAndDesignatesFromNativeReview() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase") == "manager-home")
+        val encoded = requireNotNull(InstrumentationRegistry.getArguments().getString("managerHomeFixture"))
+        val fixture = JSONObject(android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP).toString(Charsets.UTF_8))
+        assertEquals("inofarm_test", fixture.getString("database"))
+        val first = fixture.getJSONArray("contexts").getJSONObject(0)
+        val gh = first.getString("greenhouse_id")
+        val group = first.getString("group_id")
+        val model = runtime()
+        val now = java.time.OffsetDateTime.now(com.inofarm.jogja.feature.activities.domain.ActivityDraft.WIB).withNano(0)
+        val eventAt = now.format(java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxxx"))
+        fun create(kind: String, route: String, payload: JSONObject): String {
+            val session = model.vault.current!!
+            val id = UUID.randomUUID().toString()
+            val operation = JSONObject().put("schema_version", "2").put("sync_epoch", model.store.epoch(session.scope.key))
+                .put("operation_id", UUID.randomUUID().toString()).put("entity_id", id).put("entity_type", kind)
+                .put("action", "create").put("base_version", JSONObject.NULL).put("payload", payload)
+            val accepted = runBlocking { model.api.request(session.scope.server, session.token, route, "POST", operation) }
+            assertEquals(id, accepted.getString("entity_id"))
+            return id
+        }
+        login(fixture, "worker")
+        val worker = model.vault.current!!
+        val denied = runCatching { runBlocking { model.api.request(worker.scope.server, worker.token, "manager-home") } }.exceptionOrNull()
+        assertEquals(403, (denied as FinanceApiFailure).status)
+        rule.captureBotanicalWindow("real-worker")
+        val measurement = create("activity", "activities", JSONObject().put("planting_group_id", group).put("activity_type", "measurement")
+            .put("occurred_at", eventAt).put("manual_ec", "1.25").put("manual_ppm", "625.50").put("work_state", "completed")
+            .put("materials", org.json.JSONArray()).put("notes", "MANAGER HOME ${fixture.getString("fixture_id")}"))
+        login(fixture, "manager")
+        val expense = create("expense", "expenses", JSONObject().put("greenhouse_id", gh).put("category_id", first.getString("category_id"))
+            .put("amount", "100.01").put("paid_at", eventAt).put("payment_kind", "asset_acquisition").put("notes", "MANAGER HOME ${fixture.getString("fixture_id")}"))
+        rule.onNodeWithTag("finance-sync").performClick()
+        val home = rule.onNodeWithTag("finance-home-list")
+        rule.waitUntil(15_000) { rule.onAllNodesWithTag("manager-greenhouse-$gh").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("Ringkasan kebun").assertIsDisplayed()
+        rule.captureBotanicalWindow("real-overview")
+        rule.onNodeWithTag("manager-greenhouse-$gh").performClick()
+        rule.waitUntil(15_000) { runCatching { home.performScrollToNode(hasTestTag("manager-period-history")) }.isSuccess }
+        rule.onNodeWithTag("manager-period-history").performClick()
+        rule.onNodeWithTag("manager-period-list").performScrollToNode(hasTestTag("manager-period-option-$group"))
+        rule.onNodeWithTag("manager-period-option-$group").performClick()
+        rule.onNodeWithTag("manager-period-reason").performTextReplacement("Penetapan sintetis dari Android")
+        androidx.test.espresso.Espresso.pressBack()
+        rule.captureBotanicalWindow("real-period-review")
+        rule.onNodeWithTag("manager-period-list").performScrollToNode(hasTestTag("manager-period-confirm"))
+        rule.onNodeWithTag("manager-period-confirm").performClick()
+        rule.waitUntil(15_000) { runCatching { home.performScrollToNode(hasTestTag("measurement-card-ec")) }.isSuccess }
+        rule.onNodeWithText("1.25").assertExists()
+        rule.onNodeWithText("625.5").assertExists()
+        rule.captureBotanicalWindow("real-single")
+        home.performScrollToNode(hasTestTag("manager-home-finance"))
+        rule.onNodeWithText("100,01", substring = true).assertExists()
+        rule.captureBotanicalWindow("real-cash")
+        val session = model.vault.current!!
+        val snapshot = runBlocking { model.api.request(session.scope.server, session.token, "manager-home", query = mapOf("greenhouse_id" to gh)) }
+        assertEquals(measurement, snapshot.getJSONObject("detail").getJSONObject("measurement").getString("id"))
+        assertEquals("100.01", snapshot.getJSONObject("cash").getJSONObject("payments").getString("amount"))
+        assertEquals(group, snapshot.getJSONArray("greenhouses").getJSONObject(0).getJSONObject("period").getString("group_id"))
+        home.performScrollToNode(hasText("Catatan terbaru"))
+        rule.onNodeWithText("Pengukuran manual").performClick()
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Detail kegiatan").fetchSemanticsNodes().isNotEmpty() }
+        androidx.test.espresso.Espresso.pressBack()
+        rule.onNodeWithTag("finance-home-list").assertIsDisplayed()
+        File(botanicalEvidenceDirectory(context), "real-snapshot.json").writeText(snapshot.toString(2))
+        File(botanicalEvidenceDirectory(context), "real-reconciliation.json").writeText(
+            JSONObject().put("greenhouse", gh).put("group", group).put("measurement", measurement)
+                .put("expense", expense).put("worker_http_status", 403).put("payments", "100.01").toString(2))
     }
     private fun choose(tag:String,id:String) {
         rule.prepareChoice(tag)

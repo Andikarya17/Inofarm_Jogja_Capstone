@@ -1,5 +1,7 @@
 # Architecture: kondisi aktual dan target
 
+Snapshot Beranda pengelola v2 memakai `ScopedRead` dan resolver periode budidaya berjalan pada greenhouse. Snapshot query penuh membawa scope/epoch dan kalender WIB ke repository Android. SQLite 10 menambahkan cache ringkasan dan jurnal penetapan periode terenkripsi. Cache dan request penetapan dipisahkan dari histori dan draf operasional. [Kontrak Beranda](../../contracts/v2/MANAGER_HOME.md)
+
 Pengukuran manual2 November2026 menggunakan domain activity/ledger/sync existing, tipe `measurement`, additive schema15 nullable EC dan index, SQLite9/encrypted raw drafts/immutable outbox tetap. Dashboard memindai kandidat cache scoped dalam batch100 sampai valid, terpisah dari pagination riwayat; stable full pull memasok cache. API baca terbaru memakai commit-order scoped read dan immutable accepted snapshot. [Kontrak dan batas rollout](../../contracts/v2/MEASUREMENTS.md).
 
 Lanjutan pelepasan IoT: MainActivity hanya FinanceRoot; finance default tanpa flag. Tema shared berada di core/design, validasi URL di core/network; tidak memakai data/ui owner. Route v1/middleware device/owner, ingest/provisioning, source firmware dan React dilepas. Debug/profile identity `.finance`, release identity lama, SQLite9/vault/provider/job tetap. Migration/tabel/histori tidak dihapus. [Inventaris pemakai dan pengecualian](../migration/finance-20261029/MANUAL_MEASUREMENTS_20261102.md).

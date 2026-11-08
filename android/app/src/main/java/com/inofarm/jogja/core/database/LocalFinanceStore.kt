@@ -58,12 +58,14 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
                 connection.update("local_records",values("error" to cached),"scope=? AND sync_state='ACCEPTED'",arrayOf(scope))
                 connection.update("local_records",values("sync_state" to "EPOCH_REVIEW","server_version" to null,"server_body" to null,"base_version" to null),"scope=?",arrayOf(scope))
                 connection.delete("cached_records","scope=?",arrayOf(scope))
+                connection.delete("manager_home_cache","scope=?",arrayOf(scope))
                 connection.delete("scope_access","scope=?",arrayOf(scope))
                 connection.update("scope_metadata",values("pull_cursor" to null,"visible_greenhouses" to "[]"),"scope=?",arrayOf(scope))
             }
             connection.update("scope_metadata",values("epoch" to epoch,"role" to role.wire),"scope=?",arrayOf(scope))
         }
         if(role == UserRole.WORKER) {
+            connection.delete("manager_home_cache","scope=?",arrayOf(scope))
             connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','harvest','activity_audit','harvest_audit','harvest_balance','activity_attachment','harvest_attachment','activity_attachment_policy','harvest_attachment_policy','activity_attachment_audit','harvest_attachment_audit')",arrayOf(scope))
             val reason=encrypt(scope,JSONObject().put("message","Peran saat ini tidak mengizinkan perubahan pengelola. Antrean tetap disimpan untuk ditinjau."))
             connection.execSQL("UPDATE outbox SET state='SCOPE_REVOKED',error=? WHERE scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW') AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=? AND kind NOT IN ('activity','harvest','activity_attachment','harvest_attachment'))",arrayOf(reason,scope,scope))
@@ -75,15 +77,48 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     fun visibleGreenhouses(scope: String): Set<String> = db.rawQuery("SELECT visible_greenhouses FROM scope_metadata WHERE scope=?",arrayOf(scope)).use {
         if(!it.moveToFirst()) emptySet() else JSONArray(it.getString(0)).let { rows -> (0 until rows.length()).map(rows::getString).toSet() }
     }
+    fun managerHomeCache(scope: String, selection: String, month: String): JSONObject? = transaction {
+        requireKind(scope, "manager_home")
+        db.rawQuery("SELECT body FROM manager_home_cache WHERE scope=? AND selection=? AND month=?",
+            arrayOf(scope, selection, month)).use { if (it.moveToFirst()) decode(scope, it.getString(0)) else null }
+    }
+    fun cacheManagerHome(scope: String, selection: String, month: String, body: JSONObject, expectedEpoch: String, expectedIds: Set<String>) = transaction {
+        requireKind(scope, "manager_home")
+        if (epoch(scope) == expectedEpoch && visibleGreenhouses(scope) == expectedIds) {
+            db.insertWithOnConflict("manager_home_cache", null,
+                values("scope" to scope, "selection" to selection, "month" to month, "body" to encrypt(scope, body)),
+                SQLiteDatabase.CONFLICT_REPLACE)
+        }
+    }
+    fun invalidateManagerHome(scope: String) = transaction {
+        db.delete("manager_home_cache", "scope=?", arrayOf(scope))
+    }
+    fun runningPeriodRequest(scope: String, gh: String): JSONObject? = transaction {
+        requireMutationKind(scope, "greenhouses")
+        require(gh in visibleGreenhouses(scope)) { "Penugasan greenhouse perlu diperiksa kembali." }
+        db.rawQuery("SELECT body FROM running_period_requests WHERE scope=? AND greenhouse_id=?",
+            arrayOf(scope, gh)).use { if (it.moveToFirst()) decode(scope, it.getString(0)) else null }
+    }
+    fun storeRunningPeriodRequest(scope: String, gh: String, operation: JSONObject): JSONObject = transaction {
+        runningPeriodRequest(scope, gh)?.let { return@transaction it }
+        require(operation.getString("sync_epoch") == epoch(scope)) { "Epoch berubah. Sinkronkan dan tinjau pemulihan." }
+        db.insertOrThrow("running_period_requests", null, values("scope" to scope, "greenhouse_id" to gh, "body" to encrypt(scope, operation)))
+        operation
+    }
+    fun finishRunningPeriodRequest(scope: String, gh: String, operation: JSONObject) = transaction {
+        if (runningPeriodRequest(scope, gh)?.optString("operation_id") == operation.getString("operation_id")) {
+            db.delete("running_period_requests", "scope=? AND greenhouse_id=?", arrayOf(scope, gh))
+        }
+    }
     fun record(scope: String, id: String): LocalRecord? = db.rawQuery("SELECT * FROM local_records WHERE scope=? AND entity_id=?",arrayOf(scope,id)).use { if(it.moveToFirst()) it.record(scope).also {row -> requireKind(scope,row.kind)} else null }
     /** Scan indexed candidates in bounded batches, independent of loaded history pages or the 1000-row UI cap. */
-    fun latestMeasurement(scope:String,gh:String,group:String,today:LocalDate):com.inofarm.jogja.feature.activities.domain.ManualMeasurement? = transaction {
+    fun latestMeasurement(scope:String,gh:String,group:String,today:LocalDate,queuedOnly:Boolean=false):com.inofarm.jogja.feature.activities.domain.ManualMeasurement? = transaction {
         ensureIndexed(scope)
         var offset=0
         while(true) {
             val rows=db.rawQuery("""SELECT * FROM local_records r WHERE scope=? AND greenhouse_id=? AND group_id=? AND kind='activity'
                 AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)
-                AND sync_state IN ('ACCEPTED','QUEUED') AND record_state='active' AND occurred_date<=?
+                AND sync_state IN ('ACCEPTED','QUEUED') ${if (queuedOnly) "AND sync_state='QUEUED'" else ""} AND record_state='active' AND occurred_date<=?
                 ORDER BY occurred_millis DESC,entity_id DESC LIMIT 100 OFFSET ?""",arrayOf(scope,gh,group,scope,today.toString(),offset.toString())).use {cursor -> buildList {while(cursor.moveToNext()) add(cursor.record(scope))}}
             for(row in rows) {
                 val cancel=row.syncState==SyncState.QUEUED && row.latestOperationId?.let {id -> db.rawQuery("SELECT envelope FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,id)).use {c -> c.moveToFirst() && decode(scope,c.getString(0))?.optString("action")=="cancel"}}==true
@@ -495,12 +530,14 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     fun hold(scope: String,state: SyncState,error: JSONObject) = transaction {
         require(state in setOf(SyncState.AUTH_REQUIRED,SyncState.SCOPE_REVOKED,SyncState.EPOCH_REVIEW))
+        db.delete("manager_home_cache","scope=?",arrayOf(scope))
         db.update("outbox",values("state" to state.name,"error" to encrypt(scope,error)),"scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW')",arrayOf(scope))
         db.update("local_records",values("sync_state" to state.name,"error" to encrypt(scope,error)),"scope=? AND latest_operation_id IN (SELECT operation_id FROM outbox WHERE scope=? AND state=?)",arrayOf(scope,scope,state.name))
     }
     fun applyPull(scope: String, page: JSONObject) = transaction {
         require(page.getString("sync_epoch") == epoch(scope)) { "Epoch berubah; antrean harus ditinjau." }
         val scopes=page.getJSONArray("scope");val visible=(0 until scopes.length()).map { scopes.getJSONObject(it).getString("id") }.toSet()
+        if (visible != visibleGreenhouses(scope)) db.delete("manager_home_cache", "scope=?", arrayOf(scope))
         db.delete("scope_access","scope=?",arrayOf(scope))
         visible.forEach { db.insertOrThrow("scope_access",null,values("scope" to scope,"greenhouse_id" to it)) }
         db.update("scope_metadata",values("visible_greenhouses" to JSONArray(visible.toList()).toString(),"pull_cursor" to page.getString("next_cursor"),"last_synced_at" to System.currentTimeMillis()),"scope=?",arrayOf(scope))

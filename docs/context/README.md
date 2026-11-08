@@ -1,5 +1,7 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+[Implementasi dan bukti Beranda pengelola 8 November 2026](MANAGER_HOME_UPGRADE_EVIDENCE.md) mencatat hasil tiap acceptance, dasar angka, pengujian perangkat, dan batasnya.
+
 Rencana Beranda pengelola 8 November 2026: [master prompt lima upgrade](MASTER_PROMPT_MANAGER_HOME.md) dan [prompt pelaksanaan GPT 6.1 Sol](RUN_MANAGER_HOME_UPGRADE.md). Mencakup pilihan cukup greenhouse, ringkasan seluruh kebun, perhatian berbasis bukti, ringkasan satu greenhouse, serta keuangan dengan basis jelas. Wajib Impeccable dan antislop DURING, mempertahankan identitas botani dan menambahkan motion yang fungsional. Dokumen ini masih spesifikasi; bukan klaim perubahan runtime atau acceptance sudah lulus.
 
 Menu lanjutan 7 November 2026. [Implementasi dan bukti Android](ANDROID_SECONDARY_MENUS_20261107.md) mencakup Antrean, Kegiatan, Panen, Keuangan, dan alur turunannya. Catatan audit berikut merekam status saat disusun.

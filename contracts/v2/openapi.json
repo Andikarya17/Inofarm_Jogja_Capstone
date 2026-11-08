@@ -1365,7 +1365,8 @@
                 "general",
                 "nutrition",
                 "spray",
-                "stage"
+                "stage",
+                "measurement"
               ]
             }
           },
@@ -12029,6 +12030,193 @@
           }
         }
       }
+    },
+    "/manager-home": {
+      "get": {
+        "operationId": "get_manager_home",
+        "summary": "Snapshot Beranda dalam penugasan pengelola",
+        "parameters": [
+          {
+            "name": "greenhouse_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot scoped menurut kalender WIB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagerHomeSnapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/greenhouses/{id}/running-period": {
+      "post": {
+        "operationId": "post_greenhouse_running_period",
+        "summary": "Tetapkan atau akhiri periode budidaya berjalan",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunningPeriodOperation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt perubahan dan audit diterima",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "operation_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "entity_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647
+                    },
+                    "committed_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "operation_id",
+                    "entity_id",
+                    "version",
+                    "committed_at",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -12239,7 +12427,8 @@
               "nutrition",
               "spray",
               "stage",
-              "general"
+              "general",
+              "measurement"
             ]
           },
           "occurred_at": {
@@ -12325,6 +12514,12 @@
           },
           "completeness": {
             "const": "ready"
+          },
+          "manual_ec": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -18003,6 +18198,633 @@
             }
           }
         }
+      },
+      "RunningPeriodOperation": {
+        "type": "object",
+        "properties": {
+          "schema_version": {
+            "const": "2"
+          },
+          "sync_epoch": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entity_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entity_type": {
+            "const": "greenhouses"
+          },
+          "action": {
+            "const": "designate_period"
+          },
+          "base_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "planting_group_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              }
+            },
+            "required": [
+              "planting_group_id",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "schema_version",
+          "sync_epoch",
+          "operation_id",
+          "entity_id",
+          "entity_type",
+          "action",
+          "base_version",
+          "payload"
+        ],
+        "additionalProperties": false
+      },
+      "ManagerHomePeriod": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "enum": [
+              "ready",
+              "no_active_period",
+              "needs_review",
+              "inactive"
+            ]
+          },
+          "season_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "group_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "season_name": {
+            "type": "string"
+          },
+          "variety": {
+            "type": "string"
+          },
+          "sowing_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "transplant_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "age": {
+            "type": "object",
+            "properties": {
+              "hss": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hst": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "hss",
+              "hst"
+            ]
+          },
+          "phase": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "value": {
+                "type": "string"
+              },
+              "occurred_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "value",
+              "occurred_at"
+            ]
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "ManagerHomeSnapshot": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sync_epoch": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scope_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "uniqueItems": true
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ]
+            }
+          },
+          "access_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "greenhouse_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "calendar": {
+            "const": "Asia/Jakarta"
+          },
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "coverage": {
+            "enum": [
+              "complete",
+              "partial"
+            ]
+          },
+          "greenhouses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "active": {
+                  "type": "boolean"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                "period": {
+                  "$ref": "#/components/schemas/ManagerHomePeriod"
+                },
+                "last_operational_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "active",
+                "version",
+                "period",
+                "last_operational_at"
+              ]
+            }
+          },
+          "attention": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "period_review",
+                    "measurement_missing_today",
+                    "measurement_outside_range"
+                  ]
+                },
+                "greenhouse_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "greenhouse_name": {
+                  "type": "string"
+                },
+                "checked_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "rule": {
+                  "type": "string"
+                },
+                "destination": {
+                  "enum": [
+                    "periods",
+                    "measurements"
+                  ]
+                },
+                "group_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "source_record_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "occurred_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "actual": {
+                  "type": "string"
+                },
+                "unit": {
+                  "const": "ppm"
+                },
+                "target": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "version"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "minimum": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "maximum": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "target_value": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tolerance": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "type",
+                "greenhouse_id",
+                "greenhouse_name",
+                "checked_at",
+                "rule",
+                "destination"
+              ]
+            }
+          },
+          "recent": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "kind": {
+                      "enum": [
+                        "activity",
+                        "harvest"
+                      ]
+                    },
+                    "activity_type": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "greenhouse_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "season_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "group_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "recorded_by_name": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "occurred_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "received_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "activity_type",
+                    "greenhouse_id",
+                    "season_id",
+                    "group_id",
+                    "recorded_by_name",
+                    "occurred_at",
+                    "received_at"
+                  ]
+                },
+                "maxItems": 5
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "periods": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "seasons": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "measurement": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/ActivityPublic"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "measurement_available": {
+                    "type": "boolean"
+                  },
+                  "harvest": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "records": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "weight_kg": {
+                            "type": "string"
+                          },
+                          "fruit_count": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "records",
+                          "weight_kg",
+                          "fruit_count"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "schedules": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    },
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "periods",
+                  "seasons",
+                  "measurement",
+                  "harvest",
+                  "schedules"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cash": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date"
+              },
+              "until": {
+                "type": "string",
+                "format": "date"
+              },
+              "currency": {
+                "const": "IDR"
+              },
+              "receipts": {
+                "type": "object",
+                "properties": {
+                  "records": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^[0-9]+\\.[0-9]{2}$"
+                  }
+                },
+                "required": [
+                  "records",
+                  "amount"
+                ]
+              },
+              "payments": {
+                "type": "object",
+                "properties": {
+                  "records": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^[0-9]+\\.[0-9]{2}$"
+                  }
+                },
+                "required": [
+                  "records",
+                  "amount"
+                ]
+              }
+            },
+            "required": [
+              "from",
+              "until",
+              "currency",
+              "receipts",
+              "payments"
+            ]
+          }
+        },
+        "required": [
+          "account_id",
+          "sync_epoch",
+          "scope_ids",
+          "choices",
+          "access_until",
+          "greenhouse_id",
+          "as_of",
+          "calendar",
+          "day",
+          "coverage",
+          "greenhouses",
+          "attention",
+          "recent",
+          "detail",
+          "cash"
+        ]
       }
     }
   }

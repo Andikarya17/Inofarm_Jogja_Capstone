@@ -38,8 +38,10 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun FinancialHub(session:FinanceSession,context:CultivationUiState,entry:FinancialEntryViewModel,
-    expense:HistoryUiState,expenseVm:HistoryViewModel,allocation:HistoryUiState,allocationVm:HistoryViewModel,queue:List<QueuedOperation>,sales:com.inofarm.jogja.feature.sales.SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:com.inofarm.jogja.feature.assets.AssetWorkspace,reports:com.inofarm.jogja.feature.reports.SeasonReportWorkspace,investments:com.inofarm.jogja.feature.investments.InvestmentWorkspace,onSync:()->Unit) {
-    var gh by rememberSaveable {mutableStateOf("")};var selected by rememberSaveable {mutableStateOf(RecordKind.EXPENSE.wire)}
+    expense:HistoryUiState,expenseVm:HistoryViewModel,allocation:HistoryUiState,allocationVm:HistoryViewModel,queue:List<QueuedOperation>,sales:com.inofarm.jogja.feature.sales.SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:com.inofarm.jogja.feature.assets.AssetWorkspace,reports:com.inofarm.jogja.feature.reports.SeasonReportWorkspace,investments:com.inofarm.jogja.feature.investments.InvestmentWorkspace,onSync:()->Unit,
+    initialKind: String = RecordKind.EXPENSE.wire, linkRevision: Int = 0) {
+    var gh by rememberSaveable {mutableStateOf("")}
+    var selected by key(linkRevision) { rememberSaveable { mutableStateOf(initialKind) } }
     val greenhouses = context.greenhouses.filter { it.optBoolean("active", true) }
     val canRecord = greenhouses.any { it.optString("id") == gh }
     LaunchedEffect(context.greenhouses,context.lastSyncedAt) {

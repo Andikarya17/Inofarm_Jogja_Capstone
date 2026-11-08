@@ -104,7 +104,7 @@ components:
 
 Inofarm membantu pekerja dan pengelola mencatat pekerjaan greenhouse melon hidroponik dan meninjau hasilnya. Ilustrasi daun membingkai login, Beranda, dan halaman utama Antrean, Kegiatan, Panen, serta Keuangan. Bidang forest menandai pintu masuk dan konteks kerja. Bidang solid memudahkan pengguna membaca angka, mengisi form, dan memeriksa transaksi. Material 3 memberi pola sentuh, fokus, Back, keyboard, dialog, dan sheet yang konsisten dengan Android. [Konteks produk](PRODUCT.md) · [Menu lanjutan](docs/context/ANDROID_SECONDARY_MENUS_20261107.md)
 
-Fokus login ada pada Masuk. Beranda membawa pengguna dari greenhouse, musim, dan kelompok ke hasil pengukuran dan tindakan. Arah ENERGY / RHYTHM / MOTION adalah 2 / 2 / 1 untuk login dan menu lanjutan, 2 / 2 / 2 untuk Beranda, dan 1 / 2 / 1 untuk form, detail, dan laporan.
+Fokus login ada pada Masuk. Beranda pengelola menampilkan cakupan penugasan, daftar greenhouse, dan akses ke ringkasan serta riwayat. Beranda pekerja membawa konteks pencatatan ke hasil pengukuran dan tindakan. Arah ENERGY / RHYTHM / MOTION adalah 2 / 2 / 1 untuk login dan menu lanjutan, 2 / 2 / 2 untuk Beranda, dan 1 / 2 / 1 untuk form, detail, dan laporan.
 
 ## Colors
 
@@ -151,7 +151,9 @@ Toolbar memuat Inofarm, sinkronisasi, dan akun. Navigasi pekerja terdiri dari Be
 
 ### Konteks dan pengukuran
 
-Kartu forest menonjolkan nama greenhouse, diikuti musim, kelompok, serta HSS dan HST menurut kalender WIB. Sheet konteks menampilkan pilihan greenhouse, musim, dan kelompok secara berurutan. Mengganti greenhouse mengosongkan musim dan kelompok. Mengganti musim mengosongkan kelompok. Selama konteks belum lengkap, kartu memberi langkah berikutnya dan beranda menahan metrik serta tindakan pencatatan. [HomeContextCard.kt](android/app/src/main/java/com/inofarm/jogja/feature/context/HomeContextCard.kt)
+Pada Beranda pengelola, header forest merangkum cakupan dan waktu pemeriksaan. Pemilih greenhouse memakai satu sheet Material dengan pilihan aktif sage. Kartu greenhouse tersusun vertikal agar nama, fase dan umur panjang dapat membungkus. Ringkasan satu greenhouse menempatkan periode tanam dan pasangan pengukuran lebih dahulu. Baris catatan menampilkan jenis, greenhouse, pencatat dan waktu. Kas memakai angka tabular dengan periode WIB serta definisi penjualan lunas dan pembayaran aktual.
+
+Pada Beranda pekerja, kartu forest menonjolkan nama greenhouse, diikuti musim, kelompok, serta HSS dan HST menurut kalender WIB. Sheet konteks menampilkan pilihan greenhouse, musim, dan kelompok secara berurutan. Mengganti greenhouse mengosongkan musim dan kelompok. Mengganti musim mengosongkan kelompok. Selama konteks belum lengkap, kartu memberi langkah berikutnya dan beranda menahan metrik serta tindakan pencatatan. [HomeContextCard.kt](android/app/src/main/java/com/inofarm/jogja/feature/context/HomeContextCard.kt)
 
 Beranda menampilkan dua kartu setara, EC dalam mS/cm dan PPM dalam ppm, dari satu catatan manual yang memenuhi syarat pada greenhouse dan kelompok terpilih. Saat catatan hari ini belum tersedia, tampilkan catatan terakhir yang memenuhi syarat beserta waktu WIB dan statusnya. Catatan historis berisi PPM saja dapat menampilkan `EC belum tersedia`. Tampilkan keadaan memuat atau kosong dengan teks. Ringkasan sumber membedakan data offline, belum tersinkron, dan diterima server. `Lihat sumber` membuka waktu, jenis input, dan pencatat bila tersedia. Aksi utama `Catat pengukuran` diikuti `Catat kegiatan`, `Catat panen`, dan jadwal untuk kelompok tersebut. [MeasurementDashboard.kt](android/app/src/main/java/com/inofarm/jogja/feature/activities/MeasurementDashboard.kt) · [Kontrak pengukuran](contracts/v2/MEASUREMENTS.md)
 
@@ -168,6 +170,8 @@ Keuangan memuat konteks catatan baru dan `Catat pengeluaran` di header. Pemilih 
 ### Motion dan umpan balik
 
 Indikator tab dan warna status draf bertransisi selama 200 ms. Review masuk dengan fade dan pergeseran 12 dp selama 220 ms melalui satu lapisan visual. Kartu audit dan panel rumus berubah tinggi saat pengguna membuka rincian. Sheet mengikuti transisi Material. Compose memakai skala animasi sistem. Angka pengukuran dan nominal langsung menampilkan nilai tersedia, dan ilustrasi tetap diam.
+
+Beranda pengelola memakai transisi singkat pada pilihan greenhouse, pembukaan sumber pengukuran, dan review periode. Pergantian cakupan segera mengikat isi ke pilihan baru. Pemutakhiran data pada cakupan yang sama mempertahankan daftar yang masih sah.
 
 ## Do's and Don'ts
 

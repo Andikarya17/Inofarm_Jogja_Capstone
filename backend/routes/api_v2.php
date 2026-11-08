@@ -11,6 +11,7 @@ use App\Http\Controllers\V2\HarvestController;
 use App\Http\Controllers\V2\InvestmentReportController;
 use App\Http\Controllers\V2\InvestmentScenarioController;
 use App\Http\Controllers\V2\MasterController;
+use App\Http\Controllers\V2\ManagerHomeController;
 use App\Http\Controllers\V2\ReferenceController;
 use App\Http\Controllers\V2\ReportExportController;
 use App\Http\Controllers\V2\RecoveryController;
@@ -29,6 +30,8 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('greenhouses', [ContextController::class, 'greenhouses']);
         Route::get('greenhouses/{id}', [ContextController::class, 'greenhouse'])->whereUuid('id');
+        Route::get('manager-home', ManagerHomeController::class);
+        Route::post('greenhouses/{id}/running-period', [MasterController::class, 'designatePeriod'])->whereUuid('id');
         Route::get('sync/status', SyncStatusController::class);
         Route::post('sync/operations', [ActivityController::class, 'sync']);
         Route::get('sync/changes', ChangeFeedController::class);

@@ -4,6 +4,7 @@ use App\Domain\Activities\ActivityService;
 use App\Domain\Attachments\AttachmentService;
 use App\Domain\Attachments\UploadedEvidence;
 use App\Domain\Contracts\DomainFailure;
+use App\Domain\Cultivation\MasterService;
 use App\Domain\Finance\AssetService;
 use App\Domain\Finance\CostAllocationService;
 use App\Domain\Finance\ExpenseService;
@@ -52,6 +53,7 @@ try {
         'asset', 'depreciation_allocation' => AssetService::class,
         'expense' => ExpenseService::class,
         'expense_attachment' => AttachmentService::class,
+        'greenhouses' => MasterService::class,
         default => throw new InvalidArgumentException('Unsupported synthetic race kind.'),
     };
     if (in_array($service, [SeasonReportService::class, InvestmentReportService::class], true)) {
@@ -62,6 +64,8 @@ try {
         $file = new UploadedFile($fixture['source'], 'fixture.png', 'image/png', null, true);
         $verified = app(UploadedEvidence::class)->inspect($file, $input['operation']['payload']);
         $receipt = app($service)->mutate($actor, $input['operation'], $verified);
+    } elseif ($service === MasterService::class) {
+        $receipt = app($service)->mutate($actor, 'greenhouses', $input['operation']);
     } else {
         $receipt = app($service)->mutate($actor, $input['operation']);
     }

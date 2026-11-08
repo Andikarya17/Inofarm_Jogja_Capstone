@@ -23,6 +23,7 @@ import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.harvest.domain.HarvestDraft
 import com.inofarm.jogja.feature.harvest.domain.HarvestLine
+import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
 
 @Composable fun HarvestForm(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel) {
     val draft=state.draft ?: return
@@ -30,6 +31,7 @@ import com.inofarm.jogja.feature.harvest.domain.HarvestLine
         com.inofarm.jogja.core.design.FarmPageTitle(if (draft.baseVersion == null) "Catat panen" else "Koreksi panen")
         FarmDraftStatus(state.saved)
         FarmSection(title = "Waktu dan kelompok") {
+            if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
             Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
             FinanceField("Tanggal panen WIB",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
             FinanceField("Jam panen WIB",draft.time,{value -> vm.edit {it.copy(time=value)}},"harvest-time",state.errors["occurred_at"],hint="HH:mm; detik opsional")
@@ -68,6 +70,7 @@ import com.inofarm.jogja.feature.harvest.domain.HarvestLine
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         com.inofarm.jogja.core.design.FarmPageTitle("Periksa panen")
         FarmPanel(title = "Waktu dan kelompok") {
+            if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
             FarmFact("Waktu panen", "${draft.date} ${draft.time} WIB")
             FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
         }
