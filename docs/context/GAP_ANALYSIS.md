@@ -1,5 +1,19 @@
 # Gap analysis baseline 29 Oktober 2026
 
+## Gap aktif setelah upgrade Beranda, 8 November 2026
+
+Frontend operasional, botani, menu sekunder dan perbaikan Run Android Studio sudah diintegrasikan sampai main `0ea7f66`. Beranda pengelola tersedia di `d6774fc`, belum masuk main pada fetch audit. Backend migration16 dan SQLite10 tersedia di branch tersebut. Bukan backlog implementasi dari nol. [Handoff](HANDOFF_20261108.md), [evidence Beranda](MANAGER_HOME_UPGRADE_EVIDENCE.md).
+
+Prioritas bukti yang belum lengkap:
+
+1. MH-10: ulang kombinasi demosi peran dengan seluruh jalur unduh/ekspor end-to-end; tes scope/revoke yang ada belum menutup kombinasi itu.
+2. MH-12: urutan fokus dan pengumuman TalkBack seluruh kontrol, serta pengukuran performa pada perangkat sasaran. Sampel debug TalkBack 26/29 frame janky bukan hasil benchmark fisik.
+3. UAT mitra, pentest berizin, perangkat fisik, OS background dispatch/Doze/reboot, end-to-end UI latency dan risiko selector operasional cache1000 masih perlu bukti sesuai scope masing-masing.
+4. Q07/Q08 konfigurasi produksi, asumsi bisnis terbuka, SOP Android-only dan CRUD historis tetap menunggu keputusan yang sesuai. Biaya bersama lintas greenhouse serta aturan completion/tenggat jadwal belum dimodelkan sebagai fitur baru.
+5. Integrasi Beranda ke main memerlukan review tersendiri; tidak ada merge/deploy pada audit ini.
+
+Temuan lingkungan: `check-product-boundary.py` gagal pada `firmware/.pio/` ignored, sisa build lama yang tidak dilacak Git. Jangan menyimpulkan source IoT aktif kembali atau menghapus artefak pengguna tanpa kebutuhan. Akun demo/server terakhir di chat belum diverifikasi ulang. Bagian bertanggal lebih lama di bawah adalah riwayat perkembangan gap, bukan semua masih terbuka.
+
 Gap terbaru3 November2026 telah ditutup secara engineering lokal untuk EC/PPM manual, fallback dashboard WIB, finance default dan pelepasan source/runtime/tooling IoT. Tabel/histori tetap dipertahankan. Integrasi API29→Laravel/MySQL8fase, UI39 dan readiness device72 PASS. UAT/pentest, perangkat fisik, dispatch OS background dan produksi tetap terbuka. [Evidence hasil dan batas](../migration/finance-20261029/evidence/20261102-IOT-RETIREMENT.md). Bagian sebelumnya di bawah adalah histori. Risiko selector operasional cache1000 tetap terpisah; pemilihan pengukuran terbaru membaca seluruh cache scoped.
 
 ## Lanjutan FIN16–17 — 2 November 2026

@@ -1,5 +1,11 @@
 # Implementation plan migrasi proposal terbaru
 
+## Titik lanjut 8 November 2026
+
+Jangan menjalankan ulang FIN01–17 atau prompt frontend sebagai pekerjaan baru. FIN01–15 core, FIN16 engineering, FIN17 dokumentasi/tooling, frontend botani dan menu sekunder sudah tersedia. Beranda pengelola juga telah diimplementasikan pada `d6774fc`; main baru sampai `0ea7f66` saat audit. [Handoff sesi baru](HANDOFF_20261108.md).
+
+Urutan lanjut yang disarankan, bukan otorisasi perubahan produk baru: periksa Git/source saat mulai → pilih tugas pengguna → tutup MH-10/MH-12 dan bukti perangkat/performa yang relevan → review integrasi Beranda bila diminta → lanjut gate mitra/akademik/produksi sesuai keputusan. [Gap aktif](GAP_ANALYSIS.md) dan [matriks Beranda](MANAGER_HOME_UPGRADE_EVIDENCE.md) menjelaskan batas. Jadwal dan PIC belum diasumsikan. Pembatasan FIN10/FIN15 serta push ditunda pada checkpoint lama di bawah sudah digantikan instruksi lanjutan.
+
 Lanjutan pengguna2 November2026: implementasi [pengukuran manual/dashboard dan pelepasan IoT](../migration/finance-20261029/MANUAL_MEASUREMENTS_20261102.md) dikerjakan sebagai branch fitur pengukuran lalu branch pelepasan runtime/tooling bergantung padanya. Tidak refactor umum. Checks nyata, upgrade tanpa clear data dan bukti runtime menentukan status, bukan audit FIN00.
 
 ## Lanjutan FIN16–17 — 2 November 2026

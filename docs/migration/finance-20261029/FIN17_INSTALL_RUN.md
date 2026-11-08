@@ -54,7 +54,7 @@ Emulator mengakses Laravel pada port 8000 di komputer. Untuk akun demo yang tela
 
 ## Upgrade pengukuran manual dan batas identitas
 
-Versi0.2.0/code2 mempertahankan debug/profile `com.inofarm.jogja.finance`, release `com.inofarm.jogja`, provider `${applicationId}.finance-files`, JobScheduler1601, nama DB SQLite9 dan vault. Update `install -r` dengan signing yang sama; tidak uninstall/clear app data. Build flag lama tidak memilih runtime lain. Release masih memerlukan signing/distribusi/approval produksi; APK debug bukan release.
+Versi0.2.0/code2 mempertahankan debug/profile `com.inofarm.jogja.finance`, release `com.inofarm.jogja`, provider `${applicationId}.finance-files`, JobScheduler1601, nama DB dan vault. Upgrade Beranda 8 November (`d6774fc`) memakai SQLite10 secara additive dari SQLite9 untuk cache/jurnal pengelola; jangan memasang APK lama dengan asumsi downgrade DB didukung. Update `install -r` dengan signing yang sama; tidak uninstall/clear app data. Build flag lama tidak memilih runtime lain. Release masih memerlukan signing/distribusi/approval produksi; APK debug bukan release. [Titik lanjut dan status branch](../../context/HANDOFF_20261108.md).
 
 Schema15 additive menambah nullable `activities.manual_ec` dan index; EC historis tetap null/absent. Update server/schema dahulu sebelum submit jenis `measurement`; audit/receipt/hash antrean lama dipertahankan. Backup/restore menuntut schema target yang cocok; jangan memaksa paket schema14 masuk schema15 atau rollback drop kolom. Identitas legacy `com.inofarm.jogja` mungkin masih menyimpan data owner: tetap tersimpan, tanpa auto-import tank/event atau penghapusan; release upgrade perlu inventaris data dan signing review tersendiri.
 
