@@ -243,6 +243,11 @@
               "type": "null"
             }
           ]
+        },
+        "running_period_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
         }
       },
       "required": [

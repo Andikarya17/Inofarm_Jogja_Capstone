@@ -15,7 +15,7 @@ final class MasterService
 {
     public const TABLES = ['varieties', 'units', 'materials', 'grades', 'expense_categories', 'seasons', 'planting_groups', 'greenhouses', 'greenhouse_assignments'];
 
-    public function __construct(private GreenhouseAccess $access, private MutationLedger $ledger) {}
+    public function __construct(private GreenhouseAccess $access, private MutationLedger $ledger, private RunningPeriod $period) {}
 
     public function scope(User $actor, string $table)
     {
@@ -54,6 +54,9 @@ final class MasterService
         $value = (array) $row;
         if (array_key_exists('active', $value)) {
             $value['active'] = (bool) $value['active'];
+        }
+        if ($table === 'greenhouses') {
+            $value['running_period_reviewed'] = (bool) $value['running_period_reviewed'];
         }
         if ($table === 'greenhouse_assignments') {
             $value['user_id'] = User::findOrFail($row->user_id)->public_id;
@@ -94,6 +97,7 @@ final class MasterService
                 }
                 $gh = $table === 'greenhouses' ? $id : $this->greenhouse($table, $payload);
             }
+            $context = null;
             if ($table !== 'greenhouses' || $action !== 'create') {
                 $context = $this->access->require($current, $gh);
                 abort_if(! $context->active && ! ($table === 'greenhouses' && $action === 'update'), 422, 'Greenhouse tidak aktif.');
@@ -103,7 +107,9 @@ final class MasterService
             if (isset($before['dimension'])) {
                 abort_if($data['dimension'] !== $before['dimension'], 422, 'Dimensi satuan/bahan tidak dapat diubah; buat master baru.');
             }
-            if (in_array($action, ['close', 'reopen'], true)) {
+            if ($action === 'designate_period') {
+                $data = $this->period->designation($context, $data['planting_group_id']);
+            } elseif (in_array($action, ['close', 'reopen'], true)) {
                 $newStatus = $action === 'close' ? 'closed' : 'open';
                 abort_if($before['status'] === $newStatus, 422, 'Status musim sudah sesuai permintaan.');
                 $data = ['status' => $newStatus];
@@ -138,6 +144,7 @@ final class MasterService
                     }
                 }
             }
+            $this->period->guardMasterChange($table, $action, $id, $context?->running_group_id, $data, $before);
             $data['version'] = $before === null ? 1 : $before['version'] + 1;
             $data['updated_at'] = now();
             if ($action === 'create') {

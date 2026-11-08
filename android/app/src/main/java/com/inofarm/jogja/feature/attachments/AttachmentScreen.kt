@@ -19,6 +19,10 @@ import com.inofarm.jogja.core.design.FarmPanel
 import com.inofarm.jogja.core.design.FarmRecordCard
 import com.inofarm.jogja.core.design.FarmSection
 import com.inofarm.jogja.core.design.FarmShape
+import com.inofarm.jogja.core.design.FarmSpace
+import com.inofarm.jogja.core.design.FarmControlIcon
+import com.inofarm.jogja.core.design.FarmIcon
+import androidx.compose.ui.Alignment
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.context.CultivationUiState
@@ -60,12 +64,22 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
         OutlinedButton(onClick=vm::refreshPolicy,enabled=!state.busy,modifier=Modifier.fillMaxWidth()) {Text("Periksa batas dan akses terbaru")}
         }
         if(state.selected==null) {
+            FarmFact("Catatan induk", RecordKind.entries.single { it.wire == parent.kind }.label.replaceFirstChar { it.uppercaseChar() })
             val canChoose=session.role==UserRole.MANAGER || parent.recorderId()==session.scope.accountId
-            if(canChoose) Button(onClick={pickerScope=session.scope.key;pickerOwner=parent.id;pickerTicket=ticket;picker.launch(AttachmentContract.supportedMimes.toTypedArray())},enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("attachment-choose")) {Text("Pilih berkas sebagai draf")}
+            if(canChoose) Button(onClick={pickerScope=session.scope.key;pickerOwner=parent.id;pickerTicket=ticket;picker.launch(AttachmentContract.supportedMimes.toTypedArray())},enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("attachment-choose")) {Text("Pilih berkas sebagai draf")}
             if(state.rows.isEmpty() && !state.loading) Notice("Belum ada lampiran atau draf berkas pada catatan ini.")
             state.rows.forEach {row -> FarmRecordCard(
                 Modifier.testTag("attachment-${row.id}"), onOpen={vm.select(row.id)}) {
-                    Text(row.body.optString("original_name","Berkas belum selesai disalin"),style=MaterialTheme.typography.titleMedium)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        FarmControlIcon(FarmIcon.Report, null)
+                        Text(row.body.optString("original_name","Berkas belum selesai disalin"),
+                            Modifier.weight(1f), style=MaterialTheme.typography.titleMedium)
+                        FarmControlIcon(FarmIcon.ChevronRight, null)
+                    }
+                    row.body.optLong("bytes", -1).takeIf { it >= 0 }?.let {
+                        Text("$it byte · ${typeLabel(row.body.optString("mime"))}", style = MaterialTheme.typography.bodySmall)
+                    }
                     Text(copyLabel(row.body),style=MaterialTheme.typography.bodyMedium)
                     RecordStatus(row.syncState)
                     if(row.body.optString("record_state")=="cancelled") Text("Lampiran dibatalkan; riwayat tetap tersedia.")

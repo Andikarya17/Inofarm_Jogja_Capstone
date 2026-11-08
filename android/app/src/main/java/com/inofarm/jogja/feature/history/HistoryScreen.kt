@@ -13,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,6 +35,9 @@ import com.inofarm.jogja.core.design.FarmPanel
 import com.inofarm.jogja.core.design.FarmRecordCard
 import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.design.FarmSpace
+import com.inofarm.jogja.core.design.FarmSection
+import com.inofarm.jogja.core.design.FarmSheetHeading
+import com.inofarm.jogja.core.design.LocalFarmDialogPicker
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.activities.domain.ActivityType
@@ -57,6 +62,8 @@ import java.time.LocalDate
             header()
             item("history-filters") {
                 FarmRecordCard {
+                    if (historyKindPicker != null) Text("Riwayat", Modifier.semantics { heading() },
+                        style = MaterialTheme.typography.titleMedium)
                     historyKindPicker?.invoke()
                     Text(historyScope(context,state,kind),style=MaterialTheme.typography.bodySmall,
                         color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -213,19 +220,27 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
     },shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-history-filters")) {
         Text(if (filter == LocalHistoryFilter()) "Filter riwayat" else "Ubah filter")
     }
-    if(expanded) ModalBottomSheet(onDismissRequest={expanded=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
-        containerColor=MaterialTheme.colorScheme.surface) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(FarmSpace.Page),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-        Text("Filter riwayat", style = MaterialTheme.typography.titleLarge)
+    if(expanded) CompositionLocalProvider(LocalFarmDialogPicker provides true) { ModalBottomSheet(onDismissRequest={expanded=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
+        containerColor=MaterialTheme.colorScheme.surface, contentWindowInsets = { WindowInsets.safeDrawing }) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Page)) {
+        FarmSheetHeading("Filter riwayat", { expanded = false })
+        Column(Modifier.weight(1f, fill = false).imePadding().verticalScroll(rememberScrollState()).padding(bottom = FarmSpace.Large),
+            verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium)) {
         fun choices(rows:List<JSONObject>)=listOf(JSONObject().put("id","").put("name","Semua"))+rows
-        Choice("Greenhouse",gh,choices(context.greenhouses),"history-gh") {gh=it;season="";group=""}
-        Choice("Musim",season,choices(context.seasons.filter {gh.isBlank() || it.optString("greenhouse_id")==gh}),"history-season") {season=it;group=""}
         val groups=context.groups.filter {row -> (season.isBlank() || row.optString("season_id")==season) && (gh.isBlank() || context.seasons.any {it.optString("id")==row.optString("season_id") && it.optString("greenhouse_id")==gh})}
-        if(!kind.financial) Choice("Kelompok tanam",group,choices(groups),"history-group") {group=it}
-        if(kind==OperationalKind.ACTIVITY) Choice("Jenis kegiatan",type,choices(ActivityType.entries.map {JSONObject().put("id",it.wire).put("name",it.label)}),"history-type") {type=it}
-        Choice("Status catatan",status,choices(listOf(JSONObject().put("id","active").put("name","Aktif"),JSONObject().put("id","cancelled").put("name","Dibatalkan"))),"history-state") {status=it}
-        FinanceField("Dari tanggal WIB",from,{from=it},"history-from",hint="YYYY-MM-DD; kosong untuk semua")
-        FinanceField("Sampai tanggal WIB",until,{until=it},"history-until",hint="YYYY-MM-DD; termasuk tanggal ini")
+        FarmSection("Cakupan catatan") {
+            Choice("Greenhouse",gh,choices(context.greenhouses),"history-gh") {gh=it;season="";group=""}
+            Choice("Musim",season,choices(context.seasons.filter {gh.isBlank() || it.optString("greenhouse_id")==gh}),"history-season") {season=it;group=""}
+            if(!kind.financial) Choice("Kelompok tanam",group,choices(groups),"history-group") {group=it}
+        }
+        FarmSection(if (kind == OperationalKind.ACTIVITY) "Jenis dan status" else "Status") {
+            if(kind==OperationalKind.ACTIVITY) Choice("Jenis kegiatan",type,choices(ActivityType.entries.map {JSONObject().put("id",it.wire).put("name",it.label)}),"history-type") {type=it}
+            Choice("Status catatan",status,choices(listOf(JSONObject().put("id","active").put("name","Aktif"),JSONObject().put("id","cancelled").put("name","Dibatalkan"))),"history-state") {status=it}
+        }
+        FarmSection("Periode WIB") {
+            FinanceField("Dari tanggal WIB",from,{from=it},"history-from",hint="YYYY-MM-DD; kosong untuk semua")
+            FinanceField("Sampai tanggal WIB",until,{until=it},"history-until",hint="YYYY-MM-DD; termasuk tanggal ini")
+        }
         error?.let {Notice(it,true)}
         Button(onClick={
             val valid=runCatching {val start=from.takeIf {it.isNotBlank()}?.let(LocalDate::parse);val end=until.takeIf {it.isNotBlank()}?.let(LocalDate::parse);require(start==null || end==null || !end.isBefore(start))}.isSuccess
@@ -248,7 +263,8 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
         TextButton(onClick={onApply(LocalHistoryFilter(),null);expanded=false},
             modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Hapus semua filter")}
         }
-    }
+        }
+    } }
 }
 
 @Composable private fun HistoryDetail(record:LocalRecord,session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind,returnToQueue:Boolean) {

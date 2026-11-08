@@ -19,10 +19,10 @@ TestDatabaseGuard::install($app, required: true);
 $app->make(Kernel::class)->bootstrap();
 
 $kind = $argv[1] ?? 'activity';
-if (! in_array($kind, ['activity', 'harvest', 'identity'], true)) {
-    throw new InvalidArgumentException('Use activity, harvest or identity.');
+if (! in_array($kind, ['activity', 'harvest', 'identity', 'period'], true)) {
+    throw new InvalidArgumentException('Use activity, harvest, identity or period.');
 }
-$entityTable = $kind === 'harvest' ? 'harvests' : 'activities';
+$entityTable = match ($kind) { 'harvest' => 'harvests', 'period' => 'greenhouses', default => 'activities' };
 $service = $kind === 'harvest' ? HarvestService::class : ActivityService::class;
 $epoch = DB::table('sync_state')->where('id', 1)->value('epoch');
 $op = fn (string $type, array $p, string $action = 'create', ?string $id = null, ?int $v = null) => [
@@ -58,7 +58,14 @@ try {
     } else {
         $payload = ['planting_group_id' => $group, 'activity_type' => 'general', 'occurred_at' => '2026-10-29T08:00:00+07:00', 'work_state' => 'completed', 'materials' => [], 'notes' => 'Synthetic race'];
     }
-    if ($kind === 'identity') {
+    if ($kind === 'period') {
+        $ids['period_first_group'] = $group;
+        $ids['period_first_season'] = $season;
+        $secondSeason = $create('seasons', ['greenhouse_id' => $gh, 'name' => 'Second synthetic season', 'start_date' => '2026-10-15', 'end_date' => null]);
+        $secondGroup = $create('planting_groups', ['season_id' => $secondSeason, 'variety_id' => $variety, 'name' => 'Second synthetic group',
+            'population' => 8, 'sowing_date' => '2026-10-15', 'transplant_date' => null]);
+        $entity = $gh;
+    } elseif ($kind === 'identity') {
         $harvestPayload = $payload;
         $payload = ['planting_group_id' => $group, 'activity_type' => 'general', 'occurred_at' => '2026-10-30T08:00:00+07:00', 'work_state' => 'completed', 'materials' => [], 'notes' => 'Synthetic identity race'];
         $entity = (string) Str::uuid();
@@ -78,6 +85,10 @@ try {
         $childOperation = $kind === 'identity'
             ? $op($i === 0 ? 'activity' : 'harvest', $i === 0 ? $payload : $harvestPayload, 'create', $entity)
             : $op($kind, [...$payload, 'notes' => 'Concurrent '.$i, 'reference_policy' => 'preserve', 'reason' => 'Synthetic race'], 'update', $entity, 1);
+        if ($kind === 'period') {
+            $childOperation = $op('greenhouses', ['planting_group_id' => $i === 0 ? $group : $secondGroup, 'reason' => 'Synthetic concurrent designation'],
+                'designate_period', $entity, 1);
+        }
         file_put_contents($input, json_encode(['actor_id' => $actor->id, 'operation' => $childOperation], JSON_THROW_ON_ERROR));
         $process = proc_open([PHP_BINARY, dirname(__DIR__).'/backend/tests/Support/finance-race-worker.php', $input, $ready, $go, $result],
             [0 => ['pipe', 'r'], 1 => ['file', $stderr, 'a'], 2 => ['file', $stderr, 'a']], $pipes, dirname(__DIR__).'/backend');
@@ -126,6 +137,13 @@ try {
             throw new RuntimeException('Cross-kind UUID reservation did not match the single physical winner.');
         }
     }
+    if ($kind === 'period') {
+        $winner = $results[0]['status'] === 'accepted' ? $group : $secondGroup;
+        if (DB::table('greenhouses')->where('id', $gh)->value('running_group_id') !== $winner
+            || DB::table('seasons')->whereIn('id', [$season, $secondSeason])->where('status', 'open')->count() !== 2) {
+            throw new RuntimeException('Designation winner or independent transaction status did not reconcile.');
+        }
+    }
     $db = DB::selectOne('SELECT DATABASE() AS db_name, VERSION() AS version');
     if ($kind === 'identity') {
         echo 'PASS: identity; two independent PHP/MySQL processes create activity/harvest with the same UUID; one accepted, one entity_exists; one physical record, matching registry kind and one atomic audit/receipt/feed. DB='.$db->db_name.' MySQL='.$db->version.PHP_EOL;
@@ -161,6 +179,12 @@ try {
         foreach (['planting_groups', 'seasons', 'varieties', 'grades'] as $table) {
             if (isset($ids[$table])) {
                 DB::table($table)->where('id', $ids[$table])->delete();
+            }
+            if ($table === 'planting_groups' && isset($ids['period_first_group'])) {
+                DB::table($table)->where('id', $ids['period_first_group'])->delete();
+            }
+            if ($table === 'seasons' && isset($ids['period_first_season'])) {
+                DB::table($table)->where('id', $ids['period_first_season'])->delete();
             }
         }
         DB::table('greenhouse_assignments')->where('user_id', $actor->id)->delete();

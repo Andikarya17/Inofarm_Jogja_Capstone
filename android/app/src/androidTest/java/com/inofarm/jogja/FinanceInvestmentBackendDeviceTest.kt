@@ -35,12 +35,12 @@ class FinanceInvestmentBackendDeviceTest {
         hideKeyboard()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)==false}
         rule.onNodeWithTag("finance-login").performScrollTo().assertIsEnabled().performClick()
-        try {rule.waitUntil(15000) {rule.onAllNodesWithTag("finance-context-open").fetchSemanticsNodes().isNotEmpty()}}
+        try {rule.waitUntil(15000) {rule.onAllNodesWithTag(if (role == "manager") "manager-home-picker" else "finance-context-open").fetchSemanticsNodes().isNotEmpty()}}
         catch(error:Exception) {
             lateinit var auth:com.inofarm.jogja.feature.auth.AuthViewModel;rule.runOnIdle {auth=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.auth.AuthViewModel::class.java]}
             throw AssertionError("Login transition: loading=${auth.state.value.loading}, hasSession=${auth.state.value.session!=null}, reason=${auth.state.value.error}",error)
         }
-        rule.waitUntil(15000) {rule.onAllNodesWithText("Data server sudah diperiksa.").fetchSemanticsNodes().isNotEmpty()}
+        rule.waitForFinanceMasterPull()
     }
     private fun choose(tag:String,id:String) {val selector=rule.onNodeWithTag(tag);selector.performScrollTo().performClick();rule.onNodeWithTag("$tag-option-$id").performScrollTo().performClick()}
     private fun hideKeyboard() {rule.runOnIdle {(rule.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(rule.activity.window.decorView.windowToken,0)};rule.waitForIdle()}

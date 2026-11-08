@@ -1,5 +1,8 @@
 package com.inofarm.jogja.feature
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -25,14 +28,16 @@ internal val SyncState.needsReview: Boolean
 
 @Composable
 internal fun RecordStatus(state: SyncState) {
+    val colors = MaterialTheme.colorScheme
+    val color by animateColorAsState(when {
+        state.needsReview -> colors.error
+        state == SyncState.ACCEPTED -> colors.primary
+        else -> colors.onSurfaceVariant
+    }, tween(FarmMotion.State), label = "Status catatan")
     Text(
         state.label(),
-        style = MaterialTheme.typography.labelMedium,
-        color = when {
-            state.needsReview -> MaterialTheme.colorScheme.error
-            state == SyncState.ACCEPTED -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.onSurfaceVariant
-        }
+        style = MaterialTheme.typography.labelLarge,
+        color = color
     )
 }
 
@@ -48,13 +53,16 @@ internal fun QueueScreen(
     opening: Boolean,
     onReload: () -> Unit,
     onReview: (QueuedOperation) -> Unit,
-    canReview: (QueuedOperation) -> Boolean
+    canReview: (QueuedOperation) -> Boolean,
+    focusOperation: String? = null,
 ) {
     val queue = activity.queue
-    val displayOrder = remember(queue) { queue.sortedBy { it.syncState()?.needsReview != true } }
+    val displayOrder = remember(queue, focusOperation) {
+        queue.sortedWith(compareBy({ it.id != focusOperation }, { it.syncState()?.needsReview != true }))
+    }
     FarmMenuList(Modifier.testTag("finance-queue-list")) {
         item("queue-header") {
-            FarmMenuHeader("Antrean", "Pengajuan dari akun ini. Status berubah setelah server memberi tanggapan.") {
+            FarmMenuHeader("Antrean", "Pengajuan lokal dan tanggapan server untuk akun ini.") {
                 if (activity.queueLoaded && activity.queueLoadError == null && queue.isNotEmpty()) {
                     val counts = listOf(
                         queue.count { it.syncState()?.needsReview == true } to "Perlu ditinjau",
@@ -62,14 +70,15 @@ internal fun QueueScreen(
                         queue.count { it.state == SyncState.ACCEPTED.name } to "Diterima"
                     ).filter { it.first > 0 }
                     if (counts.isNotEmpty()) {
-                        HorizontalDivider(color = ForestScheme.outlineVariant)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Large),
-                            verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                            counts.forEach { (count, label) ->
-                                Column {
-                                    Text(count.toString(), style = MaterialTheme.typography.titleLarge,
-                                        color = ForestScheme.primary)
-                                    Text(label, style = MaterialTheme.typography.labelMedium)
+                        FarmPanel {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Section),
+                                verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                                counts.forEach { (count, label) ->
+                                    Column {
+                                        Text(count.toString(), style = MaterialTheme.typography.titleLarge,
+                                            color = MaterialTheme.colorScheme.primary)
+                                        Text(label, style = MaterialTheme.typography.labelMedium)
+                                    }
                                 }
                             }
                         }
@@ -112,13 +121,13 @@ internal fun QueueScreen(
         }
         items(displayOrder, key = { it.id }) { operation ->
             QueueRecord(operation, opening, reviewError.takeIf { reviewOperation == operation.id },
-                if (canReview(operation)) ({ onReview(operation) }) else null)
+                if (canReview(operation)) ({ onReview(operation) }) else null, operation.id == focusOperation)
         }
     }
 }
 
 @Composable
-private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewError: String?, onReview: (() -> Unit)?) {
+private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewError: String?, onReview: (() -> Unit)?, initiallyExpanded: Boolean) {
     val kind = operation.envelope.optString("entity_type")
     val state = operation.syncState()
     val label = OperationalKind.entries.find { it.wire == kind }?.label ?: when (kind) {
@@ -135,15 +144,15 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
     }
     val recovery = LocalRecoveryActions.current
     val reviewReceipt = recovery?.canReview?.invoke(operation) == true
-    var expanded by rememberSaveable(operation.id) { mutableStateOf(false) }
-    FarmRecordCard {
-        Text(label.replaceFirstChar { it.uppercaseChar() }, style = MaterialTheme.typography.titleMedium)
+    var expanded by rememberSaveable(operation.id) { mutableStateOf(initiallyExpanded) }
+    FarmRecordCard(Modifier.animateContentSize(tween(FarmMotion.State))) {
         if (state == SyncState.ACCEPTED && reviewReceipt) {
             Text("Penerimaan historis", style = MaterialTheme.typography.labelMedium)
             RecordStatus(SyncState.EPOCH_REVIEW)
         } else if (state != null) RecordStatus(state)
         else Text(if (operation.state == "SUPERSEDED") "Digantikan setelah ditinjau" else "Perlu ditinjau",
             style = MaterialTheme.typography.labelMedium)
+        Text(label.replaceFirstChar { it.uppercaseChar() }, style = MaterialTheme.typography.titleMedium)
         time?.let { Text(timeLabel(it), style = MaterialTheme.typography.bodySmall) }
         operation.error?.let { ErrorReasons(it) }
         reviewError?.let { Notice(it,true) }
@@ -153,13 +162,13 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
             SyncState.EPOCH_REVIEW -> Text("Pengiriman ditahan sampai tanda terima diperiksa setelah pemulihan.")
             else -> Unit
         }
-        if (reviewReceipt && recovery != null) OutlinedButton(
+        if (reviewReceipt) OutlinedButton(
             onClick = { recovery.review(operation) }, shape = FarmShape.Control,
             modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("recovery-review-${operation.id}")
         ) { Text("Periksa tanda terima setelah pemulihan") }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small),
             verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-            if (onReview != null) OutlinedButton(
+            if (onReview != null) FilledTonalButton(
                 onClick = onReview, enabled = !opening, shape = FarmShape.Control,
                 modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-review-${operation.id}")
             ) { Text("Tinjau catatan") }
@@ -169,6 +178,7 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
             ) { Text(if (expanded) "Tutup rincian operasi" else "Rincian operasi") }
         }
         if (expanded) {
+            HorizontalDivider()
             FarmFact("ID operasi", operation.id)
             FarmFact("ID catatan", operation.entityId)
             FarmFact("Percobaan pengiriman", operation.attempts.toString())

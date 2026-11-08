@@ -15,7 +15,12 @@ require dirname(__DIR__).'/backend/vendor/autoload.php';
 $app = require dirname(__DIR__).'/backend/bootstrap/app.php';
 TestDatabaseGuard::install($app, required: true);
 $app->make(Kernel::class)->bootstrap();
-$path = dirname(__DIR__).'/tmp/finance-device-fixture.json';
+$fixtureName = match ($argv[2] ?? '') {
+    '' => 'finance-device-fixture.json',
+    'manager-home' => 'manager-home-device-fixture.json',
+    default => throw new InvalidArgumentException('Unknown synthetic device fixture name.'),
+};
+$path = dirname(__DIR__).'/tmp/'.$fixtureName;
 $mode = $argv[1] ?? 'create';
 if ($mode === 'create') {
     if (is_file($path)) {
@@ -84,6 +89,22 @@ foreach ($fixture['contexts'] as $context) {
         || ! DB::table('expense_categories')->where('id', $context['category_id'])->where('greenhouse_id', $context['greenhouse_id'])->exists()) {
         throw new RuntimeException('Fixture context ownership/relations do not match; cleanup refused.');
     }
+}
+if ($mode === 'verify-manager-home' && $fixtureName === 'manager-home-device-fixture.json') {
+    $context = $fixture['contexts'][0];
+    $greenhouse = DB::table('greenhouses')->where('id', $context['greenhouse_id'])->first();
+    $worker = $actors->firstWhere('public_id', $fixture['worker_id']);
+    $notes = 'MANAGER HOME '.$fixture['fixture_id'];
+    $activity = DB::table('activities')->where('planting_group_id', $context['group_id'])->where('notes', $notes)->sole();
+    $expense = DB::table('expenses')->where('greenhouse_id', $greenhouse->id)->where('notes', $notes)->sole();
+    if ($greenhouse->running_group_id !== $context['group_id'] || $greenhouse->version !== 2 ||
+        $activity->recorded_by !== $worker->id || $activity->manual_ec !== '1.250000' || $activity->manual_ppm !== '625.500000' ||
+        $expense->recorded_by !== $manager->id || $expense->amount !== '100.01' || $expense->payment_kind !== 'asset_acquisition' ||
+        ! DB::table('audit_logs')->where('entity_id', $greenhouse->id)->where('action', 'designate_period')->where('actor_id', $manager->id)->exists()) {
+        throw new RuntimeException('Manager Home SQL reconciliation failed.');
+    }
+    echo 'PASS: guarded inofarm_test reconciled Android designation/audit, worker pair and exact asset payment.'.PHP_EOL;
+    exit(0);
 }
 if (in_array($mode, ['verify', 'verify-measurements'], true)) {
     $activities = DB::table('activities')->whereIn('planting_group_id', $groups)->limit(10)->get();

@@ -2,6 +2,9 @@ package com.inofarm.jogja.feature.auth
 
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -24,6 +27,8 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -37,10 +42,12 @@ import com.inofarm.jogja.core.design.BotanicalBackdrop
 import com.inofarm.jogja.core.design.FarmControlIcon
 import com.inofarm.jogja.core.design.FarmAttention
 import com.inofarm.jogja.core.design.FarmIcon
+import com.inofarm.jogja.core.design.FarmMotion
 import com.inofarm.jogja.core.design.FarmPageTitle
 import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.design.FarmSpace
 import com.inofarm.jogja.core.design.ForestScheme
+import com.inofarm.jogja.core.design.farmFadeEntrance
 import com.inofarm.jogja.core.network.LocalNetworkAccess
 import com.inofarm.jogja.feature.Notice
 
@@ -79,7 +86,7 @@ internal fun FinanceLogin(
     }
 
     Box(Modifier.fillMaxSize()) {
-        BotanicalBackdrop(R.drawable.background_login)
+        BotanicalBackdrop(R.drawable.background_login, accentHeight = 228.dp)
         Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars)
             .background(MaterialTheme.colorScheme.background.copy(alpha = .92f)))
         BoxWithConstraints(
@@ -102,7 +109,7 @@ internal fun FinanceLogin(
                     Text("Catatan operasional greenhouse melon", textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodyMedium, color = ink)
                 }
-                LoginPanel {
+                LoginPanel(Modifier.farmFadeEntrance(FarmMotion.LoginEntrance)) {
                     FarmPageTitle("Masuk")
                     val labelAbove = LocalDensity.current.fontScale > 1.5f
                     val fieldsEnabled = !state.loading && !awaitingPermission
@@ -145,15 +152,18 @@ internal fun FinanceLogin(
                         modifier = Modifier.fillMaxWidth().testTag("finance-password")
                             .semantics { if (labelAbove) contentDescription = "Password" }
                     )
-                    if (endpoint == null) Notice("Alamat server belum dikonfigurasi untuk aplikasi ini. Hubungi pengelola.", true)
-                    state.error?.let { Notice(it, true) }
-                    when (state.logoutStatus) {
-                        LogoutStatus.Confirmed -> Notice("Keluar. Draf dan antrean akun ini tetap tersimpan.")
-                        LogoutStatus.RevocationUnconfirmed ->
-                            FarmAttention("Keluar dari perangkat. Draf tetap tersimpan. Pencabutan sesi server belum terkonfirmasi.")
-                        null -> Unit
+                    Column(Modifier.fillMaxWidth().animateContentSize(tween(FarmMotion.State)),
+                        verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                        if (endpoint == null) Notice("Alamat server belum dikonfigurasi untuk aplikasi ini. Hubungi pengelola.", true)
+                        state.error?.let { Notice(it, true) }
+                        when (state.logoutStatus) {
+                            LogoutStatus.Confirmed -> Notice("Keluar. Draf dan antrean akun ini tetap tersimpan.")
+                            LogoutStatus.RevocationUnconfirmed ->
+                                FarmAttention("Keluar dari perangkat. Draf tetap tersimpan. Pencabutan sesi server belum terkonfirmasi.")
+                            null -> Unit
+                        }
+                        permissionMessage?.let { Notice(it, true) }
                     }
-                    permissionMessage?.let { Notice(it, true) }
                     Button(
                         onClick = submit, enabled = enabled, shape = FarmShape.Control,
                         colors = ButtonDefaults.buttonColors(
@@ -161,7 +171,13 @@ internal fun FinanceLogin(
                             disabledContentColor = ForestScheme.onSurfaceVariant
                         ),
                         modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("finance-login")
-                    ) { Text(if (state.loading) "Memproses…" else "Masuk") }
+                    ) {
+                        Crossfade(state.loading || awaitingPermission, animationSpec = tween(FarmMotion.LoginFeedback),
+                            label = "Status masuk") { busy ->
+                            Text(if (busy) "Memproses…" else "Masuk",
+                                Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                        }
+                    }
                 }
             }
         }
@@ -169,10 +185,10 @@ internal fun FinanceLogin(
 }
 
 @Composable
-private fun LoginPanel(content: @Composable ColumnScope.() -> Unit) {
+private fun LoginPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     MaterialTheme(colorScheme = ForestScheme) {
         Surface(
-            Modifier.fillMaxWidth(), shape = FarmShape.Hero,
+            modifier.fillMaxWidth(), shape = FarmShape.Hero,
             color = ForestScheme.background, contentColor = ForestScheme.onBackground,
             border = BorderStroke(1.dp, ForestScheme.outlineVariant)
         ) {

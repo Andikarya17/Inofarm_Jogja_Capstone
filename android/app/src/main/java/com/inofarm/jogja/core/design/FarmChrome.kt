@@ -1,6 +1,7 @@
 package com.inofarm.jogja.core.design
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -59,7 +60,10 @@ import androidx.compose.ui.unit.dp
     }
 }
 
-internal enum class FarmIcon { Account, Sync, Eye, EyeOff }
+internal enum class FarmIcon {
+    Account, Sync, Eye, EyeOff, Close, ChevronRight, ChevronDown,
+    Allocate, Payment, Asset, Depreciation, Report, Investment, Backup, Logout
+}
 
 @Composable internal fun FarmControlIcon(icon: FarmIcon, description: String?) {
     val color = LocalContentColor.current
@@ -91,6 +95,53 @@ internal enum class FarmIcon { Account, Sync, Eye, EyeOff }
                 if (icon == FarmIcon.EyeOff) {
                     path.moveTo(3 * u, 3 * u); path.lineTo(21 * u, 21 * u)
                 }
+            }
+            FarmIcon.Close -> {
+                path.moveTo(6 * u, 6 * u); path.lineTo(18 * u, 18 * u)
+                path.moveTo(18 * u, 6 * u); path.lineTo(6 * u, 18 * u)
+            }
+            FarmIcon.ChevronRight -> {
+                path.moveTo(9 * u, 5 * u); path.lineTo(16 * u, 12 * u); path.lineTo(9 * u, 19 * u)
+            }
+            FarmIcon.ChevronDown -> {
+                path.moveTo(5 * u, 9 * u); path.lineTo(12 * u, 16 * u); path.lineTo(19 * u, 9 * u)
+            }
+            FarmIcon.Allocate -> {
+                path.moveTo(4 * u, 5 * u); path.lineTo(10 * u, 5 * u); path.lineTo(10 * u, 19 * u)
+                path.lineTo(20 * u, 19 * u); path.moveTo(10 * u, 12 * u); path.lineTo(20 * u, 12 * u)
+                path.moveTo(16 * u, 8 * u); path.lineTo(20 * u, 12 * u); path.lineTo(16 * u, 16 * u)
+            }
+            FarmIcon.Payment -> {
+                path.addRect(androidx.compose.ui.geometry.Rect(3 * u, 5 * u, 21 * u, 19 * u))
+                drawCircle(color, 2.7f * u, Offset(12 * u, 12 * u), style = stroke)
+            }
+            FarmIcon.Asset -> {
+                path.moveTo(3 * u, 7 * u); path.lineTo(12 * u, 3 * u); path.lineTo(21 * u, 7 * u)
+                path.lineTo(21 * u, 17 * u); path.lineTo(12 * u, 21 * u); path.lineTo(3 * u, 17 * u); path.close()
+                path.moveTo(3 * u, 7 * u); path.lineTo(12 * u, 11 * u); path.lineTo(21 * u, 7 * u)
+                path.moveTo(12 * u, 11 * u); path.lineTo(12 * u, 21 * u)
+            }
+            FarmIcon.Depreciation -> {
+                drawCircle(color, 8 * u, Offset(12 * u, 12 * u), style = stroke)
+                path.moveTo(12 * u, 7 * u); path.lineTo(12 * u, 12 * u); path.lineTo(16 * u, 15 * u)
+            }
+            FarmIcon.Report -> {
+                path.addRect(androidx.compose.ui.geometry.Rect(5 * u, 3 * u, 19 * u, 21 * u))
+                for (y in listOf(8, 12, 16)) { path.moveTo(8 * u, y * u); path.lineTo(16 * u, y * u) }
+            }
+            FarmIcon.Investment -> {
+                path.moveTo(4 * u, 4 * u); path.lineTo(4 * u, 20 * u); path.lineTo(21 * u, 20 * u)
+                path.moveTo(8 * u, 16 * u); path.lineTo(12 * u, 10 * u); path.lineTo(16 * u, 12 * u); path.lineTo(21 * u, 6 * u)
+            }
+            FarmIcon.Backup -> {
+                path.addRect(androidx.compose.ui.geometry.Rect(4 * u, 5 * u, 20 * u, 19 * u))
+                path.moveTo(4 * u, 9 * u); path.lineTo(20 * u, 9 * u)
+                path.moveTo(9 * u, 13 * u); path.lineTo(15 * u, 13 * u)
+            }
+            FarmIcon.Logout -> {
+                path.moveTo(12 * u, 4 * u); path.lineTo(4 * u, 4 * u); path.lineTo(4 * u, 20 * u); path.lineTo(12 * u, 20 * u)
+                path.moveTo(9 * u, 12 * u); path.lineTo(21 * u, 12 * u)
+                path.moveTo(16 * u, 7 * u); path.lineTo(21 * u, 12 * u); path.lineTo(16 * u, 17 * u)
             }
         }
         drawPath(path, color, style = stroke)
@@ -159,7 +210,20 @@ internal enum class FarmIcon { Account, Sync, Eye, EyeOff }
 @Composable internal fun FarmSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
         HorizontalDivider()
-        Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
+        FarmSectionHeading(title)
+        content()
+    }
+}
+
+@Composable internal fun FarmSectionHeading(title: String, modifier: Modifier = Modifier) {
+    Text(title, modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
+}
+
+@Composable internal fun FarmResultRow(title: String, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier.fillMaxWidth().animateContentSize(tween(FarmMotion.State)),
+        verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+        HorizontalDivider()
+        Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         content()
     }
 }
@@ -203,6 +267,16 @@ private val rupiahGroupSeparator = Regex("(?<=\\d)\\.(?=\\d{3}(?:[.,]|$))")
         alpha = progress.value
         translationY = 12.dp.toPx() * (1f - progress.value)
     }) { content() }
+}
+
+@Composable internal fun Modifier.farmFadeEntrance(duration: Int = FarmMotion.Navigation): Modifier {
+    var started by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val alpha = remember { Animatable(if (started) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        started = true
+        alpha.animateTo(1f, tween(duration))
+    }
+    return graphicsLayer { this.alpha = alpha.value }
 }
 
 @Composable internal fun FarmDraftStatus(saved: Boolean, modifier: Modifier = Modifier) {
@@ -249,7 +323,7 @@ private val rupiahGroupSeparator = Regex("(?<=\\d)\\.(?=\\d{3}(?:[.,]|$))")
 
 @Composable internal fun FarmPageTitle(title: String, description: String? = null) {
     Column(Modifier.fillMaxWidth().padding(top=8.dp,bottom=8.dp), verticalArrangement=Arrangement.spacedBy(6.dp)) {
-        Text(title, Modifier.semantics { heading() }, style=MaterialTheme.typography.headlineMedium, color=MaterialTheme.colorScheme.onBackground)
+        Text(title, Modifier.semantics { heading() }, style=MaterialTheme.typography.headlineSmall, color=MaterialTheme.colorScheme.onSurface)
         description?.let {Text(it,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)}
     }
 }

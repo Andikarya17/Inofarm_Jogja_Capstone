@@ -3,6 +3,8 @@ package com.inofarm.jogja.feature.activities
 import android.content.Context
 import android.net.ConnectivityManager
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.*
@@ -72,22 +74,27 @@ import java.time.LocalDate
     }
 }
 
-@Composable internal fun MeasurementCards(pair: ManualMeasurement?, loading: Boolean = false) {
+@Composable internal fun MeasurementCards(pair: ManualMeasurement?, loading: Boolean = false, unavailable: Boolean = false) {
     Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
         Surface(color = MaterialTheme.colorScheme.background, shape = FarmShape.Control) {
             Text("Pengukuran manual", Modifier.padding(horizontal = FarmSpace.Small, vertical = FarmSpace.Tiny)
                 .semantics { heading() }, style = MaterialTheme.typography.titleMedium)
         }
-        MeasurementPair(pair, loading)
+        MeasurementPair(pair, loading, unavailable)
     }
 }
 
 @Composable
-private fun MeasurementPair(pair: ManualMeasurement?, loading: Boolean) {
+private fun MeasurementPair(pair: ManualMeasurement?, loading: Boolean, unavailable: Boolean) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val stacked = maxWidth < 268.dp || LocalDensity.current.fontScale > 1.3f
-        val ec = pair?.ec ?: if (loading) "Memuat…" else if (pair != null) "EC belum tersedia" else "Belum ada pengukuran"
-        val ppm = pair?.ppm ?: if (loading) "Memuat…" else "Belum ada pengukuran"
+        val empty = when {
+            loading -> "Memuat…"
+            unavailable -> "Belum dapat dibaca"
+            else -> "Belum ada pengukuran"
+        }
+        val ec = pair?.ec ?: if (pair != null) "EC belum tersedia" else empty
+        val ppm = pair?.ppm ?: empty
         if (stacked) Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
             MeasurementCard("EC", ec, pair?.ec != null, "mS/cm", Modifier.fillMaxWidth())
             MeasurementCard("PPM", ppm, pair?.ppm != null, "ppm", Modifier.fillMaxWidth())
@@ -100,24 +107,27 @@ private fun MeasurementPair(pair: ManualMeasurement?, loading: Boolean) {
 
 @Composable
 internal fun MeasurementSource(
-    pair: ManualMeasurement?, today: LocalDate, offline: Boolean, syncedAt: Long?, syncMessage: String?
+    pair: ManualMeasurement?, today: LocalDate, offline: Boolean, syncedAt: Long?, syncMessage: String?,
+    snapshotSource: Boolean = false,
 ) {
     var expanded by rememberSaveable(pair?.id) { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
     Surface(shape = FarmShape.Control, color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Medium, vertical = FarmSpace.Small),
+        Column(Modifier.fillMaxWidth().animateContentSize(tween(200)).padding(horizontal = FarmSpace.Medium, vertical = FarmSpace.Small),
             verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
             FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 maxItemsInEachRow = if (LocalDensity.current.fontScale > 1.3f) 1 else 2) {
                 Column(Modifier.weight(1f).align(Alignment.CenterVertically)) {
                     if (pair != null) {
-                        Text(pair.message(today), style = MaterialTheme.typography.labelLarge)
+                        Text(if (snapshotSource) timeLabel(pair.at.toString()) else pair.message(today), style = MaterialTheme.typography.labelLarge)
                         Text(if (pair.queued) "Belum tersinkron" else "Diterima server",
                             style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     }
-                    if (offline) Text("Offline · menampilkan data tersimpan.", style = MaterialTheme.typography.bodySmall)
-                    Text(syncedAt?.let { "Sinkron terakhir: ${timeLabel(java.time.Instant.ofEpochMilli(it).toString())}" }
-                        ?: "Belum pernah tersinkron.", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    if (offline) Text("Menampilkan data tersimpan.", style = MaterialTheme.typography.bodySmall)
+                    Text(syncedAt?.let {
+                        val label = timeLabel(java.time.Instant.ofEpochMilli(it).toString())
+                        if (snapshotSource) "Diperiksa $label" else "Sinkron terakhir: $label"
+                    } ?: "Belum pernah tersinkron.", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 }
                 if (pair != null) TextButton(onClick = { expanded = !expanded }, shape = FarmShape.Control,
                     modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("measurement-source")) {

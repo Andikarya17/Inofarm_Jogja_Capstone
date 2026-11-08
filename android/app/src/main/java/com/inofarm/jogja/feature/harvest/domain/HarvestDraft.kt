@@ -14,7 +14,7 @@ data class HarvestLine(val id:String=UUID.randomUUID().toString(),val gradeId:St
 data class HarvestDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId:String,val groupId:String,
     val date:String=LocalDate.now(ManualTime.WIB).toString(),val time:String=LocalTime.now(ManualTime.WIB).format(DateTimeFormatter.ofPattern("HH:mm")),
     val items:List<HarvestLine> = emptyList(),val notes:String="",val reason:String="",val referencePolicy:String="preserve",val baseVersion:Long?=null,
-    val replaceValidationRejected:Boolean=false,val lockedItems:Set<String> = emptySet()) {
+    val replaceValidationRejected:Boolean=false,val lockedItems:Set<String> = emptySet(),val runningPeriodVersion:Long?=null) {
     fun occurredAt()=ManualTime.encode(date,time)
     fun validation():Map<String,String> = buildMap {
         if(runCatching {WireContract.uuid(groupId)}.isFailure) put("group","Pilih kelompok tanam.")
@@ -37,10 +37,12 @@ data class HarvestDraft(val id:String=UUID.randomUUID().toString(),val greenhous
         return JSONObject().put("planting_group_id",groupId).put("occurred_at",occurredAt()).put("notes",notes)
             .put("items",JSONArray().apply {items.forEach {line -> put(JSONObject().put("id",line.id).put("grade_id",line.gradeId).put("fruit_count",count(line.fruitCount)!!).put("weight_kg",number(line.weightKg).toPlainString()))}})
             .apply {if(baseVersion!=null) {put("reason",reason);put("reference_policy",referencePolicy)}}
+            .apply {if(baseVersion==null) runningPeriodVersion?.let {put("running_period_version",it)}}
     }
     fun localJson()=JSONObject().put("planting_group_id",groupId).put("notes",notes).put("occurred_at",runCatching {occurredAt()}.getOrNull() ?: JSONObject.NULL).put("completeness","draft")
         .put("_local_form",JSONObject().put("group_id",groupId).put("date",date).put("time",time).put("notes",notes).put("reason",reason).put("reference_policy",referencePolicy)
             .put("base_version",baseVersion ?: JSONObject.NULL).put("replace_validation_rejected",replaceValidationRejected).put("locked_items",JSONArray(lockedItems.toList()))
+            .put("running_period_version",runningPeriodVersion)
             .put("items",JSONArray().apply {items.forEach {put(JSONObject().put("id",it.id).put("grade_id",it.gradeId).put("fruit_count",it.fruitCount).put("weight_kg",it.weightKg).put("grade_name",it.gradeName))}}))
     companion object {
         fun count(text:String):Int?=text.trim().takeIf {Regex("[0-9]+").matches(it)}?.toIntOrNull()
@@ -52,7 +54,8 @@ data class HarvestDraft(val id:String=UUID.randomUUID().toString(),val greenhous
             val lines=(0 until items.length()).map {items.getJSONObject(it).let {row -> HarvestLine(row.getString("id"),row.getString("grade_id"),row.optString("fruit_count"),row.optString("weight_kg"),row.optString("grade_name"))}}
             val locked=local?.optJSONArray("locked_items")?.let {array -> (0 until array.length()).map {array.getString(it)}.toSet()} ?: if(base==null) emptySet() else lines.map {it.id}.toSet()
             return HarvestDraft(id,gh,raw.getString(if(local!=null) "group_id" else "planting_group_id"),time.first,time.second,lines,raw.optString("notes"),raw.optString("reason").takeUnless {raw.isNull("reason")}.orEmpty(),
-                raw.optString("reference_policy","preserve"),base,local?.optBoolean("replace_validation_rejected")==true,locked)
+                raw.optString("reference_policy","preserve"),base,local?.optBoolean("replace_validation_rejected")==true,locked,
+                raw.optLong("running_period_version").takeIf { it > 0 })
         }
     }
 }

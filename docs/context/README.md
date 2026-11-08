@@ -1,5 +1,23 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+## Pematangan UI pengelola, 9 November 2026
+
+Branch `codex/manager-ui-polish` mematangkan lima tab pengelola, pemilih, Alat keuangan, layar turunannya dan login. [Bukti implementasi](MANAGER_UI_POLISH_EVIDENCE_20261109.md) mencatat APK baseline `1e721f7`, perbandingan screenshot, verifikasi emulator, dan batas penerimaan. [Audit awal](MANAGER_UI_REVIEW_20261109.md) dan [master prompt](MASTER_PROMPT_MANAGER_UI_POLISH.md) menyimpan dasar desain.
+
+## Titik lanjut terverifikasi, 8 November 2026
+
+Mulai sesi baru dari [ringkasan proyek dan prompt serah terima](HANDOFF_20261108.md). [Audit riwayat/dokumentasi](DOCUMENTATION_AUDIT_20261108.md) mencatat apa yang diperiksa dan yang belum. Source terakhir `d6774fc` pada `codex/manager-home-overview` sudah dipush, sedangkan `github/main` masih `0ea7f66` setelah fetch pada audit ini. Branch paket dokumentasi `codex/docs-project-handoff-20261108` berangkat dari source terbaru tersebut. Jangan kehilangan upgrade Beranda dengan melanjutkan dari main lama.
+
+FIN01–15 core, FIN16 engineering dan FIN17 panduan/tooling sudah tersedia. Finance adalah default tanpa flag, SQLite terbaru 10, backend migration terbaru 16. PR40–46 sudah masuk main; upgrade Beranda belum. Implementasi bukan penerimaan produk penuh: MH-10/MH-12 masih parsial, UAT/pentest/perangkat fisik dan gate produksi/akademik belum ditutup. Lihat [status](IMPLEMENTATION_STATUS.md) dan [gap aktif](GAP_ANALYSIS.md).
+
+Urutan baca: AGENTS root/lokal → ringkasan ini → status/gap → PRD, architecture, data contracts, implementation plan sesuai tugas → kontrak executable/source/test. Bagian bertanggal lama di bawah adalah riwayat, bukan perintah mengulang implementasi atau menunda push yang sudah diotorisasi kemudian.
+
+## Dokumen fitur dan riwayat
+
+[Implementasi dan bukti Beranda pengelola 8 November 2026](MANAGER_HOME_UPGRADE_EVIDENCE.md) mencatat hasil tiap acceptance, dasar angka, pengujian perangkat, dan batasnya.
+
+Rencana Beranda pengelola 8 November 2026: [master prompt lima upgrade](MASTER_PROMPT_MANAGER_HOME.md) dan [prompt pelaksanaan GPT 6.1 Sol](RUN_MANAGER_HOME_UPGRADE.md). Mencakup pilihan cukup greenhouse, ringkasan seluruh kebun, perhatian berbasis bukti, ringkasan satu greenhouse, serta keuangan dengan basis jelas. Wajib Impeccable dan antislop DURING, mempertahankan identitas botani dan menambahkan motion yang fungsional. Dokumen ini masih spesifikasi; bukan klaim perubahan runtime atau acceptance sudah lulus.
+
 Menu lanjutan 7 November 2026. [Implementasi dan bukti Android](ANDROID_SECONDARY_MENUS_20261107.md) mencakup Antrean, Kegiatan, Panen, Keuangan, dan alur turunannya. Catatan audit berikut merekam status saat disusun.
 
 Perancangan menu lanjutan dari baseline `dc97705` tercatat di [audit Antrean, Kegiatan, Panen, dan Keuangan](SECONDARY_MENUS_UI_AUDIT.md) serta [master prompt alur turunan](MASTER_PROMPT_SECONDARY_MENUS.md).
@@ -33,6 +51,6 @@ Baca berurutan: [PRD](PRD.md), [Architecture](ARCHITECTURE.md), [Data contracts]
 - [Arsip sebelum perubahan](../archive/pre-finance-20261029/docs/context/PRD.md): termasuk perubahan lokal yang belum di-commit, bukan sumber requirement aktif.
 - [Provenance arsip/context](../migration/finance-20261029/PROVENANCE_REVIEW.md) dan [indeks arsip](../archive/pre-finance-20261029/INDEX.md).
 
-Status checkpoint30 Oktober: schema/API core+master+acuan+activity/panen/pengeluaran/alokasi/lampiran privat/penjualan, draf/outbox dan layar entry/history v2 sudah diuji bertahap, termasuk device offline→Laravel/MySQL uji→manager history. Build default tetap legacy; target terpisah -PfinanceApp. [Kontrak executable](../../contracts/v2/README.md) lebih spesifik daripada rancangan seluruh domain. FIN11 aset/penyusutan, FIN12–17, UI administrasi/master/acuan dan integrasi menyeluruh belum lengkap; jangan mengklaim DONE produk. `docs/implementation/API.md` adalah API v1. Desain21/26 Oktober historis; PDF terbaru dan keputusan pengguna mengatasi konflik.
+## Checkpoint historis 30 Oktober, bukan titik lanjut sekarang
 
-[Serah terima dan setup FIN11–FIN17](../migration/finance-20261029/HANDOFF_FIN11_FIN17.md) serta [prompt lanjutan](../migration/finance-20261029/CONTINUE_FIN11_FIN17.md) berlaku pada branch GitHub `codex/finance-fin10-handoff`. Pengguna meminta berhenti aman pada checkpoint FIN10; jangan mengklaim FIN11 sudah diimplementasikan.
+Pada checkpoint FIN10, build masih legacy dengan flag finance dan FIN11–17 belum tersedia. Keadaan itu telah digantikan implementasi berikutnya. [Handoff FIN11–FIN17 lama](../migration/finance-20261029/HANDOFF_FIN11_FIN17.md) dan [prompt lama](../migration/finance-20261029/CONTINUE_FIN11_FIN17.md) hanya menjelaskan branch `codex/finance-fin10-handoff` pada saat itu. Untuk sesi baru gunakan handoff 8 November. `docs/implementation/API.md` tetap API v1 historis; [kontrak executable v2](../../contracts/v2/README.md) menjadi rujukan implementasi aktif.

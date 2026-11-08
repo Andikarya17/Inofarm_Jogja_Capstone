@@ -10,6 +10,9 @@ import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.core.session.FinanceSessionVault
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -22,6 +25,8 @@ data class SyncOutcome(val accepted: Int, val message: String)
 /** Shared foreground/job coordinator. Queue, retry timestamps and epoch holds survive process death. */
 class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: FinanceSessionVault, private val store: LocalFinanceStore,private val attachments:AttachmentTransfer?=null) {
     private val mutex=Mutex()
+    private val completedRuns = MutableStateFlow(0L)
+    val updates = completedRuns.asStateFlow()
     suspend fun run(): SyncOutcome = withContext(Dispatchers.IO) {
         if(!mutex.tryLock()) return@withContext SyncOutcome(0,"Sinkronisasi sedang berjalan.")
         var capturedSession: FinanceSession? = null
@@ -93,7 +98,10 @@ class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: Fin
             SyncOutcome(0,error.message ?: "Sinkronisasi perlu ditinjau.")
         } catch(error: IOException) {
             SyncOutcome(0,"Offline atau server belum dapat dihubungi. Draf dan antrean tetap di perangkat.")
-        } finally { mutex.unlock() }
+        } finally {
+            completedRuns.update { it + 1 }
+            mutex.unlock()
+        }
     }
     private suspend fun pull(session: FinanceSession,ticket: Long) {
         repeat(100) {

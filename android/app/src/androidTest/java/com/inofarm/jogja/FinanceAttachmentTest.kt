@@ -130,7 +130,7 @@ class FinanceAttachmentTest {
         val tables=linkedMapOf<String,Pair<String,List<android.content.ContentValues>>>()
         val indexes=mutableListOf<String>()
         context.openOrCreateDatabase(name,0,null).use {old ->
-            old.rawQuery("SELECT name,sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('android_metadata','local_attachment_forms')",null).use {schema ->while(schema.moveToNext()) {
+            old.rawQuery("SELECT name,sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('android_metadata','local_attachment_forms','manager_home_cache','running_period_requests')",null).use {schema ->while(schema.moveToNext()) {
                 val table=schema.getString(0);val sql=schema.getString(1).replace(Regex(",\\s*(asset_id|scenario_id) TEXT"),"");val rows=mutableListOf<android.content.ContentValues>()
                 old.rawQuery("SELECT * FROM $table",null).use {data ->while(data.moveToNext()) {val values=android.content.ContentValues();data.columnNames.forEachIndexed {index,column ->if(column !in newerColumns) {when(data.getType(index)) {
                     android.database.Cursor.FIELD_TYPE_NULL->values.putNull(column)

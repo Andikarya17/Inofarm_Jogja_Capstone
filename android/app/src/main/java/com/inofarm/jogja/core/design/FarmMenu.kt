@@ -33,8 +33,19 @@ internal fun FarmMenuList(modifier: Modifier = Modifier, content: LazyListScope.
 internal fun FarmMenuHeader(
     title: String,
     description: String,
+    contextual: Boolean = false,
     content: @Composable ColumnScope.() -> Unit = {}
 ) {
+    val body: @Composable ColumnScope.() -> Unit = {
+        Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
+        Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        content()
+    }
+    if (!contextual) {
+        Column(Modifier.fillMaxWidth().padding(vertical = FarmSpace.Tiny),
+            verticalArrangement = Arrangement.spacedBy(FarmSpace.Small), content = body)
+        return
+    }
     MaterialTheme(colorScheme = ForestScheme) {
         Surface(
             Modifier.fillMaxWidth(),
@@ -43,13 +54,9 @@ internal fun FarmMenuHeader(
             contentColor = ForestScheme.onBackground
         ) {
             Column(
-                Modifier.padding(FarmSpace.Large),
-                verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)
-            ) {
-                Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
-                Text(description, style = MaterialTheme.typography.bodyMedium, color = ForestScheme.onSurfaceVariant)
-                content()
-            }
+                Modifier.padding(horizontal = FarmSpace.Large, vertical = FarmSpace.Medium),
+                verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny), content = body
+            )
         }
     }
 }

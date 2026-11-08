@@ -8,12 +8,18 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.core.contracts.RecordKind
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.database.QueuedOperation
 import com.inofarm.jogja.core.design.FarmPageTitle
+import com.inofarm.jogja.core.design.FarmActionRow
+import com.inofarm.jogja.core.design.FarmIcon
+import com.inofarm.jogja.core.design.FarmRowDivider
+import com.inofarm.jogja.core.design.FarmSheetHeading
 import com.inofarm.jogja.core.design.FarmDraftStatus
 import com.inofarm.jogja.core.design.FarmFact
 import com.inofarm.jogja.core.design.FarmMenuHeader
@@ -38,8 +44,10 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun FinancialHub(session:FinanceSession,context:CultivationUiState,entry:FinancialEntryViewModel,
-    expense:HistoryUiState,expenseVm:HistoryViewModel,allocation:HistoryUiState,allocationVm:HistoryViewModel,queue:List<QueuedOperation>,sales:com.inofarm.jogja.feature.sales.SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:com.inofarm.jogja.feature.assets.AssetWorkspace,reports:com.inofarm.jogja.feature.reports.SeasonReportWorkspace,investments:com.inofarm.jogja.feature.investments.InvestmentWorkspace,onSync:()->Unit) {
-    var gh by rememberSaveable {mutableStateOf("")};var selected by rememberSaveable {mutableStateOf(RecordKind.EXPENSE.wire)}
+    expense:HistoryUiState,expenseVm:HistoryViewModel,allocation:HistoryUiState,allocationVm:HistoryViewModel,queue:List<QueuedOperation>,sales:com.inofarm.jogja.feature.sales.SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:com.inofarm.jogja.feature.assets.AssetWorkspace,reports:com.inofarm.jogja.feature.reports.SeasonReportWorkspace,investments:com.inofarm.jogja.feature.investments.InvestmentWorkspace,onSync:()->Unit,
+    initialKind: String = RecordKind.EXPENSE.wire, linkRevision: Int = 0) {
+    var gh by rememberSaveable {mutableStateOf("")}
+    var selected by key(linkRevision) { rememberSaveable { mutableStateOf(initialKind) } }
     val greenhouses = context.greenhouses.filter { it.optBoolean("active", true) }
     val canRecord = greenhouses.any { it.optString("id") == gh }
     LaunchedEffect(context.greenhouses,context.lastSyncedAt) {
@@ -54,14 +62,18 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
                 Choice("Riwayat keuangan",selected,listOf(option(RecordKind.EXPENSE.wire,"Pembayaran aktual"),option(RecordKind.COST_ALLOCATION.wire,"Alokasi biaya musim"),option(RecordKind.SALE.wire,"Penjualan lunas"),option(RecordKind.ASSET.wire,"Aset"),option(RecordKind.DEPRECIATION.wire,"Alokasi penyusutan")),"expense-history-kind") {selected=it}
             }) {
             item("finance-workspace") {
-                FarmMenuHeader("Keuangan", "Greenhouse untuk catatan baru dipilih di sini.") {
-                    Choice("Greenhouse pencatatan",gh,greenhouses,"expense-gh") {gh=it}
-                    FlowRow(horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small),
-                        verticalArrangement=Arrangement.spacedBy(FarmSpace.Small)) {
-                        Button(onClick={entry.new(RecordKind.EXPENSE,gh)},enabled=canRecord,shape=FarmShape.Control,
-                            modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("expense-new")) {Text("Catat pengeluaran")}
-                        OutlinedButton(onClick={showTools=true},shape=FarmShape.Control,
-                            modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-tools")) {Text("Alat keuangan")}
+                FarmMenuHeader("Keuangan", "Pencatatan dan riwayat dalam penugasan Anda.") {
+                    FarmPanel(title = "Catatan baru") {
+                        Choice("Greenhouse pencatatan",gh,greenhouses,"expense-gh",loading=context.loading) {gh=it}
+                        if (!canRecord) Text("Pilih greenhouse untuk mencatat pengeluaran.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        FlowRow(horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small),
+                            verticalArrangement=Arrangement.spacedBy(FarmSpace.Small)) {
+                            Button(onClick={entry.new(RecordKind.EXPENSE,gh)},enabled=canRecord,shape=FarmShape.Control,
+                                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("expense-new")) {Text("Catat pengeluaran")}
+                            OutlinedButton(onClick={showTools=true},shape=FarmShape.Control,
+                                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-tools")) {Text("Alat keuangan")}
+                        }
                     }
                 }
             }
@@ -70,35 +82,62 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
     if (showTools) ModalBottomSheet(
         onDismissRequest = { showTools = false },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = { WindowInsets.safeDrawing }
     ) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(FarmSpace.Page),
-            verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
-            FarmPageTitle("Alat keuangan")
-            if (!canRecord) Notice("Pilih greenhouse pencatatan di Keuangan untuk mencatat transaksi atau aset.")
-            FarmSection(title = "Transaksi dan aset") {
-                FinanceTool("Alokasikan biaya", "allocation-new", canRecord) {showTools=false;entry.new(RecordKind.COST_ALLOCATION,gh)}
-                FinanceTool("Catat penjualan lunas", "sale-new", canRecord) {showTools=false;sales.new(gh)}
-                FinanceTool("Catat aset", "asset-new", canRecord) {showTools=false;asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ASSET)}
-                FinanceTool("Alokasi penyusutan", "depreciation-new", canRecord) {showTools=false;asset.vm.new(gh,com.inofarm.jogja.feature.assets.AssetKind.ALLOCATION)}
-            }
-            FarmSection(title = "Evaluasi dan pemulihan") {
-                FinanceTool("Evaluasi musim", "report-open") {showTools=false;reports.vm.show(gh)}
-                FinanceTool("Skenario dan evaluasi investasi", "investment-open") {showTools=false;investments.vm.show(gh)}
-                com.inofarm.jogja.feature.recovery.RecoveryBackupButton(onOpen = { showTools = false })
-            }
-            TextButton(onClick = { showTools = false }, modifier = Modifier.fillMaxWidth().testTag("finance-tools-close")) {
-                Text("Kembali ke keuangan")
+        Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Page)) {
+            FarmSheetHeading("Alat keuangan", { showTools = false })
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(bottom = FarmSpace.Large),
+                verticalArrangement = Arrangement.spacedBy(FarmSpace.Large)) {
+                if (!canRecord) Notice("Pilih greenhouse pencatatan di Keuangan untuk mencatat transaksi atau aset.")
+                FarmSection("Transaksi") {
+                    Column {
+                        FinanceTool("Alokasikan biaya", "Bagi pembayaran ke musim", FarmIcon.Allocate, "allocation-new", canRecord) {
+                            showTools = false; entry.new(RecordKind.COST_ALLOCATION, gh)
+                        }
+                        FarmRowDivider(FarmSpace.Medium * 2 + 24.dp)
+                        FinanceTool("Catat penjualan lunas", "Catat penerimaan dari hasil panen", FarmIcon.Payment, "sale-new", canRecord) {
+                            showTools = false; sales.new(gh)
+                        }
+                    }
+                }
+                FarmSection("Aset") {
+                    Column {
+                        FinanceTool("Catat aset", "Catat perolehan dari pembayaran aset", FarmIcon.Asset, "asset-new", canRecord) {
+                            showTools = false; asset.vm.new(gh, com.inofarm.jogja.feature.assets.AssetKind.ASSET)
+                        }
+                        FarmRowDivider(FarmSpace.Medium * 2 + 24.dp)
+                        FinanceTool("Alokasi penyusutan", "Catat beban pemakaian aset per musim", FarmIcon.Depreciation, "depreciation-new", canRecord) {
+                            showTools = false; asset.vm.new(gh, com.inofarm.jogja.feature.assets.AssetKind.ALLOCATION)
+                        }
+                    }
+                }
+                FarmSection("Evaluasi") {
+                    Column {
+                        FinanceTool("Evaluasi musim", "Tinjau hasil berdasarkan biaya dan penjualan", FarmIcon.Report, "report-open") {
+                            showTools = false; reports.vm.show(gh)
+                        }
+                        FarmRowDivider(FarmSpace.Medium * 2 + 24.dp)
+                        FinanceTool("Skenario dan evaluasi investasi", "Tinjau arus kas aktual dan proyeksi", FarmIcon.Investment, "investment-open") {
+                            showTools = false; investments.vm.show(gh)
+                        }
+                    }
+                }
+                FarmSection("Pemeliharaan") {
+                    com.inofarm.jogja.feature.recovery.RecoveryBackupButton(onOpen = { showTools = false })
+                }
+                TextButton(onClick = { showTools = false }, modifier = Modifier.fillMaxWidth().testTag("finance-tools-close")) {
+                    Text("Kembali ke keuangan")
+                }
             }
         }
     }
 }
 
-@Composable private fun FinanceTool(label: String, tag: String, enabled: Boolean = true, onClick: () -> Unit) {
-    TextButton(onClick = onClick, enabled = enabled, shape = FarmShape.Control,
-        modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag(tag)) {
-        Text(label, Modifier.fillMaxWidth())
-    }
+@Composable private fun FinanceTool(label: String, detail: String, icon: FarmIcon, tag: String, enabled: Boolean = true, onClick: () -> Unit) {
+    FarmActionRow(label, detail, icon, Modifier.testTag(tag).semantics {
+        if (!enabled) stateDescription = "Pilih greenhouse pencatatan"
+    }, enabled, onClick)
 }
 
 @Composable fun FinancialForm(state:FinancialEntryState,context:CultivationUiState,vm:FinancialEntryViewModel) {
@@ -106,8 +145,13 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         FarmPageTitle("${if(draft.baseVersion==null) "Catat" else "Koreksi"} ${draft.kind.label}")
         FarmDraftStatus(state.saved, Modifier.testTag("expense-draft-status"))
+        FarmPanel(title = if (draft.kind == RecordKind.EXPENSE) "Nominal pembayaran" else "Nominal alokasi") {
+            FinanceField("Nominal IDR (Rp)", draft.amount, { v -> vm.edit { it.copy(amount = v) } },
+                "expense-amount", state.errors["amount"], KeyboardType.Decimal,
+                hint = "Desimal boleh koma, maksimal 2 angka. Tanpa pemisah ribuan. Kosong bukan nol.")
+        }
         FarmSection(title = if (draft.kind == RecordKind.EXPENSE) "Pembayaran" else "Sumber dan musim tujuan") {
-        Text(context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse terakhir tersimpan", style = MaterialTheme.typography.bodySmall)
+        FarmFact("Greenhouse", context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse terakhir tersimpan")
         if(draft.kind==RecordKind.EXPENSE) {
             Choice("Kategori pengeluaran",draft.categoryId,context.expenseCategories.filter {it.optString("greenhouse_id")==draft.greenhouseId && (it.optBoolean("active",true) || it.optString("id")==draft.categoryId)},"expense-category") {v -> vm.edit {it.copy(categoryId=v)}}
             if(draft.lockedParents) Text(if(draft.paymentKind=="asset_acquisition") "Pembelian aset" else "Pembayaran operasi")
@@ -129,9 +173,8 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
             FinanceField("Dasar alokasi",draft.basis,{v -> vm.edit {it.copy(basis=v)}},"allocation-basis",state.errors["basis"],singleLine=false,hint="Jelaskan dasar nominal untuk musim ini. Tidak dihitung otomatis.")
         }
         }
-        FarmSection(title = "Nominal dan keterangan") {
-            FinanceField("Nominal IDR (Rp)",draft.amount,{v -> vm.edit {it.copy(amount=v)}},"expense-amount",state.errors["amount"],KeyboardType.Decimal,hint="Desimal boleh koma, maksimal 2 angka; tanpa pemisah ribuan. Kosong bukan nol.")
-            if(draft.kind==RecordKind.EXPENSE) FinanceField("Keterangan pembayaran",draft.notes,{v -> vm.edit {it.copy(notes=v)}},"expense-notes",state.errors["notes"],singleLine=false)
+        if(draft.kind==RecordKind.EXPENSE) FarmSection(title = "Keterangan") {
+            FinanceField("Keterangan pembayaran",draft.notes,{v -> vm.edit {it.copy(notes=v)}},"expense-notes",state.errors["notes"],singleLine=false)
         }
         if(draft.baseVersion!=null) FinanceField("Alasan koreksi",draft.reason,{v -> vm.edit {it.copy(reason=v)}},"expense-reason",state.errors["reason"],singleLine=false)
         state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
@@ -152,19 +195,20 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
 }
 
 @Composable private fun FinancialDraftFacts(draft:FinancialDraft,context:CultivationUiState) {
-    Text(context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse terakhir tersimpan")
     FarmFact("Nominal", runCatching { moneyLabel(FinancialDraft.money(draft.amount).toPlainString()) }
         .getOrDefault("Belum lengkap: ${draft.amount}"), Modifier.testTag("expense-amount-fact"), prominent = true)
+    FarmFact("Greenhouse", context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse terakhir tersimpan")
     if(draft.kind==RecordKind.EXPENSE) {
         Text(context.expenseCategories.find {it.optString("id")==draft.categoryId}?.optString("name") ?: "Kategori tidak tersedia pada daftar acuan terakhir")
         Text(when(draft.paymentKind) {"operating" -> "Pembayaran operasi";"asset_acquisition" -> "Pembelian aset Â· beban musim melalui penyusutan";else -> "Jenis pembayaran belum dipilih"})
         Text("Pembayaran: ${draft.date} ${draft.time} WIB");Text(draft.notes)
     } else {
         val source=context.expenses.find {it.optString("id")==draft.expenseId}
-        Text("Sumber: ${source?.let(::sourceName) ?: "belum tersedia pada data tersimpan"}")
-        Text("Musim: ${context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "belum tersedia"}")
-        Text("Kelas: ${when(draft.costClass) {"FC" -> "Biaya tetap (FC)";"VC" -> "Biaya variabel (VC)";else -> "belum dipilih"}}")
-        Text("Dasar alokasi: ${draft.basis}");ExpenseBalanceCard(source,context)
+        FarmFact("Pembayaran sumber", source?.let(::sourceName) ?: "Belum tersedia pada data tersimpan")
+        FarmFact("Musim tujuan", context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "Belum tersedia")
+        FarmFact("Kelas biaya", when(draft.costClass) {"FC" -> "Biaya tetap (FC)";"VC" -> "Biaya variabel (VC)";else -> "Belum dipilih"})
+        FarmFact("Dasar alokasi", draft.basis.ifBlank { "Belum diisi" })
+        ExpenseBalanceCard(source,context)
     }
     if(draft.reason.isNotBlank()) Text("Alasan koreksi: ${draft.reason}")
 }
@@ -184,12 +228,16 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
 @Composable fun ExpenseBalanceCard(expense:JSONObject?,context:CultivationUiState) {
     val balance=expense?.let {source -> context.expenseBalances.find {it.optString("expense_id")==source.optString("id") && it.optLong("expense_version")==source.optLong("version")}}
     if(balance==null) Notice("Saldo alokasi belum tersedia untuk versi pembayaran ini. Sinkronkan; nilai kosong tidak dianggap nol.")
-    else OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-        Text("Saldo terakhir tersimpan Â· versi ${balance.optLong("version")}")
-        Text("Terbayar: ${moneyLabel(balance.getString("amount"))} Â· teralokasi: ${moneyLabel(balance.getString("allocated_amount"))}")
-        Text("Sisa untuk alokasi: ${moneyLabel(balance.getString("available_amount"))}")
+    else FarmSection("Saldo terakhir tersimpan Â· versi ${balance.optLong("version")}") {
+        FarmFact("Sisa untuk alokasi", moneyLabel(balance.getString("available_amount")),
+            Modifier.testTag("expense-remaining-fact").semantics(mergeDescendants = true) {}, prominent = true)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Large),
+            verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+            Text("Terbayar ${moneyLabel(balance.getString("amount"))}")
+            Text("Teralokasi ${moneyLabel(balance.getString("allocated_amount"))}")
+        }
         if(!balance.optBoolean("active")) Text("Sumber tidak tersedia untuk alokasi biaya operasi.")
         Text("Saldo server dapat berubah sebelum pengajuan diterima.",style=MaterialTheme.typography.bodySmall)
         Text(context.lastSyncedAt?.let {"Terakhir diperiksa: ${timeLabel(java.time.Instant.ofEpochMilli(it).toString())}"} ?: "Waktu pemeriksaan terakhir belum tersedia.",style=MaterialTheme.typography.bodySmall)
-    }}
+    }
 }

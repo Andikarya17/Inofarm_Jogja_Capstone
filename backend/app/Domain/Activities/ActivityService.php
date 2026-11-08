@@ -62,6 +62,9 @@ final class ActivityService
             }
             $p = $op['payload'];
             $ctx = $this->context->get($current, $before['planting_group_id'] ?? $p['planting_group_id'], true);
+            if ($op['action'] === 'create' && isset($p['running_period_version'])) {
+                app(\App\Domain\Cultivation\RunningPeriod::class)->assertHomeParent($ctx, $p['running_period_version']);
+            }
             if ($op['action'] === 'cancel') {
                 $data = ['record_state' => 'cancelled'];
                 $snapshot = $before['reference_snapshot'];

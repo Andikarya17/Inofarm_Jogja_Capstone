@@ -62,6 +62,9 @@ final class HarvestService
             }
             $p = $op['payload'];
             $ctx = $this->context->get($current, $before['planting_group_id'] ?? $p['planting_group_id'], true);
+            if ($op['action'] === 'create' && isset($p['running_period_version'])) {
+                app(\App\Domain\Cultivation\RunningPeriod::class)->assertHomeParent($ctx, $p['running_period_version']);
+            }
             $oldItems = DB::table('harvest_items')->where('harvest_id', $op['entity_id'])->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             if ($op['action'] === 'cancel') {
                 foreach ($oldItems as $item) {

@@ -6,6 +6,8 @@ Pengukuran EC (mS/cm) dan PPM (ppm) dicatat bersamaan tanpa harus memberikan bah
 
 Fitur mencakup HSS/HST, kegiatan dan bahan, panen, draf/outbox akun, audit/koreksi/pembatalan, biaya/alokasi, penjualan, aset/penyusutan, evaluasi musim, investasi, ekspor serta recovery terkontrol. Lihat [status implementasi dan batas acceptance](docs/context/IMPLEMENTATION_STATUS.md), [kontrak executable](contracts/v2/README.md), [perubahan EC/PPM](contracts/v2/MEASUREMENTS.md).
 
+Melanjutkan dari sesi baru: [ringkasan proyek, keadaan branch, pekerjaan terbuka dan prompt](docs/context/HANDOFF_20261108.md). Upgrade Beranda pengelola `d6774fc` memakai ringkasan semua greenhouse dalam penugasan, periode berjalan eksplisit dan kas bulanan WIB. Pada audit 8 November, main `0ea7f66` belum memuat upgrade tersebut.
+
 ## Build dan run
 
 Prasyarat: PHP sesuai composer.lock (PHP8.5.12 diuji), Composer, MySQL8, JDK25, SDK37.0/build-tools37, Android10/API29+. Tidak perlu npm atau firmware.
@@ -19,7 +21,7 @@ php backend/artisan inofarm:finance-user email@example.com --name="Pengelola" --
 ./scripts/run-android.ps1 -JavaHome $env:JAVA_HOME -SkipStudio
 ```
 
-Build normal langsung membuka finance, tanpa flag. Debug/profile tetap `com.inofarm.jogja.finance`; release tetap `com.inofarm.jogja` dan perlu signing/distribusi tersendiri. Versi0.2.0/code2, minSdk29. Pakai `adb install -r`, tidak uninstall/clear data. SQLite9, vault, draf/outbox, provider authority dan JobScheduler ID tetap. Data legacy pada identitas lama tidak diubah menjadi catatan manusia. [Panduan lengkap instalasi](docs/migration/finance-20261029/FIN17_INSTALL_RUN.md), [upgrade dan cutover](docs/migration/finance-20261029/FIN17_CUTOVER.md).
+Build normal langsung membuka finance, tanpa flag. Debug/profile tetap `com.inofarm.jogja.finance`; release tetap `com.inofarm.jogja` dan perlu signing/distribusi tersendiri. Versi0.2.0/code2, minSdk29. Pakai `adb install -r`, tidak uninstall/clear data. SQLite10 pada branch Beranda menambah cache/jurnal secara additive; vault, draf/outbox, nama DB, provider authority dan JobScheduler ID tetap. Data legacy pada identitas lama tidak diubah menjadi catatan manusia. [Panduan lengkap instalasi](docs/migration/finance-20261029/FIN17_INSTALL_RUN.md), [upgrade dan cutover](docs/migration/finance-20261029/FIN17_CUTOVER.md).
 
 ## Verifikasi
 

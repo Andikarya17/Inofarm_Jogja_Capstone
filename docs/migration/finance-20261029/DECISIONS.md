@@ -1,5 +1,18 @@
 # Decision register target baru
 
+## Keputusan terkini yang direkonsiliasi, 8 November 2026
+
+Ringkasan keputusan berikut berasal dari chat proyek yang dibaca pada [audit serah terima](../../context/DOCUMENTATION_AUDIT_20261108.md), dibandingkan dengan source/kontrak. Bukan persetujuan baru terhadap seluruh Q terbuka.
+
+- Pengguna melanjutkan FIN16–17 sesudah FIN11–15 teman, lalu meminta integrasi branch. PR1–46 terkait rangkaian finance/IoT/frontend/dokumentasi sudah masuk main sampai `0ea7f66`. Pembatasan lama berhenti FIN10/FIN15 dan push ditunda di bawah merupakan histori. Beranda `d6774fc` dipush tetapi belum masuk main saat fetch audit.
+- 7 November: gunakan dua ilustrasi lokal `assets/background login.jpg` dan `assets/background dashboard.jpg`, dengan identitas forest/sage/krem, kaca selektif, panel solid dan adaptasi font/IME. Rencana foto internet sebelumnya digantikan keputusan aset ini.
+- 8 November: pengguna menjelaskan empat greenhouse dan satu varietas/waktu tanam bersama per greenhouse pada praktik lapangan. Alur harian pengelola cukup memilih greenhouse; awalnya semua greenhouse dalam penugasan. Jumlah greenhouse tetap berbasis data, histori musim/kelompok dipertahankan. Periode berjalan ditetapkan eksplisit/diaudit, tidak disamakan dengan musim open. [Kontrak executable](../../../contracts/v2/MANAGER_HOME.md).
+- Perhatian harus berdasar bukti dan waktu data. Kas bulanan adalah penerimaan penjualan lunas dan pembayaran aktual, bukan laba atau alokasi/penyusutan. Aturan tenggat/completion dan biaya bersama lintas greenhouse tidak otomatis disahkan.
+- Impeccable dan antislop DURING diminta untuk UI, dengan motion singkat yang menghormati pengaturan Android. Preferensi DURING disimpan pada laptop; periksa skill pada sesi baru.
+- Pengguna pernah meminta main diperlakukan sebagai jalur deploy/rilis, tetapi pekerjaan Beranda secara eksplisit tidak mengizinkan deploy atau merge otomatis. Penerimaan UAT/pentest/produksi tetap terpisah.
+
+Untuk keadaan siap lanjut gunakan [HANDOFF 8 November](../../context/HANDOFF_20261108.md). Tabel D01–D10 di bawah merekam keputusan audit FIN00; D04 audit-only dan D05 mempertahankan source legacy sudah digantikan instruksi implementasi/penghapusan source berikutnya. Perlindungan data/histori tetap berlaku.
+
 ## Keputusan pengguna 2 November2026 — penghapusan IoT dan dashboard manual
 
 Pengguna meminta pencatatan menjadi satu-satunya produk aktif, penghapusan source/runtime/tooling IoT dan prototipe monitoring setelah shared dependencies dipisahkan; tabel/migration/histori/provenance tetap. Finance menjadi default tanpa flag dengan identitas/penyimpanan finance dipertahankan. Ini otorisasi implementasi reversible, bukan deploy/drop/clear data/cutover.
@@ -8,7 +21,7 @@ Pengukuran adalah kegiatan tersendiri tanpa bahan, EC mS/cm + PPM ppm wajib leng
 
 Status pelaksanaan: [IMPLEMENTATION_STATUS](../../context/IMPLEMENTATION_STATUS.md). Q10 angka disetujui pengguna saat pelaksanaan (IDR, nominal20,2, kuantitas/harga20,6, HALF_UP total); solver tetap belum disahkan. Pengguna juga mengoreksi publikasi ke remote GitHub `github`; otorisasi ini mengatasi tujuan GitLab operasional sebelumnya, bukan konfirmasi gate pengumpulan akademik. Baris audit FIN00 di bawah dipertahankan sebagai histori, bukan status executable terbaru.
 
-## Keputusan aktif
+## Keputusan dan checkpoint 30 Oktober–2 November (historis)
 
 Pengguna memperluas batas pengerjaan sampai FIN15 pada2 November; push tetap ditunda. FIN15 mengimplementasikan backup manual dan drill restore hanya pada MySQL testing terisolasi, tidak memberi nilai/jadwal/retensi/RPO/RTO/operator produksi Q08 atau izin production apply. Kewenangan backup seluruh sistem adalah kapabilitas server terpisah dari peran/assignment greenhouse, default kosong; app tidak menerima dump/credential.
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V2;
 
 use App\Domain\Cultivation\MasterService;
+use App\Domain\Sync\ScopedRead;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -55,8 +56,22 @@ final class MasterController extends Controller
     public function audit(Request $request, string $resource, string $id, MasterService $service)
     {
         $table = $this->table($request);
-        $service->scope($request->user(), $table)->where('id', $id)->first() ?? abort(404);
         $input = $request->validate(['cursor' => 'nullable|integer|min:0', 'limit' => 'sometimes|integer|min:1|max:100']);
+        if ($table === 'greenhouses') {
+            return app(ScopedRead::class)->run($request, function (User $actor) use ($service, $table, $id, $input) {
+                abort_unless($actor->role === 'manager', 403, 'Akses pengelola diperlukan.');
+                $service->scope($actor, $table)->where('id', $id)->first() ?? abort(404);
+
+                return $this->auditPage($table, $id, $input);
+            });
+        }
+        $service->scope($request->user(), $table)->where('id', $id)->first() ?? abort(404);
+
+        return $this->auditPage($table, $id, $input);
+    }
+
+    private function auditPage(string $table, string $id, array $input): array
+    {
         $limit = (int) ($input['limit'] ?? 50);
         $rows = DB::table('audit_logs')->where('entity_type', $table)->where('entity_id', $id)
             ->where('id', '>', $input['cursor'] ?? 0)->orderBy('id')->limit($limit + 1)->get();
@@ -80,6 +95,18 @@ final class MasterController extends Controller
         abort_unless(in_array($action, ['close', 'reopen'], true), 404);
 
         return $this->mutate($request, $service, $action, $id);
+    }
+
+    public function designatePeriod(Request $request, string $id, MasterService $service)
+    {
+        $operation = OperationInput::read($request, 'greenhouses', 'designate_period', [
+            'planting_group_id' => ['present', 'nullable', OperationInput::UUID],
+            'reason' => 'required|string|min:1|max:1000',
+        ], $id);
+        abort_if(trim($operation['payload']['reason']) === '', 422, 'Alasan penetapan diperlukan.');
+        $result = $service->mutate($request->user(), 'greenhouses', $operation);
+
+        return response()->json($result['body'], $result['status']);
     }
 
     private function mutate(Request $request, MasterService $service, string $action, ?string $id = null)

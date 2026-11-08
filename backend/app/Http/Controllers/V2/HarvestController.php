@@ -105,6 +105,8 @@ final class HarvestController extends Controller
             'items.*.fruit_count' => 'required|integer|min:0|max:2147483647', 'items.*.weight_kg' => 'required|string|max:30', 'notes' => 'present|string|max:2000'];
         if ($action !== 'create') {
             $rules['reason'] = 'required|string|min:1|max:1000';
+        } else {
+            $rules['running_period_version'] = 'sometimes|integer:strict|min:1|max:2147483647';
         }
         if ($action === 'update') {
             $rules['reference_policy'] = 'required|in:preserve,refresh';

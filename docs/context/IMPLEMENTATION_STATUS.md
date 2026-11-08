@@ -1,4 +1,20 @@
-# Status implementasi nyata — 7 November 2026
+# Status implementasi nyata, 9 November 2026
+
+## Pematangan UI pengelola
+
+Perubahan presentasi Compose mencakup baris pemilih bersama, pengelompokan Alat keuangan, hierarki form dan laporan, serta motion login. Scope akun, antrean, perhitungan dan kontrak v2 tetap mengikuti implementasi yang ada. [Matriks perubahan, hasil perangkat uji dan batas](MANAGER_UI_POLISH_EVIDENCE_20261109.md)
+
+## Snapshot integrasi dan serah terima
+
+Audit 8 November mencocokkan chat, source, evidence dan remote setelah fetch. Main lokal/remote `0ea7f66` memuat PR40/41 pelepasan IoT dan pengukuran, PR42 rombak frontend, PR43 botani, PR44 menu sekunder, PR45 perbaikan Run Android Studio, dan PR46 dokumentasi desain. Upgrade Beranda `d6774fc` sudah dipush pada `codex/manager-home-overview`, tetapi dua commit Beranda belum masuk main. Paket dokumentasi berikutnya berada di `codex/docs-project-handoff-20261108` di atas commit tersebut. [Handoff dan prompt](HANDOFF_20261108.md), [cakupan audit](DOCUMENTATION_AUDIT_20261108.md).
+
+FIN01–15 core dan FIN16 engineering tersedia; FIN17 adalah panduan/tooling, bukan cutover. Catatan lama “FIN11 belum diimplementasikan”, “push ditunda” dan draft PR40/41 di bawah menyatakan checkpoint bertanggalnya, bukan status terbaru.
+
+MH-10 masih parsial untuk kombinasi demosi dan seluruh download/export; MH-12 masih parsial untuk TalkBack menyeluruh/performa perangkat sasaran. Runtime tests tidak diulang pada audit dokumentasi ini. Pemeriksa `check-product-boundary.py` gagal pada artefak ignored `firmware/.pio/` di laptop ini; tidak ada file firmware tracked, dan artefak lokal tidak dihapus.
+
+## Beranda pengelola — 8 November 2026
+
+Ringkasan seluruh penugasan dan satu greenhouse, penetapan periode berjalan yang diaudit, pasangan pengukuran, temuan berbasis data, riwayat terfilter, serta kas bulanan tersedia pada branch `codex/manager-home-overview`. [Matriks bukti dan batas](MANAGER_HOME_UPGRADE_EVIDENCE.md)
 
 ## Menu lanjutan Android — 7 November 2026
 

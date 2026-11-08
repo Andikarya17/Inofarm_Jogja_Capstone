@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import com.inofarm.jogja.core.design.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -61,6 +64,7 @@ import com.inofarm.jogja.feature.harvest.*
 import com.inofarm.jogja.feature.expenses.*
 import com.inofarm.jogja.feature.attachments.*
 import com.inofarm.jogja.feature.sales.*
+import com.inofarm.jogja.feature.managerhome.*
 import org.json.JSONObject
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -164,22 +168,94 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             FinanceLogin(authState, endpoint, auth::login)
         }
         else if(authState.loading) Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Spacer(Modifier.height(16.dp));Text("Menyimpan isian terakhir sebelum keluar…")}
-        else key(authState.session!!.scope.key,authState.session!!.role) { CompositionLocalProvider(LocalAttachmentAction provides attachments::open) { com.inofarm.jogja.feature.exports.ReportExportHost(authState.session!!,runtime.reportExports) { com.inofarm.jogja.feature.recovery.RecoveryHost(authState.session!!,runtime.recovery,activities::reload) { FinanceHome(authState.session!!,contextState,activityState,context::refresh,logout,activities,historyState,history,harvestState,harvest,harvestHistoryState,harvestHistory,financialState,financial,expenseHistoryState,expenseHistory,allocationHistoryState,allocationHistory,attachmentState,attachments,runtime.vault.generation,saleState,sales,saleHistoryState,saleHistory,assetWorkspace,reportWorkspace,investmentWorkspace,openAdmin) } } } }
+        else {
+            val session = requireNotNull(authState.session)
+            key(session.scope.key, session.role, session.token) {
+                Box(Modifier.fillMaxSize().farmFadeEntrance()) {
+                    CompositionLocalProvider(LocalAttachmentAction provides attachments::open) {
+                        com.inofarm.jogja.feature.exports.ReportExportHost(session, runtime.reportExports) {
+                            com.inofarm.jogja.feature.recovery.RecoveryHost(session, runtime.recovery, activities::reload) {
+                                FinanceHome(session, contextState, activityState, context::refresh, logout, activities,
+                                    historyState, history, harvestState, harvest, harvestHistoryState, harvestHistory,
+                                    financialState, financial, expenseHistoryState, expenseHistory, allocationHistoryState,
+                                    allocationHistory, attachmentState, attachments, runtime.vault.generation, saleState,
+                                    sales, saleHistoryState, saleHistory, assetWorkspace, reportWorkspace,
+                                    investmentWorkspace, openAdmin, { adminOpen = false })
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
-    if(adminOpen && authState.session?.role==UserRole.MANAGER) com.inofarm.jogja.feature.admin.AdminHost(authState.session!!,runtime.admin,context::refresh) {adminOpen=false}
+    if(adminOpen && authState.session?.role==UserRole.MANAGER && authState.session?.rejected==false) com.inofarm.jogja.feature.admin.AdminHost(authState.session!!,runtime.admin,context::refresh) {adminOpen=false}
     if(authState.session!=null && !authState.loading && authState.error!=null) AlertDialog(onDismissRequest=auth::clearError,title={Text("Belum keluar")},text={Text(authState.error!!)},confirmButton={TextButton(onClick=auth::clearError) {Text("Kembali ke isian")}})
 }
 
 @Composable private fun FinanceHome(session:FinanceSession,context:CultivationUiState,activity:ActivityUiState,onSync:()->Unit,onLogout:()->Unit,vm:ActivityViewModel,history:HistoryUiState,historyVm:HistoryViewModel,
     harvest:HarvestUiState,harvestVm:HarvestViewModel,harvestHistory:HistoryUiState,harvestHistoryVm:HistoryViewModel,financial:FinancialEntryState,financialVm:FinancialEntryViewModel,
-    expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:AssetWorkspace,reports:SeasonReportWorkspace,investments:InvestmentWorkspace,onAdmin:()->Unit) {
+    expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:AssetWorkspace,reports:SeasonReportWorkspace,investments:InvestmentWorkspace,onAdmin:()->Unit,onAccessDenied:()->Unit) {
     val runtime:FinanceRuntime=viewModel()
     val tabState = rememberSaveableStateHolder()
     var tab by rememberSaveable { mutableStateOf(0) };var gh by rememberSaveable { mutableStateOf<String?>(null) };var season by rememberSaveable { mutableStateOf<String?>(null) };var group by rememberSaveable { mutableStateOf<String?>(null) }
     var queueReviewError by rememberSaveable { mutableStateOf<String?>(null) }
     var queueReviewOperation by rememberSaveable { mutableStateOf<String?>(null) }
+    var queueFocus by rememberSaveable { mutableStateOf<String?>(null) }
     var queueOpening by remember { mutableStateOf(false) }
     val manager = session.role == UserRole.MANAGER
+    var managerRefresh by remember { mutableLongStateOf(0L) }
+    var periodReview by rememberSaveable { mutableStateOf(false) }
+    var financeKind by rememberSaveable { mutableStateOf(OperationalKind.EXPENSE.wire) }
+    var financeLink by rememberSaveable { mutableIntStateOf(0) }
+    val homeRepository = remember(runtime) { ManagerHomeRepository(runtime.vault, runtime.store, runtime.api) }
+    val syncUpdates by runtime.sync.updates.collectAsStateWithLifecycle()
+    val managerHome = if (manager) rememberManagerHome(homeRepository, session, ticket, gh, syncUpdates, activity.records, managerRefresh)
+        else ManagerHomeState()
+    if (session.rejected || managerHome.sessionRejected) {
+        LaunchedEffect(Unit) { onAccessDenied() }
+        Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(FarmSpace.Page),
+            verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+            FarmPageTitle("Periksa akses akun")
+            FarmPanel {
+                Text("Akses pengelola telah berubah. Masuk kembali dengan akun yang sama untuk memeriksa penugasan.")
+                Text("Draf dan antrean tetap tersimpan di perangkat.")
+                Button(onClick = onLogout, shape = FarmShape.Control,
+                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-home-relogin")) { Text("Keluar dari sesi ini") }
+            }
+        }
+        return
+    }
+    LaunchedEffect(managerHome.selectionRevoked) {
+        if (managerHome.selectionRevoked) {
+            gh = null
+            periodReview = false
+        }
+    }
+    val homeSnapshot = managerHome.snapshot
+    val runningGroup = homeSnapshot?.period?.text("group_id")
+    val runningVersion = homeSnapshot?.selected?.getLong("version")
+    val canRecordFromHome = gh != null && runningGroup != null && runningVersion != null && !session.expired()
+    val openHomeDestination: (HomeDestination) -> Unit = { destination ->
+        val target = when (destination.kind) {
+            OperationalKind.ACTIVITY -> historyVm
+            OperationalKind.HARVEST -> harvestHistoryVm
+            OperationalKind.SALE -> saleHistoryVm
+            else -> expenseHistoryVm
+        }
+        val destinationTab = when (destination.kind) {
+            OperationalKind.ACTIVITY -> 2
+            OperationalKind.HARVEST -> 3
+            else -> 4
+        }
+        target.filter(destination.filter, destination.seasonLabelId)
+        if (destinationTab == 4) {
+            financeKind = destination.kind.wire
+            financeLink++
+        }
+        val id = destination.recordId
+        if (id == null) tab = destinationTab
+        else target.select(id) { error -> if (error != null) tab = destinationTab }
+    }
     val queueHistory = buildMap {
         put(OperationalKind.ACTIVITY.wire, historyVm)
         put(OperationalKind.HARVEST.wire, harvestHistoryVm)
@@ -198,7 +274,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val selectedSeason = context.seasons.find { it.optString("id") == season && it.optString("greenhouse_id") == gh }
     val selectedGroup = context.groups.find { it.optString("id") == group && it.optString("season_id") == season && it.optBoolean("active", true) }
     LaunchedEffect(context.lastSyncedAt, context.greenhouses, context.seasons, context.groups) {
-        if (context.lastSyncedAt != null || context.greenhouses.isNotEmpty()) {
+        if (!manager && (context.lastSyncedAt != null || context.greenhouses.isNotEmpty())) {
             if (selectedGreenhouse == null) gh = null
             if (gh == null || selectedSeason == null) season = null
             if (season == null || selectedGroup == null) group = null
@@ -257,10 +333,15 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             FinanceToolbar(session, context.loading, writing, sessionExpired, onSync, onLogout, onAdmin)
         }
     } },bottomBar={
-        if (showNavigation) FinanceNavigation(tab, manager, translucentNavigation) { if (!queueOpening) tab = it }
+        if (showNavigation) FinanceNavigation(tab, manager, translucentNavigation) {
+            if (!queueOpening) {
+                queueFocus = null
+                tab = it
+            }
+        }
     }) { padding ->
         val menuViewport = showNavigation && !writing
-        if (menuViewport) BotanicalBackdrop(R.drawable.background_dashboard)
+        if (menuViewport && tab == 0) BotanicalBackdrop(R.drawable.background_dashboard, accentHeight = 152.dp)
         val systemBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val contentPadding = if (translucentNavigation) {
             PaddingValues(start = padding.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current),
@@ -287,6 +368,29 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 session.role==UserRole.MANAGER && allocationHistory.selected!=null -> HistoryScreen(session,context,allocationHistory,allocationHistoryVm,activity.queue,onEdit={record,replace -> financialVm.open(record,replace);allocationHistoryVm.close()},kind=OperationalKind.COST_ALLOCATION,returnToQueue=tab==1)
                 history.selected!=null -> HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()},returnToQueue=tab==1)
                 harvestHistory.selected!=null -> HistoryScreen(session,context,harvestHistory,harvestHistoryVm,activity.queue,onEdit={record,replace -> harvestVm.open(record,replace);harvestHistoryVm.close()},kind=OperationalKind.HARVEST,returnToQueue=tab==1)
+                tab == 0 && manager -> tabState.SaveableStateProvider("manager-home-${gh.orEmpty()}") {
+                    ManagerHomeScreen(gh, managerHome, activity.queue, PaddingValues(
+                        top = FarmSpace.Medium,
+                        bottom = FarmSpace.Large + if (translucentNavigation) (padding.calculateBottomPadding() - systemBottom).coerceAtLeast(0.dp) else 0.dp,
+                    ), periodReview, { periodReview = it }, { id -> gh = id; periodReview = false }, {
+                        managerRefresh++
+                        onSync()
+                    }, openHomeDestination, { operation -> queueFocus = operation.id; tab = 1 },
+                        onRecord = { type, schedule ->
+                            if (canRecordFromHome) vm.new(gh!!, runningGroup!!, type, schedule, runningVersion)
+                        },
+                        onHarvest = { if (canRecordFromHome) harvestVm.new(gh!!, runningGroup!!, runningVersion) },
+                        onAdmin = onAdmin,
+                        seasonActions = { row -> SeasonActions(row, history.busy, history.message, historyVm::season) },
+                        onDesignate = { groupId, reason ->
+                            try {
+                                homeRepository.designate(session, ticket, requireNotNull(homeSnapshot), groupId, reason)
+                            } finally {
+                                managerRefresh++
+                                onSync()
+                            }
+                        })
+                }
                 tab==0 -> tabState.SaveableStateProvider(0) { LazyColumn(
                     modifier=Modifier.fillMaxSize().testTag("finance-home-list"),
                     verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium),
@@ -344,9 +448,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         items(schedules,key={it.getString("id")}) { schedule -> ElevatedCard { Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {Text(ActivityType.entries.find { it.wire==schedule.optString("activity_type") }?.label ?: "Kegiatan");Text(timeLabel(schedule.optString("planned_at")));Text(schedule.optString("notes"));Text("Satu catatan tidak otomatis menyelesaikan seluruh jadwal.",style=MaterialTheme.typography.bodySmall);OutlinedButton(onClick={vm.new(gh!!,group!!,ActivityType.entries.single { it.wire==schedule.getString("activity_type") },schedule.getString("id"))},enabled=open) {Text("Catat realisasi")} } } }
                         item { Notice("Target dan acuan tersedia saat mengisi kegiatan. Hasil pengukuran dicatat manual.") }
                     } else if(!context.loading && context.greenhouses.isEmpty()) item { Notice("Belum ada greenhouse dalam penugasan yang tersimpan. Sinkronkan atau hubungi pengelola.") }
-                    if (session.role == UserRole.MANAGER && selectedSeason != null) item("season-actions") {
-                        SeasonActions(selectedSeason, history.busy, history.message, historyVm::season)
-                    }
                     if (selectedGroup == null) item("sync") {
                         FarmPanel(title = "Sinkronisasi") {
                             if (!sessionExpired) context.message?.let {
@@ -358,7 +459,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     }
                     item { activity.message?.let { Notice(it) } }
                 } }
-                tab==1 -> tabState.SaveableStateProvider(1) {
+                tab==1 -> tabState.SaveableStateProvider(queueFocus?.let { "queue-$it" } ?: 1) {
                     QueueScreen(activity, context, sessionExpired, queueReviewOperation, queueReviewError, queueOpening, vm::reload,
                         onReview = { op ->
                             queueReviewError = null
@@ -380,14 +481,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         canReview = { op ->
                             val kind = op.envelope.optString("entity_type")
                             kind in queueHistory || manager && (kind in investmentQueueKinds || kind == "season_report")
-                        })
+                        }, focusOperation = queueFocus)
                 }
                 tab==4 && manager -> tabState.SaveableStateProvider(4) {
-                    FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync)
+                    FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync,financeKind,financeLink)
                 }
                 tab==2 || tab==3 -> tabState.SaveableStateProvider(tab) {
                     val isActivity = tab == 2
-                    val canRecord = selectedGreenhouse != null && selectedGroup != null && selectedSeason?.optString("status") == "open"
+                    val canRecord = if (manager) canRecordFromHome else selectedGreenhouse != null && selectedGroup != null && selectedSeason?.optString("status") == "open"
                     HistoryScreen(session,context,if (isActivity) history else harvestHistory,
                         if (isActivity) historyVm else harvestHistoryVm,activity.queue,
                         onEdit={record,replace ->
@@ -397,7 +498,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         kind=if (isActivity) OperationalKind.ACTIVITY else OperationalKind.HARVEST,
                         onRecord={
                             if (!canRecord) tab=0
-                            else if (isActivity) vm.new(selectedGreenhouse!!.getString("id"), selectedGroup!!.getString("id"))
+                            else if (manager) {
+                                if (isActivity) vm.new(gh!!, runningGroup!!, runningPeriodVersion = runningVersion)
+                                else harvestVm.new(gh!!, runningGroup!!, runningVersion)
+                            } else if (isActivity) vm.new(selectedGreenhouse!!.getString("id"), selectedGroup!!.getString("id"))
                             else harvestVm.new(selectedGreenhouse!!.getString("id"), selectedGroup!!.getString("id"))
                         },
                         recordLabel=when {
@@ -405,7 +509,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             isActivity -> "Catat kegiatan"
                             else -> "Catat panen"
                         },
-                        recordScope=if (canRecord) listOf(selectedGreenhouse,selectedSeason,selectedGroup)
+                        recordScope=if (canRecord && manager) listOfNotNull(homeSnapshot?.selected?.text("name"),homeSnapshot?.period?.text("season_name")).joinToString(" · ")
+                        else if (canRecord) listOf(selectedGreenhouse,selectedSeason,selectedGroup)
                             .joinToString(" · ") { it!!.getString("name") } else null,
                         onSync=onSync)
                 }
@@ -442,19 +547,27 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             IconButton(onClick = { accountOpen = true }, modifier = Modifier.testTag("finance-account")) {
                 FarmControlIcon(FarmIcon.Account, if (sessionExpired) "Menu akun. Sesi berakhir." else "Menu akun")
             }
-            DropdownMenu(expanded = accountOpen, onDismissRequest = { accountOpen = false }) {
-                Column(Modifier.widthIn(max = 240.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
+            DropdownMenu(expanded = accountOpen, onDismissRequest = { accountOpen = false },
+                containerColor = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.widthIn(max = 248.dp).padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Small)) {
                     Text(session.name, style = MaterialTheme.typography.titleMedium)
-                    Text(if (session.role == UserRole.WORKER) "Pekerja" else "Pengelola", style = MaterialTheme.typography.bodySmall)
+                    Text(if (session.role == UserRole.WORKER) "Pekerja" else "Pengelola",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (session.role == UserRole.MANAGER) DropdownMenuItem(
-                    text = { Text("Kelola akun, budidaya dan acuan") },
-                    onClick = { accountOpen = false; onAdmin() },
-                    enabled = !writing,
-                    modifier = Modifier.testTag("finance-admin")
-                )
+                HorizontalDivider(Modifier.padding(horizontal = FarmSpace.Page))
+                if (session.role == UserRole.MANAGER) {
+                    DropdownMenuItem(
+                        text = { Text("Administrasi") },
+                        leadingIcon = { FarmControlIcon(FarmIcon.Account, null) },
+                        onClick = { accountOpen = false; onAdmin() },
+                        enabled = !writing,
+                        modifier = Modifier.testTag("finance-admin")
+                    )
+                    HorizontalDivider(Modifier.padding(horizontal = FarmSpace.Page))
+                }
                 DropdownMenuItem(
                     text = { Text("Keluar") },
+                    leadingIcon = { FarmControlIcon(FarmIcon.Logout, null) },
                     onClick = { accountOpen = false; onLogout() },
                     enabled = !writing,
                     modifier = Modifier.testTag("finance-logout")
@@ -485,6 +598,7 @@ internal fun ExpiredSessionNotice() {
         FarmPageTitle(title)
         FarmDraftStatus(state.saved, Modifier.testTag("finance-draft-status"))
         FarmSection(title = "Waktu dan kelompok") {
+            if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
             context.groups.find { it.optString("id") == draft.groupId }?.let { Text(it.optString("name")) }
             Choice("Jenis kegiatan",draft.type.wire,ActivityType.entries.map { JSONObject().put("id",it.wire).put("name",it.label) },"finance-type") { value -> vm.edit { it.copy(type=ActivityType.entries.single { type -> type.wire==value }) } }
             FinanceField("Tanggal kejadian (YYYY-MM-DD)",draft.date,{value -> vm.edit {it.copy(date=value)}},"finance-date",state.errors["occurred_at"])
@@ -544,6 +658,7 @@ internal fun ExpiredSessionNotice() {
         FarmPageTitle("Periksa catatan")
         if(draft.replaceValidationRejected) Notice("Perbaikan ini membuat operasi baru. Operasi yang ditolak tetap disimpan sebagai riwayat dan tidak dikirim ulang.")
         FarmPanel(title = draft.type.label) {
+            if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
             FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
             FarmFact("Waktu kejadian", "${draft.date} ${draft.time} WIB")
             if (draft.skipped) FarmFact("Alasan kegiatan dilewati", draft.skippedReason)
@@ -667,23 +782,53 @@ internal fun ExpiredSessionNotice() {
         )
     }
 }
-@Composable internal fun Choice(label:String,selected:String?,options:List<JSONObject>,tag:String,onSelect:(String)->Unit) {
-    var expanded by rememberSaveable {mutableStateOf(false)}
-    val value=options.find {it.optString("id")==selected}?.optString("name")
+@Composable internal fun Choice(
+    label: String, selected: String?, options: List<JSONObject>, tag: String,
+    loading: Boolean = false, onSelect: (String) -> Unit
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    var sheet by rememberSaveable { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    var focused by remember { mutableStateOf(false) }
+    var restoreFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(expanded) {
+        if (!expanded && restoreFocus) {
+            focus.requestFocus()
+            restoreFocus = false
+        }
+    }
+    val dialogOnly = LocalFarmDialogPicker.current
+    val value = options.find { it.optString("id") == selected }?.optString("name")
+        ?: if (selected.isNullOrEmpty()) "Belum dipilih" else "Pilihan tersimpan belum tersedia"
     OutlinedButton(
-        onClick = { expanded = true }, shape = FarmShape.Control,
+        onClick = {
+            restoreFocus = focused
+            sheet = !dialogOnly && options.size > 6
+            expanded = true
+        }, shape = FarmShape.Control,
         colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag(tag)
+            .focusRequester(focus).onFocusChanged { focused = it.isFocused }
     ) {
-        Column(Modifier.weight(1f).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.weight(1f).padding(vertical = FarmSpace.Tiny), verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value ?: "Belum dipilih", style = MaterialTheme.typography.bodyLarge)
+            Text(value, style = MaterialTheme.typography.bodyLarge)
         }
-        if (LocalDensity.current.fontScale <= 1.5f) Text("Pilih", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(FarmSpace.Small))
+        FarmControlIcon(FarmIcon.ChevronDown, null)
     }
-    if(expanded) AlertDialog(onDismissRequest={expanded=false},title={Text("Pilih $label")},text={LazyColumn(Modifier.heightIn(max=380.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-        if(options.isEmpty()) item {Text("Belum ada pilihan yang tersedia.")}
-        items(options,key={it.getString("id")}) { row -> TextButton(onClick={onSelect(row.getString("id"));expanded=false},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("$tag-option-${row.getString("id")}")) {Text(row.getString("name"),Modifier.fillMaxWidth())} }
-    }},confirmButton={TextButton(onClick={expanded=false}) {Text("Tutup")}})
+    if (expanded) FarmPicker(
+        title = "Pilih ${label.replaceFirstChar { it.lowercaseChar() }}",
+        options = options.map {
+            FarmOption(it.getString("id"), it.optString("choice_label").ifBlank { it.getString("name") },
+                it.optString("choice_detail").takeIf(String::isNotBlank))
+        },
+        selected = selected,
+        optionTag = { "$tag-option-$it" },
+        onDismiss = { expanded = false },
+        onSelect = { expanded = false; onSelect(it) },
+        sheet = sheet && !dialogOnly,
+        loading = loading
+    )
 }

@@ -1,5 +1,7 @@
 # Data contracts target v2
 
+Snapshot Beranda pengelola dan penetapan periode berjalan memiliki [kontrak executable](../../contracts/v2/MANAGER_HOME.md). Migration 16 menambah penunjukan kelompok berjalan per greenhouse. Pembacaan kas bulanan memakai nominal desimal dan cakupan penugasan efektif.
+
 Perubahan2 November2026: [kontrak EC/PPM manual](../../contracts/v2/MEASUREMENTS.md), nullable EC schema15, tipe activity measurement dan read latest scoped, tanpa mengubah envelope wire2/hash antrean lama atau SQLite9. EC mS/cm dan PPM ppm tidak dikonversi.
 
 ## Lanjutan FIN16–17 — 2 November 2026

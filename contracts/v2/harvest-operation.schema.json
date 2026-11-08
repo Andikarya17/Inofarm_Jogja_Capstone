@@ -175,6 +175,11 @@
         "notes": {
           "type": "string",
           "maxLength": 2000
+        },
+        "running_period_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
         }
       }
     },

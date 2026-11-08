@@ -54,6 +54,8 @@ internal object FarmMotion {
     const val Press = 120
     const val State = 200
     const val Navigation = 220
+    const val LoginEntrance = 240
+    const val LoginFeedback = 160
 }
 
 internal object FarmDepth {

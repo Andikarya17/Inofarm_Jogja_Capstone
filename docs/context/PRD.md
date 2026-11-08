@@ -1,5 +1,9 @@
 # PRD: pencatatan operasional dan evaluasi keuangan greenhouse
 
+## Beranda pengelola — 8 November 2026
+
+Login pengelola membuka semua greenhouse dalam penugasan. Satu ketukan pada greenhouse membuka ringkasan periode budidaya yang ditetapkan secara eksplisit, pasangan EC/PPM, panen, catatan diterima, dan kas bulanan WIB. Pembukaan musim untuk koreksi transaksi tetap terpisah. Temuan menunjukkan alasan dan waktu pemeriksaan. Draf tetap terikat parent asal saat cakupan browsing berubah. [Acceptance dan bukti](MANAGER_HOME_UPGRADE_EVIDENCE.md)
+
 ## Perubahan pengguna2 November2026
 
 KF-04 diperluas dengan pengukuran EC mS/cm dan PPM ppm manual sebagai kegiatan tersendiri tanpa pemberian bahan; keduanya wajib saat submit, draf boleh parsial. pH manual dan histori tetap. Beranda memiliki tepat dua kartu EC/PPM dari satu catatan valid, kalender waktu ukur WIB hari ini→kemarin→sebelumnya, tanpa nol/rekaan atau campur scope. [Aturan lengkap dan state](../../contracts/v2/MEASUREMENTS.md). Tidak menghapus KF01–14, KNF01–08, U01–21. Instruksi ini mengatasi uraian legacy/coexistence di bawah.

@@ -23,6 +23,7 @@ import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.harvest.domain.HarvestDraft
 import com.inofarm.jogja.feature.harvest.domain.HarvestLine
+import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
 
 @Composable fun HarvestForm(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel) {
     val draft=state.draft ?: return
@@ -30,6 +31,7 @@ import com.inofarm.jogja.feature.harvest.domain.HarvestLine
         com.inofarm.jogja.core.design.FarmPageTitle(if (draft.baseVersion == null) "Catat panen" else "Koreksi panen")
         FarmDraftStatus(state.saved)
         FarmSection(title = "Waktu dan kelompok") {
+            if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
             Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
             FinanceField("Tanggal panen WIB",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
             FinanceField("Jam panen WIB",draft.time,{value -> vm.edit {it.copy(time=value)}},"harvest-time",state.errors["occurred_at"],hint="HH:mm; detik opsional")
@@ -40,8 +42,8 @@ import com.inofarm.jogja.feature.harvest.domain.HarvestLine
                 Text("Rincian sudah tersimpan atau diantrekan. Untuk grade berbeda, hapus rincian dan tambahkan rincian baru; saldo tetap diperiksa server.",style=MaterialTheme.typography.bodySmall)
             } else Choice("Grade",line.gradeId,context.grades.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optBoolean("active",true)},"harvest-grade-$index") {value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(gradeId=value,gradeName=context.grades.find {grade -> grade.optString("id")==value}?.optString("name").orEmpty()) else row})}}
             state.errors["items.$index.grade"]?.let {Notice(it,true)}
-            FinanceField("Jumlah buah",line.fruitCount,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(fruitCount=value) else row})}},"harvest-count-$index",state.errors["items.$index.count"],KeyboardType.Number,"buah; kosong bukan nol")
-            FinanceField("Bobot panen",line.weightKg,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(weightKg=value) else row})}},"harvest-weight-$index",state.errors["items.$index.weight"],KeyboardType.Decimal,"kg; contoh 15,25, tanpa pemisah ribuan")
+            FinanceField("Jumlah (buah)",line.fruitCount,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(fruitCount=value) else row})}},"harvest-count-$index",state.errors["items.$index.count"],KeyboardType.Number,"Kosong bukan nol")
+            FinanceField("Bobot panen (kg)",line.weightKg,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(weightKg=value) else row})}},"harvest-weight-$index",state.errors["items.$index.weight"],KeyboardType.Decimal,"Contoh 15,25 tanpa pemisah ribuan")
             TextButton(onClick={vm.edit {it.copy(items=it.items.filterIndexed {i,_ -> i!=index})}},
                 modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("harvest-remove-$index")) {Text("Hapus rincian ${index+1}")}
         }}}
@@ -67,7 +69,8 @@ import com.inofarm.jogja.feature.harvest.domain.HarvestLine
 @Composable fun HarvestReview(draft:HarvestDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         com.inofarm.jogja.core.design.FarmPageTitle("Periksa panen")
-        FarmPanel(title = "Waktu dan kelompok") {
+        FarmSection(title = "Waktu dan kelompok") {
+            if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
             FarmFact("Waktu panen", "${draft.date} ${draft.time} WIB")
             FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
         }
