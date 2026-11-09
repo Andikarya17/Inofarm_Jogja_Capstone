@@ -1,5 +1,9 @@
 # Status implementasi nyata, 9 November 2026
 
+## Audit pekerja dan administrasi — 9 November 2026
+
+Status tindak lanjut: **OPEN, prompt tersedia; runtime belum diubah**. Kegiatan/panen masih ada pada source dan branch lama sudah menjadi ancestry. Sesi emulator yang diperiksa menampilkan greenhouse penugasan tersimpan kosong; penyebab API/assignment/cache belum dibuktikan. Edit email akun belum tersedia pada form dan update backend. Permintaan terbaru meliputi alur CRUD greenhouse/akun, password/role, penugasan sampai pencatatan pekerja. Lihat [audit](WORKER_RECORDING_AUDIT_20261109.md) dan [master prompt](MASTER_PROMPT_WORKER_RECORDING_RECOVERY.md). Bukti test historis di bawah bukan pengujian ulang task ini.
+
 ## Pematangan UI pengelola
 
 Perubahan presentasi Compose mencakup baris pemilih bersama, pengelompokan Alat keuangan, hierarki form dan laporan, serta motion login. Scope akun, antrean, perhitungan dan kontrak v2 tetap mengikuti implementasi yang ada. [Matriks perubahan, hasil perangkat uji dan batas](MANAGER_UI_POLISH_EVIDENCE_20261109.md)

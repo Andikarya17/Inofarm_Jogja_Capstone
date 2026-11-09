@@ -1,5 +1,9 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+## Pemulihan pencatatan pekerja dan administrasi, 9 November 2026
+
+[Audit source, branch dan sesi emulator](WORKER_RECORDING_AUDIT_20261109.md) menemukan fitur kegiatan/panen masih terintegrasi, tetapi sesi yang diperiksa tidak memiliki konteks greenhouse tersimpan. [Master prompt perbaikan](MASTER_PROMPT_WORKER_RECORDING_RECOVERY.md) mencakup diagnosis, pemilihan konteks pekerja, kegiatan sesuai dua sheet workbook, panen, CRUD greenhouse/akun, edit email/password/role dan penugasan. Antislop DURING dan Impeccable diwajibkan pengguna. Ini dokumen pelaksanaan, belum perbaikan runtime. Setelah fetch, main `419a144` sudah memuat PR #47; tree sama dengan `d359502`.
+
 ## Pematangan UI pengelola, 9 November 2026
 
 Branch `codex/manager-ui-polish` mematangkan lima tab pengelola, pemilih, Alat keuangan, layar turunannya dan login. [Bukti implementasi](MANAGER_UI_POLISH_EVIDENCE_20261109.md) mencatat APK baseline `1e721f7`, perbandingan screenshot, verifikasi emulator, dan batas penerimaan. [Audit awal](MANAGER_UI_REVIEW_20261109.md) dan [master prompt](MASTER_PROMPT_MANAGER_UI_POLISH.md) menyimpan dasar desain.

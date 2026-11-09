@@ -1,5 +1,9 @@
 # Gap analysis baseline 29 Oktober 2026
 
+## Gap pencatatan pekerja dan administrasi — 9 November 2026
+
+OPEN: diagnosis greenhouse penugasan kosong pada sesi emulator; keterjangkauan tambah kegiatan/panen saat konteks belum siap; alur administrasi greenhouse→musim/kelompok→akun/penugasan→pekerja; edit email akun (belum didukung Android/backend); verifikasi reset password/role dan nonaktifkan tanpa kehilangan histori. [Audit](WORKER_RECORDING_AUDIT_20261109.md) membedakan fondasi existing dari gap, dan [master prompt](MASTER_PROMPT_WORKER_RECORDING_RECOVERY.md) menetapkan WR-01–WR-13. Dokumen ini tidak menandai perbaikan runtime atau E2E lulus.
+
 ## Gap aktif setelah upgrade Beranda, 8 November 2026
 
 Frontend operasional, botani, menu sekunder dan perbaikan Run Android Studio sudah diintegrasikan sampai main `0ea7f66`. Beranda pengelola tersedia di `d6774fc`, belum masuk main pada fetch audit. Backend migration16 dan SQLite10 tersedia di branch tersebut. Bukan backlog implementasi dari nol. [Handoff](HANDOFF_20261108.md), [evidence Beranda](MANAGER_HOME_UPGRADE_EVIDENCE.md).
