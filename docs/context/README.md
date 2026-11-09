@@ -1,5 +1,9 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+## Pemulihan pencatatan pekerja dan administrasi, 9 November 2026
+
+[Hasil pemulihan dan verifikasi WR-01 sampai WR-13](WORKER_RECORDING_RECOVERY_20261109.md) mencatat kondisi penugasan awal, perbaikan cursor sinkronisasi, formulir pekerja, administrasi, dan hasil pengujian. [Audit awal](WORKER_RECORDING_AUDIT_20261109.md) dan [master prompt](MASTER_PROMPT_WORKER_RECORDING_RECOVERY.md) menjelaskan baseline dan skenario penerimaan.
+
 ## Pematangan UI pengelola, 9 November 2026
 
 Branch `codex/manager-ui-polish` mematangkan lima tab pengelola, pemilih, Alat keuangan, layar turunannya dan login. [Bukti implementasi](MANAGER_UI_POLISH_EVIDENCE_20261109.md) mencatat APK baseline `1e721f7`, perbandingan screenshot, verifikasi emulator, dan batas penerimaan. [Audit awal](MANAGER_UI_REVIEW_20261109.md) dan [master prompt](MASTER_PROMPT_MANAGER_UI_POLISH.md) menyimpan dasar desain.

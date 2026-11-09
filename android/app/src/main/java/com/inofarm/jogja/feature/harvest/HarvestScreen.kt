@@ -27,6 +27,7 @@ import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
 
 @Composable fun HarvestForm(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel) {
     val draft=state.draft ?: return
+    val grades=context.grades.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optBoolean("active",true)}
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         com.inofarm.jogja.core.design.FarmPageTitle(if (draft.baseVersion == null) "Catat panen" else "Koreksi panen")
         FarmDraftStatus(state.saved)
@@ -36,11 +37,12 @@ import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
             FinanceField("Tanggal panen WIB",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
             FinanceField("Jam panen WIB",draft.time,{value -> vm.edit {it.copy(time=value)}},"harvest-time",state.errors["occurred_at"],hint="HH:mm; detik opsional")
         }
+        if(grades.isEmpty() && !context.loading) Notice("Grade aktif belum tersedia di perangkat untuk greenhouse ini. Sinkronkan atau minta pengelola menyiapkan grade.")
         draft.items.forEachIndexed {index,line -> key(line.id) { FarmPanel(title = "Rincian grade ${index+1}") {
             if(line.id in draft.lockedItems) {
                 Text("Grade: ${line.gradeName.ifBlank {context.grades.find {it.optString("id")==line.gradeId}?.optString("name") ?: "belum tersedia"}}")
                 Text("Rincian sudah tersimpan atau diantrekan. Untuk grade berbeda, hapus rincian dan tambahkan rincian baru; saldo tetap diperiksa server.",style=MaterialTheme.typography.bodySmall)
-            } else Choice("Grade",line.gradeId,context.grades.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optBoolean("active",true)},"harvest-grade-$index") {value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(gradeId=value,gradeName=context.grades.find {grade -> grade.optString("id")==value}?.optString("name").orEmpty()) else row})}}
+            } else Choice("Grade",line.gradeId,grades,"harvest-grade-$index",loading=context.loading) {value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(gradeId=value,gradeName=grades.find {grade -> grade.optString("id")==value}?.optString("name").orEmpty()) else row})}}
             state.errors["items.$index.grade"]?.let {Notice(it,true)}
             FinanceField("Jumlah (buah)",line.fruitCount,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(fruitCount=value) else row})}},"harvest-count-$index",state.errors["items.$index.count"],KeyboardType.Number,"Kosong bukan nol")
             FinanceField("Bobot panen (kg)",line.weightKg,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(weightKg=value) else row})}},"harvest-weight-$index",state.errors["items.$index.weight"],KeyboardType.Decimal,"Contoh 15,25 tanpa pemisah ribuan")

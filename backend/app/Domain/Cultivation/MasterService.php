@@ -59,7 +59,9 @@ final class MasterService
             $value['running_period_reviewed'] = (bool) $value['running_period_reviewed'];
         }
         if ($table === 'greenhouse_assignments') {
-            $value['user_id'] = User::findOrFail($row->user_id)->public_id;
+            $user = User::findOrFail($row->user_id);
+            $value['user_id'] = $user->public_id;
+            $value['user_name'] = $user->name;
         }
         unset($value['created_by']);
         foreach (['created_at', 'updated_at', 'effective_from', 'effective_until'] as $key) {
@@ -130,7 +132,8 @@ final class MasterService
                 abort_if(($data['end_date'] ?? null) !== null && $data['end_date'] < $data['start_date'], 422, 'Tanggal akhir tidak boleh sebelum mulai.');
             } elseif ($table === 'greenhouse_assignments') {
                 if ($action === 'create') {
-                    $user = User::where('public_id', $data['user_id'])->whereIn('role', ['worker', 'manager'])->where('active', true)->first() ?? abort(422, 'Akun operasional aktif diperlukan.');
+                    $user = $this->access->manageableUsers($current)->where('public_id', $data['user_id'])->whereIn('role', ['worker', 'manager'])->where('active', true)->first() ?? abort(422, 'Akun operasional aktif dalam kewenangan Anda diperlukan.');
+                    abort_if($user->role === 'manager' && ! DB::table($table)->where('user_id', $user->id)->exists(), 422, 'Pengelola tanpa penugasan harus menyiapkan greenhouse pertamanya sendiri.');
                     $data['user_id'] = $user->id;
                     abort_if(DB::table($table)->where('user_id', $user->id)->where('greenhouse_id', $gh)->exists(), 422, 'Penugasan sudah ada; perbarui versi yang ada.');
                 }

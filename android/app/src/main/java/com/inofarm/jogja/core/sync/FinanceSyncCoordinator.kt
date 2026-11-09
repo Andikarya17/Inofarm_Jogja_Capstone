@@ -20,22 +20,25 @@ import java.io.IOException
 import com.inofarm.jogja.core.contracts.AttachmentContract
 import com.inofarm.jogja.core.contracts.LocalAttachmentFailure
 
-data class SyncOutcome(val accepted: Int, val message: String)
+enum class ContextCheck { UNCHECKED, CHECKED, OFFLINE, FAILED, ACCESS_CHANGED }
+
+data class SyncOutcome(val accepted: Int, val message: String, val contextCheck: ContextCheck = ContextCheck.UNCHECKED)
 
 /** Shared foreground/job coordinator. Queue, retry timestamps and epoch holds survive process death. */
 class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: FinanceSessionVault, private val store: LocalFinanceStore,private val attachments:AttachmentTransfer?=null) {
     private val mutex=Mutex()
     private val completedRuns = MutableStateFlow(0L)
     val updates = completedRuns.asStateFlow()
-    suspend fun run(): SyncOutcome = withContext(Dispatchers.IO) {
-        if(!mutex.tryLock()) return@withContext SyncOutcome(0,"Sinkronisasi sedang berjalan.")
+    suspend fun run(waitForTurn: Boolean = false): SyncOutcome = withContext(Dispatchers.IO) {
+        if (waitForTurn) mutex.lock()
+        else if (!mutex.tryLock()) return@withContext SyncOutcome(0,"Sinkronisasi sedang berjalan.")
         var capturedSession: FinanceSession? = null
         var capturedTicket = -1L
         try {
             var session=vault.current ?: return@withContext SyncOutcome(0,"Masuk untuk mengirim antrean akun ini.")
             val ticket=vault.generation
             capturedSession=session;capturedTicket=ticket
-            if(session.expired()) return@withContext SyncOutcome(0,"Sesi berakhir. Masuk kembali dengan akun yang sama; draf dan antrean tetap disimpan.")
+            if(session.expired()) return@withContext SyncOutcome(0,"Sesi berakhir. Masuk kembali dengan akun yang sama; draf dan antrean tetap disimpan.", ContextCheck.ACCESS_CHANGED)
             val status=api.request(session.scope.server,session.token,"sync/status")
             if(!vault.matches(ticket,session.scope)) return@withContext SyncOutcome(0,"Sesi berubah; respons lama diabaikan.")
             require(status.optString("schema_version","2")=="2") {"Versi API tidak sesuai; pengiriman ditahan."}
@@ -53,7 +56,7 @@ class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: Fin
                 if(!vault.matches(ticket,session.scope)) return@withContext SyncOutcome(accepted,"Sesi berubah; antrean akun sebelumnya ditahan.")
                 val op=store.next(session.scope.key) ?: run {
                     if(accepted>0) pull(session,ticket)
-                    return@withContext SyncOutcome(accepted,if(accepted>0) "$accepted catatan diterima server." else "Data server sudah diperiksa.")
+                    return@withContext SyncOutcome(accepted,if(accepted>0) "$accepted catatan diterima server." else "Data server sudah diperiksa.", ContextCheck.CHECKED)
                 }
                 if(runCatching {WireContract.hash(op.envelope)}.getOrNull() != op.hash) {
                     store.mark(session.scope.key,op,SyncState.REJECTED,JSONObject().put("code","canonical_hash_mismatch").put("message","Hash pengajuan tidak cocok dengan kontrak UTF-8. Isi dan ID tetap disimpan untuk rekonsiliasi; pengiriman ditahan."))
@@ -89,15 +92,16 @@ class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: Fin
                 }
             }
             pull(session,ticket)
-            SyncOutcome(accepted,"$accepted catatan diterima. Jalankan kembali untuk sisa antrean.")
+            SyncOutcome(accepted,"$accepted catatan diterima. Jalankan kembali untuk sisa antrean.", ContextCheck.CHECKED)
         } catch(cancelled: CancellationException) { throw cancelled }
         catch(error: FinanceApiFailure) {
             val state=RetryPolicy.state(error)
             val session=capturedSession
             if(session != null && vault.matches(capturedTicket,session.scope) && state in setOf(SyncState.AUTH_REQUIRED,SyncState.SCOPE_REVOKED,SyncState.EPOCH_REVIEW)) store.hold(session.scope.key,state,error.detail)
-            SyncOutcome(0,error.message ?: "Sinkronisasi perlu ditinjau.")
+            SyncOutcome(0,error.message ?: "Sinkronisasi perlu ditinjau.",
+                if (state in setOf(SyncState.AUTH_REQUIRED, SyncState.SCOPE_REVOKED)) ContextCheck.ACCESS_CHANGED else ContextCheck.FAILED)
         } catch(error: IOException) {
-            SyncOutcome(0,"Offline atau server belum dapat dihubungi. Draf dan antrean tetap di perangkat.")
+            SyncOutcome(0,"Offline atau server belum dapat dihubungi. Draf dan antrean tetap di perangkat.", ContextCheck.OFFLINE)
         } finally {
             completedRuns.update { it + 1 }
             mutex.unlock()

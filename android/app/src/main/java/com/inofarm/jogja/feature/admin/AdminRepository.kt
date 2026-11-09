@@ -29,10 +29,11 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
         if(journal.optLong("revision")<previous.optLong("revision")) return
         check(preferences.edit().putString(session.scope.key,cipher.encode(session.scope.key,journal.toString())).commit()) {"Draf administrasi belum berhasil disimpan."}
     }
-    suspend fun list(session:FinanceSession,ticket:Long,resource:AdminResource,greenhouse:String?,cursor:String?=null):JSONObject=withContext(Dispatchers.IO) {
+    suspend fun list(session:FinanceSession,ticket:Long,resource:AdminResource,greenhouse:String?,cursor:String?=null,forAssignment:Boolean=false):JSONObject=withContext(Dispatchers.IO) {
         current(session,ticket)
         if(resource==AdminResource.USER) require(!greenhouse.isNullOrBlank()) {"Pilih greenhouse untuk daftar akun."}
         val query=mutableMapOf("limit" to "100")
+        if(forAssignment) query["for_assignment"]="1"
         if(resource !in setOf(AdminResource.SCHEDULE,AdminResource.TARGET) && !greenhouse.isNullOrBlank()) query["greenhouse_id"]=greenhouse
         cursor?.let {query["cursor"]=it}
         val page=api.request(session.scope.server,session.token,resource.path,query=query)
@@ -45,15 +46,23 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
         page
     }
     suspend fun options(session:FinanceSession,ticket:Long,source:String,greenhouse:String?):List<JSONObject> {
-        val resource=AdminResource.entries.single {it.path==source}
+        val forAssignment=source=="assignment-users"
+        val resource=if(forAssignment) AdminResource.USER else AdminResource.entries.single {it.path==source}
         val rows=mutableListOf<JSONObject>();val seen=mutableSetOf<String>();var cursor:String?=null
         do {
-            val page=list(session,ticket,resource,if(resource==AdminResource.GREENHOUSE) null else greenhouse,cursor)
+            val page=list(session,ticket,resource,if(resource==AdminResource.GREENHOUSE) null else greenhouse,cursor,forAssignment)
             val data=page.getJSONArray("data");repeat(data.length()) {rows+=data.getJSONObject(it)}
             cursor=page.optString("next_cursor").takeUnless {it.isBlank() || it=="null"}
             check(cursor==null || seen.add(cursor)) {"Pagination server tidak bergerak."}
         } while(cursor!=null)
         return rows
+    }
+    suspend fun assignmentCandidate(session:FinanceSession,ticket:Long,greenhouse:String,email:String):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val body=JSONObject().put("greenhouse_id",greenhouse).put("email",email.trim())
+        val result=api.request(session.scope.server,session.token,"users/assignment-candidate","POST",body)
+        current(session,ticket)
+        result.getJSONObject("data")
     }
     suspend fun prepare(session:FinanceSession,ticket:Long,form:AdminForm,password:String,journal:JSONObject):JSONObject=withContext(Dispatchers.IO) {
         current(session,ticket)

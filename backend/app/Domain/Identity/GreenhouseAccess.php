@@ -3,6 +3,7 @@
 namespace App\Domain\Identity;
 
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder as UserQuery;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -29,5 +30,11 @@ final class GreenhouseAccess
     public function manager(User $actor): void
     {
         abort_unless($actor->role === 'manager', 403, 'Akses pengelola diperlukan.');
+    }
+
+    public function manageableUsers(User $actor): UserQuery
+    {
+        return User::whereNotNull('public_id')->whereNotIn('id', DB::table('greenhouse_assignments')
+            ->select('user_id')->whereNotIn('greenhouse_id', $this->ids($actor)));
     }
 }

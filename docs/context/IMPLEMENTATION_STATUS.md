@@ -1,5 +1,9 @@
 # Status implementasi nyata, 9 November 2026
 
+## Pemulihan pencatatan pekerja dan administrasi, 9 November 2026
+
+Dua akun lokal yang diperiksa aktif dan belum memiliki penugasan. Secara terpisah, cursor inkremental dapat melewati master yang dibuat sebelum penugasan efektif. Pull sekarang membaca ulang cakupan yang sah ketika cakupan berubah. Aksi tambah pekerja melanjutkan ke formulir setelah pemilihan konteks. Pengelola dapat mencari dan memeriksa kesiapan greenhouse, menugaskan akun dalam cakupan, mencari pekerja tanpa penugasan dengan email lengkap, dan mengubah email akun yang dikelola. Uji UI dua akun existing membuktikan pengelola menyiapkan greenhouse, pekerja menyimpan kegiatan dan panen, lalu pengelola melihat kedua hasil yang diterima server. [Matriks bukti dan batas](WORKER_RECORDING_RECOVERY_20261109.md).
+
 ## Pematangan UI pengelola
 
 Perubahan presentasi Compose mencakup baris pemilih bersama, pengelompokan Alat keuangan, hierarki form dan laporan, serta motion login. Scope akun, antrean, perhitungan dan kontrak v2 tetap mengikuti implementasi yang ada. [Matriks perubahan, hasil perangkat uji dan batas](MANAGER_UI_POLISH_EVIDENCE_20261109.md)

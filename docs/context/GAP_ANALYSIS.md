@@ -1,5 +1,9 @@
 # Gap analysis baseline 29 Oktober 2026
 
+## Gap pencatatan pekerja dan administrasi — 9 November 2026
+
+Konfigurasi awal dua akun lokal tidak memiliki penugasan. Perbaikan branch menangani onboarding pekerja tanpa penugasan, kandidat dalam cakupan, replay cakupan untuk cursor, navigasi form pekerja, dan edit email akun. DO, suhu air, tinggi tanaman, jumlah dan lebar daun dicatat dalam keterangan pekerjaan dengan satuan. Bukti per acceptance dan kombinasi perangkat yang masih terbuka tercatat dalam [matriks WR](WORKER_RECORDING_RECOVERY_20261109.md).
+
 ## Gap aktif setelah upgrade Beranda, 8 November 2026
 
 Frontend operasional, botani, menu sekunder dan perbaikan Run Android Studio sudah diintegrasikan sampai main `0ea7f66`. Beranda pengelola tersedia di `d6774fc`, belum masuk main pada fetch audit. Backend migration16 dan SQLite10 tersedia di branch tersebut. Bukan backlog implementasi dari nol. [Handoff](HANDOFF_20261108.md), [evidence Beranda](MANAGER_HOME_UPGRADE_EVIDENCE.md).

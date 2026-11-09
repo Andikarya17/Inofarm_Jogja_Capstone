@@ -25,24 +25,30 @@ final class ChangeFeedController extends Controller
                 abort_unless(DB::table('personal_access_tokens')->where('id', $token->id)
                     ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->exists(), 401, 'Sesi telah dicabut atau berakhir.');
             }
-            $position = isset($input['cursor']) ? $cursor->decode($input['cursor'], $actor, $epoch) : ['after' => 0, 'upper' => null];
+            $scope = $access->query($actor)->orderBy('id')->limit(1001)->get(['id', 'active', 'version']);
+            abort_if($scope->count() > 1000, 422, 'Scope terlalu besar untuk protokol ini; hubungi pengelola.');
+            $ids = $scope->pluck('id')->all();
+            $scopeKey = hash('sha256', $actor->role.'|'.implode(',', $ids));
+            $position = isset($input['cursor']) ? $cursor->decode($input['cursor'], $actor, $epoch) : [];
+            if (($position['scope'] ?? null) !== $scopeKey) {
+                // Previously invisible master records can predate the client's cursor.
+                $position = ['after' => 0, 'upper' => null];
+            }
             $upper = $position['upper'] ?? (int) (DB::table('change_feed')->max('sequence') ?? 0);
             $limit = (int) ($input['limit'] ?? 50);
-            $q = DB::table('change_feed')->whereIn('greenhouse_id', $access->ids($actor))->where('sequence', '>', $position['after'])->where('sequence', '<=', $upper);
+            $q = DB::table('change_feed')->whereIn('greenhouse_id', $ids)->where('sequence', '>', $position['after'])->where('sequence', '<=', $upper);
             if ($actor->role !== 'manager') {
                 $q->where('audience', 'all');
             }
             $rows = $q->orderBy('sequence')->limit($limit + 1)->get();
             $more = $rows->count() > $limit;
             $after = $more ? $rows[$limit - 1]->sequence : $upper;
-            $scope = $access->query($actor)->orderBy('id')->limit(1001)->get(['id', 'active', 'version']);
-            abort_if($scope->count() > 1000, 422, 'Scope terlalu besar untuk protokol ini; hubungi pengelola.');
 
             return ['schema_version' => '2', 'sync_epoch' => $epoch, 'scope' => $scope, 'has_more' => $more,
                 'data' => $rows->take($limit)->map(fn ($row) => ['sequence' => $row->sequence, 'entity_type' => $row->entity_type, 'entity_id' => $row->entity_id,
                     'greenhouse_id' => $row->greenhouse_id, 'version' => $row->version, 'tombstone' => (bool) $row->tombstone,
                     'data' => json_decode($row->body, true, flags: JSON_THROW_ON_ERROR)])->values(),
-                'next_cursor' => $cursor->encode($actor, $epoch, $after, $more ? $upper : null)];
+                'next_cursor' => $cursor->encode($actor, $epoch, $after, $more ? $upper : null, $scopeKey)];
         });
     }
 }

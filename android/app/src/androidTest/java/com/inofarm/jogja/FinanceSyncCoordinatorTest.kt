@@ -34,7 +34,7 @@ class FinanceSyncCoordinatorTest {
     private val scope=AccountScope("http://fixture.invalid/api/v2/",UUID.randomUUID().toString())
     private lateinit var helper: FinanceDatabase;private lateinit var store: LocalFinanceStore;private lateinit var vault: FinanceSessionVault
     @Before fun prepare() {
-        assertTrue(context.packageName.endsWith(".finance"))
+        assertTrue(context.packageName.endsWith(".finance") || context.packageName.endsWith(".finance.performance"))
         helper=FinanceDatabase(context,name);store=LocalFinanceStore(helper,FixtureCipher());vault=FinanceSessionVault(context,FixtureCipher(),pref)
         val ticket=vault.beginLogin();vault.save(ticket,FinanceSession(scope,"synthetic-token",Instant.now().plusSeconds(3600).toString(),"Sintetis",UserRole.WORKER))
         store.initialize(scope.key,epoch,UserRole.WORKER);store.applyPull(scope.key,page())

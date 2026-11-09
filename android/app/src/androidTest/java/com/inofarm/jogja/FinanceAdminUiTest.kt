@@ -6,9 +6,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
+import androidx.test.espresso.Espresso
 import androidx.test.platform.app.InstrumentationRegistry
 import com.inofarm.jogja.core.contracts.UserRole
 import com.inofarm.jogja.core.database.*
+import com.inofarm.jogja.core.design.ForestScheme
 import com.inofarm.jogja.core.network.FinanceApi
 import com.inofarm.jogja.core.session.*
 import com.inofarm.jogja.feature.admin.*
@@ -25,7 +27,8 @@ class FinanceAdminUiTest {
     private val epoch=UUID.randomUUID().toString()
     private lateinit var helper:FinanceDatabase;private lateinit var vault:FinanceSessionVault;private lateinit var repository:AdminRepository;private lateinit var session:FinanceSession
     @Before fun setup() {
-        assertTrue(context.packageName.endsWith(".finance"));helper=FinanceDatabase(context,name+".db")
+        assertTrue(context.packageName.endsWith(".finance") || context.packageName.endsWith(".finance.performance"))
+        helper=FinanceDatabase(context,name+".db")
         val store=LocalFinanceStore(helper,FixtureCipher());vault=FinanceSessionVault(context,FixtureCipher(),name+"-session")
         session=FinanceSession(AccountScope("http://fixture.invalid/api/v2/",UUID.randomUUID().toString()),"synthetic-token",Instant.now().plusSeconds(3600).toString(),"Pengelola",UserRole.MANAGER)
         vault.save(vault.generation,session);store.initialize(session.scope.key,epoch,session.role)
@@ -41,10 +44,13 @@ class FinanceAdminUiTest {
     }
     @After fun cleanup() {helper.close();context.deleteDatabase(name+".db");listOf("-session","-admin").forEach {context.getSharedPreferences(name+it,0).edit().clear().commit()}}
     @Test fun largeFontFormSavesBeforeBackAndResumesWithoutSending() {
-        rule.setContent {CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density,2f)) {MaterialTheme {androidx.compose.material3.Text("Admin fixture");AdminHost(session,repository,{},{})}}}
+        rule.setContent {CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density,2f)) {MaterialTheme(colorScheme=ForestScheme) {androidx.compose.material3.Text("Admin fixture");AdminHost(session,repository,{},{})}}}
         rule.waitUntil(10000) {rule.onAllNodesWithTag("admin-new").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("admin-new").performScrollTo().performClick()
         rule.onNodeWithTag("admin-name").performScrollTo().performTextInput("GH draf sintetis")
+        Espresso.closeSoftKeyboard()
+        rule.onNodeWithText("Simpan draf dan kembali").performScrollTo().assertIsDisplayed()
+        captureWorkerRecordingEvidence("wr-admin-dark.png")
         rule.onNodeWithText("Simpan draf dan kembali").performScrollTo().performClick()
         rule.onNodeWithTag("admin-resume").performScrollTo().performClick()
         rule.onNodeWithTag("admin-name").assertTextContains("GH draf sintetis")

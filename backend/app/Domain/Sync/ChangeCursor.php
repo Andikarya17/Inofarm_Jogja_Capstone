@@ -7,9 +7,9 @@ use App\Models\User;
 
 final class ChangeCursor
 {
-    public function encode(User $actor, string $epoch, int $after, ?int $upper): string
+    public function encode(User $actor, string $epoch, int $after, ?int $upper, string $scope): string
     {
-        $body = rtrim(strtr(base64_encode(json_encode(['actor' => $actor->public_id, 'epoch' => $epoch, 'after' => $after, 'upper' => $upper], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
+        $body = rtrim(strtr(base64_encode(json_encode(['actor' => $actor->public_id, 'epoch' => $epoch, 'after' => $after, 'upper' => $upper, 'scope' => $scope], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
 
         return $body.'.'.hash_hmac('sha256', $body, config('app.key'));
     }

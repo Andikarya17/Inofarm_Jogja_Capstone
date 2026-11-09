@@ -5,6 +5,7 @@ import org.json.JSONObject
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.UUID
 
 data class AdminField(val key:String,val label:String,val optional:Boolean=false,val choices:Map<String,String> = emptyMap(),val source:String?=null,val type:String="text")
@@ -21,7 +22,7 @@ enum class AdminResource(val path:String,val kind:String,val label:String) {
             add(AdminField("greenhouse_id","Greenhouse",source="greenhouses"))
         when(this@AdminResource) {
             ASSIGNMENT -> {
-                if(!update) add(AdminField("user_id","Akun",source="users"))
+                if(!update) add(AdminField("user_id","Akun",source="assignment-users"))
                 add(AdminField("effective_from","Mulai penugasan",type="timestamp"));add(AdminField("effective_until","Akhir penugasan",true,type="timestamp"))
             }
             SCHEDULE,TARGET -> {
@@ -46,7 +47,7 @@ enum class AdminResource(val path:String,val kind:String,val label:String) {
                     }
                     UNIT,MATERIAL -> add(AdminField("dimension","Dimensi",choices=mapOf("mass" to "Massa","volume" to "Volume","count" to "Jumlah")))
                     USER -> {
-                        if(!update) add(AdminField("email","Email"))
+                        add(AdminField("email","Email",type="email"))
                         add(AdminField("role","Peran",choices=mapOf("worker" to "Pekerja","manager" to "Pengelola")))
                     }
                     else -> Unit
@@ -64,7 +65,8 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
     val fields get()=resource.fields(version!=null,action)
     fun payload(password:String=""):JSONObject = JSONObject().apply {
         fields.forEach { field ->
-            val value=values[field.key].orEmpty()
+            val rawValue=values[field.key].orEmpty()
+            val value=if (field.type=="email") rawValue.trim().lowercase(Locale.ROOT) else rawValue
             require(field.optional || value.isNotBlank()) {"${field.label} wajib diisi."}
             put(field.key,when {
                 value.isBlank() && field.optional && field.key!="notes" -> JSONObject.NULL
@@ -76,7 +78,7 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
                 else -> value.also {
                     require(field.choices.isEmpty() || it in field.choices) {"Pilihan ${field.label} tidak sah."}
                     if(field.source!=null) WireContract.uuid(it)
-                    val maximum=when(field.key) {"name" -> 150;"email" -> 254;"reason" -> 1000;else -> 2000}
+                    val maximum=when(field.key) {"name" -> if(resource==AdminResource.USER) 100 else 150;"email" -> 254;"reason" -> 1000;else -> 2000}
                     require(it.length<=maximum) {"${field.label} maksimal $maximum karakter."}
                 }
             })
@@ -87,7 +89,7 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
         if(has("effective_from") && has("effective_until") && !isNull("effective_until")) require(OffsetDateTime.parse(getString("effective_until")).toInstant()>OffsetDateTime.parse(getString("effective_from")).toInstant()) {"Akhir berlaku harus sesudah awal."}
         if(resource==AdminResource.TARGET) require((getString("parameter")=="manual_ppm" && getString("unit")=="ppm") || (getString("parameter")=="manual_ph" && getString("unit")=="pH")) {"Satuan harus sesuai parameter PPM/pH."}
         if(resource==AdminResource.USER) {
-            if(version==null) require(getString("email").matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))) {"Format email belum sesuai."}
+            require(getString("email").matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))) {"Format email belum sesuai."}
             require(version!=null || password.length>=12) {"Password akun baru minimal 12 karakter."}
             if(password.isNotEmpty()) {require(password.length in 12..256);put("password",password)}
         }
