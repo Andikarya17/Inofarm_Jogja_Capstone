@@ -1,5 +1,9 @@
 # Status implementasi nyata, 9 November 2026
 
+## Audit visi pengelola dan prompt pelaksanaan
+
+Source `8d74cba` dibandingkan dengan kebutuhan pengelola terbaru, kedua sheet jadwal MT3 dan makalah analisis keuangan. Beranda, input pengelola, sebagian besar keuangan dan CRUD akun sudah ada; verifikasi kegiatan manusia terpisah dari outbox belum ada, target/capaian panen belum terstruktur, sebagian pengamatan masih teks. [Audit lengkap dan batas pemeriksaan](MANAGER_VISION_AUDIT_20261109.md), [master prompt](MASTER_PROMPT_MANAGER_ALIGNMENT.md), [prompt 6.1 Sol](RUN_MANAGER_ALIGNMENT_SOL.md). Status perubahan runtime: **belum diimplementasikan pada task ini**. Tidak menjalankan ulang suite runtime atau mengubah database pengguna.
+
 ## Pemulihan pencatatan pekerja dan administrasi, 9 November 2026
 
 Dua akun lokal yang diperiksa aktif dan belum memiliki penugasan. Secara terpisah, cursor inkremental dapat melewati master yang dibuat sebelum penugasan efektif. Pull sekarang membaca ulang cakupan yang sah ketika cakupan berubah. Aksi tambah pekerja melanjutkan ke formulir setelah pemilihan konteks. Pengelola dapat mencari dan memeriksa kesiapan greenhouse, menugaskan akun dalam cakupan, mencari pekerja tanpa penugasan dengan email lengkap, dan mengubah email akun yang dikelola. Uji UI dua akun existing membuktikan pengelola menyiapkan greenhouse, pekerja menyimpan kegiatan dan panen, lalu pengelola melihat kedua hasil yang diterima server. [Matriks bukti dan batas](WORKER_RECORDING_RECOVERY_20261109.md).
