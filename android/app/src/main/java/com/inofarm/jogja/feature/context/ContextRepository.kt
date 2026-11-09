@@ -15,5 +15,5 @@ class ContextRepository(val vault:FinanceSessionVault,private val store:LocalFin
         ContextRecords(store.cached(key,"greenhouses",limit=1000),store.cached(key,"seasons",limit=1000),store.cached(key,"planting_groups",limit=1000),
             store.cached(key,"materials",limit=1000),store.cached(key,"units",limit=1000),store.cached(key,"schedules",limit=1000),store.cached(key,"targets",limit=1000),store.lastSyncedAt(key),store.cached(key,"grades",limit=1000),store.cached(key,"harvest_balance",limit=1000),
             if(session.role==UserRole.MANAGER) store.cached(key,"expense_categories",limit=1000) else emptyList(),if(session.role==UserRole.MANAGER) store.cached(key,"expense",limit=1000) else emptyList(),if(session.role==UserRole.MANAGER) store.cached(key,"expense_balance",limit=1000) else emptyList(),store.cached(key,"harvest",limit=1000),if(session.role==UserRole.MANAGER) store.cached(key,"asset",limit=1000) else emptyList()) }
-    suspend fun synchronize()=sync.run()
+    suspend fun synchronize()=sync.run(waitForTurn = true)
 }

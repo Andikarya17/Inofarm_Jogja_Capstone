@@ -101,6 +101,7 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::get('investment-reports/{id}', [InvestmentReportController::class, 'show'])->whereUuid('id');
         Route::get('investment-reports/{id}/sources', [InvestmentReportController::class, 'sources'])->whereUuid('id');
         Route::get('users', [UserController::class, 'index']);
+        Route::post('users/assignment-candidate', [UserController::class, 'assignmentCandidate'])->middleware('throttle:20,1,worker-assignment-lookup');
         Route::post('users', [UserController::class, 'store']);
         Route::patch('users/{id}', [UserController::class, 'update'])->whereUuid('id');
         Route::get('{reference}', [ReferenceController::class, 'index'])->whereIn('reference', ['schedules', 'targets']);

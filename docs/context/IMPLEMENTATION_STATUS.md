@@ -1,8 +1,8 @@
 # Status implementasi nyata, 9 November 2026
 
-## Audit pekerja dan administrasi — 9 November 2026
+## Pemulihan pencatatan pekerja dan administrasi, 9 November 2026
 
-Status tindak lanjut: **OPEN, prompt tersedia; runtime belum diubah**. Kegiatan/panen masih ada pada source dan branch lama sudah menjadi ancestry. Sesi emulator yang diperiksa menampilkan greenhouse penugasan tersimpan kosong; penyebab API/assignment/cache belum dibuktikan. Edit email akun belum tersedia pada form dan update backend. Permintaan terbaru meliputi alur CRUD greenhouse/akun, password/role, penugasan sampai pencatatan pekerja. Lihat [audit](WORKER_RECORDING_AUDIT_20261109.md) dan [master prompt](MASTER_PROMPT_WORKER_RECORDING_RECOVERY.md). Bukti test historis di bawah bukan pengujian ulang task ini.
+Dua akun lokal yang diperiksa aktif dan belum memiliki penugasan. Secara terpisah, cursor inkremental dapat melewati master yang dibuat sebelum penugasan efektif. Pull sekarang membaca ulang cakupan yang sah ketika cakupan berubah. Aksi tambah pekerja melanjutkan ke formulir setelah pemilihan konteks. Pengelola dapat mencari dan memeriksa kesiapan greenhouse, menugaskan akun dalam cakupan, mencari pekerja tanpa penugasan dengan email lengkap, dan mengubah email akun yang dikelola. Uji UI dua akun existing membuktikan pengelola menyiapkan greenhouse, pekerja menyimpan kegiatan dan panen, lalu pengelola melihat kedua hasil yang diterima server. [Matriks bukti dan batas](WORKER_RECORDING_RECOVERY_20261109.md).
 
 ## Pematangan UI pengelola
 

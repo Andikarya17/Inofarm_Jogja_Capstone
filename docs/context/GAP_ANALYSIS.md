@@ -2,7 +2,7 @@
 
 ## Gap pencatatan pekerja dan administrasi — 9 November 2026
 
-OPEN: diagnosis greenhouse penugasan kosong pada sesi emulator; keterjangkauan tambah kegiatan/panen saat konteks belum siap; alur administrasi greenhouse→musim/kelompok→akun/penugasan→pekerja; edit email akun (belum didukung Android/backend); verifikasi reset password/role dan nonaktifkan tanpa kehilangan histori. [Audit](WORKER_RECORDING_AUDIT_20261109.md) membedakan fondasi existing dari gap, dan [master prompt](MASTER_PROMPT_WORKER_RECORDING_RECOVERY.md) menetapkan WR-01–WR-13. Dokumen ini tidak menandai perbaikan runtime atau E2E lulus.
+Konfigurasi awal dua akun lokal tidak memiliki penugasan. Perbaikan branch menangani onboarding pekerja tanpa penugasan, kandidat dalam cakupan, replay cakupan untuk cursor, navigasi form pekerja, dan edit email akun. DO, suhu air, tinggi tanaman, jumlah dan lebar daun dicatat dalam keterangan pekerjaan dengan satuan. Bukti per acceptance dan kombinasi perangkat yang masih terbuka tercatat dalam [matriks WR](WORKER_RECORDING_RECOVERY_20261109.md).
 
 ## Gap aktif setelah upgrade Beranda, 8 November 2026
 

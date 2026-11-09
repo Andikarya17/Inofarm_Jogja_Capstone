@@ -2,7 +2,7 @@
 
 ## Pemulihan pencatatan pekerja dan administrasi, 9 November 2026
 
-[Audit source, branch dan sesi emulator](WORKER_RECORDING_AUDIT_20261109.md) menemukan fitur kegiatan/panen masih terintegrasi, tetapi sesi yang diperiksa tidak memiliki konteks greenhouse tersimpan. [Master prompt perbaikan](MASTER_PROMPT_WORKER_RECORDING_RECOVERY.md) mencakup diagnosis, pemilihan konteks pekerja, kegiatan sesuai dua sheet workbook, panen, CRUD greenhouse/akun, edit email/password/role dan penugasan. Antislop DURING dan Impeccable diwajibkan pengguna. Ini dokumen pelaksanaan, belum perbaikan runtime. Setelah fetch, main `419a144` sudah memuat PR #47; tree sama dengan `d359502`.
+[Hasil pemulihan dan verifikasi WR-01 sampai WR-13](WORKER_RECORDING_RECOVERY_20261109.md) mencatat kondisi penugasan awal, perbaikan cursor sinkronisasi, formulir pekerja, administrasi, dan hasil pengujian. [Audit awal](WORKER_RECORDING_AUDIT_20261109.md) dan [master prompt](MASTER_PROMPT_WORKER_RECORDING_RECOVERY.md) menjelaskan baseline dan skenario penerimaan.
 
 ## Pematangan UI pengelola, 9 November 2026
 

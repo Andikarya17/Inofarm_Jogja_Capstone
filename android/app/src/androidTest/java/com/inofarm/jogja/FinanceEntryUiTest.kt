@@ -350,14 +350,14 @@ class FinanceEntryUiTest {
         rule.waitUntil(10000) {rule.onAllNodesWithTag(tag).fetchSemanticsNodes().size==1}
         return rule.onNodeWithTag(tag)
     }
-    private fun choose(tag:String,id:String) {
+    private fun choose(tag:String,id:String,keepContextOpen:Boolean=false) {
         rule.prepareChoice(tag)
         rule.onNodeWithTag(tag).performScrollTo().performClick()
         val option="$tag-option-$id"
         rule.waitUntil(10000) {rule.onAllNodesWithTag(option).fetchSemanticsNodes().size==1}
         rule.onNodeWithTag(option).performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag(option).fetchSemanticsNodes().isEmpty()}
-        rule.finishChoice(tag)
+        if(!keepContextOpen) rule.finishChoice(tag)
     }
     private fun hideKeyboard() {
         rule.runOnUiThread {
@@ -1160,11 +1160,11 @@ class FinanceEntryUiTest {
         rule.selectFinanceTab(2)
         val historyList = rule.onNodeWithTag("finance-history-list")
         historyList.performScrollToNode(hasTestTag("history-new"))
-        readyNode("history-new").assertTextContains("Lihat konteks di Beranda").performClick()
-        choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
-        rule.selectFinanceTab(2)
-        historyList.performScrollToNode(hasTestTag("history-new"))
         readyNode("history-new").assertTextContains("Catat kegiatan").performClick()
+        choose("finance-gh",gh,keepContextOpen=true)
+        choose("finance-season",season,keepContextOpen=true)
+        choose("finance-group",group,keepContextOpen=true)
+        readyNode("finance-context-continue").performScrollTo().performClick()
         readyNode("finance-skipped").performScrollTo().performClick()
         readyNode("finance-skipped-reason").performScrollTo().performTextReplacement("Pekerjaan ditunda karena akses bedeng")
         hideKeyboard()
