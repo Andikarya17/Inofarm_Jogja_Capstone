@@ -25,6 +25,9 @@ data class OperationRoute(val path:String,val method:String) {
                 require(action == "create") { "Keputusan verifikasi tersimpan per revisi kegiatan." }
                 return OperationRoute("activity-reviews", "POST")
             }
+            if (kind == "planting_groups" && action in setOf("complete_harvest", "reopen_harvest")) {
+                return OperationRoute("planting-groups/$id/harvest-completion", "POST")
+            }
             if(kind in setOf("season_report","investment_report")) {
                 require(action=="create") {"Laporan immutable. Buat evaluasi baru untuk revisi."}
                 return OperationRoute(if(kind=="season_report") "season-reports" else "investment-reports","POST")

@@ -73,6 +73,8 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::post('activities/{id}/cancel', [ActivityController::class, 'cancel'])->whereUuid('id');
         Route::get('activities/{id}/audit', [ActivityController::class, 'audit'])->whereUuid('id');
         Route::get('harvests', [HarvestController::class, 'index']);
+        Route::get('planting-groups/{id}/harvest-progress', [HarvestController::class, 'progress'])->whereUuid('id');
+        Route::post('planting-groups/{id}/harvest-completion', [HarvestController::class, 'completion'])->whereUuid('id');
         Route::get('harvests/{id}', [HarvestController::class, 'show'])->whereUuid('id');
         Route::post('harvests', [HarvestController::class, 'store']);
         Route::patch('harvests/{id}', [HarvestController::class, 'update'])->whereUuid('id');

@@ -16,8 +16,8 @@ final class ReceiptReviewController extends Controller
 {
     public function __invoke(Request $request, ScopedRead $reads, GreenhouseAccess $access)
     {
-        $rules = ['sync_epoch' => 'required|uuid', 'operation' => 'required|array:schema_version,sync_epoch,operation_id,entity_id,entity_type,action,base_version,payload', 'operation.schema_version' => 'required|in:2', 'operation.action' => 'required|in:create,update,cancel', 'operation.base_version' => 'present|nullable|integer|min:1|max:2147483647', 'operation.payload' => 'required|array', 'operation.operation_id' => 'required|uuid', 'operation.entity_id' => 'required|uuid', 'operation.sync_epoch' => 'required|uuid',
-            'operation.entity_type' => 'required|in:activity,activity_review,harvest,expense,cost_allocation,sale,asset,depreciation_allocation,season_report,investment_scenario,investment_report,activity_attachment,harvest_attachment,expense_attachment'];
+        $rules = ['sync_epoch' => 'required|uuid', 'operation' => 'required|array:schema_version,sync_epoch,operation_id,entity_id,entity_type,action,base_version,payload', 'operation.schema_version' => 'required|in:2', 'operation.action' => 'required|in:create,update,cancel,complete_harvest,reopen_harvest', 'operation.base_version' => 'present|nullable|integer|min:1|max:2147483647', 'operation.payload' => 'required|array', 'operation.operation_id' => 'required|uuid', 'operation.entity_id' => 'required|uuid', 'operation.sync_epoch' => 'required|uuid',
+            'operation.entity_type' => 'required|in:activity,activity_review,harvest,expense,cost_allocation,sale,asset,depreciation_allocation,season_report,investment_scenario,investment_report,activity_attachment,harvest_attachment,expense_attachment,planting_groups'];
         foreach (['greenhouse_id', 'planting_group_id', 'season_id', 'expense_id', 'asset_id', 'scenario_id', 'owner_id', 'activity_id'] as $field) {
             $rules['operation.payload.'.$field] = ['sometimes', OperationInput::UUID];
         }
@@ -25,6 +25,8 @@ final class ReceiptReviewController extends Controller
 
         // Preserve the complete original wire envelope for its immutable receipt hash.
         $input['operation'] = $request->input('operation');
+        $harvestTransition = in_array($input['operation']['action'], ['complete_harvest', 'reopen_harvest'], true);
+        abort_unless($harvestTransition === ($input['operation']['entity_type'] === 'planting_groups'), 422);
         abort_if(array_diff(array_keys($request->all()), ['sync_epoch', 'operation']) !== [], 422);
         abort_unless($input['operation']['schema_version'] === '2' && ($input['operation']['base_version'] === null || is_int($input['operation']['base_version'])), 422);
         try {
@@ -61,6 +63,9 @@ final class ReceiptReviewController extends Controller
             if ($gh === null && isset($data['planting_group_id'])) {
                 $gh = DB::table('planting_groups')->join('seasons', 'seasons.id', '=', 'planting_groups.season_id')->where('planting_groups.id', $data['planting_group_id'])->value('seasons.greenhouse_id');
             }
+            if ($op['entity_type'] === 'planting_groups') {
+                $gh = $this->groupGreenhouse($op['entity_id']);
+            }
             abort_unless(is_string($gh), 404);
             $access->require($actor, $gh);
 
@@ -70,6 +75,9 @@ final class ReceiptReviewController extends Controller
 
     private function greenhouseForMissing(array $op): ?string
     {
+        if ($op['entity_type'] === 'planting_groups') {
+            return $this->groupGreenhouse($op['entity_id']);
+        }
         if ($op['entity_type'] === 'activity_review') {
             $id = DB::table('activity_reviews')->where('id', $op['entity_id'])->value('activity_id') ?? $op['payload']['activity_id'] ?? null;
             $group = DB::table('activities')->where('id', $id)->value('planting_group_id');

@@ -221,6 +221,78 @@ class FinanceBackendDeviceTest {
         rule.logoutFromAccount()
     }
 
+    @Test fun managerReadsPartialHarvestAndCompletesOnlyHarvest() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase") == "harvest-progress")
+        val encoded = requireNotNull(InstrumentationRegistry.getArguments().getString("managerHomeFixture"))
+        val fixture = JSONObject(android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP).toString(Charsets.UTF_8))
+        assertEquals("inofarm_test", fixture.getString("database"))
+        val first = fixture.getJSONArray("contexts").getJSONObject(0)
+        val greenhouse = first.getString("greenhouse_id")
+        val group = first.getString("group_id")
+        val model = runtime()
+        login(fixture, "manager")
+        val manager = model.vault.current!!
+        val path = "planting-groups/$group"
+        val master = runBlocking { model.api.request(manager.scope.server, manager.token, path) }
+        val payload = JSONObject().put("name", master.getString("name")).put("variety_id", master.getString("variety_id"))
+            .put("population", 171).put("sowing_date", master.getString("sowing_date"))
+            .put("transplant_date", master.opt("transplant_date") ?: JSONObject.NULL).put("active", true).put("reason", "Uji rekap")
+            .put("harvest_target", JSONObject().put("fruit_count", 160).put("basis", "Estimasi petikan uji"))
+        val operation = JSONObject().put("schema_version", "2").put("sync_epoch", model.store.epoch(manager.scope.key))
+            .put("operation_id", UUID.randomUUID().toString()).put("entity_id", group).put("entity_type", "planting_groups")
+            .put("action", "update").put("base_version", master.getLong("version")).put("payload", payload)
+        runBlocking { model.api.request(manager.scope.server, manager.token, path, "PATCH", operation) }
+
+        login(fixture, "worker")
+        choose("finance-gh", greenhouse)
+        choose("finance-season", first.getString("season_id"))
+        choose("finance-group", group)
+        val worker = model.vault.current!!
+        val testNote = "Panen bertahap ${UUID.randomUUID()}"
+        listOf("100" to "61,25", "50" to "29,5").forEachIndexed { index, (count, weight) ->
+            rule.selectFinanceTab(0)
+            rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("harvest-new"))
+            rule.onNodeWithTag("harvest-new").performClick()
+            rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick()
+            choose("harvest-grade-0", first.getJSONArray("grade_ids").getString(0))
+            choose("harvest-quality-0", "saleable")
+            rule.onNodeWithTag("harvest-count-0").performScrollTo().performTextReplacement(count)
+            rule.onNodeWithTag("harvest-weight-0").performScrollTo().performTextReplacement(weight)
+            val note = "$testNote ${index + 1}"
+            rule.onNodeWithTag("harvest-notes").performScrollTo().performTextReplacement(note)
+            hideKeyboard()
+            rule.onNodeWithTag("harvest-review").performScrollTo().performClick()
+            rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+            rule.waitUntil(20_000) { model.store.outbox(worker.scope.key).any {
+                it.state == "ACCEPTED" && it.envelope.optJSONObject("payload")?.optString("notes") == note
+            } }
+        }
+
+        login(fixture, "manager")
+        rule.selectFinanceTab(3)
+        rule.onNodeWithTag("finance-history-list").performScrollToNode(hasTestTag("harvest-progress-open"))
+        rule.onNodeWithTag("harvest-progress-open").performClick()
+        rule.onNodeWithTag("harvest-progress-gh").performClick()
+        rule.onNodeWithTag("harvest-progress-gh-option-$greenhouse").performClick()
+        rule.waitUntil(20_000) { rule.onAllNodesWithText("93,75%").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("93,75%").performScrollTo().assertIsDisplayed()
+        rule.captureBotanicalWindow("pg4-harvest-progress")
+        rule.onNodeWithTag("harvest-progress-transition").performScrollTo().performClick()
+        rule.onNodeWithTag("history-action-reason").performTextReplacement("Dua petikan sudah tercatat.")
+        hideKeyboard()
+        rule.onNodeWithTag("history-action-confirm").performClick()
+        rule.waitUntil(20_000) { rule.onAllNodesWithText("Panen selesai").fetchSemanticsNodes().isNotEmpty() }
+        val session = model.vault.current!!
+        val checked = runBlocking { model.api.request(session.scope.server, session.token, "$path/harvest-progress") }
+        assertEquals("open", checked.getString("season_status"))
+        assertEquals(2, checked.getInt("records"))
+        assertEquals(10, checked.getInt("difference_fruit"))
+        assertEquals("93.750000", checked.getString("achievement_percent"))
+        assertEquals("Dua petikan sudah tercatat.", checked.getJSONObject("completion").getString("reason"))
+        File(botanicalEvidenceDirectory(context), "pg4-reconciliation.json").writeText(checked.toString(2))
+        rule.logoutFromAccount()
+    }
+
     private fun choose(tag:String,id:String) {
         rule.prepareChoice(tag)
         rule.waitUntil(10000) {rule.onAllNodesWithTag(tag).fetchSemanticsNodes().size==1}
@@ -376,6 +448,7 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("harvest-date").performScrollTo().performTextReplacement("2026-10-30")
         repeat(2) {index ->
             rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick();choose("harvest-grade-$index",ctx.getJSONArray("grade_ids").getString(index))
+            choose("harvest-quality-$index", "saleable")
             rule.onNodeWithTag("harvest-count-$index").performScrollTo().performTextReplacement("3")
             rule.onNodeWithTag("harvest-weight-$index").performScrollTo().performTextReplacement("5");hideKeyboard()
         }
@@ -455,6 +528,7 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-tab-0").performClick();rule.onNodeWithTag("harvest-new").performScrollTo().performClick()
         repeat(2) {index ->
             rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick();choose("harvest-grade-$index",a.getJSONArray("grade_ids").getString(index))
+            choose("harvest-quality-$index", "saleable")
             rule.onNodeWithTag("harvest-count-$index").performScrollTo().performTextReplacement(if(index==0) "3" else "0");hideKeyboard()
             rule.onNodeWithTag("harvest-weight-$index").performScrollTo().performTextReplacement(if(index==0) "4,5" else "0");hideKeyboard()
         }

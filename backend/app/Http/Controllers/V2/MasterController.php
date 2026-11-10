@@ -123,6 +123,9 @@ final class MasterController extends Controller
         } elseif ($table === 'planting_groups') {
             $rules += ['variety_id' => ['required', OperationInput::UUID], 'population' => 'required|integer|min:0|max:2147483647',
                 'sowing_date' => 'required|date_format:Y-m-d', 'transplant_date' => 'present|nullable|date_format:Y-m-d'];
+            $rules += ['harvest_target' => 'sometimes|nullable|array:fruit_count,weight_kg,basis',
+                'harvest_target.fruit_count' => 'nullable|integer:strict|min:1|max:2147483647',
+                'harvest_target.weight_kg' => 'nullable|string|max:30', 'harvest_target.basis' => 'nullable|string|max:500'];
             if ($action === 'create') {
                 $rules['season_id'] = ['required', OperationInput::UUID];
             }

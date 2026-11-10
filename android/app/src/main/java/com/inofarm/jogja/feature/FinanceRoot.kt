@@ -284,25 +284,30 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val selectedGroup = context.groups.find { it.optString("id") == group && it.optString("season_id") == season && it.optBoolean("active", true) }
     var contextSheet by rememberSaveable { mutableStateOf<String?>(null) }
     var contextChange by rememberSaveable { mutableStateOf<String?>(null) }
-    var managerActivityPicker by rememberSaveable { mutableStateOf(false) }
+    var managerRecording by rememberSaveable { mutableStateOf<String?>(null) }
+    var harvestProgressOpen by rememberSaveable { mutableStateOf(false) }
+    var harvestProgressGroup by rememberSaveable { mutableStateOf<String?>(null) }
+    var harvestProgressGreenhouse by rememberSaveable { mutableStateOf<String?>(null) }
     var entryGreenhouse by rememberSaveable { mutableStateOf<String?>(null) }
     var entrySeason by rememberSaveable { mutableStateOf<String?>(null) }
     var entryGroup by rememberSaveable { mutableStateOf<String?>(null) }
-    if (managerActivityPicker) WorkerContextSheet(
-        context, HomeContext(entryGreenhouse, entrySeason, entryGroup), "Catat kegiatan",
+    managerRecording?.let { destination -> WorkerContextSheet(
+        context, HomeContext(entryGreenhouse, entrySeason, entryGroup),
+        if (destination == "harvest") "Catat panen" else "Catat kegiatan",
         onSelect = { entryGreenhouse = it.greenhouse; entrySeason = it.season; entryGroup = it.group },
-        onClose = { managerActivityPicker = false },
+        onClose = { managerRecording = null },
         onContinue = {
             val parent = entryGreenhouse
             val plantingGroup = entryGroup
             if (parent != null && plantingGroup != null) {
-                managerActivityPicker = false
-                vm.new(parent, plantingGroup)
+                managerRecording = null
+                if (destination == "harvest") harvestVm.new(parent, plantingGroup) else vm.new(parent, plantingGroup)
             }
         },
         onSync = onSync,
-        onSetup = { managerActivityPicker = false; onAdmin() }
-    )
+        onSetup = { managerRecording = null; onAdmin() },
+        chooseSingleGroup = destination == "harvest",
+    ) }
     LaunchedEffect(context.lastSyncedAt, context.greenhouses, context.seasons, context.groups) {
         if (!manager && (context.lastSyncedAt != null || context.greenhouses.isNotEmpty())) {
             if (gh != null && selectedGreenhouse == null) {
@@ -348,12 +353,13 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             history.selected!=null -> historyVm.close()
             harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison()
             harvestHistory.selected!=null -> harvestHistoryVm.close()
+            harvestProgressOpen -> harvestProgressOpen = false
             tab == 1 && manager && showOutbox -> showOutbox = false
             tab == 1 && reviewActivity != null -> reviewActivity = null
             else -> tab=0
         }
     }
-    val showNavigation = !(tab == 1 && !showOutbox && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
+    val showNavigation = !harvestProgressOpen && !(tab == 1 && !showOutbox && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
     val sessionExpired = session.expired()
     val workerReady = selectedGreenhouse != null && selectedGroup != null &&
         selectedSeason?.optString("status") == "open" && context.check != ContextCheck.ACCESS_CHANGED
@@ -379,7 +385,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             season = it.season
             group = it.group
             contextChange = null
-        }, onClose = { contextSheet = null }, onContinue = { recordWorker(destination) }, onSync = onSync)
+        }, onClose = { contextSheet = null }, onContinue = { recordWorker(destination) }, onSync = onSync,
+            chooseSingleGroup = destination == "harvest")
     }
     val translucentNavigation = tab == 0 && showNavigation && !writing && LocalDensity.current.fontScale <= 1.4f &&
         android.os.Build.VERSION.SDK_INT >= 31 && androidx.compose.ui.platform.LocalView.current.isHardwareAccelerated
@@ -523,6 +530,13 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     }
                     item { activity.message?.let { Notice(it) } }
                 } }
+                harvestProgressOpen && manager -> HarvestProgressScreen(session, ticket, context, runtime.harvest,
+                    harvestProgressGreenhouse, harvestProgressGroup, syncUpdates,
+                    { harvestProgressOpen = false }, onSync, {
+                        harvestProgressOpen = false
+                        showOutbox = true
+                        tab = 1
+                    })
                 tab == 1 && manager && !showOutbox -> tabState.SaveableStateProvider("verification") {
                     ActivityVerificationScreen(session, ticket, context, verification, syncUpdates, reviewActivity,
                         { reviewActivity = it }, { showOutbox = true }, onSync)
@@ -544,6 +558,15 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 }
                                 manager && kind in investmentQueueKinds -> investments.vm.select(op.entityId,fromQueue=true)
                                 manager && kind == "season_report" -> reports.vm.select(op.entityId)
+                                manager && kind == "planting_groups" -> {
+                                    val parent = context.groups.find { it.optString("id") == op.entityId }
+                                    harvestProgressGroup = parent?.optString("id")
+                                    harvestProgressGreenhouse = context.seasons.find {
+                                        it.optString("id") == parent?.optString("season_id")
+                                    }?.optString("greenhouse_id")
+                                    tab = 3
+                                    harvestProgressOpen = true
+                                }
                                 manager && kind == "activity_review" -> {
                                     reviewActivity = op.envelope.getJSONObject("payload").getString("activity_id")
                                     showOutbox = false
@@ -552,7 +575,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         },
                         canReview = { op ->
                             val kind = op.envelope.optString("entity_type")
-                            kind in queueHistory || manager && (kind in investmentQueueKinds || kind in setOf("season_report", "activity_review"))
+                            kind in queueHistory || manager && (kind in investmentQueueKinds || kind in setOf("season_report", "activity_review", "planting_groups"))
                         }, focusOperation = queueFocus,
                         onVerification = if (manager) ({ showOutbox = false }) else null)
                 }
@@ -571,12 +594,12 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         kind=if (isActivity) OperationalKind.ACTIVITY else OperationalKind.HARVEST,
                         onRecord={
                             if (!manager) recordWorker(if (isActivity) "activity" else "harvest")
-                            else if (isActivity && !canRecord) {
+                            else if (!canRecord) {
                                 entryGreenhouse = gh
                                 entrySeason = null
                                 entryGroup = null
-                                managerActivityPicker = true
-                            } else if (!canRecord) tab=0
+                                managerRecording = if (isActivity) "activity" else "harvest"
+                            }
                             else {
                                 if (isActivity) vm.new(gh!!, runningGroup!!, runningPeriodVersion = runningVersion)
                                 else harvestVm.new(gh!!, runningGroup!!, runningVersion)
@@ -584,13 +607,22 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         },
                         recordLabel=when {
                             isActivity -> "Catat kegiatan"
-                            manager && !canRecord -> "Lihat konteks di Beranda"
                             else -> "Catat panen"
                         },
                         recordScope=if (canRecord && manager) listOfNotNull(homeSnapshot?.selected?.text("name"),homeSnapshot?.period?.text("season_name")).joinToString(" · ")
                         else if (canRecord) listOf(selectedGreenhouse,selectedSeason,selectedGroup)
                             .joinToString(" · ") { it!!.getString("name") } else null,
-                        onSync=onSync)
+                        onSync=onSync,
+                        header = {
+                            if (manager && !isActivity) item("harvest-progress-link") {
+                                OutlinedButton(onClick = {
+                                    harvestProgressGreenhouse = gh
+                                    harvestProgressGroup = runningGroup
+                                    harvestProgressOpen = true
+                                }, shape = FarmShape.Control, modifier = Modifier.heightIn(min = FarmSpace.Touch)
+                                    .testTag("harvest-progress-open")) { Text("Rekap panen") }
+                            }
+                        })
                 }
             }
         }

@@ -34,7 +34,7 @@ final class HarvestService
             $result[$key] = CarbonImmutable::parse($result[$key], 'UTC')->toISOString();
         }
         $result['items'] = DB::table('harvest_items')->where('harvest_id', $row->id)->where('active', true)->orderBy('id')
-            ->get(['id', 'grade_id', 'grade_name', 'grade_version', 'fruit_count', 'weight_kg'])->map(fn ($item) => (array) $item)->all();
+            ->get(['id', 'grade_id', 'grade_name', 'grade_version', 'fruit_count', 'weight_kg', 'quality'])->map(fn ($item) => (array) $item)->all();
         $snapshot = DB::table('harvest_reference_snapshots')->where('harvest_id', $row->id)->where('harvest_version', $row->version)->value('body');
         $result['reference_snapshot'] = $snapshot === null ? null : json_decode($snapshot, true, flags: JSON_THROW_ON_ERROR);
         $result['completeness'] = 'ready';
@@ -62,6 +62,9 @@ final class HarvestService
             }
             $p = $op['payload'];
             $ctx = $this->context->get($current, $before['planting_group_id'] ?? $p['planting_group_id'], true);
+            if ($op['action'] === 'create' && $ctx['group']->harvest_completion !== null) {
+                throw new DomainFailure('harvest_completed', 'Panen kelompok sudah ditandai selesai. Pengelola perlu membuka kembali pencatatan panen.');
+            }
             if ($op['action'] === 'create' && isset($p['running_period_version'])) {
                 app(\App\Domain\Cultivation\RunningPeriod::class)->assertHomeParent($ctx, $p['running_period_version']);
             }
@@ -82,6 +85,11 @@ final class HarvestService
                     $group = $ctx['group'];
                     $snapshot = ['group_version' => $group->version, 'sowing_date' => $group->sowing_date, 'transplant_date' => $group->transplant_date,
                         'age' => PlantAge::calculate($group->sowing_date, $group->transplant_date, $p['occurred_at'])];
+                    $snapshot['variety'] = $before === null
+                        ? DB::table('varieties')->where('id', $group->variety_id)->first(['id', 'name', 'version'])
+                        : ($before['reference_snapshot']['variety'] ?? null);
+                    $snapshot['harvest_target'] = $before === null ? HarvestProgress::decode($group->harvest_target)
+                        : ($before['reference_snapshot']['harvest_target'] ?? null);
                     if ($snapshot['age']['status'] === 'unavailable') {
                         throw ValidationException::withMessages(['occurred_at' => $snapshot['age']['reasons']]);
                     }
@@ -110,7 +118,8 @@ final class HarvestService
                     $submitted[$line['id']] = ['id' => $line['id'], 'harvest_id' => $op['entity_id'], 'grade_id' => $line['grade_id'],
                         'grade_name' => $preserve && $old !== null ? $old->grade_name : $grade->name,
                         'grade_version' => $preserve && $old !== null ? $old->grade_version : $grade->version,
-                        'fruit_count' => $line['fruit_count'], 'weight_kg' => $line['weight_kg'], 'active' => true];
+                        'fruit_count' => $line['fruit_count'], 'weight_kg' => $line['weight_kg'],
+                        'quality' => $line['quality'] ?? $old?->quality, 'active' => true];
                 }
                 foreach ($oldItems as $id => $item) {
                     if (! isset($submitted[$id])) {

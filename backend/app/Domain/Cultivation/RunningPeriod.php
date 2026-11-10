@@ -62,7 +62,7 @@ final class RunningPeriod
         $endsDesignation = ($table === 'greenhouses' && ($data['active'] ?? true) === false)
             || ($table === 'seasons' && $action === 'close' && $current?->season_id === $id)
             || ($table === 'planting_groups' && $id === $groupId && (
-                ($data['active'] ?? true) === false || $data['sowing_date'] > CarbonImmutable::now('Asia/Jakarta')->toDateString()
+                ($data['active'] ?? true) === false || ($data['sowing_date'] ?? $before['sowing_date']) > CarbonImmutable::now('Asia/Jakarta')->toDateString()
             ));
         abort_if($endsDesignation, 422, 'Akhiri atau ganti periode berjalan terlebih dahulu.');
         if ($table === 'planting_groups' && $current?->season_id === ($before['season_id'] ?? $data['season_id'] ?? null)) {

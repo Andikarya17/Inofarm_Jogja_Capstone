@@ -1180,6 +1180,7 @@ class FinanceEntryUiTest {
         chooseContext(true)
         for((index,grade) in (if(twoGrades) listOf(gradeA,gradeB) else listOf(gradeA)).withIndex()) {
             rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick();choose("harvest-grade-$index",grade)
+            choose("harvest-quality-$index", "saleable")
             rule.onNodeWithTag("harvest-count-$index").performScrollTo().performTextReplacement(if(index==0) "10" else "0");hideKeyboard()
             rule.onNodeWithTag("harvest-weight-$index").performScrollTo().performTextReplacement(if(index==0) "15,25" else "0");hideKeyboard()
         }

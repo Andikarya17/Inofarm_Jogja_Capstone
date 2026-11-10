@@ -4,6 +4,7 @@
 
 - Kartu EC/PPM boleh menampilkan catatan pekerja yang sudah diterima server dan belum diperiksa dengan label **Belum diverifikasi**. Catatan tidak valid tetap tersedia di riwayat.
 - Pencatat memilih **layak** atau **cacat** per rincian panen. Grade yang sama dapat memiliki klasifikasi berbeda di panen lain.
+- Pengelola menandai **Panen selesai** secara manual dengan alasan. Penutupan musim adalah tindakan terpisah.
 
 ## Keputusan terkini yang direkonsiliasi, 8 November 2026
 
