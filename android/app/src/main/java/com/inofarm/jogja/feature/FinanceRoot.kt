@@ -63,7 +63,9 @@ import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.context.HomeContext
 import com.inofarm.jogja.feature.context.HomeContextCard
 import com.inofarm.jogja.feature.context.WorkerContextSheet
+import com.inofarm.jogja.feature.context.WorkerGreenhouseList
 import com.inofarm.jogja.feature.context.greenhouseAvailability
+import com.inofarm.jogja.feature.context.workerDefault
 import com.inofarm.jogja.core.sync.ContextCheck
 import com.inofarm.jogja.feature.history.*
 import com.inofarm.jogja.feature.verification.ActivityVerificationRepository
@@ -77,7 +79,9 @@ import org.json.JSONObject
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.time.Instant
+import java.time.LocalDate
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 private fun <T:ViewModel> factory(create:()->T)=object:ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST") override fun <V:ViewModel> create(modelClass:Class<V>):V=create() as V
@@ -237,6 +241,13 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var financeLink by rememberSaveable { mutableIntStateOf(0) }
     val homeRepository = remember(runtime) { ManagerHomeRepository(runtime.vault, runtime.store, runtime.api) }
     val syncUpdates by runtime.sync.updates.collectAsStateWithLifecycle()
+    var workerToday by remember { mutableStateOf(LocalDate.now(ActivityDraft.WIB)) }
+    if (!manager) LaunchedEffect(Unit) {
+        while (true) {
+            workerToday = LocalDate.now(ActivityDraft.WIB)
+            delay(5_000)
+        }
+    }
     val managerHome = if (manager) rememberManagerHome(homeRepository, session, ticket, gh, syncUpdates, activity.records, managerRefresh)
         else ManagerHomeState()
     if (session.rejected || managerHome.sessionRejected) {
@@ -299,6 +310,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val writing=investments.state.busy || reports.state.busy || asset.entry.busy || asset.history.busy || asset.depreciation.busy || sale.busy || saleHistory.busy || attachment.busy || activity.busy || harvest.busy || history.busy || harvestHistory.busy || financial.busy || expenseHistory.busy || allocationHistory.busy
     val keyboard=LocalSoftwareKeyboardController.current;val ime=WindowInsets.ime.getBottom(LocalDensity.current)>0
     val selectedGreenhouse = context.greenhouses.find { it.optString("id") == gh && it.optBoolean("active", true) }
+        ?.takeUnless { context.check == ContextCheck.ACCESS_CHANGED }
     val selectedSeason = context.seasons.find { it.optString("id") == season && it.optString("greenhouse_id") == gh }
     val selectedGroup = context.groups.find { it.optString("id") == group && it.optString("season_id") == season && it.optBoolean("active", true) }
     var contextSheet by rememberSaveable { mutableStateOf<String?>(null) }
@@ -382,6 +394,12 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val sessionExpired = session.expired()
     val workerReady = selectedGreenhouse != null && selectedGroup != null &&
         selectedSeason?.optString("status") == "open" && context.check != ContextCheck.ACCESS_CHANGED
+    fun setWorkerContext(value: HomeContext) {
+        gh = value.greenhouse
+        season = value.season
+        group = value.group
+        contextChange = null
+    }
     fun recordWorker(destination: String) {
         val greenhouse = selectedGreenhouse?.getString("id")
         val plantingGroup = selectedGroup?.getString("id")
@@ -390,8 +408,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             return
         }
         contextSheet = null
-        if (destination == "harvest") harvestVm.new(greenhouse, plantingGroup)
-        else vm.new(greenhouse, plantingGroup, if (destination == "measurement") ActivityType.MEASUREMENT else ActivityType.GENERAL)
+        val version = selectedGreenhouse.takeIf { it?.optString("running_group_id") == plantingGroup }
+            ?.optLong("version")?.takeIf { it > 0 }
+        if (destination == "harvest") harvestVm.new(greenhouse, plantingGroup, version)
+        else vm.new(greenhouse, plantingGroup, if (destination == "measurement") ActivityType.MEASUREMENT else ActivityType.GENERAL,
+            runningPeriodVersion = version)
     }
     if (!manager) contextSheet?.let { destination ->
         WorkerContextSheet(context, HomeContext(gh, season, group), when (destination) {
@@ -399,13 +420,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             "activity" -> "Catat kegiatan"
             "measurement" -> "Catat pengukuran"
             else -> null
-        }, onSelect = {
-            gh = it.greenhouse
-            season = it.season
-            group = it.group
-            contextChange = null
-        }, onClose = { contextSheet = null }, onContinue = { recordWorker(destination) }, onSync = onSync,
-            chooseSingleGroup = destination == "harvest")
+        }, onSelect = ::setWorkerContext, onClose = { contextSheet = null }, onContinue = { recordWorker(destination) }, onSync = onSync,
+            preferRunningPeriod = true)
     }
     val translucentNavigation = tab == 0 && showNavigation && !writing && LocalDensity.current.fontScale <= 1.4f &&
         android.os.Build.VERSION.SDK_INT >= 31 && androidx.compose.ui.platform.LocalView.current.isHardwareAccelerated
@@ -431,7 +447,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         }
     }) { padding ->
         val menuViewport = showNavigation && !writing
-        if (menuViewport && tab == 0) BotanicalBackdrop(R.drawable.background_dashboard, accentHeight = 152.dp)
+        if (menuViewport && tab == 0 && manager) BotanicalBackdrop(R.drawable.background_dashboard, accentHeight = 152.dp)
         val systemBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val contentPadding = if (translucentNavigation) {
             PaddingValues(start = padding.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current),
@@ -481,7 +497,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             }
                         })
                 }
-                tab==0 -> tabState.SaveableStateProvider(0) { LazyColumn(
+                tab==0 -> tabState.SaveableStateProvider("worker-home-${selectedGreenhouse?.optString("id").orEmpty()}") { LazyColumn(
                     modifier=Modifier.fillMaxSize().testTag("finance-home-list"),
                     verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium),
                     contentPadding=PaddingValues(
@@ -492,12 +508,19 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     )
                 ) {
                     item("context") {
-                        HomeContextCard(context, HomeContext(gh, season, group)) { contextSheet = "context" }
+                        HomeContextCard(context, if (selectedGreenhouse == null) HomeContext() else HomeContext(gh, season, group), workerToday) {
+                            contextSheet = "context"
+                        }
+                    }
+                    if (selectedGreenhouse == null) item("greenhouses") {
+                        WorkerGreenhouseList(context, workerToday) { greenhouse ->
+                            setWorkerContext(context.workerDefault(greenhouse))
+                        }
                     }
                     contextChange?.let { message -> item("context-changed") { Notice(message) } }
                     context.greenhouseAvailability()?.let { message -> item("context-availability") { Notice(message) } }
                     if (sessionExpired) item("expired-session") { ExpiredSessionNotice() }
-                    item("recording") {
+                    if (selectedGreenhouse != null) item("recording") {
                         Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                             if (selectedSeason?.optString("status") == "closed")
                                 FarmAttention("Musim ditutup. Pilih musim terbuka untuk mencatat.")

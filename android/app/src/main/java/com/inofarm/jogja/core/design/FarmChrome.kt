@@ -62,7 +62,7 @@ import androidx.compose.ui.unit.dp
 
 internal enum class FarmIcon {
     Account, Sync, Eye, EyeOff, Close, ChevronRight, ChevronDown,
-    Allocate, Payment, Asset, Depreciation, Report, Investment, Backup, Logout
+    Allocate, Payment, Asset, Depreciation, Report, Investment, Backup, Logout, Greenhouse
 }
 
 @Composable internal fun FarmControlIcon(icon: FarmIcon, description: String?) {
@@ -74,6 +74,18 @@ internal enum class FarmIcon {
         val stroke = Stroke(1.8f * u)
         val path = Path()
         when (icon) {
+            FarmIcon.Greenhouse -> {
+                path.moveTo(3 * u, 21 * u)
+                path.lineTo(3 * u, 11 * u)
+                path.lineTo(12 * u, 3 * u)
+                path.lineTo(21 * u, 11 * u)
+                path.lineTo(21 * u, 21 * u)
+                path.close()
+                path.moveTo(9 * u, 21 * u)
+                path.lineTo(9 * u, 14 * u)
+                path.lineTo(15 * u, 14 * u)
+                path.lineTo(15 * u, 21 * u)
+            }
             FarmIcon.Account -> {
                 drawCircle(color, 3.6f * u, Offset(12 * u, 7 * u), style = stroke)
                 path.moveTo(4 * u, 21 * u)

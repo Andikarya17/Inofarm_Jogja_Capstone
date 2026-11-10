@@ -308,6 +308,15 @@ class FinanceEntryUiTest {
             .put("action",if(receipt.getInt("version")==1) "create" else "update").put("reason","Audit panen sintetis").put("server_at","2026-10-29T09:00:00+07:00").put("changes",JSONObject().put("before",JSONObject.NULL).put("after",receipt.getJSONObject("data"))))}
         return response.setBody(JSONObject().put("data",rows).put("next_cursor",JSONObject.NULL).toString())
     }
+    @Test fun workerSelectsGreenhouseDirectlyAndOpensReadyRecordingContext() {
+        capture("worker-alignment-picker")
+        readyNode("worker-greenhouse-$gh").performClick()
+        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("finance-measurement-new"))
+        capture("worker-alignment-selected")
+        readyNode("finance-measurement-new").assertIsEnabled().performClick()
+        readyNode("finance-ec").assertExists()
+    }
+
     private fun login(email:String, waitForSync: Boolean = true) {
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
         rule.configureFinanceEndpoint(server.url("/api/v2/").toString())
