@@ -470,6 +470,7 @@ class FinanceBackendDeviceTest {
         val f=fixture();login(f,"worker");val ctx=f.getJSONArray("contexts").getJSONObject(0)
         choose("finance-gh",ctx.getString("greenhouse_id"));choose("finance-season",ctx.getString("season_id"));choose("finance-group",ctx.getString("group_id"))
         rule.onNodeWithTag("harvest-new").performScrollTo().performClick()
+        rule.onNodeWithTag("harvest-manual-time").performScrollTo().performClick()
         rule.onNodeWithTag("harvest-date").performScrollTo().performTextReplacement("2026-10-30")
         repeat(2) {index ->
             rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick();choose("harvest-grade-$index",ctx.getJSONArray("grade_ids").getString(index))

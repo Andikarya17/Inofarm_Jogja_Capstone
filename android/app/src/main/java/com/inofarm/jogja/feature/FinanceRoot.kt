@@ -1,6 +1,8 @@
 package com.inofarm.jogja.feature
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import com.inofarm.jogja.core.design.*
@@ -64,6 +66,8 @@ import com.inofarm.jogja.feature.context.HomeContext
 import com.inofarm.jogja.feature.context.HomeContextCard
 import com.inofarm.jogja.feature.context.WorkerContextSheet
 import com.inofarm.jogja.feature.context.WorkerGreenhouseList
+import com.inofarm.jogja.feature.context.WorkerEventTime
+import com.inofarm.jogja.feature.context.WorkerDayAgenda
 import com.inofarm.jogja.feature.context.greenhouseAvailability
 import com.inofarm.jogja.feature.context.workerDefault
 import com.inofarm.jogja.core.sync.ContextCheck
@@ -465,8 +469,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 session.role==UserRole.MANAGER && asset.entry.draft!=null -> if(asset.entry.reviewing) FarmReviewEntrance { AssetReview(asset.entry.draft,context,asset.entry.busy,asset.vm::backToForm,asset.vm::queue) } else AssetForm(asset.entry,context,asset.vm)
                 session.role==UserRole.MANAGER && asset.history.selected!=null -> HistoryScreen(session,context,asset.history,asset.historyVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.historyVm.close()},kind=OperationalKind.ASSET,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && asset.depreciation.selected!=null -> HistoryScreen(session,context,asset.depreciation,asset.depreciationVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.depreciationVm.close()},kind=OperationalKind.DEPRECIATION,returnToQueue=tab==1)
-                activity.draft!=null -> if(activity.reviewing) FarmReviewEntrance { ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue) } else ActivityForm(activity,context,vm)
-                harvest.draft!=null -> if(harvest.reviewing) FarmReviewEntrance { HarvestReview(harvest.draft,context,harvest.busy,harvestVm::backToForm,harvestVm::queue) } else HarvestForm(harvest,context,harvestVm)
+                activity.draft!=null -> if(activity.reviewing) FarmReviewEntrance { ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue) } else ActivityForm(activity,context,vm,worker = !manager)
+                harvest.draft!=null -> if(harvest.reviewing) FarmReviewEntrance { HarvestReview(harvest.draft,context,harvest.busy,harvestVm::backToForm,harvestVm::queue,worker = !manager) } else HarvestForm(harvest,context,harvestVm,worker = !manager)
                 session.role==UserRole.MANAGER && sale.draft!=null -> if(sale.reviewing) FarmReviewEntrance { SaleReview(sale.draft,context,sale.busy,saleVm::backToForm,saleVm::queue) } else SaleForm(sale,context,saleVm)
                 session.role==UserRole.MANAGER && saleHistory.selected!=null -> HistoryScreen(session,context,saleHistory,saleHistoryVm,activity.queue,onEdit={record,replace -> saleVm.open(record,replace);saleHistoryVm.close()},kind=OperationalKind.SALE,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && financial.draft!=null -> if(financial.reviewing) FarmReviewEntrance { FinancialReview(financial.draft,context,financial.busy,financialVm::backToForm,financialVm::queue) } else FinancialForm(financial,context,financialVm)
@@ -546,20 +550,15 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 context.message.takeUnless { sessionExpired }
                             )
                         }
-                        val blocked = activity.queue.count { it.state in setOf("REJECTED", "CONFLICT", "AUTH_REQUIRED", "SCOPE_REVOKED", "EPOCH_REVIEW") }
-                        if (blocked > 0) item("queue-attention") {
-                            FarmAttention("$blocked pengajuan perlu ditinjau. Buka Antrean.")
+                        item("worker-day") {
+                            WorkerDayAgenda(runtime, session, greenhouseId, groupId, workerToday, context.schedules,
+                                Triple(activity.records, harvest.records, activity.queue), syncUpdates, open,
+                                onSchedule = { type, schedule -> vm.new(greenhouseId, groupId, type, schedule) },
+                                onRecord = { row ->
+                                    if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
+                                },
+                                onQueue = { tab = 1 })
                         }
-                        val schedules=context.schedules.filter { it.optString("planting_group_id")==group && it.optBoolean("active",true) }
-                        item {
-                            FarmPanel(title = "Jadwal kegiatan") {
-                                if (schedules.isEmpty())
-                                    Text("Belum ada jadwal untuk kelompok ini. Kegiatan spontan tetap dapat dicatat.",
-                                        style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                        items(schedules,key={it.getString("id")}) { schedule -> ElevatedCard { Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {Text(ActivityType.entries.find { it.wire==schedule.optString("activity_type") }?.label ?: "Kegiatan");Text(timeLabel(schedule.optString("planned_at")));Text(schedule.optString("notes"));Text("Satu catatan tidak otomatis menyelesaikan seluruh jadwal.",style=MaterialTheme.typography.bodySmall);OutlinedButton(onClick={vm.new(gh!!,group!!,ActivityType.entries.single { it.wire==schedule.getString("activity_type") },schedule.getString("id"))},enabled=open) {Text("Catat realisasi")} } } }
-                        item { Notice("Target dan acuan tersedia saat mengisi kegiatan. Hasil pengukuran dicatat manual.") }
                     }
                     if (selectedGroup == null) item("sync") {
                         FarmPanel(title = "Sinkronisasi") {
@@ -746,7 +745,7 @@ internal fun ExpiredSessionNotice() {
     Notice("Sesi berakhir. Masuk kembali dengan akun yang sama untuk mengirim antrean. Draf tetap dapat disimpan.", true)
 }
 
-@Composable private fun ActivityForm(state:ActivityUiState,context:CultivationUiState,vm:ActivityViewModel) {
+@Composable private fun ActivityForm(state:ActivityUiState,context:CultivationUiState,vm:ActivityViewModel,worker:Boolean) {
     val draft=state.draft ?: return
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         val title = when {
@@ -757,11 +756,18 @@ internal fun ExpiredSessionNotice() {
         FarmPageTitle(title)
         FarmDraftStatus(state.saved, Modifier.testTag("finance-draft-status"))
         FarmSection(title = "Waktu dan kelompok") {
-            if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
-            context.groups.find { it.optString("id") == draft.groupId }?.let { Text(it.optString("name")) }
             Choice("Jenis kegiatan",draft.type.wire,ActivityType.entries.map { JSONObject().put("id",it.wire).put("name",it.label) },"finance-type") { value -> vm.edit { it.copy(type=ActivityType.entries.single { type -> type.wire==value }) } }
-            FinanceField("Tanggal kejadian (YYYY-MM-DD)",draft.date,{value -> vm.edit {it.copy(date=value)}},"finance-date",state.errors["occurred_at"])
-            FinanceField("Jam kejadian WIB (HH:mm)",draft.time,{value -> vm.edit {it.copy(time=value)}},"finance-time",hint="Detik boleh ditulis HH:mm:ss dan tetap dipertahankan.")
+            if (worker) {
+                WorkerEventTime(context, draft.greenhouseId, draft.groupId, draft.date, draft.time,
+                    { value -> vm.edit { it.copy(date = value) } }, { value -> vm.edit { it.copy(time = value) } },
+                    "finance", state.errors["occurred_at"], draft.baseVersion != null && draft.referencePolicy == "preserve",
+                    state.records.find { it.id == draft.id }?.serverBody?.optJSONObject("reference_snapshot")?.optJSONObject("age"))
+            } else {
+                if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
+                context.groups.find { it.optString("id") == draft.groupId }?.let { Text(it.optString("name")) }
+                FinanceField("Tanggal kejadian (YYYY-MM-DD)",draft.date,{value -> vm.edit {it.copy(date=value)}},"finance-date",state.errors["occurred_at"])
+                FinanceField("Jam kejadian WIB (HH:mm)",draft.time,{value -> vm.edit {it.copy(time=value)}},"finance-time",hint="Detik boleh ditulis HH:mm:ss dan tetap dipertahankan.")
+            }
         }
         FarmSection(title = "Pelaksanaan") {
             FarmCheckbox("Kegiatan dilewati", draft.skipped, { value -> vm.edit { it.copy(skipped = value) } },
@@ -809,6 +815,7 @@ internal fun ExpiredSessionNotice() {
                 .testTag("activity-observations")) {
                 Text(if (observationsOpen) "Tutup isian pengamatan" else "Tambah pengamatan (opsional)")
             }
+            Column(Modifier.animateContentSize(tween(190)), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
             if (observationsOpen) ObservationField.entries.forEach { field ->
                 val label = if (field.unit.isBlank()) field.label else "${field.label} (${field.unit})"
                 val keyboard = when (field) {
@@ -819,6 +826,7 @@ internal fun ExpiredSessionNotice() {
                 FinanceField(label, draft.observations[field].orEmpty(),
                     { value -> vm.edit { it.copy(observations = it.observations + (field to value)) } },
                     "activity-${field.wire}", state.errors["observations.${field.wire}"], keyboard)
+            }
             }
             FinanceField("Keterangan pekerjaan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"finance-notes",state.errors["notes"],singleLine=false)
         }

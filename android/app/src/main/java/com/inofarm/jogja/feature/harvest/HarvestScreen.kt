@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.core.cultivation.PlantAge
+import com.inofarm.jogja.core.contracts.UserRole
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.design.FarmDraftStatus
 import com.inofarm.jogja.core.design.FarmFact
@@ -21,6 +22,7 @@ import com.inofarm.jogja.core.design.FarmSpace
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.context.CultivationUiState
+import com.inofarm.jogja.feature.context.WorkerEventTime
 import com.inofarm.jogja.feature.harvest.domain.HarvestDraft
 import com.inofarm.jogja.feature.harvest.domain.HarvestLine
 import com.inofarm.jogja.feature.harvest.domain.HarvestQuality
@@ -28,7 +30,7 @@ import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
 import org.json.JSONObject
 import java.math.BigDecimal
 
-@Composable fun HarvestForm(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel) {
+@Composable internal fun HarvestForm(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel,worker:Boolean) {
     val draft=state.draft ?: return
     val grades=context.grades.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optBoolean("active",true)}
     val group = context.groups.find { it.optString("id") == draft.groupId }
@@ -36,18 +38,25 @@ import java.math.BigDecimal
         com.inofarm.jogja.core.design.FarmPageTitle(if (draft.baseVersion == null) "Catat panen" else "Koreksi panen")
         FarmDraftStatus(state.saved)
         FarmSection(title = "Waktu dan kelompok") {
-            if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
-            FarmFact("Kelompok tanam", group?.optString("name") ?: "Nama belum tersedia")
+            if (worker) {
+                WorkerEventTime(context, draft.greenhouseId, draft.groupId, draft.date, draft.time,
+                    { value -> vm.edit { it.copy(date = value) } }, { value -> vm.edit { it.copy(time = value) } },
+                    "harvest", state.errors["occurred_at"], draft.baseVersion != null && draft.referencePolicy == "preserve",
+                    state.records.find { it.id == draft.id }?.serverBody?.optJSONObject("reference_snapshot")?.optJSONObject("age"))
+            } else {
+                if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
+                FarmFact("Kelompok tanam", group?.optString("name") ?: "Nama belum tersedia")
+                FinanceField("Tanggal panen WIB",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
+                FinanceField("Jam panen WIB",draft.time,{value -> vm.edit {it.copy(time=value)}},"harvest-time",state.errors["occurred_at"],hint="HH:mm; detik opsional")
+            }
             FarmFact("Varietas", varietyName(context, group) ?: "Belum tersedia")
             group?.optJSONObject("harvest_target")?.let { FarmFact("Target buah", "${it.getInt("fruit_count")} buah") }
-            FinanceField("Tanggal panen WIB",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
-            FinanceField("Jam panen WIB",draft.time,{value -> vm.edit {it.copy(time=value)}},"harvest-time",state.errors["occurred_at"],hint="HH:mm; detik opsional")
         }
         if(grades.isEmpty() && !context.loading) Notice("Grade aktif belum tersedia di perangkat untuk greenhouse ini. Sinkronkan atau minta pengelola menyiapkan grade.")
         draft.items.forEachIndexed {index,line -> key(line.id) { FarmPanel(title = "Rincian grade ${index+1}") {
             if(line.id in draft.lockedItems) {
                 Text("Grade: ${line.gradeName.ifBlank {context.grades.find {it.optString("id")==line.gradeId}?.optString("name") ?: "belum tersedia"}}")
-                Text("Rincian sudah tersimpan atau diantrekan. Untuk grade berbeda, hapus rincian dan tambahkan rincian baru; saldo tetap diperiksa server.",style=MaterialTheme.typography.bodySmall)
+                Text("Untuk mengganti grade, hapus rincian ini dan tambahkan rincian baru.",style=MaterialTheme.typography.bodySmall)
             } else Choice("Grade",line.gradeId,grades,"harvest-grade-$index",loading=context.loading) {value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(gradeId=value,gradeName=grades.find {grade -> grade.optString("id")==value}?.optString("name").orEmpty()) else row})}}
             state.errors["items.$index.grade"]?.let {Notice(it,true)}
             Choice("Kondisi buah", line.quality?.wire, HarvestQuality.entries.map {
@@ -70,10 +79,12 @@ import java.math.BigDecimal
             FinanceField("Alasan koreksi panen",draft.reason,{value -> vm.edit {it.copy(reason=value)}},"harvest-reason",state.errors["reason"],singleLine=false)
             Choice("Acuan koreksi",draft.referencePolicy,listOf(org.json.JSONObject().put("id","preserve").put("name","Pertahankan tanggal/grade historis"),org.json.JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"harvest-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
         }
-        if(draft.baseVersion==null || draft.referencePolicy=="refresh") {
+        if(!worker && (draft.baseVersion==null || draft.referencePolicy=="refresh")) {
             val age=runCatching {if(group==null) null else PlantAge.calculate(group.getString("sowing_date"),if(group.isNull("transplant_date")) null else group.getString("transplant_date"),draft.occurredAt())}.getOrNull()
             if(age!=null) {Text("HSS ${age.hss ?: "belum tersedia"} · HST ${age.hst ?: "belum berlaku"}");age.reasons.forEach {Text(it,style=MaterialTheme.typography.bodySmall)}}
-        } else Notice("Acuan historis dipertahankan. Perubahan waktu panen memerlukan pilihan nilai ulang.")
+        } else if (draft.baseVersion != null && draft.referencePolicy == "preserve") {
+            Notice("Perubahan waktu panen memerlukan pilihan nilai ulang.")
+        }
         state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
         Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("harvest-review")) {Text("Periksa panen")}
         OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,
@@ -81,7 +92,7 @@ import java.math.BigDecimal
     }
 }
 
-@Composable fun HarvestReview(draft:HarvestDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
+@Composable internal fun HarvestReview(draft:HarvestDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit,worker:Boolean) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         com.inofarm.jogja.core.design.FarmPageTitle("Periksa panen")
         FarmSection(title = "Waktu dan kelompok") {
@@ -102,7 +113,10 @@ import java.math.BigDecimal
             if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi", draft.reason)
         }
         if(draft.replaceValidationRejected) Notice("Panen yang ditolak akan diganti setelah tinjauan ini. Pengajuan lama tetap disimpan sebagai riwayat.")
-        Notice("Panen disimpan lokal dan diantrekan. Pembaruan atau pembatalan ditolak bila melampaui saldo sumber yang sudah dipakai penjualan.")
+        Notice(if (worker && draft.baseVersion != null)
+            "Perubahan hasil panen yang sudah dipakai untuk penjualan perlu ditinjau pengelola."
+        else if (worker) "Catatan disimpan di perangkat dan dikirim saat server dapat dihubungi."
+        else "Panen disimpan lokal dan diantrekan. Pembaruan atau pembatalan dibatasi oleh bobot yang sudah dipakai penjualan.")
         Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("harvest-queue")) {Text(if(busy) "Menyimpan…" else "Simpan lokal & antrekan")}
         OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Kembali ke isian")}
     }
@@ -124,8 +138,10 @@ import java.math.BigDecimal
             val count=line.fruitCount.takeIf { it.isNotBlank() }?.let { "$it buah" } ?: "Jumlah belum diisi"
             val weight=line.weightKg.takeIf { it.isNotBlank() }?.let { "${harvestDecimal(it)} kg" } ?: "Bobot belum diisi"
             FarmFact(gradeName(line, context), "$count · $weight · ${line.quality?.label ?: "Kondisi belum diketahui"}", prominent = true)
-            val balance=context.harvestBalances.find {it.optString("id")==line.id && it.optString("harvest_id")==record.id}
-            Text(if(balance!=null && record.serverVersion!=null && balance.optLong("harvest_version")==record.serverVersion) "Saldo terakhir diterima: ${balance.optString("available_weight_kg")} kg tersedia · ${balance.optString("sold_weight_kg")} kg terpakai · versi saldo ${balance.optLong("version")}" else "Saldo bobot tersedia belum dapat dibandingkan dengan versi panen ini.",style=MaterialTheme.typography.bodySmall)
+            if (session.role == UserRole.MANAGER) {
+                val balance=context.harvestBalances.find {it.optString("id")==line.id && it.optString("harvest_id")==record.id}
+                Text(if(balance!=null && record.serverVersion!=null && balance.optLong("harvest_version")==record.serverVersion) "Saldo terakhir diterima: ${balance.optString("available_weight_kg")} kg tersedia · ${balance.optString("sold_weight_kg")} kg terpakai · versi saldo ${balance.optLong("version")}" else "Saldo bobot tersedia belum dapat dibandingkan dengan versi panen ini.",style=MaterialTheme.typography.bodySmall)
+            }
         }
         if(draft.notes.isNotBlank()) Text(draft.notes)
     } else Notice("Isian panen belum dapat dibaca lengkap. Catatan tetap disimpan untuk ditinjau.",true)
