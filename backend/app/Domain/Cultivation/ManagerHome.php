@@ -2,6 +2,7 @@
 
 namespace App\Domain\Cultivation;
 
+use App\Domain\Activities\ActivityReviewService;
 use App\Domain\Contracts\DomainFailure;
 use App\Domain\Identity\GreenhouseAccess;
 use App\Domain\Sync\AcceptedSnapshot;
@@ -35,11 +36,29 @@ final class ManagerHome
             ->whereNotNull('r.actual_stage')->where('r.occurred_at', '<=', $this->sqlTime($at)));
         $dayStart = $this->sqlTime($at->startOfDay());
         $tomorrow = $this->sqlTime($at->startOfDay()->addDay());
-        $pairs = $this->latestPerGroup((clone $activities)->whereIn('r.planting_group_id', $activeGroups)
-            ->where('r.work_state', 'completed')->whereNotNull('r.manual_ppm')->where('r.occurred_at', '<', $tomorrow));
+        $measurementRows = (clone $activities)->whereIn('r.planting_group_id', $activeGroups)
+            ->where('r.work_state', 'completed')->whereNotNull('r.manual_ppm')->where('r.occurred_at', '<', $tomorrow);
+        $pairs = $this->latestPerGroup((clone $measurementRows)->whereNotExists(ActivityReviewService::current('invalid', 'r')));
+        $invalidToday = $this->latestPerGroup((clone $measurementRows)->where('r.occurred_at', '>=', $dayStart)
+            ->whereExists(ActivityReviewService::current('invalid', 'r')));
         $measurements = $this->readAcceptedSection(fn () => $this->accepted->readMany('activity', $pairs->values()->all()));
+        if ($measurements !== null) {
+            $decisions = DB::table('activity_reviews')->whereIn('activity_id', $pairs->pluck('id'))->get()
+                ->keyBy(fn ($review) => $review->activity_id.':'.$review->activity_version);
+            foreach ($pairs as $pair) {
+                $review = $decisions->get($pair->id.':'.$pair->version);
+                $measurements[$pair->id]['verification_status'] = $review->decision ?? match ($pair->recorded_by_role) {
+                    'worker' => 'pending', 'manager' => 'manager', default => 'legacy',
+                };
+            }
+        }
+        $harvestTotals = (clone $harvests)->whereIn('r.planting_group_id', $activeGroups)
+            ->join('harvest_items as i', 'i.harvest_id', '=', 'r.id')->where('i.active', true)
+            ->groupBy('r.planting_group_id')
+            ->selectRaw('r.planting_group_id, COUNT(DISTINCT r.id) AS records, CAST(SUM(i.weight_kg) AS CHAR) AS weight_kg, SUM(i.fruit_count) AS fruit_count')
+            ->get()->keyBy('planting_group_id');
 
-        $cards = $greenhouses->map(function ($row) use ($periods, $last, $stage) {
+        $cards = $greenhouses->map(function ($row) use ($periods, $last, $stage, $harvestTotals) {
             $period = $periods[$row->id];
             $phase = $stage->get($period['group_id'] ?? '');
             if ($phase) {
@@ -47,7 +66,8 @@ final class ManagerHome
             }
 
             return ['id' => $row->id, 'name' => $row->name, 'active' => (bool) $row->active, 'version' => $row->version,
-                'period' => $period, 'last_operational_at' => $this->iso($last[$row->id] ?? null)];
+                'period' => $period, 'last_operational_at' => $this->iso($last[$row->id] ?? null),
+                'harvest' => $harvestTotals->get($period['group_id'] ?? '')];
         })->values();
         $attention = [];
         foreach ($cards as $card) {
@@ -59,8 +79,10 @@ final class ManagerHome
             if ($period['state'] === 'ready' && $measurements !== null) {
                 $pair = $pairs->get($period['group_id']);
                 if (($pair->occurred_at ?? '') < $dayStart) {
-                    $attention[] = $this->finding('measurement_missing_today', $gh, $card['name'], $at, 'manual-ppm-day-wib-v1', 'measurements')
-                        + ['group_id' => $period['group_id']];
+                    if (! $invalidToday->has($period['group_id'])) {
+                        $attention[] = $this->finding('measurement_missing_today', $gh, $card['name'], $at, 'manual-ppm-day-wib-v1', 'measurements')
+                            + ['group_id' => $period['group_id']];
+                    }
                 } elseif ($finding = $this->outOfRange($card, $measurements[$pair->id] ?? null, $at)) {
                     $attention[] = $finding;
                 }
@@ -75,8 +97,14 @@ final class ManagerHome
             $activities->where('r.planting_group_id', $group);
             $harvests->where('r.planting_group_id', $group);
             $pair = $pairs->get($group ?? '');
+            $dayState = match (true) {
+                $group === null || $measurements === null => 'unavailable',
+                ($pair->occurred_at ?? '') >= $dayStart => 'recorded',
+                $invalidToday->has($group) => 'invalid_only',
+                default => 'missing',
+            };
             $detail = $this->detail($selected, $groups->get($selected, collect()), $group, $measurements[$pair->id ?? ''] ?? null,
-                $pair === null || $measurements !== null, $at, $harvests);
+                $measurements !== null, $dayState, $at, $harvestTotals->get($group ?? ''));
         }
         $accessUntil = DB::table('greenhouse_assignments')->where('user_id', $actor->id)->whereIn('greenhouse_id', $all->pluck('id'))
             ->min('effective_until');
@@ -136,23 +164,24 @@ final class ManagerHome
         return array_slice($recent, 0, 5);
     }
 
-    private function detail(string $gh, Collection $groups, ?string $group, ?array $measurement, bool $measurementAvailable, CarbonImmutable $at, Builder $harvests): array
+    private function detail(string $gh, Collection $groups, ?string $group, ?array $measurement, bool $measurementAvailable, string $dayState, CarbonImmutable $at, ?object $harvest): array
     {
         $periods = $groups->map(fn ($row) => [...(array) $row, 'eligible' => $this->period->eligible($row, $at->toDateString())])->values();
         $seasons = DB::table('seasons')->where('greenhouse_id', $gh)->orderByDesc('start_date')->orderBy('id')
             ->get(['id', 'name', 'greenhouse_id', 'start_date', 'end_date', 'status', 'version']);
         if ($group === null) {
-            return ['periods' => $periods, 'seasons' => $seasons, 'measurement' => null, 'harvest' => null, 'schedules' => []];
+            return ['periods' => $periods, 'seasons' => $seasons, 'measurement' => null, 'measurement_day_state' => $dayState, 'harvest' => null, 'schedules' => []];
         }
-        $harvest = (clone $harvests)->join('harvest_items as i', 'i.harvest_id', '=', 'r.id')->where('i.active', true)
-            ->selectRaw('COUNT(DISTINCT r.id) AS records, CAST(COALESCE(SUM(i.weight_kg),0) AS CHAR) AS weight_kg, COALESCE(SUM(i.fruit_count),0) AS fruit_count')->first();
         $schedules = DB::table('schedules')->where('planting_group_id', $group)->where('active', true)
             ->where('planned_at', '>=', $this->sqlTime($at->startOfDay()))->orderBy('planned_at')->orderBy('id')
             ->limit(3)->get(['id', 'activity_type', 'planned_at', 'notes'])
             ->map(fn ($row) => [...(array) $row, 'planned_at' => $this->iso($row->planned_at)]);
 
         return ['periods' => $periods, 'seasons' => $seasons, 'measurement' => $measurement, 'measurement_available' => $measurementAvailable,
-            'harvest' => $harvest, 'schedules' => $schedules];
+            'measurement_day_state' => $dayState,
+            'harvest' => $harvest === null ? ['records' => 0, 'weight_kg' => '0', 'fruit_count' => 0]
+                : ['records' => $harvest->records, 'weight_kg' => $harvest->weight_kg, 'fruit_count' => $harvest->fruit_count],
+            'schedules' => $schedules];
     }
 
     private function outOfRange(array $card, ?array $measurement, CarbonImmutable $at): ?array

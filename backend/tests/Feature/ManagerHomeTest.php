@@ -17,6 +17,45 @@ final class ManagerHomeTest extends FinanceTestCase
             'designate_period', $ctx['gh']['id'], $version);
     }
 
+    public function test_measurement_day_distinguishes_missing_pending_invalid_and_valid_revision(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-08T08:00:00+07:00'));
+        $manager = $this->account();
+        $ctx = $this->context($manager);
+        $group = $ctx['group']['id'];
+        $gh = $ctx['gh']['id'];
+        $home = self::HOME.'?greenhouse_id='.$gh;
+        $this->postJson("/api/v2/greenhouses/$gh/running-period", $this->designate($ctx, $group, 1))->assertOk();
+        $this->getJson($home)->assertOk()->assertJsonPath('detail.measurement', null)->assertJsonPath('detail.measurement_day_state', 'missing');
+        $payload = ['planting_group_id' => $group, 'activity_type' => 'measurement', 'occurred_at' => '2026-11-07T23:59:00+07:00',
+            'manual_ec' => '1.5', 'manual_ppm' => '750', 'work_state' => 'completed', 'materials' => [], 'notes' => 'Uji'];
+        $yesterday = $this->operation('activity', $payload);
+        $this->postJson('/api/v2/activities', $yesterday)->assertCreated();
+        $this->getJson($home)->assertJsonPath('detail.measurement_day_state', 'missing')
+            ->assertJsonPath('detail.measurement.id', $yesterday['entity_id'])->assertJsonPath('detail.measurement.verification_status', 'manager');
+        $worker = $this->account('worker');
+        $this->createMaster('greenhouse_assignments', ['greenhouse_id' => $gh, 'user_id' => $worker->public_id,
+            'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
+        $new = $this->operation('activity', [...$payload, 'occurred_at' => '2026-11-08T00:00:00+07:00', 'manual_ec' => '2', 'manual_ppm' => '800']);
+        $this->asUser($worker)->postJson('/api/v2/activities', $new)->assertCreated();
+        $this->asUser($manager)->getJson($home)->assertJsonPath('detail.measurement_day_state', 'recorded')
+            ->assertJsonPath('detail.measurement.id', $new['entity_id'])->assertJsonPath('detail.measurement.verification_status', 'pending');
+        $review = ['activity_id' => $new['entity_id'], 'activity_version' => 1, 'decision' => 'invalid', 'reason' => 'Periksa uji'];
+        $this->postJson('/api/v2/activity-reviews', $this->operation('activity_review', $review))->assertCreated();
+        $this->getJson($home)->assertJsonPath('detail.measurement_day_state', 'invalid_only')
+            ->assertJsonPath('detail.measurement.id', $yesterday['entity_id']);
+        $this->getJson('/api/v2/activities/'.$new['entity_id'].'/verification')->assertJsonPath('status', 'invalid');
+        $this->asUser($worker)->patchJson('/api/v2/activities/'.$new['entity_id'], $this->operation('activity',
+            [...$new['payload'], 'manual_ppm' => '810', 'reason' => 'Koreksi uji', 'reference_policy' => 'preserve'],
+            'update', $new['entity_id'], 1))->assertOk();
+        $this->asUser($manager)->postJson('/api/v2/activity-reviews', $this->operation('activity_review',
+            ['activity_id' => $new['entity_id'], 'activity_version' => 2, 'decision' => 'valid']))->assertCreated();
+        $this->getJson($home)->assertJsonPath('detail.measurement_day_state', 'recorded')
+            ->assertJsonPath('detail.measurement.verification_status', 'valid')->assertJsonPath('detail.measurement.manual_ec', '2.000000')
+            ->assertJsonPath('detail.measurement.manual_ppm', '810.000000');
+        $this->travelBack();
+    }
+
     public function test_scope_and_data_driven_counts(): void
     {
         $manager = $this->account();

@@ -19136,6 +19136,14 @@
                       }
                     ]
                   },
+                    "measurement_day_state": {
+                      "enum": [
+                        "recorded",
+                        "missing",
+                        "invalid_only",
+                        "unavailable"
+                      ]
+                    },
                   "measurement_available": {
                     "type": "boolean"
                   },

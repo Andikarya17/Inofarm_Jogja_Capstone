@@ -39,3 +39,9 @@ Branch `codex/manager-activity-verification` menambah [kontrak v2](../../contrac
 Branch `codex/activity-observations-and-references` bergantung pada `8d96a31`. Migrasi 18 menambah pengamatan terstruktur opsional tanpa konversi teks lama. Form pekerja dan pengelola memakai penyimpanan draf yang sama. Tab Kegiatan pengelola membuka pemilih konteks langsung bila periode belum siap. Editor acuan menerima pengukuran dan EC mS/cm. Realisasi menyimpan versi jadwal, dan detail verifikasi memisahkan aktual dari acuan. [Preview semua baris kegiatan Excel dan anomali](MANAGER_EXCEL_MAPPING_20261110.md).
 
 PG-AC06–07 diverifikasi sebagian. MySQL guarded lulus 15 tes dan 364 assertion melalui `FinanceMeasurementTest|FinanceActivitySyncTest|ActivityReviewTest|FinanceReferenceTest`. Hasil mencakup EC target dalam/luar rentang, unit salah, versi target, material, skip dan pengamatan kosong/nol. JVM, build dan lint lulus, termasuk tes draf dengan koma desimal. Peninjauan editor target EC dan pengamatan opsional pada layar emulator masih terbuka.
+
+## PG3 · Beranda pengelola
+
+Branch `codex/manager-home-measurement-status` bergantung pada `bf396db`. Beranda mengambil pasangan EC/PPM dari satu revisi, memberi label pending, valid, pencatat pengelola atau histori lama, dan mengecualikan revisi tidak valid dari sumber kartu. Riwayat tetap memuat catatannya. Teks di dekat kartu membedakan hari kosong, hanya pengukuran tidak valid, dan data yang belum dapat diperiksa. Semua greenhouse menampilkan panen untuk kelompok yang sedang ditunjuk di tiap kartu. Kas bulan WIB memakai definisi sebelumnya.
+
+PG-AC01 dan PG-AC08 sebagian diverifikasi. MySQL guarded lulus 10 tes dan 376 assertion lewat `ManagerHomeTest|ActivityReviewTest|FinanceMeasurementTest`, termasuk data kemarin, pending, invalid dengan fallback, koreksi valid, pergantian WIB, dan batas greenhouse. Android build/JVM/lint lulus. Bukti visual dan offline dengan perubahan PG3 menyusul pada PG7.

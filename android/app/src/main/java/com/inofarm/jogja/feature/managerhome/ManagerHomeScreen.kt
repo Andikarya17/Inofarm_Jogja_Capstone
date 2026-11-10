@@ -26,6 +26,7 @@ import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.expenses.moneyLabel
 import com.inofarm.jogja.feature.timeLabel
+import com.inofarm.jogja.feature.verification.verificationLabel
 import org.json.JSONObject
 import java.math.BigDecimal
 import java.time.Instant
@@ -63,7 +64,7 @@ internal fun ManagerHomeScreen(
     val selected = snapshot?.selected
     val period = snapshot?.period
     val today = LocalDate.now(ActivityDraft.WIB)
-    val validToday = snapshot?.day == today && !state.cached
+    val validToday = snapshot?.day == today && snapshot.complete && !state.cached && !state.loading
     var picker by rememberSaveable { mutableStateOf(false) }
     val list = rememberLazyListState()
     val placeholderList = rememberLazyListState()
@@ -119,6 +120,10 @@ internal fun ManagerHomeScreen(
                     }
                     PeriodFacts(card.getJSONObject("period"), expanded = false)
                     Caption(card.text("last_operational_at")?.let { "Catatan terakhir ${timeLabel(it)}" } ?: "Belum ada catatan operasional")
+                    card.optJSONObject("harvest")?.let { harvest ->
+                        val kg = harvest.getString("weight_kg").toBigDecimal().stripTrailingZeros().toPlainString()
+                        Caption("Panen periode berjalan · ${harvest.getLong("fruit_count")} buah · $kg kg")
+                    }
                 }
             }
             if (snapshot.cards.any { it.optBoolean("active") }) item("record-scope") {
@@ -134,18 +139,36 @@ internal fun ManagerHomeScreen(
                     }
                 }
             }
-            if (period != null) {
-                item("measurement") {
-                    Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                        MeasurementCards(state.measurement, unavailable = state.cached || snapshot.detail?.optBoolean("measurement_available", true) == false)
-                        MeasurementSource(state.measurement, today, state.cached, snapshot.asOf.toEpochMilli(), null, snapshotSource = true)
-                        val check = snapshot.detail?.optJSONObject("measurement")?.optJSONObject("reference_snapshot")
-                            ?.optJSONObject("checks")?.optJSONObject("manual_ppm")
-                        if (state.measurement?.queued == false && check?.text("status") !in setOf("within_range", "outside_range")) {
-                            FarmPanel { Caption("PPM belum dapat dibandingkan dengan acuan saat pengukuran.") }
-                        }
+            item("measurement") {
+                Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                    val server = snapshot.detail?.optJSONObject("measurement")
+                    val dayState = snapshot.detail?.text("measurement_day_state")
+                    val checked = validToday && period != null && snapshot.detail?.optBoolean("measurement_available", true) != false
+                    val serverToday = server?.text("occurred_at")?.let { Instant.parse(it).atZone(ActivityDraft.WIB).toLocalDate() == today } == true
+                    val status = when {
+                        period == null -> "Tetapkan periode tanam untuk memeriksa pengukuran."
+                        !checked -> "Belum dapat memeriksa pencatatan hari ini"
+                        dayState == "invalid_only" -> "Pengukuran hari ini ditandai tidak valid. Lihat riwayat kegiatan."
+                        dayState == "unavailable" -> "Belum dapat memeriksa pencatatan hari ini"
+                        dayState == "missing" || !serverToday -> "Belum ada pencatatan hari ini"
+                        else -> "Pengukuran hari ini"
+                    }
+                    MeasurementCards(state.measurement, loading = state.loading && state.measurement == null, unavailable = !checked)
+                    Text(status, Modifier.testTag("manager-measurement-day-status"), style = MaterialTheme.typography.titleSmall)
+                    if (state.measurement?.queued == true) {
+                        Caption("Angka pada kartu masih menunggu pengiriman dari perangkat ini.")
+                    } else if (state.measurement != null) {
+                        if (!serverToday) Caption("Kartu menampilkan pengukuran terakhir.")
+                        server?.text("verification_status")?.let { Caption(verificationLabel(it)) }
+                    }
+                    MeasurementSource(state.measurement, today, state.cached, snapshot.asOf.toEpochMilli(), null, snapshotSource = true)
+                    val check = server?.optJSONObject("reference_snapshot")?.optJSONObject("checks")?.optJSONObject("manual_ppm")
+                    if (state.measurement?.queued == false && check?.text("status") !in setOf("within_range", "outside_range")) {
+                        Caption("PPM belum dapat dibandingkan dengan acuan saat pengukuran.")
                     }
                 }
+            }
+            if (period != null) {
                 item("record") {
                     Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                         Button(onClick = { onRecord(ActivityType.MEASUREMENT, null) }, shape = FarmShape.Control,
