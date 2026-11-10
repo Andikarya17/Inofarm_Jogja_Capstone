@@ -10,6 +10,8 @@ Database aplikasi lokal masih migration 16 saat audit; source/kontrak tidak memb
 
 [Verifikasi kegiatan pekerja](ACTIVITY_REVIEWS.md) menambahkan inbox pengelola, keputusan per revisi, feedback pekerja dan pengiriman melalui ledger v2.
 
+[Verifikasi dan progres panen](HARVEST_VERIFICATION.md) menambahkan keputusan per versi panen asal pekerja, feed opt-in, dan progres scoped menurut kondisi buah dan keputusan. Pekerja membaca alasan pada panen sendiri. Source migration 20 diuji pada MySQL terisolasi.
+
 Lanjutan2 November2026: [EC/PPM manual dan dashboard](MEASUREMENTS.md), schema15 additive. Permintaan pengguna menggantikan kebijakan coexistence v1 dan pemilihan legacy dalam catatan historis di bawah. Tidak ada perubahan envelope/hash antrean historis.
 
 Checkpoint2 November2026 juga mencakup [aset](ASSETS.md), [evaluasi musim](SEASON_EVALUATION.md), [investasi](INVESTMENT.md), [ekspor](REPORT_EXPORT.md), [recovery](RECOVERY.md) serta [profil/background sync FIN16](BACKGROUND_SYNC.md). [Panduan install/run terbaru FIN17](../../docs/migration/finance-20261029/FIN17_INSTALL_RUN.md) dan [hasil/gate FIN16](../../docs/migration/finance-20261029/FIN16_ACCEPTANCE.md) mengatasi batas source historis pada uraian FIN01 berikut. OpenAPI dan schema/fixtures adalah kontrak executable, bukan persetujuan acceptance bisnis/produksi.

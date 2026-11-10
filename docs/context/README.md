@@ -40,6 +40,8 @@ Urutan baca: AGENTS root/lokal → ringkasan ini → status/gap → PRD, archite
 
 ## Dokumen fitur dan riwayat
 
+[Implementasi penyelarasan pekerja, 10–11 November 2026](WORKER_ALIGNMENT_EVIDENCE_20261110.md) mencatat PK0–PK7, verifikasi panen per revisi, progres pekerja dan bukti Android. Keputusan pada master prompt menjadi acuan kebutuhan. Status hasil mengikuti checkpoint ini.
+
 [Implementasi dan bukti Beranda pengelola 8 November 2026](MANAGER_HOME_UPGRADE_EVIDENCE.md) mencatat hasil tiap acceptance, dasar angka, pengujian perangkat, dan batasnya.
 
 Rencana Beranda pengelola 8 November 2026: [master prompt lima upgrade](MASTER_PROMPT_MANAGER_HOME.md) dan [prompt pelaksanaan GPT 6.1 Sol](RUN_MANAGER_HOME_UPGRADE.md). Mencakup pilihan cukup greenhouse, ringkasan seluruh kebun, perhatian berbasis bukti, ringkasan satu greenhouse, serta keuangan dengan basis jelas. Wajib Impeccable dan antislop DURING, mempertahankan identitas botani dan menambahkan motion yang fungsional. Dokumen ini masih spesifikasi; bukan klaim perubahan runtime atau acceptance sudah lulus.

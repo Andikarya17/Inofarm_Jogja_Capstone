@@ -2,6 +2,8 @@
 
 OpenAPI108 path/152 operasi setara153 kombinasi runtime setelah format ekspor pdf/csv diekspansi. Tes OpenApiParityTest memeriksa kesamaan dua arah dan dispatch route. Semua respons sukses yang memiliki body telah diberi schema. Logout204 tanpa body. Payload snapshot feed tetap polimorfik sesuai entity_type dan histori. [Bukti](AUDIT_REMEDIATION_20261110.md).
 
+Penyelarasan pekerja menaikkan spesifikasi menjadi 111 path dan 156 operasi, setara 157 kombinasi runtime. Progres panen memakai respons berdasarkan peran. Pull `sync/changes` menerima opt-in status review pengukuran dan keputusan panen. [Kontrak panen](../../contracts/v2/HARVEST_VERIFICATION.md)
+
 | Method | Path | Controller |
 |---|---|---|
 | POST | `/auth/login` | `AuthController@login` |
@@ -49,6 +51,10 @@ OpenAPI108 path/152 operasi setara153 kombinasi runtime setelah format ekspor pd
 | PATCH | `/seasons/{id}` | `MasterController@update` |
 | GET | `/seasons/{id}` | `MasterController@show` |
 | GET | `/planting-groups/{id}/harvest-progress` | `HarvestController@progress` |
+| GET | `/planting-groups/{id}/harvest-progress/sources` | `HarvestController@progressSources` |
+| GET | `/harvest-reviews` | `HarvestReviewController@index` |
+| POST | `/harvest-reviews` | `HarvestReviewController@store` |
+| GET | `/harvests/{id}/verification` | `HarvestReviewController@show` |
 | POST | `/planting-groups/{id}/harvest-completion` | `HarvestController@completion` |
 | PATCH | `/planting-groups/{id}` | `MasterController@update` |
 | GET | `/planting-groups/{id}` | `MasterController@show` |

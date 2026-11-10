@@ -1,4 +1,10 @@
-# Status implementasi nyata, 10 November 2026
+# Status implementasi nyata, 11 November 2026
+
+## Penyelarasan pekerja
+
+Beranda pekerja membuka periode yang sah dari pilihan greenhouse scoped. HSS/HST tetap dibaca dari acuan tanggal, dan pasangan EC/PPM cache mengikuti keputusan revisi. Form memakai picker tanggal dan jam Android. Agenda WIB memisahkan jadwal, catatan saya, koreksi dan kiriman tertahan. Panen pekerja dapat diperiksa pengelola per revisi dan progres memisahkan hasil tercatat dari hasil terverifikasi. [Checkpoint dan bukti PK0–PK7](WORKER_ALIGNMENT_EVIDENCE_20261110.md).
+
+Source backend memakai migration finance 20 dengan tabel review panen. Migration tersebut diuji di `inofarm_test`. Database aplikasi lokal tetap pada checkpoint schema 19 hingga rollout terotorisasi. SQLite 10 dan envelope v2 tetap dipakai. [Kontrak panen](../../contracts/v2/HARVEST_VERIFICATION.md).
 
 ## Status setelah remediasi10 November2026
 

@@ -13,6 +13,7 @@ use App\Domain\Finance\InvestmentScenarioService;
 use App\Domain\Finance\SaleService;
 use App\Domain\Finance\SeasonReportService;
 use App\Domain\Harvest\HarvestService;
+use App\Domain\Harvest\HarvestReviewService;
 use App\Models\User;
 use App\Support\TestDatabaseGuard;
 use Illuminate\Contracts\Console\Kernel;
@@ -45,6 +46,7 @@ try {
     $service = match ($input['operation']['entity_type']) {
         'activity' => ActivityService::class,
         'harvest' => HarvestService::class,
+        'harvest_review' => HarvestReviewService::class,
         'cost_allocation' => CostAllocationService::class,
         'sale' => SaleService::class,
         'season_report' => SeasonReportService::class,
