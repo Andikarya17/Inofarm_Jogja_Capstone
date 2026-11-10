@@ -126,6 +126,29 @@ class FinanceLocalStoreTest {
         assertThrows(Exception::class.java) { cipher.decode("account-b",encrypted) }
         assertThrows(IllegalArgumentException::class.java) { store.cached("account-a","expense_categories") }
     }
+
+    @Test fun contextCacheReadsBeyondOneThousandAndRetainsScopeChecks() {
+        val rows = JSONArray()
+        val expected = mutableSetOf<String>()
+        repeat(1005) {
+            val id = UUID.randomUUID().toString()
+            expected.add(id)
+            rows.put(JSONObject().put("entity_type", "varieties").put("entity_id", id)
+                .put("greenhouse_id", gh).put("version", 1).put("tombstone", false)
+                .put("data", JSONObject().put("id", id).put("name", "Varietas sintetis $it").put("active", true)))
+        }
+        store.applyPull("account-a", page(rows))
+        assertEquals(1000, store.cached("account-a", "varieties", limit = 1000).size)
+        val all = store.cachedAll("account-a", "varieties")
+        assertEquals(1005, all.size)
+        assertEquals(expected, all.map { it.getString("id") }.toSet())
+        assertTrue(store.cachedAll("account-a", "varieties", UUID.randomUUID().toString()).isEmpty())
+        store.initialize("account-b", epoch, UserRole.WORKER)
+        assertTrue(store.cachedAll("account-b", "varieties").isEmpty())
+        assertThrows(IllegalArgumentException::class.java) { store.cachedAll("account-a", "expenses") }
+        store.applyPull("account-a", page(scope = JSONArray()))
+        assertTrue(store.cachedAll("account-a", "varieties").isEmpty())
+    }
     @Test fun remotePullBeforeFirstDraftSaveDoesNotRebaseAnEditSilently() {
         val id=UUID.randomUUID().toString()
         fun row(version:Int)=JSONObject().put("entity_type","activity").put("entity_id",id).put("greenhouse_id",gh).put("version",version).put("tombstone",false).put("data",body("Server $version").put("id",id).put("version",version))

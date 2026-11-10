@@ -19,3 +19,13 @@ Branch codex/measurement-review-filter menggunakan predicate review versi saat i
 Branch codex/api-contract-parity menambahkan25 operasi yang hilang. OpenAPI kini108 path/152 operasi, setara153 operasi runtime ketika pdf/csv diekspansi. Tes router memeriksa kesamaan dua arah dan route match. Seluruh respons sukses dengan body memiliki schema; logout204 sengaja tanpa body. Schema master/acuan/akun, receipt, audit, latest, login/profil, review dan envelope feed ditambahkan. Bentuk snapshot entity di feed tetap polimorfik untuk kompatibilitas histori. Request acuan menerima EC/measurement dan master kelompok menerima target panen sesuai runtime.
 
 Pemeriksa schema/fixture/ref lulus. Suite backend lengkap lulus144 tes/3.690 assertion, termasuk pemeriksaan respons nyata master/acuan/akun dan larangan password pada receipt. Guard terpisah4 tes/12 assertion lulus. Pemeriksaan bentuk respons pada PHPUnit mencakup required/key/type/pattern; checker Python memvalidasi definisi JSON Schema. Aturan bisnis lintas objek tetap diuji pada service/HTTP di suite.
+
+## FE-01 selesai untuk pemotongan cache
+
+Branch codex/context-cache-pagination menambahkan pembacaan cache bertahap1.000 baris per query dalam transaksi SQLite konsisten. ContextRepository memakai seluruh halaman untuk data pemilih. Scope akun/greenhouse dan hak baca jenis keuangan diperiksa pada tiap pembacaan. API cached lama tetap menyediakan halaman dengan default sebelumnya.
+
+Build debug/test APK,74 tes JVM dan lint lulus (0 error,16 warning,1 hint).32 tes instrumentation penyimpanan/sync/pengukuran lulus pada emulator API30, termasuk1.005 varietas tanpa kehilangan/duplikasi, isolasi akun, filter greenhouse dan pencabutan scope. APK dipasang dengan install-r tanpa clear data. Snapshot akhir masih berupa list di memori; benchmark dataset produksi yang jauh lebih besar tetap bagian gate performa perangkat sasaran.
+
+## Gate yang tetap terbuka
+
+QA-01 memerlukan UAT mitra, pentest berizin, perangkat fisik, TalkBack menyeluruh dan pengujian OS background/Doze sesuai acceptance. Q07/Q08 dan kebijakan bisnis terbuka memerlukan keputusan pemilik. Temuan engineering DB-01/API-01/API-02/API-03/FE-01 di atas sudah memiliki implementasi dan bukti baru; gate tersebut tidak otomatis selesai oleh suite engineering.

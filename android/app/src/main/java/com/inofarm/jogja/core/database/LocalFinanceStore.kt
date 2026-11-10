@@ -185,13 +185,24 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         requireKind(scope,"cost_allocation");ensureIndexed(scope)
         return db.rawQuery("SELECT DISTINCT season_id FROM local_records WHERE scope=? AND kind='cost_allocation' AND expense_id=? AND record_state='active' AND season_id IS NOT NULL AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)",arrayOf(scope,expenseId,scope)).use {rows -> buildSet {while(rows.moveToNext()) add(rows.getString(0))}}
     }
-    fun cached(scope: String, kind: String, greenhouse: String? = null, limit: Int = 100): List<JSONObject> {
+    fun cached(scope: String, kind: String, greenhouse: String? = null, limit: Int = 100, offset: Int = 0): List<JSONObject> {
         require(limit in 1..1000)
+        require(offset >= 0)
         requireKind(scope,kind)
         val args = mutableListOf(scope,kind,scope)
         val filter = if(greenhouse != null) { args.add(greenhouse); " AND greenhouse_id=?" } else ""
         args.add(limit.toString())
-        return db.rawQuery("SELECT body FROM cached_records WHERE scope=? AND kind=? AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)$filter ORDER BY entity_id LIMIT ?",args.toTypedArray()).use { rows -> buildList { while(rows.moveToNext()) add(decode(scope,rows.getString(0))!!) } }
+        args.add(offset.toString())
+        return db.rawQuery("SELECT body FROM cached_records WHERE scope=? AND kind=? AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)$filter ORDER BY entity_id LIMIT ? OFFSET ?",args.toTypedArray()).use { rows -> buildList { while(rows.moveToNext()) add(decode(scope,rows.getString(0))!!) } }
+    }
+
+    fun cachedAll(scope: String, kind: String, greenhouse: String? = null): List<JSONObject> = transaction {
+        buildList {
+            do {
+                val page = cached(scope, kind, greenhouse, limit = 1000, offset = size)
+                addAll(page)
+            } while (page.size == 1000)
+        }
     }
     fun cachedOne(scope:String,kind:String,id:String):JSONObject? {
         requireKind(scope,kind)
