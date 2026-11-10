@@ -17,8 +17,8 @@ final class ReceiptReviewController extends Controller
     public function __invoke(Request $request, ScopedRead $reads, GreenhouseAccess $access)
     {
         $rules = ['sync_epoch' => 'required|uuid', 'operation' => 'required|array:schema_version,sync_epoch,operation_id,entity_id,entity_type,action,base_version,payload', 'operation.schema_version' => 'required|in:2', 'operation.action' => 'required|in:create,update,cancel', 'operation.base_version' => 'present|nullable|integer|min:1|max:2147483647', 'operation.payload' => 'required|array', 'operation.operation_id' => 'required|uuid', 'operation.entity_id' => 'required|uuid', 'operation.sync_epoch' => 'required|uuid',
-            'operation.entity_type' => 'required|in:activity,harvest,expense,cost_allocation,sale,asset,depreciation_allocation,season_report,investment_scenario,investment_report,activity_attachment,harvest_attachment,expense_attachment'];
-        foreach (['greenhouse_id', 'planting_group_id', 'season_id', 'expense_id', 'asset_id', 'scenario_id', 'owner_id'] as $field) {
+            'operation.entity_type' => 'required|in:activity,activity_review,harvest,expense,cost_allocation,sale,asset,depreciation_allocation,season_report,investment_scenario,investment_report,activity_attachment,harvest_attachment,expense_attachment'];
+        foreach (['greenhouse_id', 'planting_group_id', 'season_id', 'expense_id', 'asset_id', 'scenario_id', 'owner_id', 'activity_id'] as $field) {
             $rules['operation.payload.'.$field] = ['sometimes', OperationInput::UUID];
         }
         $input = $request->validate($rules);
@@ -70,6 +70,12 @@ final class ReceiptReviewController extends Controller
 
     private function greenhouseForMissing(array $op): ?string
     {
+        if ($op['entity_type'] === 'activity_review') {
+            $id = DB::table('activity_reviews')->where('id', $op['entity_id'])->value('activity_id') ?? $op['payload']['activity_id'] ?? null;
+            $group = DB::table('activities')->where('id', $id)->value('planting_group_id');
+
+            return $group === null ? null : $this->groupGreenhouse($group);
+        }
         $tables = ['activity' => 'activities', 'harvest' => 'harvests', 'expense' => 'expenses', 'cost_allocation' => 'cost_allocations', 'sale' => 'sales', 'asset' => 'assets', 'depreciation_allocation' => 'depreciation_allocations', 'investment_scenario' => 'investment_scenarios', 'season_report' => 'report_snapshots', 'investment_report' => 'report_snapshots', 'activity_attachment' => 'record_attachments', 'harvest_attachment' => 'record_attachments', 'expense_attachment' => 'record_attachments'];
         $current = DB::table($tables[$op['entity_type']])->where('id', $op['entity_id'])->first();
         if ($current) {

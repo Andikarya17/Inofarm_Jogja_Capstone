@@ -16,6 +16,7 @@ final class EntityIdentity
         'expense_categories' => ['expense_categories', 'id'], 'seasons' => ['seasons', 'id'],
         'planting_groups' => ['planting_groups', 'id'], 'schedules' => ['schedules', 'id'], 'targets' => ['targets', 'id'],
         'activity' => ['activities', 'id'], 'harvest' => ['harvests', 'id'], 'harvest_item' => ['harvest_items', 'id'],
+        'activity_review' => ['activity_reviews', 'id'],
         'expense' => ['expenses', 'id'], 'expense_balance' => ['expenses', 'balance_id'], 'cost_allocation' => ['cost_allocations', 'id'],
         'sale' => ['sales', 'id'], 'sale_item' => ['sale_items', 'id'],
         'asset' => ['assets', 'id'], 'depreciation_allocation' => ['depreciation_allocations', 'id'],

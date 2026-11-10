@@ -63,6 +63,8 @@ import com.inofarm.jogja.feature.context.WorkerContextSheet
 import com.inofarm.jogja.feature.context.greenhouseAvailability
 import com.inofarm.jogja.core.sync.ContextCheck
 import com.inofarm.jogja.feature.history.*
+import com.inofarm.jogja.feature.verification.ActivityVerificationRepository
+import com.inofarm.jogja.feature.verification.ActivityVerificationScreen
 import com.inofarm.jogja.feature.harvest.*
 import com.inofarm.jogja.feature.expenses.*
 import com.inofarm.jogja.feature.attachments.*
@@ -205,6 +207,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var queueReviewOperation by rememberSaveable { mutableStateOf<String?>(null) }
     var queueFocus by rememberSaveable { mutableStateOf<String?>(null) }
     var queueOpening by remember { mutableStateOf(false) }
+    var showOutbox by rememberSaveable { mutableStateOf(false) }
+    var reviewActivity by rememberSaveable { mutableStateOf<String?>(null) }
+    val verification = remember(runtime) { ActivityVerificationRepository(runtime.api, runtime.store, runtime.vault) }
     val manager = session.role == UserRole.MANAGER
     var managerRefresh by remember { mutableLongStateOf(0L) }
     var periodReview by rememberSaveable { mutableStateOf(false) }
@@ -323,10 +328,12 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             history.selected!=null -> historyVm.close()
             harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison()
             harvestHistory.selected!=null -> harvestHistoryVm.close()
+            tab == 1 && manager && showOutbox -> showOutbox = false
+            tab == 1 && reviewActivity != null -> reviewActivity = null
             else -> tab=0
         }
     }
-    val showNavigation = !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
+    val showNavigation = !(tab == 1 && !showOutbox && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
     val sessionExpired = session.expired()
     val workerReady = selectedGreenhouse != null && selectedGroup != null &&
         selectedSeason?.optString("status") == "open" && context.check != ContextCheck.ACCESS_CHANGED
@@ -372,6 +379,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         if (showNavigation) FinanceNavigation(tab, manager, translucentNavigation) {
             if (!queueOpening) {
                 queueFocus = null
+                if (it != tab) { showOutbox = false; reviewActivity = null }
                 tab = it
             }
         }
@@ -411,7 +419,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     ), periodReview, { periodReview = it }, { id -> gh = id; periodReview = false }, {
                         managerRefresh++
                         onSync()
-                    }, openHomeDestination, { operation -> queueFocus = operation.id; tab = 1 },
+                    }, openHomeDestination, { operation -> queueFocus = operation.id; showOutbox = true; tab = 1 },
                         onRecord = { type, schedule ->
                             if (canRecordFromHome) vm.new(gh!!, runningGroup!!, type, schedule, runningVersion)
                         },
@@ -495,6 +503,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     }
                     item { activity.message?.let { Notice(it) } }
                 } }
+                tab == 1 && manager && !showOutbox -> tabState.SaveableStateProvider("verification") {
+                    ActivityVerificationScreen(session, ticket, context, verification, syncUpdates, reviewActivity,
+                        { reviewActivity = it }, { showOutbox = true }, onSync)
+                }
                 tab==1 -> tabState.SaveableStateProvider(queueFocus?.let { "queue-$it" } ?: 1) {
                     QueueScreen(activity, context, sessionExpired, queueReviewOperation, queueReviewError, queueOpening, vm::reload,
                         onReview = { op ->
@@ -512,12 +524,17 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 }
                                 manager && kind in investmentQueueKinds -> investments.vm.select(op.entityId,fromQueue=true)
                                 manager && kind == "season_report" -> reports.vm.select(op.entityId)
+                                manager && kind == "activity_review" -> {
+                                    reviewActivity = op.envelope.getJSONObject("payload").getString("activity_id")
+                                    showOutbox = false
+                                }
                             }
                         },
                         canReview = { op ->
                             val kind = op.envelope.optString("entity_type")
-                            kind in queueHistory || manager && (kind in investmentQueueKinds || kind == "season_report")
-                        }, focusOperation = queueFocus)
+                            kind in queueHistory || manager && (kind in investmentQueueKinds || kind in setOf("season_report", "activity_review"))
+                        }, focusOperation = queueFocus,
+                        onVerification = if (manager) ({ showOutbox = false }) else null)
                 }
                 tab==4 && manager -> tabState.SaveableStateProvider(4) {
                     FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync,financeKind,financeLink)

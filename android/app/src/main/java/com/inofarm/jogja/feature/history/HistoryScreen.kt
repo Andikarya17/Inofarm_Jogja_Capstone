@@ -273,6 +273,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
     val reviewable=pending.isNotEmpty() && pending.all {it.state=="REJECTED" && ReviewableRejections.mayReplace(kind.wire,it.error?.optString("code"))}
     val own=record.recorderId().let {it.isBlank() || it==session.scope.accountId}
     RecordDetail(record,session,context,vm::close,onEdit={onEdit(record,reviewable)},kind=kind,returnToQueue=returnToQueue) {
+        if (kind == OperationalKind.ACTIVITY) com.inofarm.jogja.feature.verification.ActivityVerificationFeedback(session, record)
         val attachments=com.inofarm.jogja.feature.attachments.LocalAttachmentAction.current
         if(attachments!=null && kind in setOf(OperationalKind.ACTIVITY,OperationalKind.HARVEST,OperationalKind.EXPENSE) && record.serverVersion!=null) OutlinedButton(onClick={attachments(record)},modifier=Modifier.fillMaxWidth().testTag("history-attachments")) {Text("Lampiran dan bukti catatan")}
         state.message?.let {Notice(it,true)}

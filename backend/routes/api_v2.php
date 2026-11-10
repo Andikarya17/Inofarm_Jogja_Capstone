@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\V2\ActivityController;
+use App\Http\Controllers\V2\ActivityReviewController;
 use App\Http\Controllers\V2\AssetController;
 use App\Http\Controllers\V2\AttachmentController;
 use App\Http\Controllers\V2\AuthController;
@@ -61,6 +62,10 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::get('attachments/{id}/audit', [AttachmentController::class, 'audit'])->whereUuid('id');
         Route::post('attachments/{id}/cancel', [AttachmentController::class, 'cancel'])->whereUuid('id');
         Route::get('activities', [ActivityController::class, 'index']);
+        Route::get('activity-reviews', [ActivityReviewController::class, 'index']);
+        Route::get('activity-reviews/recorders', [ActivityReviewController::class, 'recorders']);
+        Route::post('activity-reviews', [ActivityReviewController::class, 'store']);
+        Route::get('activities/{id}/verification', [ActivityReviewController::class, 'show'])->whereUuid('id');
         Route::get('measurements/latest', [ActivityController::class, 'latestMeasurement']);
         Route::get('activities/{id}', [ActivityController::class, 'show'])->whereUuid('id');
         Route::post('activities', [ActivityController::class, 'store']);
