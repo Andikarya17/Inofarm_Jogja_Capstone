@@ -3287,6 +3287,290 @@
         ]
       }
     },
+      "/planting-groups/{id}/harvest-progress": {
+        "get": {
+          "operationId": "get__harvest_progress",
+          "summary": "Rekap target dan hasil panen kelompok",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Berhasil",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "required": [
+                      "group_id",
+                      "group_version",
+                      "target",
+                      "completion",
+                      "records",
+                      "totals",
+                      "complete_quality",
+                      "achievement_percent",
+                      "difference_fruit"
+                    ],
+                    "properties": {
+                      "group_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "group_version": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "target": {
+                        "type": [
+                          "object",
+                          "null"
+                        ]
+                      },
+                      "completion": {
+                        "type": [
+                          "object",
+                          "null"
+                        ]
+                      },
+                      "records": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "totals": {
+                        "type": "object",
+                        "required": [
+                          "saleable",
+                          "defective",
+                          "unknown"
+                        ]
+                      },
+                      "complete_quality": {
+                        "type": "boolean"
+                      },
+                      "achievement_percent": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "difference_fruit": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Kesalahan terstruktur",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "403": {
+              "description": "Kesalahan terstruktur",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "Kesalahan terstruktur",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Kesalahan terstruktur",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Kesalahan terstruktur",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/planting-groups/{id}/harvest-completion": {
+        "post": {
+          "operationId": "post__harvest_completion",
+          "summary": "Selesaikan atau buka kembali panen kelompok",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Berhasil",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object"
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Kesalahan terstruktur",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "403": {
+              "description": "Kesalahan terstruktur",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "Kesalahan terstruktur",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Kesalahan terstruktur",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Kesalahan terstruktur",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          },
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "schema_version",
+                    "sync_epoch",
+                    "operation_id",
+                    "entity_id",
+                    "entity_type",
+                    "action",
+                    "base_version",
+                    "payload"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "schema_version": {
+                      "const": "2"
+                    },
+                    "sync_epoch": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "operation_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "entity_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "entity_type": {
+                      "const": "planting_groups"
+                    },
+                    "action": {
+                      "enum": [
+                        "complete_harvest",
+                        "reopen_harvest"
+                      ]
+                    },
+                    "base_version": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "payload": {
+                      "type": "object",
+                      "required": [
+                        "reason"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000,
+                          "pattern": "\\S"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
     "/planting-groups/{id}": {
       "patch": {
         "operationId": "patch_planting_groups_update",
@@ -12960,6 +13244,27 @@
               "string",
               "null"
             ]
+          },
+          "recorded_by_role": {
+            "enum": [
+              "worker",
+              "manager",
+              null
+            ]
+          },
+          "verification_status": {
+            "enum": [
+              "pending",
+              "valid",
+              "manager",
+              "legacy"
+            ]
+          },
+          "observations": {
+            "type": [
+              "object",
+              "null"
+            ]
           }
         }
       },
@@ -13199,6 +13504,13 @@
                 "grade_version": {
                   "type": "integer",
                   "minimum": 1
+                },
+                "quality": {
+                  "enum": [
+                    "saleable",
+                    "defective",
+                    null
+                  ]
                 }
               }
             }
@@ -18552,14 +18864,18 @@
                   "investment_report",
                   "activity_attachment",
                   "harvest_attachment",
-                  "expense_attachment"
+                  "expense_attachment",
+                  "activity_review",
+                  "planting_groups"
                 ]
               },
               "action": {
                 "enum": [
                   "create",
                   "update",
-                  "cancel"
+                  "cancel",
+                  "complete_harvest",
+                  "reopen_harvest"
                 ]
               },
               "base_version": {
@@ -18914,6 +19230,12 @@
                       "type": "null"
                     }
                   ]
+                },
+                "harvest": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -19136,14 +19458,14 @@
                       }
                     ]
                   },
-                    "measurement_day_state": {
-                      "enum": [
-                        "recorded",
-                        "missing",
-                        "invalid_only",
-                        "unavailable"
-                      ]
-                    },
+                  "measurement_day_state": {
+                    "enum": [
+                      "recorded",
+                      "missing",
+                      "invalid_only",
+                      "unavailable"
+                    ]
+                  },
                   "measurement_available": {
                     "type": "boolean"
                   },

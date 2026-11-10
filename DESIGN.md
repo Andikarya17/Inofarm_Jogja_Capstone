@@ -163,13 +163,17 @@ Beranda menampilkan dua kartu setara, EC dalam mS/cm dan PPM dalam ppm, dari sat
 
 ### Form, review, dan riwayat
 
+Antrean pengelola membuka Verifikasi kegiatan. Kartu menempatkan jenis kegiatan, greenhouse, pencatat, waktu dan status sebelum rincian teknis. Detail menempatkan catatan aktual dan acuan berversi berdekatan, lalu keputusan pengelola dan histori. Pengiriman saya memberi jalur terpisah untuk antrean perangkat. Detail kegiatan pekerja menampilkan alasan keputusan pada revisi yang terkait.
+
 `FarmSection` mengelompokkan isian berdasarkan pekerjaan, misalnya waktu, konteks, hasil, atau catatan. Pertahankan satuan, bantuan, jenis keyboard dan kesalahan di dekat isian. Review memakai pasangan label dan nilai dalam panel. Bedakan `Simpan draf dan kembali`, tindakan periksa, `Kembali ke isian`, serta `Simpan lokal & antrekan`. Status draf menyebut penyimpanan di perangkat. Antrean dan riwayat menyebut penerimaan server secara eksplisit.
 
 Judul ringkas memberi orientasi di menu. Toolbar merangkum cakupan riwayat. Filter mengelompokkan cakupan, jenis dan status, serta periode WIB. Baris solid mendahulukan jenis catatan, grade atau nominal, disusul konteks, waktu, dan status. Panen menampilkan cuplikan per grade di riwayat dan rincian lengkap di detail. Saat pengguna meninjau konflik, dua panel memisahkan versi lokal dan server beserta alasannya. Antrean mendahulukan pengajuan yang perlu ditinjau dan menyimpan ID serta percobaan di rincian operasi. Back dari detail yang dibuka lewat Antrean kembali ke Antrean. [Komponen menu](android/app/src/main/java/com/inofarm/jogja/core/design/FarmMenu.kt) · [Riwayat](android/app/src/main/java/com/inofarm/jogja/feature/history/HistoryScreen.kt)
 
 ### Keuangan dan laporan
 
-Keuangan memisahkan konteks dan tombol `Catat pengeluaran` pada blok Catatan baru dari toolbar Riwayat. `Alat keuangan` membuka sheet berjudul tetap dengan kelompok Transaksi, Aset, Evaluasi, dan Pemeliharaan. Pembayaran, alokasi biaya, aset, penyusutan, dan penjualan memiliki label masing-masing. Laporan dan investasi menempatkan periode dan basis di atas kelompok hasil, dengan alasan tetap terlihat saat hasil belum tersedia atau tidak valid. Rincian rumus, sumber, input, dan diagnostik dapat dibuka. [FinancialEntryScreen.kt](android/app/src/main/java/com/inofarm/jogja/feature/expenses/FinancialEntryScreen.kt) · [Kontrak operasional](contracts/v2/README.md)
+Rekap panen memakai pemilih greenhouse dan kelompok, lalu menunjukkan varietas, populasi tanaman, target buah, hasil layak dan cacat, serta capaian. Tindakan selesai ada sesudah rekap dan meminta alasan. Kelola greenhouse dan Kelola akun tersedia langsung dari menu akun. Detail greenhouse menghubungkan penyiapan musim, varietas, kelompok, periode dan penugasan.
+
+Keuangan memisahkan konteks dan tombol `Catat pengeluaran` pada blok Catatan baru dari toolbar Riwayat. `Alat keuangan` mengelompokkan biaya dan alokasi, investasi awal/aset dan penyusutan, penjualan dan penerimaan, evaluasi, serta pemeliharaan. Laporan dan investasi menempatkan periode dan basis di atas kelompok hasil, dengan alasan tetap terlihat saat hasil belum tersedia atau tidak valid. Rincian rumus, sumber, input, dan diagnostik dapat dibuka. [FinancialEntryScreen.kt](android/app/src/main/java/com/inofarm/jogja/feature/expenses/FinancialEntryScreen.kt) · [Kontrak operasional](contracts/v2/README.md)
 
 ### Motion dan umpan balik
 

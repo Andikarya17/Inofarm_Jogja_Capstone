@@ -9,6 +9,8 @@ import com.inofarm.jogja.core.network.FinanceApi
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.core.session.FinanceSessionVault
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.util.UUID
@@ -18,6 +20,7 @@ internal class ActivityVerificationRepository(
     private val store: LocalFinanceStore,
     private val vault: FinanceSessionVault,
 ) {
+    private val writes = Mutex()
     private fun checkSession(session: FinanceSession, ticket: Long) {
         check(vault.matches(ticket, session.scope) && vault.current?.token == session.token &&
             vault.current?.role == session.role) { "Sesi berubah. Buka kembali catatan." }
@@ -42,21 +45,23 @@ internal class ActivityVerificationRepository(
 
     suspend fun save(session: FinanceSession, ticket: Long, entry: JSONObject, decision: String, reason: String, queue: Boolean) =
         withContext(Dispatchers.IO) {
-            checkSession(session, ticket)
-            require(session.role == UserRole.MANAGER && entry.optString("status") == "pending")
-            require(decision in setOf("valid", "invalid") && reason.length <= 1000)
-            require(!queue || decision != "invalid" || reason.isNotBlank()) { "Isi alasan tidak valid." }
-            val activity = entry.getJSONObject("activity")
-            val activityId = activity.getString("id")
-            val version = activity.getLong("version")
-            val greenhouse = entry.getJSONObject("context").getString("greenhouse_id")
-            val id = draftId(session, activityId, version)
-            val old = store.record(session.scope.key, id)
-            require(old == null || old.syncState == SyncState.LOCAL) { "Pengajuan sudah ada. Periksa Pengiriman saya." }
-            val payload = JSONObject().put("activity_id", activityId).put("activity_version", version)
-                .put("decision", decision).put("reason", reason.trim().ifBlank { null } ?: JSONObject.NULL)
-            if (queue) store.saveAndQueue(session.scope.key, id, greenhouse, payload, old?.revision, kind = "activity_review")
-            else store.saveDraft(session.scope.key, id, greenhouse, payload, old?.revision, kind = "activity_review")
+            writes.withLock {
+                checkSession(session, ticket)
+                require(session.role == UserRole.MANAGER && entry.optString("status") == "pending")
+                require(decision in setOf("valid", "invalid") && reason.length <= 1000)
+                require(!queue || decision != "invalid" || reason.isNotBlank()) { "Isi alasan tidak valid." }
+                val activity = entry.getJSONObject("activity")
+                val activityId = activity.getString("id")
+                val version = activity.getLong("version")
+                val greenhouse = entry.getJSONObject("context").getString("greenhouse_id")
+                val id = draftId(session, activityId, version)
+                val old = store.record(session.scope.key, id)
+                require(old == null || old.syncState == SyncState.LOCAL) { "Pengajuan sudah ada. Periksa Pengiriman saya." }
+                val payload = JSONObject().put("activity_id", activityId).put("activity_version", version)
+                    .put("decision", decision).put("reason", reason.trim().ifBlank { null } ?: JSONObject.NULL)
+                if (queue) store.saveAndQueue(session.scope.key, id, greenhouse, payload, old?.revision, kind = "activity_review")
+                else store.saveDraft(session.scope.key, id, greenhouse, payload, old?.revision, kind = "activity_review")
+            }
         }
 
     suspend fun cachedFeedback(session: FinanceSession, ticket: Long, record: LocalRecord): List<JSONObject> =

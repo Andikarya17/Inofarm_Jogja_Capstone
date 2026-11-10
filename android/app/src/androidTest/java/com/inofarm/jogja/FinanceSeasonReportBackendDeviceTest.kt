@@ -23,7 +23,13 @@ class FinanceSeasonReportBackendDeviceTest {
     @get:Rule val rule=createAndroidComposeRule<MainActivity>()
     private val context get()=InstrumentationRegistry.getInstrumentation().targetContext
     private fun file(name:String)=File(context.getExternalFilesDir(null),name)
-    private fun fixture():JSONObject { assertTrue(context.packageName.endsWith(".finance"));return JSONObject(file("finance-season-report-fixture.json").readText()).also {assertEquals("inofarm_test",it.getString("database"))} }
+    private fun fixture(): JSONObject {
+        assertTrue(context.packageName.endsWith(".finance") || context.packageName.endsWith(".finance.performance"))
+        val encoded = InstrumentationRegistry.getArguments().getString("reportFixture")
+        val source = encoded?.let { android.util.Base64.decode(it, android.util.Base64.NO_WRAP).toString(Charsets.UTF_8) }
+            ?: file("finance-season-report-fixture.json").readText()
+        return JSONObject(source).also { assertEquals("inofarm_test", it.getString("database")) }
+    }
     private fun login(f:JSONObject,role:String) {
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty() || rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()}
         if(rule.onAllNodesWithTag("finance-account").fetchSemanticsNodes().isNotEmpty()) rule.logoutFromAccount()
@@ -104,7 +110,7 @@ class FinanceSeasonReportBackendDeviceTest {
         rule.onNodeWithTag("finance-sync").performClick();rule.waitUntil(25000) {model.store.record(session.scope.key,draft.id)?.syncState==SyncState.REJECTED}
         val rejected=model.store.outbox(session.scope.key).single {it.entityId==draft.id};assertEquals("report_sources_changed",rejected.error!!.getString("code"))
         proof.put("rejected_op",rejected.id);proof.put("rejected_hash",rejected.hash)
-        rule.onNodeWithTag("finance-tab-1").performClick();rule.onNodeWithTag("finance-review-${rejected.id}").performScrollTo().performClick()
+        rule.openFinanceOutbox();rule.onNodeWithTag("finance-review-${rejected.id}").performScrollTo().performClick()
         rule.waitUntil(10000) {reports().state.value.draft?.replaceRejected==true && !reports().state.value.busy};assertNull(reports().state.value.draft!!.previewText)
         click("report-preview");rule.waitUntil(15000) {!reports().state.value.busy && reports().state.value.draft?.previewText!=null}
         assertEquals("80.00",reports().state.value.draft!!.preview()!!.getJSONObject("metrics").getJSONObject("TC").getString("value"))

@@ -135,7 +135,11 @@ class FinanceEntryUiTest {
                     }
                     else -> if (managerWalkthroughFixture.get() && request.method == "GET" &&
                         com.inofarm.jogja.feature.admin.AdminResource.entries.any { it.path == path }) {
-                        val rows = if (path == "greenhouses") JSONArray(managerGreenhouses().map { it.put("version", 1) }) else JSONArray()
+                        val rows = when (path) {
+                            "greenhouses" -> JSONArray(managerGreenhouses().map { it.put("version", 1) })
+                            "planting-groups" -> JSONArray().put(JSONObject().put("id", group).put("name", "Kelompok uji"))
+                            else -> JSONArray()
+                        }
                         response.setBody(JSONObject().put("data", rows).put("next_cursor", JSONObject.NULL).toString())
                     } else if(path.endsWith("/audit")) {
                         val id=path.substringAfter("activities/").substringBefore("/audit");val rows=JSONArray()
@@ -184,7 +188,8 @@ class FinanceEntryUiTest {
             .put("seasons", if (selection == gh) JSONArray().put(JSONObject().put("id", season).put("greenhouse_id", gh)
                 .put("name", "Musim UI sintetis").put("start_date", "2026-10-01").put("status", seasonState.get()).put("version", seasonVersion.get())) else JSONArray())
             .put("measurement", if (ready && selection == gh) JSONObject().put("id", group).put("work_state", "completed")
-                .put("manual_ec", "1.45").put("manual_ppm", "725").put("occurred_at", at).put("recorded_by_name", "Pekerja sintetis") else JSONObject.NULL)
+                .put("manual_ec", "1.45").put("manual_ppm", "725").put("occurred_at", at)
+                .put("recorded_by_name", "Pekerja sintetis").put("verification_status", "pending") else JSONObject.NULL)
             .put("harvest", if (ready && selection == gh) JSONObject().put("records", 2).put("weight_kg", "12.50").put("fruit_count", 8) else JSONObject.NULL)
             .put("schedules", if (managerWalkthroughFixture.get() && selection == gh && ready) {
                 JSONArray().put(JSONObject().put("id", group).put("activity_type", "general")
@@ -499,7 +504,7 @@ class FinanceEntryUiTest {
         val expiredMessage = "Sesi berakhir. Masuk kembali untuk melihat ringkasan."
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasText(expiredMessage))
         readyText(expiredMessage).assertIsDisplayed()
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
         readyNode("finance-queue-list").assertIsDisplayed()
         capture("manager-expired-session")
         if (rule.activity.resources.configuration.fontScale > 1.5f) {
@@ -604,7 +609,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-0").assertIsSelected()
         rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
         Espresso.pressBack()
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
         readyNode("finance-queue-list").assertIsDisplayed()
         rule.selectFinanceTab(2)
         readyText("Riwayat dalam penugasan akun ini.").assertIsDisplayed()
@@ -678,7 +683,7 @@ class FinanceEntryUiTest {
     }
 
     @Test fun offlineQueueRecreationReconnectAndManagerHistoryKeepHonestStatus() {
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
         captureSecondary("queue-empty")
         rule.selectFinanceTab(0)
         chooseContext();offline.set(true)
@@ -689,7 +694,7 @@ class FinanceEntryUiTest {
         captureSecondary("activity-review")
         rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
         rule.waitUntil(10000) { rule.onAllNodesWithText("Menunggu pengiriman").fetchSemanticsNodes().isNotEmpty() }
         captureSecondary("queue-waiting")
         rule.onNodeWithTag("finance-tab-2").performClick()
@@ -862,7 +867,7 @@ class FinanceEntryUiTest {
         makeConflict()
         Espresso.pressBack()
         Espresso.pressBack()
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
 
         val session = runtime().vault.current!!
         val operation = runtime().store.outbox(session.scope.key).single { it.state == "CONFLICT" }
@@ -935,6 +940,7 @@ class FinanceEntryUiTest {
         readyNode("manager-picker-$gh").performScrollTo().performClick()
         home.performScrollToNode(hasTestTag("measurement-card-ec"))
         readyNode("measurement-card-ppm").assertExists()
+        readyText("Belum diverifikasi").assertExists()
         captureWindow("single-greenhouse")
         home.performScrollToNode(hasTestTag("measurement-source"))
         readyNode("measurement-source").performClick()
@@ -960,10 +966,11 @@ class FinanceEntryUiTest {
         offline.set(true)
         readyNode("finance-sync").performClick()
         rule.waitUntil(15_000) {
-            runCatching { home.performScrollToNode(hasText("Belum dapat memeriksa catatan hari ini.")) }.isSuccess
+            runCatching { home.performScrollToNode(hasTestTag("manager-measurement-day-status")) }.isSuccess &&
+                rule.onAllNodesWithText("Belum dapat memeriksa pencatatan hari ini").fetchSemanticsNodes().isNotEmpty()
         }
-        readyText("Belum dapat memeriksa catatan hari ini.").assertIsDisplayed()
-        rule.onNodeWithText("Belum ada pengukuran tercatat hari ini").assertDoesNotExist()
+        readyText("Belum dapat memeriksa pencatatan hari ini").assertIsDisplayed()
+        rule.onNodeWithText("Belum ada pencatatan hari ini").assertDoesNotExist()
         captureWindow("offline")
         offline.set(false)
         rule.logoutFromAccount()
@@ -1049,7 +1056,7 @@ class FinanceEntryUiTest {
 
     @Test fun secondaryMenusReflowAndKeepSheetActionsReachable() {
         val historyList = rule.onNodeWithTag("finance-history-list")
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
         readyNode("finance-queue-list").assertIsDisplayed()
         captureSecondary("queue-responsive")
         rule.selectFinanceTab(2)
@@ -1181,6 +1188,51 @@ class FinanceEntryUiTest {
         readyNode("finance-history-list").assertIsDisplayed()
         rule.waitUntil(10_000) { receipts.isNotEmpty() }
         assertEquals("skipped", receipts.values.single().getJSONObject("data").getString("work_state"))
+    }
+
+    @Test fun managerRecordsObservationsAndEditsMeasurementTarget() {
+        managerWalkthroughFixture.set(true)
+        overviewFixture.set(true)
+        managerLogin()
+        selectManagerGreenhouse()
+        val home = readyNode("finance-home-list")
+        home.performScrollToNode(hasText("Catat realisasi"))
+        readyText("Catat realisasi").performClick()
+        readyNode("activity-observations").performScrollTo().performClick()
+        readyNode("activity-dissolved_oxygen_mg_l").performScrollTo().performTextReplacement("6,5")
+        readyNode("activity-leaf_count").performScrollTo().performTextReplacement("0")
+        readyNode("finance-notes").performScrollTo().performTextReplacement("Pengamatan tanaman sampel")
+        hideKeyboard()
+        captureWindow("manager-observations")
+        readyNode("finance-review").performScrollTo().performClick()
+        readyNode("finance-queue").performScrollTo().performClick()
+        rule.waitUntil(10_000) { receipts.isNotEmpty() }
+        val observations = receipts.values.single().getJSONObject("data").getJSONObject("observations")
+        assertEquals("6.5", observations.getString("dissolved_oxygen_mg_l"))
+        assertEquals(0, observations.getInt("leaf_count"))
+        assertFalse(observations.has("plant_height_cm"))
+
+        readyNode("finance-account").performClick()
+        readyNode("finance-admin").performClick()
+        readyNode("admin-resource").performScrollTo().performClick()
+        readyNode("farm-picker-options").performScrollToNode(hasTestTag("admin-resource-option-TARGET"))
+        readyNode("admin-resource-option-TARGET").performClick()
+        choose("admin-greenhouse", gh)
+        readyNode("admin-new").performScrollTo().performClick()
+        choose("admin-planting_group_id", group)
+        choose("admin-activity_type", "measurement")
+        choose("admin-parameter", "manual_ec")
+        choose("admin-unit", "mS/cm")
+        readyNode("admin-effective_from").performScrollTo().performTextReplacement("2026-10-30T08:00:00+07:00")
+        readyNode("admin-target_value").performScrollTo().performTextReplacement("1,3")
+        hideKeyboard()
+        readyNode("admin-submit").performScrollTo().performClick()
+        readyText("Ajukan perubahan?").assertIsDisplayed()
+        val confirmationValue = hasAnyAncestor(isDialog()) and !hasClickAction()
+        rule.onNode(confirmationValue and hasText("EC manual")).performScrollTo().assertIsDisplayed()
+        rule.onNode(confirmationValue and hasText("mS/cm")).performScrollTo().assertIsDisplayed()
+        captureWindow("manager-ec-target-review")
+        Espresso.pressBack()
     }
     private fun fillHarvest(note:String,twoGrades:Boolean=false) {
         chooseContext(true)

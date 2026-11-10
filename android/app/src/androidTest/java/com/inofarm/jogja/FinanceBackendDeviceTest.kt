@@ -167,6 +167,7 @@ class FinanceBackendDeviceTest {
 
         login(fixture, "manager")
         openReview()
+        rule.waitUntil(20_000) { rule.onAllNodesWithText("Diterima server · revisi 1").fetchSemanticsNodes().isNotEmpty() }
         rule.captureBotanicalWindow("pg1-manager-review")
         val reason = "Periksa satuan pada versi pertama."
         decide("invalid", reason)
@@ -195,7 +196,9 @@ class FinanceBackendDeviceTest {
         rule.selectFinanceTab(2)
         rule.waitUntil(20_000) { rule.onAllNodesWithText(note).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText(note).performClick()
-        rule.onNodeWithText(reason).performScrollTo().assertIsDisplayed()
+        val workerFeedback = rule.onNodeWithText(reason, useUnmergedTree = true)
+        rule.waitUntil(20_000) { rule.onAllNodesWithText(reason, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        workerFeedback.performScrollTo().assertIsDisplayed()
         rule.captureBotanicalWindow("pg1-worker-feedback")
         val payload = JSONObject(original.envelope.getJSONObject("payload").toString()).put("manual_ppm", "630")
             .put("reason", "Koreksi uji").put("reference_policy", "preserve")
@@ -217,6 +220,28 @@ class FinanceBackendDeviceTest {
         assertEquals("valid", checked.getString("status"))
         assertEquals(2, checked.getJSONArray("history").length())
         assertEquals("invalid", checked.getJSONArray("history").getJSONObject(1).getString("decision"))
+        val greenhouse = first.getString("greenhouse_id")
+        val group = first.getString("group_id")
+        val currentManager = model.vault.current!!
+        val homeSnapshot = runBlocking { model.api.request(currentManager.scope.server, currentManager.token, "manager-home",
+            query = mapOf("greenhouse_id" to greenhouse)) }
+        val greenhouseBody = homeSnapshot.getJSONArray("greenhouses").getJSONObject(0)
+        if (greenhouseBody.getJSONObject("period").optString("group_id") != group) {
+            val designation = JSONObject().put("schema_version", "2").put("sync_epoch", model.store.epoch(currentManager.scope.key))
+                .put("operation_id", UUID.randomUUID().toString()).put("entity_id", greenhouse).put("entity_type", "greenhouses")
+                .put("action", "designate_period").put("base_version", greenhouseBody.getInt("version"))
+                .put("payload", JSONObject().put("planting_group_id", group).put("reason", "Uji sumber Beranda"))
+            runBlocking { model.api.request(currentManager.scope.server, currentManager.token, "greenhouses/$greenhouse/running-period", "POST", designation) }
+        }
+        androidx.test.espresso.Espresso.pressBack()
+        rule.selectFinanceTab(0)
+        val home = rule.onNodeWithTag("finance-home-list")
+        rule.waitUntil(20_000) { runCatching { home.performScrollToNode(hasTestTag("manager-greenhouse-$greenhouse")) }.isSuccess }
+        rule.onNodeWithTag("manager-greenhouse-$greenhouse").performClick()
+        rule.waitUntil(20_000) { runCatching { home.performScrollToNode(hasTestTag("measurement-card-ppm")) }.isSuccess }
+        rule.onNodeWithText("630").assertExists()
+        rule.onNodeWithText("Valid").assertExists()
+        rule.captureBotanicalWindow("pg7-manager-home-reviewed")
         File(botanicalEvidenceDirectory(context), "pg1-reconciliation.json").writeText(checked.toString(2))
         rule.logoutFromAccount()
     }

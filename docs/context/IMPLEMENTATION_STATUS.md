@@ -2,7 +2,7 @@
 
 ## Penyelarasan pengelola
 
-Antrean Android pengelola memisahkan verifikasi kegiatan pekerja dari Pengiriman saya. Keputusan memiliki alasan, histori dan revisi sendiri. Lihat [checkpoint dan bukti PG0–PG7](MANAGER_ALIGNMENT_EVIDENCE_20261110.md).
+Antrean Android pengelola memisahkan verifikasi kegiatan pekerja dari Pengiriman saya. Kegiatan menambah pengamatan opsional dan editor acuan EC. Beranda memberi status hari WIB di dekat pasangan EC/PPM. Rekap panen menghubungkan target, varietas, kondisi buah dan penyelesaian manual. Menu akun menyediakan Kelola greenhouse dan Kelola akun. Backend memakai migrasi additive sampai 19. [Checkpoint dan bukti PG0–PG7](MANAGER_ALIGNMENT_EVIDENCE_20261110.md).
 
 ## Audit visi pengelola dan prompt pelaksanaan
 

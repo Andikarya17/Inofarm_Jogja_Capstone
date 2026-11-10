@@ -36,6 +36,7 @@ import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.attachments.LocalAttachmentAction
 import com.inofarm.jogja.feature.context.CultivationUiState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.time.LocalDate
@@ -79,13 +80,6 @@ internal fun ActivityVerificationScreen(
     onOutbox: () -> Unit,
     onSync: () -> Unit,
 ) {
-    if (selected != null) {
-        BackHandler { onSelect(null) }
-        key(selected) {
-            VerificationDetail(session, ticket, context, repository, syncRevision, selected, { onSelect(null) }, onOutbox, onSync)
-        }
-        return
-    }
     var status by rememberSaveable { mutableStateOf("pending") }
     var greenhouse by rememberSaveable { mutableStateOf("") }
     var worker by rememberSaveable { mutableStateOf("") }
@@ -95,6 +89,13 @@ internal fun ActivityVerificationScreen(
     var appliedFrom by rememberSaveable { mutableStateOf("") }
     var appliedUntil by rememberSaveable { mutableStateOf("") }
     var filters by rememberSaveable { mutableStateOf(false) }
+    if (selected != null) {
+        BackHandler { onSelect(null) }
+        key(selected) {
+            VerificationDetail(session, ticket, context, repository, syncRevision, selected, { onSelect(null) }, onOutbox, onSync)
+        }
+        return
+    }
     var refresh by remember { mutableIntStateOf(0) }
     val query = mapOf("status" to status, "greenhouse_id" to greenhouse, "worker_id" to worker,
         "activity_type" to type, "from" to appliedFrom, "until" to appliedUntil).filterValues { it.isNotBlank() }
@@ -375,6 +376,15 @@ private fun DecisionEditor(
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(decision, reason, busy, draft?.syncState) {
+        val choice = decision ?: return@LaunchedEffect
+        if (!busy && (draft == null || draft.syncState == SyncState.LOCAL) &&
+            (choice != draft?.body?.text("decision") || reason.trim() != draft?.body?.text("reason").orEmpty())) {
+            delay(350)
+            attempt { repository.save(session, ticket, entry, choice, reason, queue = false) }
+                .onSuccess(onSaved).onFailure { error = it.message }
+        }
+    }
     fun save(queue: Boolean) {
         val choice = decision ?: return
         busy = true
@@ -401,14 +411,16 @@ private fun DecisionEditor(
                 "verification-decision") { decision = it }
             if (decision != null) {
                 FinanceField(if (decision == "invalid") "Alasan tidak valid (wajib)" else "Catatan (opsional)",
-                    reason, { reason = it }, "verification-reason", singleLine = false)
+                    reason, { reason = it.take(1000) }, "verification-reason", singleLine = false)
                 error?.let { FarmAttention(it) }
                 Button(onClick = { confirmation = true }, enabled = !busy && reason.length <= 1000 &&
                     (decision != "invalid" || reason.isNotBlank()), modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch)
                     .testTag("verification-review")) { Text("Tinjau keputusan") }
                 TextButton(onClick = { save(false) }, enabled = !busy && reason.length <= 1000,
                     modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Simpan draf keputusan") }
-                if (draft != null) Text("Draf tersimpan di perangkat.", style = MaterialTheme.typography.bodySmall)
+                val saved = decision == draft?.body?.text("decision") && reason.trim() == draft?.body?.text("reason").orEmpty()
+                Text(if (saved) "Draf tersimpan di perangkat." else "Perubahan draf belum tersimpan.",
+                    style = MaterialTheme.typography.bodySmall)
             }
         }
     }
