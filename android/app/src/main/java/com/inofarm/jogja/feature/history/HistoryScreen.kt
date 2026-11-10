@@ -358,7 +358,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
     reviewed?.let {snapshot -> ReasonDialog(if(snapshot.getString("status")=="open") "Tutup musim?" else "Buka kembali musim?","Alasan dicatat dalam audit. Perubahan berlaku setelah diterima server; antrean lama tetap perlu ditinjau.",busy,onDismiss={reviewed=null},onConfirm={onAction(snapshot,it);reviewed=null})}
 }
 
-@Composable private fun ReasonDialog(title:String,description:String,busy:Boolean,onDismiss:()->Unit,onConfirm:(String)->Unit) {
+@Composable internal fun ReasonDialog(title:String,description:String,busy:Boolean,onDismiss:()->Unit,onConfirm:(String)->Unit) {
     var reason by rememberSaveable(title) {mutableStateOf("")}
     AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(title)},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Text(description);FinanceField("Alasan",reason,{reason=it},"history-action-reason",singleLine=false)

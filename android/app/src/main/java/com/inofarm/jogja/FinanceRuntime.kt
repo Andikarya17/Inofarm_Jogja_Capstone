@@ -40,7 +40,7 @@ class FinanceDependencies(application:Application) {
     val activities=ActivityRepository(vault,store)
     val context=ContextRepository(vault,store,sync)
     val history=HistoryRepository(vault,store,api)
-    val harvest=HarvestRepository(vault,store)
+    val harvest=HarvestRepository(vault,store,api)
     val harvestHistory=HistoryRepository(vault,store,api,OperationalKind.HARVEST)
     val recovery=com.inofarm.jogja.feature.recovery.RecoveryRepository(vault,store,api)
     val reportExports=com.inofarm.jogja.feature.exports.ReportExportRepository(application,vault,store,api)

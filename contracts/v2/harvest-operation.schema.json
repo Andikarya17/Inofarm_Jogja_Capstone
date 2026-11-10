@@ -168,6 +168,12 @@
               "weight_kg": {
                 "type": "string",
                 "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$"
+              },
+              "quality": {
+                "enum": [
+                  "saleable",
+                  "defective"
+                ]
               }
             }
           }
@@ -234,6 +240,12 @@
               "weight_kg": {
                 "type": "string",
                 "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$"
+              },
+              "quality": {
+                "enum": [
+                  "saleable",
+                  "defective"
+                ]
               }
             }
           }

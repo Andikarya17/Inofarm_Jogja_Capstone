@@ -4,6 +4,7 @@ namespace App\Http\Controllers\V2;
 
 use App\Domain\Cultivation\MasterService;
 use App\Domain\Harvest\HarvestBalance;
+use App\Domain\Harvest\HarvestProgress;
 use App\Domain\Harvest\HarvestService;
 use App\Domain\Sync\AcceptedSnapshot;
 use App\Domain\Sync\ScopedRead;
@@ -15,6 +16,22 @@ use Illuminate\Support\Facades\DB;
 
 final class HarvestController extends Controller
 {
+    public function progress(Request $request, string $id, HarvestProgress $progress, ScopedRead $reads)
+    {
+        return $reads->run($request, fn (User $actor) => $progress->read($actor, $id));
+    }
+
+    public function completion(Request $request, string $id, MasterService $masters)
+    {
+        $action = $request->input('action');
+        abort_unless(in_array($action, ['complete_harvest', 'reopen_harvest'], true), 422, 'Tindakan panen belum dikenal.');
+        $operation = OperationInput::read($request, 'planting_groups', $action, ['reason' => 'required|string|max:1000'], $id);
+        abort_if(trim($operation['payload']['reason']) === '', 422, 'Isi alasan perubahan status panen.');
+        $result = $masters->mutate($request->user(), 'planting_groups', $operation);
+
+        return response()->json($result['body'], $result['status']);
+    }
+
     public function index(Request $request, HarvestService $service, MasterService $masters)
     {
         $input = $request->validate(['greenhouse_id' => 'nullable|uuid', 'season_id' => 'nullable|uuid', 'planting_group_id' => 'nullable|uuid',
@@ -100,7 +117,8 @@ final class HarvestController extends Controller
     private function perform(Request $request, HarvestService $service, string $action, ?string $id = null)
     {
         $rules = $action === 'cancel' ? [] : ['planting_group_id' => ['required', OperationInput::UUID], 'occurred_at' => 'required|date_format:Y-m-d\TH:i:sP',
-            'items' => 'required|array|min:1|max:30', 'items.*' => 'required|array:id,grade_id,fruit_count,weight_kg',
+            'items' => 'required|array|min:1|max:30', 'items.*' => 'required|array:id,grade_id,fruit_count,weight_kg,quality',
+            'items.*.quality' => 'sometimes|required|in:saleable,defective',
             'items.*.id' => ['required', OperationInput::UUID, 'distinct'], 'items.*.grade_id' => ['required', OperationInput::UUID, 'distinct'],
             'items.*.fruit_count' => 'required|integer|min:0|max:2147483647', 'items.*.weight_kg' => 'required|string|max:30', 'notes' => 'present|string|max:2000'];
         if ($action !== 'create') {

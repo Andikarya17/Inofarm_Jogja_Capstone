@@ -3,6 +3,7 @@
 namespace App\Domain\Cultivation;
 
 use App\Domain\Contracts\DomainFailure;
+use App\Domain\Harvest\HarvestProgress;
 use App\Domain\Identity\GreenhouseAccess;
 use App\Domain\Identity\EntityIdentity;
 use App\Domain\Sync\MutationLedger;
@@ -57,6 +58,10 @@ final class MasterService
         }
         if ($table === 'greenhouses') {
             $value['running_period_reviewed'] = (bool) $value['running_period_reviewed'];
+        }
+        if ($table === 'planting_groups') {
+            $value['harvest_target'] = HarvestProgress::decode($row->harvest_target);
+            $value['harvest_completion'] = HarvestProgress::decode($row->harvest_completion);
         }
         if ($table === 'greenhouse_assignments') {
             $user = User::findOrFail($row->user_id);
@@ -121,10 +126,26 @@ final class MasterService
                 if ($season->status !== 'open') {
                     throw new DomainFailure('season_closed', 'Musim ditutup. Buka kembali dengan alasan sebelum mengubah kelompok.');
                 }
-                $variety = DB::table('varieties')->where('id', $data['variety_id'])->where('greenhouse_id', $gh)
-                    ->when(($before['variety_id'] ?? null) !== $data['variety_id'], fn ($q) => $q->where('active', true))->first();
-                abort_unless($variety, 422, 'Varietas harus aktif dan berasal dari greenhouse yang sama.');
-                abort_if(($data['transplant_date'] ?? null) !== null && $data['transplant_date'] < $data['sowing_date'], 422, 'Tanggal pindah tidak boleh sebelum semai.');
+                if (in_array($action, ['complete_harvest', 'reopen_harvest'], true)) {
+                    $complete = $action === 'complete_harvest';
+                    abort_unless($row->active && $context->active, 422, 'Kelompok dan greenhouse harus aktif.');
+                    abort_if($complete === ($before['harvest_completion'] !== null), 422, 'Status panen sudah sesuai.');
+                    abort_if($complete && ! DB::table('harvests')->where('planting_group_id', $id)->where('record_state', 'active')->exists(),
+                        422, 'Catat sedikitnya satu panen sebelum menandai selesai.');
+                    $data = ['harvest_completion' => $complete ? json_encode([
+                        'reason' => $payload['reason'], 'at' => CarbonImmutable::now('UTC')->toISOString(),
+                        'by' => $current->public_id, 'by_name' => $current->name,
+                    ], JSON_THROW_ON_ERROR) : null];
+                } else {
+                    $variety = DB::table('varieties')->where('id', $data['variety_id'])->where('greenhouse_id', $gh)
+                        ->when(($before['variety_id'] ?? null) !== $data['variety_id'], fn ($q) => $q->where('active', true))->first();
+                    abort_unless($variety, 422, 'Varietas harus aktif dan berasal dari greenhouse yang sama.');
+                    abort_if(($data['transplant_date'] ?? null) !== null && $data['transplant_date'] < $data['sowing_date'], 422, 'Tanggal pindah tidak boleh sebelum semai.');
+                    if (array_key_exists('harvest_target', $data)) {
+                        $data['harvest_target'] = HarvestProgress::changeTarget($current, $data['harvest_target'],
+                            $before['harvest_target'] ?? null, ($before['version'] ?? 0) + 1);
+                    }
+                }
             } elseif ($table === 'seasons') {
                 if (($before['status'] ?? null) === 'closed') {
                     throw new DomainFailure('season_closed', 'Buka kembali musim sebelum mengoreksi data musim.');

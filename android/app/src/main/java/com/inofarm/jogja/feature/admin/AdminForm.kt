@@ -44,6 +44,9 @@ enum class AdminResource(val path:String,val kind:String,val label:String) {
                         if(!update) add(AdminField("season_id","Musim",source="seasons"))
                         add(AdminField("variety_id","Varietas",source="varieties"));add(AdminField("population","Populasi tanaman",type="integer"))
                         add(AdminField("sowing_date","Tanggal semai",type="date"));add(AdminField("transplant_date","Tanggal pindah",true,type="date"))
+                        add(AdminField("target_fruit_count","Target panen (buah)",true,type="integer"))
+                        add(AdminField("target_weight_kg","Target panen (kg)",true,type="decimal"))
+                        add(AdminField("target_basis","Dasar target panen",true))
                     }
                     UNIT,MATERIAL -> add(AdminField("dimension","Dimensi",choices=mapOf("mass" to "Massa","volume" to "Volume","count" to "Jumlah")))
                     USER -> {
@@ -78,7 +81,7 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
                 else -> value.also {
                     require(field.choices.isEmpty() || it in field.choices) {"Pilihan ${field.label} tidak sah."}
                     if(field.source!=null) WireContract.uuid(it)
-                    val maximum=when(field.key) {"name" -> if(resource==AdminResource.USER) 100 else 150;"email" -> 254;"reason" -> 1000;else -> 2000}
+                    val maximum=when(field.key) {"name" -> if(resource==AdminResource.USER) 100 else 150;"email" -> 254;"reason" -> 1000;"target_basis" -> 500;else -> 2000}
                     require(it.length<=maximum) {"${field.label} maksimal $maximum karakter."}
                 }
             })
@@ -90,6 +93,15 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
         if (resource == AdminResource.TARGET) {
             val unit = mapOf("manual_ec" to "mS/cm", "manual_ppm" to "ppm", "manual_ph" to "pH").getValue(getString("parameter"))
             require(getString("unit") == unit) { "Satuan parameter ini harus $unit." }
+        }
+        if (resource == AdminResource.GROUP && fields.any { it.key == "target_fruit_count" }) {
+            val count = remove("target_fruit_count")
+            val weight = remove("target_weight_kg")
+            val basis = remove("target_basis")
+            if (count != JSONObject.NULL || weight != JSONObject.NULL || basis != JSONObject.NULL) {
+                require(count is Int && count > 0 && basis is String && basis.isNotBlank()) { "Isi target buah lebih dari nol dan dasar penetapan." }
+                put("harvest_target", JSONObject().put("fruit_count", count).put("weight_kg", weight).put("basis", basis))
+            } else put("harvest_target", JSONObject.NULL)
         }
         if(resource==AdminResource.USER) {
             require(getString("email").matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))) {"Format email belum sesuai."}
@@ -106,6 +118,10 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
         fun edit(resource:AdminResource,row:JSONObject,action:String="update"):AdminForm {
             val form=AdminForm(resource,row.getString("id"),row.getLong("version"),action)
             return form.copy(values=form.fields.associate {field -> field.key to when {
+                resource == AdminResource.GROUP && field.key.startsWith("target_") -> row.optJSONObject("harvest_target")?.let { target ->
+                    val key = field.key.removePrefix("target_")
+                    target.optString(key).takeUnless { target.isNull(key) }
+                }.orEmpty()
                 field.key=="reason" || row.isNull(field.key) -> ""
                 field.type=="boolean" -> when(row.get(field.key).toString()) {"1","true" -> "true";"0","false" -> "false";else -> error("Status aktif server tidak sah.")}
                 else -> row.get(field.key).toString()

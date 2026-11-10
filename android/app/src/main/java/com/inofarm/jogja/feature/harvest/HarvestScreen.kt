@@ -23,17 +23,23 @@ import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.harvest.domain.HarvestDraft
 import com.inofarm.jogja.feature.harvest.domain.HarvestLine
+import com.inofarm.jogja.feature.harvest.domain.HarvestQuality
 import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
+import org.json.JSONObject
+import java.math.BigDecimal
 
 @Composable fun HarvestForm(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel) {
     val draft=state.draft ?: return
     val grades=context.grades.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optBoolean("active",true)}
+    val group = context.groups.find { it.optString("id") == draft.groupId }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         com.inofarm.jogja.core.design.FarmPageTitle(if (draft.baseVersion == null) "Catat panen" else "Koreksi panen")
         FarmDraftStatus(state.saved)
         FarmSection(title = "Waktu dan kelompok") {
             if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
-            Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
+            FarmFact("Kelompok tanam", group?.optString("name") ?: "Nama belum tersedia")
+            FarmFact("Varietas", varietyName(context, group) ?: "Belum tersedia")
+            group?.optJSONObject("harvest_target")?.let { FarmFact("Target buah", "${it.getInt("fruit_count")} buah") }
             FinanceField("Tanggal panen WIB",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
             FinanceField("Jam panen WIB",draft.time,{value -> vm.edit {it.copy(time=value)}},"harvest-time",state.errors["occurred_at"],hint="HH:mm; detik opsional")
         }
@@ -44,6 +50,14 @@ import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
                 Text("Rincian sudah tersimpan atau diantrekan. Untuk grade berbeda, hapus rincian dan tambahkan rincian baru; saldo tetap diperiksa server.",style=MaterialTheme.typography.bodySmall)
             } else Choice("Grade",line.gradeId,grades,"harvest-grade-$index",loading=context.loading) {value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(gradeId=value,gradeName=grades.find {grade -> grade.optString("id")==value}?.optString("name").orEmpty()) else row})}}
             state.errors["items.$index.grade"]?.let {Notice(it,true)}
+            Choice("Kondisi buah", line.quality?.wire, HarvestQuality.entries.map {
+                JSONObject().put("id", it.wire).put("name", it.label)
+            }, "harvest-quality-$index") { value ->
+                vm.edit { it.copy(items = it.items.map { row ->
+                    if (row.id == line.id) row.copy(quality = HarvestQuality.entries.single { it.wire == value }) else row
+                }) }
+            }
+            state.errors["items.$index.quality"]?.let { Notice(it, true) }
             FinanceField("Jumlah (buah)",line.fruitCount,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(fruitCount=value) else row})}},"harvest-count-$index",state.errors["items.$index.count"],KeyboardType.Number,"Kosong bukan nol")
             FinanceField("Bobot panen (kg)",line.weightKg,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(weightKg=value) else row})}},"harvest-weight-$index",state.errors["items.$index.weight"],KeyboardType.Decimal,"Contoh 15,25 tanpa pemisah ribuan")
             TextButton(onClick={vm.edit {it.copy(items=it.items.filterIndexed {i,_ -> i!=index})}},
@@ -56,7 +70,6 @@ import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
             FinanceField("Alasan koreksi panen",draft.reason,{value -> vm.edit {it.copy(reason=value)}},"harvest-reason",state.errors["reason"],singleLine=false)
             Choice("Acuan koreksi",draft.referencePolicy,listOf(org.json.JSONObject().put("id","preserve").put("name","Pertahankan tanggal/grade historis"),org.json.JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"harvest-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
         }
-        val group=context.groups.find {it.optString("id")==draft.groupId}
         if(draft.baseVersion==null || draft.referencePolicy=="refresh") {
             val age=runCatching {if(group==null) null else PlantAge.calculate(group.getString("sowing_date"),if(group.isNull("transplant_date")) null else group.getString("transplant_date"),draft.occurredAt())}.getOrNull()
             if(age!=null) {Text("HSS ${age.hss ?: "belum tersedia"} · HST ${age.hst ?: "belum berlaku"}");age.reasons.forEach {Text(it,style=MaterialTheme.typography.bodySmall)}}
@@ -75,12 +88,16 @@ import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
             if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
             FarmFact("Waktu panen", "${draft.date} ${draft.time} WIB")
             FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
+            FarmFact("Varietas", varietyName(context, context.groups.find { it.optString("id") == draft.groupId }) ?: "Belum tersedia")
         }
         FarmPanel(title = "Hasil per grade") {
             draft.items.forEachIndexed { index, line ->
                 if (index > 0) HorizontalDivider()
-                FarmFact(gradeName(line, context), "${line.fruitCount} buah · ${line.weightKg} kg", prominent = true)
+                FarmFact(gradeName(line, context), "${line.fruitCount} buah · ${line.weightKg} kg · ${line.quality?.label ?: "Kondisi belum diketahui"}", prominent = true)
             }
+            val fruit = draft.items.sumOf { HarvestDraft.count(it.fruitCount)?.toLong() ?: 0L }
+            val weight = draft.items.fold(BigDecimal.ZERO) { total, line -> total + HarvestDraft.number(line.weightKg) }
+            FarmFact("Total panen", "$fruit buah · ${weight.stripTrailingZeros().toPlainString()} kg")
             if(draft.notes.isNotBlank()) FarmFact("Keterangan", draft.notes)
             if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi", draft.reason)
         }
@@ -96,12 +113,17 @@ import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
     if(record.body.optString("record_state")=="cancelled") Text("Dibatalkan",color=MaterialTheme.colorScheme.error)
     if(draft!=null) {
         Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
+        val source = record.body.optJSONObject("reference_snapshot")
+        FarmFact("Varietas saat dicatat", source?.optJSONObject("variety")?.optString("name") ?: "Belum terekam pada revisi ini")
+        source?.optJSONObject("harvest_target")?.let {
+            FarmFact("Target saat dicatat", "${it.getInt("fruit_count")} buah · versi ${it.getInt("version")}")
+        }
         Text("Panen · ${draft.date} ${draft.time} WIB")
         draft.items.forEach {line ->
             HorizontalDivider()
             val count=line.fruitCount.takeIf { it.isNotBlank() }?.let { "$it buah" } ?: "Jumlah belum diisi"
-            val weight=line.weightKg.takeIf { it.isNotBlank() }?.let { "$it kg" } ?: "Bobot belum diisi"
-            FarmFact(gradeName(line, context), "$count · $weight", prominent = true)
+            val weight=line.weightKg.takeIf { it.isNotBlank() }?.let { "${harvestDecimal(it)} kg" } ?: "Bobot belum diisi"
+            FarmFact(gradeName(line, context), "$count · $weight · ${line.quality?.label ?: "Kondisi belum diketahui"}", prominent = true)
             val balance=context.harvestBalances.find {it.optString("id")==line.id && it.optString("harvest_id")==record.id}
             Text(if(balance!=null && record.serverVersion!=null && balance.optLong("harvest_version")==record.serverVersion) "Saldo terakhir diterima: ${balance.optString("available_weight_kg")} kg tersedia · ${balance.optString("sold_weight_kg")} kg terpakai · versi saldo ${balance.optLong("version")}" else "Saldo bobot tersedia belum dapat dibandingkan dengan versi panen ini.",style=MaterialTheme.typography.bodySmall)
         }
@@ -118,3 +140,9 @@ import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
 private fun gradeName(line:HarvestLine,context:CultivationUiState) = line.gradeName.ifBlank {
     context.grades.find { it.optString("id") == line.gradeId }?.optString("name") ?: "Grade belum tersedia"
 }
+
+internal fun varietyName(context: CultivationUiState, group: JSONObject?): String? =
+    context.varieties.firstOrNull { it.optString("id") == group?.optString("variety_id") }?.optString("name")
+
+internal fun harvestDecimal(value: String): String =
+    value.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString()?.replace('.', ',') ?: value

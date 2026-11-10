@@ -104,12 +104,21 @@ internal fun WorkerContextSheet(
     onContinue: () -> Unit,
     onSync: () -> Unit,
     onSetup: (() -> Unit)? = null,
+    chooseSingleGroup: Boolean = false,
 ) {
     val greenhouses = data.greenhouses.filter { it.optBoolean("active", true) }
     val greenhouse = greenhouses.find { it.optString("id") == selected.greenhouse }
     val seasons = data.seasons.filter { it.optString("greenhouse_id") == selected.greenhouse }
     val season = seasons.find { it.optString("id") == selected.season }
     val groups = data.groups.filter { it.optString("season_id") == selected.season && it.optBoolean("active", true) }
+    val singleSeason = seasons.singleOrNull { it.optString("status") == "open" }
+    val singleGroup = groups.singleOrNull()
+    LaunchedEffect(chooseSingleGroup, selected, singleSeason, singleGroup) {
+        if (chooseSingleGroup && selected.greenhouse != null) {
+            if (selected.season == null && singleSeason != null) onSelect(selected.copy(season = singleSeason.getString("id")))
+            else if (selected.group == null && singleGroup != null) onSelect(selected.copy(group = singleGroup.getString("id")))
+        }
+    }
     val canContinue = greenhouse != null && season?.optString("status") == "open" &&
         groups.any { it.optString("id") == selected.group } && data.check != ContextCheck.ACCESS_CHANGED
     ModalBottomSheet(
@@ -135,7 +144,11 @@ internal fun WorkerContextSheet(
                             Text(if (onSetup == null) "Belum ada musim di greenhouse ini. Minta pengelola menyiapkannya." else "Belum ada musim di greenhouse ini.")
                     }
                     if (season != null) {
-                        Choice("Kelompok tanam", selected.group, groups, "finance-group", loading = data.loading) {
+                        val groupChoices = if (!chooseSingleGroup) groups else groups.map { group ->
+                            val variety = com.inofarm.jogja.feature.harvest.varietyName(data, group)
+                            org.json.JSONObject(group.toString()).put("choice_detail", variety)
+                        }
+                        Choice("Kelompok tanam", selected.group, groupChoices, "finance-group", loading = data.loading) {
                             onSelect(selected.copy(group = it))
                         }
                         if (season.optString("status") == "closed")

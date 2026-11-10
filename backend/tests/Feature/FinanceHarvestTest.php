@@ -10,6 +10,66 @@ use Tests\FinanceTestCase;
 
 class FinanceHarvestTest extends FinanceTestCase
 {
+    public function test_partial_harvest_quality_target_completion_and_revision_snapshots(): void
+    {
+        $manager = $this->account();
+        $ctx = $this->context($manager);
+        $group = $ctx['group']['id'];
+        $gh = $ctx['gh']['id'];
+        $target = ['name' => $ctx['group']['name'], 'variety_id' => $ctx['variety']['id'], 'population' => 171,
+            'sowing_date' => '2026-10-01', 'transplant_date' => '2026-10-10', 'active' => true, 'reason' => 'Target sintetis',
+            'harvest_target' => ['fruit_count' => 160, 'weight_kg' => '100', 'basis' => 'Estimasi uji']];
+        $this->patchJson("/api/v2/planting-groups/$group", $this->operation('planting_groups', [
+            ...$target, 'harvest_target' => [...$target['harvest_target'], 'fruit_count' => 0],
+        ], 'update', $group, 1))->assertUnprocessable();
+        $this->patchJson("/api/v2/planting-groups/$group", $this->operation('planting_groups', $target, 'update', $group, 1))->assertOk();
+        $progress = "/api/v2/planting-groups/$group/harvest-progress";
+        $completion = "/api/v2/planting-groups/$group/harvest-completion";
+        $this->getJson($progress)->assertJsonPath('target.fruit_count', 160)->assertJsonPath('population', 171)
+            ->assertJsonPath('achievement_percent', null)->assertJsonPath('completion', null);
+        $grade = $this->createMaster('grades', ['greenhouse_id' => $gh, 'name' => 'Grade sama']);
+        $create = function (int $count, string $quality) use ($group, $grade) {
+            return $this->operation('harvest', ['planting_group_id' => $group, 'occurred_at' => '2026-11-02T08:00:00+07:00',
+                'notes' => '', 'items' => [['id' => (string) \Illuminate\Support\Str::uuid(), 'grade_id' => $grade['id'],
+                    'fruit_count' => $count, 'weight_kg' => '12.25', 'quality' => $quality]]]);
+        };
+        $first = $create(100, 'saleable');
+        $second = $create(50, 'saleable');
+        $defects = $create(3, 'defective');
+        foreach ([$first, $second, $defects] as $op) {
+            $this->postJson('/api/v2/harvests', $op)->assertCreated();
+        }
+        $this->getJson($progress)->assertJsonPath('records', 3)->assertJsonPath('totals.saleable.fruit_count', 150)
+            ->assertJsonPath('totals.defective.fruit_count', 3)->assertJsonPath('achievement_percent', '93.750000')
+            ->assertJsonPath('difference_fruit', 10)->assertJsonPath('completion', null);
+        $legacy = $create(7, 'saleable');
+        unset($legacy['payload']['items'][0]['quality']);
+        $this->postJson('/api/v2/harvests', $legacy)->assertCreated();
+        $this->getJson($progress)->assertJsonPath('complete_quality', false)->assertJsonPath('totals.unknown.fruit_count', 7)
+            ->assertJsonPath('achievement_percent', null);
+        $cancel = $this->operation('harvest', ['reason' => 'Catatan uji dibatalkan'], 'cancel', $legacy['entity_id'], 1);
+        $this->postJson('/api/v2/harvests/'.$legacy['entity_id'].'/cancel', $cancel)->assertOk();
+        $finish = $this->operation('planting_groups', ['reason' => 'Semua petikan tercatat'], 'complete_harvest', $group, 2);
+        $receipt = $this->postJson($completion, $finish)->assertOk()->assertJsonPath('data.harvest_completion.by', $manager->public_id)->json();
+        $this->postJson($completion, $finish)->assertOk()->assertExactJson($receipt);
+        $this->getJson($progress)->assertJsonPath('season_status', 'open')->assertJsonPath('completion.reason', 'Semua petikan tercatat');
+        $this->postJson('/api/v2/harvests', $create(1, 'saleable'))->assertConflict()->assertJsonPath('code', 'harvest_completed');
+        $edited = $second['payload'];
+        $edited['items'][0]['fruit_count'] = 65;
+        unset($edited['items'][0]['quality']);
+        $this->patchJson('/api/v2/harvests/'.$second['entity_id'], $this->operation('harvest',
+            [...$edited, 'reference_policy' => 'preserve', 'reason' => 'Koreksi sintetis'], 'update', $second['entity_id'], 1))
+            ->assertOk()->assertJsonPath('data.items.0.quality', 'saleable');
+        $this->getJson($progress)->assertJsonPath('difference_fruit', -5)->assertJsonPath('achievement_percent', '103.125000');
+        $this->postJson($completion, $this->operation('planting_groups', ['reason' => 'Petikan tambahan'], 'reopen_harvest', $group, 3))
+            ->assertOk()->assertJsonPath('data.harvest_completion', null);
+        $changed = [...$target, 'harvest_target' => [...$target['harvest_target'], 'fruit_count' => 180]];
+        $this->patchJson("/api/v2/planting-groups/$group", $this->operation('planting_groups', $changed, 'update', $group, 4))
+            ->assertOk()->assertJsonPath('data.harvest_target.version', 5);
+        $this->getJson('/api/v2/harvests/'.$first['entity_id'])->assertJsonPath('reference_snapshot.harvest_target.fruit_count', 160)
+            ->assertJsonPath('reference_snapshot.harvest_target.version', 2)->assertJsonPath('reference_snapshot.variety.name', $ctx['variety']['name']);
+        $this->asUser($this->account())->getJson($progress)->assertNotFound();
+    }
     private function prepared(): array
     {
         $manager = $this->account();
