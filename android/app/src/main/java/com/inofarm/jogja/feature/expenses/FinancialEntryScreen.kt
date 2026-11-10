@@ -90,20 +90,14 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(bottom = FarmSpace.Large),
                 verticalArrangement = Arrangement.spacedBy(FarmSpace.Large)) {
                 if (!canRecord) Notice("Pilih greenhouse pencatatan di Keuangan untuk mencatat transaksi atau aset.")
-                FarmSection("Transaksi") {
-                    Column {
-                        FinanceTool("Alokasikan biaya", "Bagi pembayaran ke musim", FarmIcon.Allocate, "allocation-new", canRecord) {
-                            showTools = false; entry.new(RecordKind.COST_ALLOCATION, gh)
-                        }
-                        FarmRowDivider(FarmSpace.Medium * 2 + 24.dp)
-                        FinanceTool("Catat penjualan lunas", "Catat penerimaan dari hasil panen", FarmIcon.Payment, "sale-new", canRecord) {
-                            showTools = false; sales.new(gh)
-                        }
+                FarmSection("Biaya dan alokasi") {
+                    FinanceTool("Alokasikan biaya ke musim", "Pilih pembayaran sumber dan kelas biaya tetap atau variabel", FarmIcon.Allocate, "allocation-new", canRecord) {
+                        showTools = false; entry.new(RecordKind.COST_ALLOCATION, gh)
                     }
                 }
-                FarmSection("Aset") {
+                FarmSection("Investasi awal, aset dan penyusutan") {
                     Column {
-                        FinanceTool("Catat aset", "Catat perolehan dari pembayaran aset", FarmIcon.Asset, "asset-new", canRecord) {
+                        FinanceTool("Catat perolehan aset", "Pilih pembayaran aset, nilai sisa, dan umur pakai", FarmIcon.Asset, "asset-new", canRecord) {
                             showTools = false; asset.vm.new(gh, com.inofarm.jogja.feature.assets.AssetKind.ASSET)
                         }
                         FarmRowDivider(FarmSpace.Medium * 2 + 24.dp)
@@ -112,13 +106,18 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
                         }
                     }
                 }
+                FarmSection("Penjualan dan penerimaan") {
+                    FinanceTool("Catat penjualan lunas", "Pilih rincian panen, kg terjual, harga, dan waktu pelunasan", FarmIcon.Payment, "sale-new", canRecord) {
+                        showTools = false; sales.new(gh)
+                    }
+                }
                 FarmSection("Evaluasi") {
                     Column {
-                        FinanceTool("Evaluasi musim", "Tinjau hasil berdasarkan biaya dan penjualan", FarmIcon.Report, "report-open") {
+                        FinanceTool("Evaluasi musim", "Periksa biaya, penerimaan, laba, rasio dan titik impas", FarmIcon.Report, "report-open") {
                             showTools = false; reports.vm.show(gh)
                         }
                         FarmRowDivider(FarmSpace.Medium * 2 + 24.dp)
-                        FinanceTool("Skenario dan evaluasi investasi", "Tinjau arus kas aktual dan proyeksi", FarmIcon.Investment, "investment-open") {
+                        FinanceTool("Analisis investasi", "Bandingkan investasi awal dan arus kas tahunan aktual atau proyeksi", FarmIcon.Investment, "investment-open") {
                             showTools = false; investments.vm.show(gh)
                         }
                     }

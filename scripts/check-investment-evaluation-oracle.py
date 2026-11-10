@@ -9,6 +9,10 @@ def rounded(v,scale):
     q,r=divmod(abs(v.numerator)*10**scale,v.denominator);q+=2*r>=v.denominator
     d=str(q).zfill(scale+1);return ('-' if v<0 and q else '')+(d[:-scale]+'.'+d[-scale:] if scale else d)
 cases=[dict(initial='100000000.00',flows=['60000000.00','60000000.00'],rate='0.10',convention='interpolation',sources_complete=True)]
+# The study's displayed present values reconcile once against I0. They are not annual raw cash flows.
+study_pv = sum(F(v) for v in ('483459.70', '12549164.83', '7013850.31', '14902175.31', '16186296.70', '12390235.58', '2038171.36', '14707300.63'))
+assert study_pv == F('80270654.42')
+assert study_pv - F('300000000') == F('-219729345.58')
 for initial,flows,rate,convention in [('0.00',['0.00'],'0','end_of_year'),('100.00',['0.00','0.00'],'0','interpolation'),('100.00',['110.00','-120.00'],'0.1','interpolation'),('100.00',['110.00',None],None,'interpolation'),('100.00',[None,'110.00'],'0','end_of_year'),('100.00',['100.00'],None,'interpolation'),('100.00',['100.00'],'-1','interpolation'),('0.01',['999999999999999999.99'],'0','interpolation'),('999999999999999999.99',['0.01'],'0','interpolation')]:
     cases.append(dict(initial=initial,flows=flows,rate=rate,convention=convention,sources_complete=True))
 for initial,flows,rate in [('100.00',['1.00']*100,'0'),('999999999999999999.99',['0.00']*99+['0.01'],'-0.99999999'),('0.01',['999999999999999999.99']*100,'999999999999.99999999')]:

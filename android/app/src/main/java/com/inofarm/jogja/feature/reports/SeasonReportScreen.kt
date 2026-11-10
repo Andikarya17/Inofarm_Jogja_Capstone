@@ -158,6 +158,8 @@ private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
         TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Tutup perhitungan" else "Rumus, input dan asumsi")}
         if(expanded) {
             FarmFact("Rumus", metric.getString("formula"))
+            if (key == "BC") Text("B/C sederhana membagi laba dari biaya tercatat dengan total biaya.")
+            if (key in setOf("BEP_Q", "BEP_PRICE")) Text("Titik impas memakai total biaya tercatat dan penjualan lunas pada musim ini.")
             val inputs=metric.getJSONObject("inputs")
             inputs.keys().forEach { name ->
                 FarmFact(SeasonReportContract.labels[name] ?: name, if(inputs.isNull(name)) "Belum diketahui" else inputs.getString(name))
