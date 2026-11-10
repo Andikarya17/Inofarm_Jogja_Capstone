@@ -102,7 +102,8 @@ internal fun WorkerContextSheet(
     onSelect: (HomeContext) -> Unit,
     onClose: () -> Unit,
     onContinue: () -> Unit,
-    onSync: () -> Unit
+    onSync: () -> Unit,
+    onSetup: (() -> Unit)? = null,
 ) {
     val greenhouses = data.greenhouses.filter { it.optBoolean("active", true) }
     val greenhouse = greenhouses.find { it.optString("id") == selected.greenhouse }
@@ -131,7 +132,7 @@ internal fun WorkerContextSheet(
                             if (it != selected.season) onSelect(selected.copy(season = it, group = null))
                         }
                         if (data.check == ContextCheck.CHECKED && seasons.isEmpty())
-                            Text("Belum ada musim di greenhouse ini. Minta pengelola menyiapkannya.")
+                            Text(if (onSetup == null) "Belum ada musim di greenhouse ini. Minta pengelola menyiapkannya." else "Belum ada musim di greenhouse ini.")
                     }
                     if (season != null) {
                         Choice("Kelompok tanam", selected.group, groups, "finance-group", loading = data.loading) {
@@ -140,7 +141,10 @@ internal fun WorkerContextSheet(
                         if (season.optString("status") == "closed")
                             Text("Musim ditutup. Pilih musim terbuka atau minta pengelola membukanya kembali.")
                         else if (data.check == ContextCheck.CHECKED && groups.isEmpty())
-                            Text("Belum ada kelompok aktif di musim ini. Minta pengelola menyiapkannya.")
+                            Text(if (onSetup == null) "Belum ada kelompok aktif di musim ini. Minta pengelola menyiapkannya." else "Belum ada kelompok aktif di musim ini.")
+                    }
+                    if (onSetup != null && !canContinue) {
+                        TextButton(onClick = onSetup, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Siapkan greenhouse dan periode") }
                     }
                     if (recordingLabel != null && canContinue) Button(onClick = onContinue, shape = FarmShape.Control,
                         modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("finance-context-continue")) {

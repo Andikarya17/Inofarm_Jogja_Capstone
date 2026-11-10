@@ -77,4 +77,41 @@ class FinanceMeasurementTest extends FinanceTestCase
         $this->getJson($url)->assertJsonPath('data.occurred_at', '2026-11-02T17:00:00.000000Z');
         $this->travelBack();
     }
+
+    public function test_observations_and_ec_reference_keep_optional_values_and_historical_snapshot(): void
+    {
+        $ctx = $this->context($this->account());
+        $group = $ctx['group']['id'];
+        $target = ['planting_group_id' => $group, 'activity_type' => 'measurement', 'parameter' => 'manual_ec',
+            'unit' => 'mS/cm', 'effective_from' => '2026-11-01T00:00:00+07:00', 'effective_until' => null,
+            'target_value' => null, 'minimum' => '1', 'maximum' => '1.5', 'tolerance' => null];
+        $this->postJson('/api/v2/targets', $this->operation('targets', [...$target, 'unit' => 'ppm']))->assertUnprocessable();
+        $created = $this->createMaster('targets', $target);
+        $schedule = $this->createMaster('schedules', ['planting_group_id' => $group, 'activity_type' => 'measurement',
+            'planned_at' => '2026-11-02T07:00:00+07:00', 'notes' => 'Jadwal uji']);
+        $observations = ['dissolved_oxygen_mg_l' => '6.25', 'water_temperature_c' => '22.5', 'plant_height_cm' => '12',
+            'leaf_count' => 0, 'leaf_width_cm' => '8.2', 'sample_basis' => 'Contoh tiga tanaman'];
+        $op = $this->operation('activity', $this->payload($group, ['schedule_id' => $schedule['id'], 'observations' => $observations]));
+        $this->postJson('/api/v2/activities', $op)->assertCreated()->assertJsonPath('data.observations.leaf_count', 0)
+            ->assertJsonPath('data.reference_snapshot.checks.manual_ec.status', 'within_range')
+            ->assertJsonPath('data.reference_snapshot.schedule.version', 1);
+        $bad = ['leaf_count' => '2', 'dissolved_oxygen_mg_l' => '-1', 'water_temperature_c' => '20,5', 'leaf_width_cm' => 'NaN'];
+        foreach ($bad as $field => $value) {
+            $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($group, ['observations' => [$field => $value]])))
+                ->assertUnprocessable();
+        }
+        unset($target['planting_group_id']);
+        $this->patchJson('/api/v2/targets/'.$created['id'], $this->operation('targets', [...$target, 'maximum' => '2',
+            'active' => true, 'reason' => 'Acuan sintetis baru'], 'update', $created['id'], 1))->assertOk();
+        $url = '/api/v2/activities/'.$op['entity_id'];
+        $oldClient = $this->operation('activity', $this->payload($group, ['schedule_id' => $schedule['id'], 'manual_ec' => '1.75',
+            'reason' => 'Koreksi sintetis', 'reference_policy' => 'preserve']), 'update', $op['entity_id'], 1);
+        $this->patchJson($url, $oldClient)->assertOk()->assertJsonPath('data.observations.sample_basis', $observations['sample_basis'])
+            ->assertJsonPath('data.reference_snapshot.checks.manual_ec.target.version', 1)
+            ->assertJsonPath('data.reference_snapshot.checks.manual_ec.status', 'outside_range');
+        $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($group, ['manual_ec' => '1.75'])))
+            ->assertCreated()->assertJsonPath('data.observations', null)
+            ->assertJsonPath('data.reference_snapshot.checks.manual_ec.target.version', 2)
+            ->assertJsonPath('data.reference_snapshot.checks.manual_ec.status', 'within_range');
+    }
 }

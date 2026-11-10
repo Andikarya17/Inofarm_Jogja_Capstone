@@ -94,7 +94,8 @@ final class ReferenceService
                 abort_if(bccomp($p[$key], '0', 6) < 0, 422, 'Target atau toleransi tidak boleh negatif.');
             }
         }
-        abort_if(($p['parameter'] === 'manual_ppm' ? 'ppm' : 'pH') !== $p['unit'], 422, 'Satuan target tidak sesuai parameter.');
+        $unit = ['manual_ec' => 'mS/cm', 'manual_ppm' => 'ppm', 'manual_ph' => 'pH'][$p['parameter']];
+        abort_if($unit !== $p['unit'], 422, 'Satuan target tidak sesuai parameter.');
         abort_if($p['effective_until'] !== null && $p['effective_until'] <= $p['effective_from'], 422, 'Akhir berlaku harus sesudah awal.');
         abort_if($p['target_value'] !== null && ($p['minimum'] !== null || $p['maximum'] !== null), 422, 'Pilih target tunggal atau rentang, bukan keduanya.');
         abort_if($p['target_value'] === null && $p['tolerance'] !== null, 422, 'Toleransi memerlukan target tunggal.');

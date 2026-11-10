@@ -116,6 +116,10 @@ final class ActivityController extends Controller
             'work_state' => 'required|in:completed,skipped', 'skipped_reason' => 'sometimes|nullable|string|max:1000', 'actual_stage' => 'sometimes|nullable|string|max:100',
             'materials' => 'present|array|max:30', 'materials.*' => 'required|array:material_id,unit_id,quantity',
             'materials.*.material_id' => ['required', OperationInput::UUID], 'materials.*.unit_id' => ['required', OperationInput::UUID], 'materials.*.quantity' => 'required|string|max:30',
+            'observations' => 'sometimes|nullable|array:dissolved_oxygen_mg_l,water_temperature_c,plant_height_cm,leaf_count,leaf_width_cm,sample_basis',
+            'observations.dissolved_oxygen_mg_l' => 'nullable|string|max:30', 'observations.water_temperature_c' => 'nullable|string|max:30',
+            'observations.plant_height_cm' => 'nullable|string|max:30', 'observations.leaf_width_cm' => 'nullable|string|max:30',
+            'observations.leaf_count' => 'nullable|integer:strict|min:0|max:2147483647', 'observations.sample_basis' => 'nullable|string|max:500',
             'notes' => 'present|string|max:2000'];
         if ($action !== 'create') {
             $rules['reason'] = 'required|string|min:1|max:1000';
