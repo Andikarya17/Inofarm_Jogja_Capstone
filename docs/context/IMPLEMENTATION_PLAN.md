@@ -1,5 +1,11 @@
 # Implementation plan migrasi proposal terbaru
 
+## Titik lanjut aktif, 10 November 2026
+
+FIN01–17 dan penyelarasan PG0–PG7 sudah memiliki implementasi/evidence sesuai status masing-masing. Jangan mengulang rencana FIN00 dari nol. [Audit sistem terbaru](SYSTEM_AUDIT_20261110.md) menetapkan urutan tindak lanjut: DB-01 (schema aplikasi tertinggal17–19), API-01/API-02 (kelengkapan OpenAPI/DTO), API-03 (semantik pengukuran latest), lalu risiko selector dan gate acceptance. [CLAUDE.md](../../CLAUDE.md) menjadi pintu masuk agent baru.
+
+Task audit 10 November hanya mengubah dokumentasi/context. Rollout migration pengguna, perbaikan runtime dan kontrak executable belum dilakukan. Test lulus pada inofarm_test tidak menutup kegagalan schema inofarm_finance_local. Semua rencana/titik lanjut bertanggal di bawah adalah histori yang harus dibaca bersama status terbaru.
+
 ## Titik lanjut 8 November 2026
 
 Jangan menjalankan ulang FIN01–17 atau prompt frontend sebagai pekerjaan baru. FIN01–15 core, FIN16 engineering, FIN17 dokumentasi/tooling, frontend botani dan menu sekunder sudah tersedia. Beranda pengelola juga telah diimplementasikan pada `d6774fc`; main baru sampai `0ea7f66` saat audit. [Handoff sesi baru](HANDOFF_20261108.md).

@@ -1,5 +1,13 @@
 # Architecture: kondisi aktual dan target
 
+## Arsitektur aktif, 10 November 2026
+
+MainActivity → FinanceRoot/FinanceRuntime → ViewModel/repository → SQLiteOpenHelper 10 + encrypted vault/draft/outbox → FinanceSyncCoordinator/JobScheduler → FinanceHttpApi → Laravel v2 controller/domain service → MySQL. Backend source sampai migration 19; wire schema tetap 2. Room/WorkManager dan frontend React bukan implementasi aktif.
+
+Migration17 menambah activity_reviews/provenance role,18 pengamatan JSON,19 target/completion kelompok dan quality rincian panen. Ledger, immutable snapshots, receipt/feed dan scope checks tetap menjadi boundary. ManagerHome memakai keputusan verifikasi untuk memilih pengukuran; perubahan manusia per revisi terpisah dari status transport. Detail modul/jalur API dan batas runtime di [CLAUDE.md](../../CLAUDE.md) dan [audit sistem](SYSTEM_AUDIT_20261110.md).
+
+**Deployment lokal belum selaras:** database aplikasi inofarm_finance_local masih schema 16; database uji sudah 19. Ini bukan perubahan target arsitektur atau bukti migration pengguna telah dilakukan. Uraian FIN/baseline lama di bawah merupakan histori; jangan mengaktifkan kembali coexistence v1 atau launcher legacy.
+
 Snapshot Beranda pengelola v2 memakai `ScopedRead` dan resolver periode budidaya berjalan pada greenhouse. Snapshot query penuh membawa scope/epoch dan kalender WIB ke repository Android. SQLite 10 menambahkan cache ringkasan dan jurnal penetapan periode terenkripsi. Cache dan request penetapan dipisahkan dari histori dan draf operasional. [Kontrak Beranda](../../contracts/v2/MANAGER_HOME.md)
 
 Pengukuran manual2 November2026 menggunakan domain activity/ledger/sync existing, tipe `measurement`, additive schema15 nullable EC dan index, SQLite9/encrypted raw drafts/immutable outbox tetap. Dashboard memindai kandidat cache scoped dalam batch100 sampai valid, terpisah dari pagination riwayat; stable full pull memasok cache. API baca terbaru memakai commit-order scoped read dan immutable accepted snapshot. [Kontrak dan batas rollout](../../contracts/v2/MEASUREMENTS.md).

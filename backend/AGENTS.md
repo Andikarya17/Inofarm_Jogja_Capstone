@@ -2,7 +2,9 @@
 
 Ikuti AGENTS root/context aktif29 Oktober2026 beserta keputusan pengguna2 November2026. Produk aktif hanya API v2 pekerja/pengelola scoped greenhouse, activities/pengukuran manual/harvest, expenses/allocation/assets/sales, evaluation/investment, sync/audit/report/recovery. Route/source owner/device v1 dilepas; tabel/migration historis tetap dipertahankan.
 
-API_V2/DATA_CONTRACTS memuat rancangan lengkap; subset core/master/reference/activity/harvest/expense/allocation sudah executable, lihat contracts/v2/, routes/api_v2.php dan docs/context/IMPLEMENTATION_STATUS.md. Native finance/private proof masih bertahap. Migration additive; jangan ubah makna histori atau auto-convert device events. Domain services/policy/validation; fixed decimal, transaction locks, idempotent operation/base_version, audit dan snapshots immutable. Actor dari sesi; file/sync/export scoped.
+Baseline 10 November 2026 source `9a1613e` sudah mencakup core/master/reference/activity/review/harvest/expense/allocation/sale/asset/evaluation/investment/export/recovery dan native terkait; acceptance tidak semuanya selesai. Baca CLAUDE.md root, docs/context/SYSTEM_AUDIT_20261110.md, contracts/v2/ dan routes/api_v2.php. API_V2/DATA_CONTRACTS lama mencakup rancangan, bukan nama route/tabel fisik yang selalu tepat. OpenAPI belum memuat 25 operasi runtime.
+
+Source sampai migration finance 19, tetapi audit read-only menemukan database aplikasi efektif inofarm_finance_local masih 16. Jangan menganggap kelulusan inofarm_test membuktikan schema aplikasi terbaru; jangan auto-migrate/reset data pengguna dalam task audit. Migration additive; jangan ubah makna histori atau auto-convert device events. Domain services/policy/validation; fixed decimal, transaction locks, idempotent operation/base_version, audit dan snapshots immutable. Actor dari sesi; file/sync/export scoped.
 
 Test wajib effective MySQL inofarm_test; guard sebelum SQL/provider. Jangan RefreshDatabase/migrate:fresh/reset/seed pada inofarm_local/data pengguna; jangan disable guard. Concurrency dibuktikan MySQL, bukan mock saja.
 

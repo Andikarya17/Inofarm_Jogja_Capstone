@@ -1,5 +1,9 @@
 # Decision register target baru
 
+## Scope audit dan handoff, 10 November 2026
+
+Pengguna meminta audit proposal/database/frontend/backend/API/context, mengizinkan inspeksi database lokal read-only, memilih **audit dan update context dulu**, lalu meminta `CLAUDE.md` berisi konteks, role/kewenangan, API, stack dan database. Hasil ada di [audit sistem](../../context/SYSTEM_AUDIT_20261110.md) dan [CLAUDE.md](../../../CLAUDE.md). Tidak ada izin baru untuk migrate database pengguna, perbaikan runtime atau deploy dalam task audit ini. Temuan schema lokal tertinggal dan OpenAPI belum lengkap dicatat sebagai pekerjaan lanjut.
+
 ## Keputusan penyelarasan pengelola, 10 November 2026
 
 - Kartu EC/PPM boleh menampilkan catatan pekerja yang sudah diterima server dan belum diperiksa dengan label **Belum diverifikasi**. Catatan tidak valid tetap tersedia di riwayat.

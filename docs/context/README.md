@@ -1,5 +1,13 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+## Titik masuk aktif, audit 10 November 2026
+
+Mulai dari [CLAUDE.md](../../CLAUDE.md) untuk konteks agent berikutnya. [Audit sistem terbaru](SYSTEM_AUDIT_20261110.md) mencocokkan proposal, source `9a1613e`, Android, Laravel, OpenAPI dan database lokal read-only. [Kamus database](DATABASE_INVENTORY_20261110.md) serta [peta API](API_ROUTE_MAP_20261110.md) mencatat struktur fisik dan gap kontrak.
+
+**Perhatian:** source sudah migration finance19/SQLite10/wire2, tetapi database aplikasi efektif `inofarm_finance_local` masih migration16. Beranda gagal membaca tabel review yang belum ada. OpenAPI belum memuat25 operasi runtime. Audit ini hanya memperbarui dokumentasi, tidak migrate atau memperbaiki runtime. Bukti baru:141 tes backend/2.827 assertion,74 JVM, build/lint dan kontrak lulus pada lingkungan uji; bukan bukti database aplikasi siap.
+
+Bagian bertanggal di bawah menyimpan histori. Handoff 8 November dan status main saat itu bukan titik lanjut terbaru. Bukti PG0–PG7 tetap berlaku sesuai cakupannya; gate perangkat fisik/UAT/pentest/produksi tetap terbuka.
+
 ## Eksekusi penyelarasan pengelola, 10 November 2026
 
 [Checkpoint PG0–PG7](MANAGER_ALIGNMENT_EVIDENCE_20261110.md) mencatat perubahan, keputusan pengguna, verifikasi dan batas tiap fase. Audit 9 November tetap sebagai baseline.
@@ -20,7 +28,7 @@ Branch `codex/manager-ui-polish` mematangkan lima tab pengelola, pemilih, Alat k
 
 Mulai sesi baru dari [ringkasan proyek dan prompt serah terima](HANDOFF_20261108.md). [Audit riwayat/dokumentasi](DOCUMENTATION_AUDIT_20261108.md) mencatat apa yang diperiksa dan yang belum. Source terakhir `d6774fc` pada `codex/manager-home-overview` sudah dipush, sedangkan `github/main` masih `0ea7f66` setelah fetch pada audit ini. Branch paket dokumentasi `codex/docs-project-handoff-20261108` berangkat dari source terbaru tersebut. Jangan kehilangan upgrade Beranda dengan melanjutkan dari main lama.
 
-FIN01–15 core, FIN16 engineering dan FIN17 panduan/tooling sudah tersedia. Finance adalah default tanpa flag, SQLite terbaru 10, backend migration terbaru 16. PR40–46 sudah masuk main; upgrade Beranda belum. Implementasi bukan penerimaan produk penuh: MH-10/MH-12 masih parsial, UAT/pentest/perangkat fisik dan gate produksi/akademik belum ditutup. Lihat [status](IMPLEMENTATION_STATUS.md) dan [gap aktif](GAP_ANALYSIS.md).
+Pada checkpoint8 November, FIN01–15 core, FIN16 engineering dan FIN17 panduan/tooling tersedia; SQLite10 dan backend migration16 adalah versi saat itu. PR40–46 sudah masuk main; upgrade Beranda belum pada fetch tersebut. Untuk versi source/database aktual gunakan audit10 November di atas. Implementasi bukan penerimaan produk penuh: MH-10/MH-12, UAT/pentest/perangkat fisik dan gate produksi/akademik belum ditutup. Lihat [status](IMPLEMENTATION_STATUS.md) dan [gap aktif](GAP_ANALYSIS.md).
 
 Urutan baca: AGENTS root/lokal → ringkasan ini → status/gap → PRD, architecture, data contracts, implementation plan sesuai tugas → kontrak executable/source/test. Bagian bertanggal lama di bawah adalah riwayat, bukan perintah mengulang implementasi atau menunda push yang sudah diotorisasi kemudian.
 

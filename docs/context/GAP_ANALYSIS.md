@@ -1,4 +1,16 @@
-# Gap analysis baseline 29 Oktober 2026
+# Gap analysis aktif, 10 November 2026
+
+## Prioritas hasil audit sistem
+
+1. **DB-01/P1:** database aplikasi efektif `inofarm_finance_local` tertinggal migration17–19. Tabel review dan lima kolom belum ada; pembacaan Beranda gagal. Audit read-only tidak menerapkan migration.
+2. **API-01/API-02/P2:**25 operasi runtime belum ada di OpenAPI;34 operasi memiliki respons sukses tanpa content/schema. Tidak ditemukan path OpenAPI yang hilang di router. Lengkapi kontrak, bukan mengganti route yang sudah benar.
+3. **API-03/P2:** endpoint measurements/latest belum mengecualikan keputusan invalid seperti manager-home; perlu penyelarasan semantik/regresi.
+4. **FE-01/P2:** selector operasional memakai cache maksimum 1.000 per jenis; pagination/search skala besar belum ditutup.
+5. Gate perangkat fisik/TalkBack/Doze/latency, UAT/pentest, Q07/Q08, asumsi bisnis dan SOP tetap terbuka. Audit tidak mengulang device acceptance PG7.
+
+[Audit lengkap dan batas bukti](SYSTEM_AUDIT_20261110.md), [peta API](API_ROUTE_MAP_20261110.md), [database](DATABASE_INVENTORY_20261110.md). Context pack diperbarui; runtime tidak diubah. Source terbaru sudah memiliki verifikasi pekerja, pengamatan terstruktur, target/capaian/selesai panen dan administrasi PG0–PG7. Gap "belum ada" untuk fitur tersebut pada checkpoint9 November di bawah telah digantikan implementasi10 November; ketertinggalan database lokal tetap masalah terpisah.
+
+## Riwayat gap sebelum audit terbaru
 
 ## Gap pencatatan pekerja dan administrasi — 9 November 2026
 

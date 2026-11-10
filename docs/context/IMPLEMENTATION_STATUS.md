@@ -1,5 +1,11 @@
 # Status implementasi nyata, 10 November 2026
 
+## Audit source dan database aktual
+
+Baseline `9a1613e`: source finance sampai migration19, SQLite10, wire2. [Audit terbaru](SYSTEM_AUDIT_20261110.md) menemukan database aplikasi `inofarm_finance_local` baru sampai migration16; pembacaan Beranda gagal SQLSTATE42S02/1146. Tidak ada migration/data aplikasi diubah pada audit. MySQL uji terpisah memakai schema19 dan lulus141 tes/2.827 assertion; Android74 JVM/build/lint lulus (0 error,16 warning,1 hint). Device/UAT/pentest tidak diulang.
+
+Seluruh127 operasi OpenAPI match route, tetapi25 operasi runtime belum masuk OpenAPI dan34 operasi punya respons sukses tanpa content/schema. Detail struktur dan prioritas ada di [inventaris database](DATABASE_INVENTORY_20261110.md), [peta API](API_ROUTE_MAP_20261110.md), serta [CLAUDE.md](../../CLAUDE.md). Bagian berikut adalah checkpoint bertanggal; klaim "belum diimplementasikan pada task ini" di audit9 November tidak menggantikan PG0–PG7.
+
 ## Penyelarasan pengelola
 
 Antrean Android pengelola memisahkan verifikasi kegiatan pekerja dari Pengiriman saya. Kegiatan menambah pengamatan opsional dan editor acuan EC. Beranda memberi status hari WIB di dekat pasangan EC/PPM. Rekap panen menghubungkan target, varietas, kondisi buah dan penyelesaian manual. Menu akun menyediakan Kelola greenhouse dan Kelola akun. Backend memakai migrasi additive sampai 19. [Checkpoint dan bukti PG0–PG7](MANAGER_ALIGNMENT_EVIDENCE_20261110.md).

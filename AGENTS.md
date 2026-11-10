@@ -10,6 +10,8 @@ FIN00 pada29 Oktober menyusun proposal/audit/context/master prompt tanpa menggan
 
 ## Urutan konteks
 
+Pintu masuk handoff10 November2026: `CLAUDE.md`, `docs/context/SYSTEM_AUDIT_20261110.md`, inventaris database dan peta API pada direktori context. Audit menemukan source migration19 tetapi database aplikasi efektif `inofarm_finance_local` masih16; gap runtime ini belum diperbaiki. Context bertanggal lama tidak mengatasi hasil audit terbaru. Perlindungan database pengguna berlaku untuk nama ini maupun `inofarm_local`.
+
 1. AGENTS root dan lokal.
 2. SOP GitLab/Pengumpulan di Aturan Main sesuai pekerjaan.
 3. docs/context/README.md, PRD, ARCHITECTURE, DATA_CONTRACTS, IMPLEMENTATION_PLAN, GAP_ANALYSIS.
