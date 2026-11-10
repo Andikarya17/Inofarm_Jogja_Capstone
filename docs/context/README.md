@@ -1,5 +1,11 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+## Status setelah remediasi10 November2026
+
+[Bukti remediasi](AUDIT_REMEDIATION_20261110.md) mengatasi status terbuka pada audit sebelumnya. DB-01 selesai pada database lokal inofarm_finance_local, kini finance19/54 tabel/75 FK dan Beranda terbaca. API-01/API-02 selesai dengan152 operasi OpenAPI yang setara153 route runtime setelah ekspansi, schema respons dan tes parity. API-03 selesai dengan filter review invalid versi aktif. FE-01 selesai dengan pembacaan seluruh halaman cache scoped. Backend144 tes, JVM74 dan instrumentasi32 tes API30 lulus. QA-01, benchmark produksi dan keputusan bisnis tetap terbuka. Gunakan [CLAUDE.md](../../CLAUDE.md) sebagai pintu masuk terkini.
+
+Bagian audit sebelum remediasi di bawah mencatat kondisi saat diperiksa. Ketertinggalan schema dan daftar gap API pada bagian itu telah ditangani oleh perubahan terbaru.
+
 ## Titik masuk aktif, audit 10 November 2026
 
 Mulai dari [CLAUDE.md](../../CLAUDE.md) untuk konteks agent berikutnya. [Audit sistem terbaru](SYSTEM_AUDIT_20261110.md) mencocokkan proposal, source `9a1613e`, Android, Laravel, OpenAPI dan database lokal read-only. [Kamus database](DATABASE_INVENTORY_20261110.md) serta [peta API](API_ROUTE_MAP_20261110.md) mencatat struktur fisik dan gap kontrak.

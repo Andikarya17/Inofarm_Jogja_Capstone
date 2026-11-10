@@ -1,8 +1,6 @@
-# Peta route API aktual, 10 November 2026
+# Peta API setelah remediasi, 10 November2026
 
-Baseline `9a1613e`, prefix `/api/v2`. Sebanyak 127 operasi OpenAPI dicocokkan melalui router Laravel dengan UUID sintetis tanpa menjalankan controller atau mengirim mutasi. Generic route diekspansi menurut constraint resource; HEAD otomatis tidak dihitung. Route match bukan bukti payload, authorization atau hasil SQL.
-
-Runtime memiliki 153 kombinasi method/path setelah ekspansi. OpenAPI memiliki 127 operasi, atau 128 setelah format ekspor pdf/csv diekspansi. Ada 25 operasi runtime belum tercantum di OpenAPI. Seluruh operasi OpenAPI memiliki route; tidak ditemukan salah arah pada controller hasil pencocokan. Daftar berikut memetakan operasi yang dipublikasikan ke controller sebenarnya.
+OpenAPI108 path/152 operasi setara153 kombinasi runtime setelah format ekspor pdf/csv diekspansi. Tes OpenApiParityTest memeriksa kesamaan dua arah dan dispatch route. Semua respons sukses yang memiliki body telah diberi schema. Logout204 tanpa body. Payload snapshot feed tetap polimorfik sesuai entity_type dan histori. [Bukti](AUDIT_REMEDIATION_20261110.md).
 
 | Method | Path | Controller |
 |---|---|---|
@@ -31,33 +29,43 @@ Runtime memiliki 153 kombinasi method/path setelah ekspansi. OpenAPI memiliki 12
 | POST | `/varieties` | `MasterController@store` |
 | GET | `/varieties` | `MasterController@index` |
 | PATCH | `/varieties/{id}` | `MasterController@update` |
+| GET | `/varieties/{id}` | `MasterController@show` |
 | POST | `/grades` | `MasterController@store` |
 | GET | `/grades` | `MasterController@index` |
 | PATCH | `/grades/{id}` | `MasterController@update` |
+| GET | `/grades/{id}` | `MasterController@show` |
 | POST | `/units` | `MasterController@store` |
 | GET | `/units` | `MasterController@index` |
 | PATCH | `/units/{id}` | `MasterController@update` |
+| GET | `/units/{id}` | `MasterController@show` |
 | POST | `/materials` | `MasterController@store` |
 | GET | `/materials` | `MasterController@index` |
 | PATCH | `/materials/{id}` | `MasterController@update` |
+| GET | `/materials/{id}` | `MasterController@show` |
 | POST | `/expense-categories` | `MasterController@store` |
 | GET | `/expense-categories` | `MasterController@index` |
 | PATCH | `/expense-categories/{id}` | `MasterController@update` |
+| GET | `/expense-categories/{id}` | `MasterController@show` |
 | PATCH | `/seasons/{id}` | `MasterController@update` |
+| GET | `/seasons/{id}` | `MasterController@show` |
 | GET | `/planting-groups/{id}/harvest-progress` | `HarvestController@progress` |
 | POST | `/planting-groups/{id}/harvest-completion` | `HarvestController@completion` |
 | PATCH | `/planting-groups/{id}` | `MasterController@update` |
+| GET | `/planting-groups/{id}` | `MasterController@show` |
 | POST | `/assignments` | `MasterController@store` |
 | GET | `/assignments` | `MasterController@index` |
 | PATCH | `/assignments/{id}` | `MasterController@update` |
+| GET | `/assignments/{id}` | `MasterController@show` |
 | POST | `/seasons/{id}/close` | `MasterController@transition` |
 | POST | `/seasons/{id}/reopen` | `MasterController@transition` |
 | POST | `/schedules` | `ReferenceController@store` |
 | GET | `/schedules` | `ReferenceController@index` |
 | PATCH | `/schedules/{id}` | `ReferenceController@update` |
+| GET | `/schedules/{id}` | `ReferenceController@show` |
 | POST | `/targets` | `ReferenceController@store` |
 | GET | `/targets` | `ReferenceController@index` |
 | PATCH | `/targets/{id}` | `ReferenceController@update` |
+| GET | `/targets/{id}` | `ReferenceController@show` |
 | POST | `/activities/{id}/cancel` | `ActivityController@cancel` |
 | GET | `/activities/{id}/audit` | `ActivityController@audit` |
 | GET | `/harvests` | `HarvestController@index` |
@@ -133,76 +141,18 @@ Runtime memiliki 153 kombinasi method/path setelah ekspansi. OpenAPI memiliki 12
 | GET | `/measurements/latest` | `ActivityController@latestMeasurement` |
 | GET | `/manager-home` | `ManagerHomeController` |
 | POST | `/greenhouses/{id}/running-period` | `MasterController@designatePeriod` |
-
-## Route runtime yang belum tercantum di OpenAPI
-
-| Method | Path |
-|---|---|
-| GET | `/assignments/{id}` |
-| GET | `/assignments/{id}/audit` |
-| GET | `/expense-categories/{id}` |
-| GET | `/expense-categories/{id}/audit` |
-| GET | `/grades/{id}` |
-| GET | `/grades/{id}/audit` |
-| GET | `/greenhouses/{id}/audit` |
-| GET | `/materials/{id}` |
-| GET | `/materials/{id}/audit` |
-| GET | `/planting-groups/{id}` |
-| GET | `/planting-groups/{id}/audit` |
-| GET | `/schedules/{id}` |
-| GET | `/schedules/{id}/versions` |
-| GET | `/seasons/{id}` |
-| GET | `/seasons/{id}/audit` |
-| GET | `/targets/{id}` |
-| GET | `/targets/{id}/versions` |
-| GET | `/units/{id}` |
-| GET | `/units/{id}/audit` |
-| GET | `/users` |
-| GET | `/varieties/{id}` |
-| GET | `/varieties/{id}/audit` |
-| PATCH | `/users/{id}` |
-| POST | `/users` |
-| POST | `/users/assignment-candidate` |
-
-## Batas schema respons
-
-Operasi berikut memiliki respons sukses tanpa content/schema (logout dapat memang tidak memerlukan body). Jangan memakai OpenAPI sendirian untuk menghasilkan seluruh DTO client.
-
-| Method | Path |
-|---|---|
-| GET | `/assignments` |
-| GET | `/expense-categories` |
-| GET | `/grades` |
-| GET | `/materials` |
-| GET | `/measurements/latest` |
-| GET | `/schedules` |
-| GET | `/targets` |
-| GET | `/units` |
-| GET | `/varieties` |
-| PATCH | `/assignments/{id}` |
-| PATCH | `/expense-categories/{id}` |
-| PATCH | `/grades/{id}` |
-| PATCH | `/greenhouses/{id}` |
-| PATCH | `/materials/{id}` |
-| PATCH | `/planting-groups/{id}` |
-| PATCH | `/schedules/{id}` |
-| PATCH | `/seasons/{id}` |
-| PATCH | `/targets/{id}` |
-| PATCH | `/units/{id}` |
-| PATCH | `/varieties/{id}` |
-| POST | `/assignments` |
-| POST | `/auth/logout` |
-| POST | `/expense-categories` |
-| POST | `/grades` |
-| POST | `/greenhouses` |
-| POST | `/materials` |
-| POST | `/planting-groups` |
-| POST | `/schedules` |
-| POST | `/seasons` |
-| POST | `/seasons/{id}/close` |
-| POST | `/seasons/{id}/reopen` |
-| POST | `/targets` |
-| POST | `/units` |
-| POST | `/varieties` |
-
-Total 34 operasi memiliki setidaknya satu respons sukses tanpa content/schema. Schema generik yang masih berupa object juga memerlukan pengetatan terpisah. Audit ini mendokumentasikan gap, tidak mengubah OpenAPI atau perilaku runtime.
+| GET | `/greenhouses/{id}/audit` | `MasterController@audit` |
+| GET | `/seasons/{id}/audit` | `MasterController@audit` |
+| GET | `/planting-groups/{id}/audit` | `MasterController@audit` |
+| GET | `/varieties/{id}/audit` | `MasterController@audit` |
+| GET | `/materials/{id}/audit` | `MasterController@audit` |
+| GET | `/units/{id}/audit` | `MasterController@audit` |
+| GET | `/grades/{id}/audit` | `MasterController@audit` |
+| GET | `/expense-categories/{id}/audit` | `MasterController@audit` |
+| GET | `/assignments/{id}/audit` | `MasterController@audit` |
+| GET | `/schedules/{id}/versions` | `ReferenceController@versions` |
+| GET | `/targets/{id}/versions` | `ReferenceController@versions` |
+| GET | `/users` | `UserController@index` |
+| POST | `/users` | `UserController@store` |
+| POST | `/users/assignment-candidate` | `UserController@assignmentCandidate` |
+| PATCH | `/users/{id}` | `UserController@update` |

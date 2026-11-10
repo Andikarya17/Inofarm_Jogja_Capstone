@@ -1,5 +1,7 @@
 # Kontrak core v2 — FIN01
 
+Baseline setelah remediasi10 November2026 mengikuti [bukti penyelesaian](../../docs/context/AUDIT_REMEDIATION_20261110.md). Database aplikasi lokal sudah migration19, parity route OpenAPI lengkap, filter latest mengikuti review dan cache konteks membaca seluruh halaman. Status audit lama di bawah harus dibaca sebagai checkpoint sebelum perbaikan. QA/keputusan produksi tetap mengikuti gate yang tercatat.
+
 ## Status kontrak 10 November 2026
 
 Runtime source `9a1613e` sudah mencakup modul finance, review, panen dan pengelola sampai migration19. Label FIN01 dan uraian coexistence/belum tersedia pada checkpoint lama di bawah adalah histori. [Audit terbaru](../../docs/context/SYSTEM_AUDIT_20261110.md) menemukan127 operasi OpenAPI dapat diarahkan ke router, tetapi25 operasi runtime belum dicantumkan dan34 operasi memiliki respons sukses tanpa content/schema. [Peta route/controller](../../docs/context/API_ROUTE_MAP_20261110.md) dan kontrak naratif per modul melengkapi OpenAPI; jangan menganggap seluruh DTO sudah dapat digenerasi darinya.

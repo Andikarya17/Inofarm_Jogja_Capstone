@@ -1,5 +1,11 @@
 # Architecture: kondisi aktual dan target
 
+## Status setelah remediasi10 November2026
+
+[Bukti remediasi](AUDIT_REMEDIATION_20261110.md) mengatasi status terbuka pada audit sebelumnya. DB-01 selesai pada database lokal inofarm_finance_local, kini finance19/54 tabel/75 FK dan Beranda terbaca. API-01/API-02 selesai dengan152 operasi OpenAPI yang setara153 route runtime setelah ekspansi, schema respons dan tes parity. API-03 selesai dengan filter review invalid versi aktif. FE-01 selesai dengan pembacaan seluruh halaman cache scoped. Backend144 tes, JVM74 dan instrumentasi32 tes API30 lulus. QA-01, benchmark produksi dan keputusan bisnis tetap terbuka. Gunakan [CLAUDE.md](../../CLAUDE.md) sebagai pintu masuk terkini.
+
+Bagian audit sebelum remediasi di bawah mencatat kondisi saat diperiksa. Ketertinggalan schema dan daftar gap API pada bagian itu telah ditangani oleh perubahan terbaru.
+
 ## Arsitektur aktif, 10 November 2026
 
 MainActivity → FinanceRoot/FinanceRuntime → ViewModel/repository → SQLiteOpenHelper 10 + encrypted vault/draft/outbox → FinanceSyncCoordinator/JobScheduler → FinanceHttpApi → Laravel v2 controller/domain service → MySQL. Backend source sampai migration 19; wire schema tetap 2. Room/WorkManager dan frontend React bukan implementasi aktif.

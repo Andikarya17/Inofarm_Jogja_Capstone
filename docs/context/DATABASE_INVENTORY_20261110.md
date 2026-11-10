@@ -1,17 +1,17 @@
 # Inventaris database terverifikasi, 10 November 2026
 
-Baseline source `9a1613e`. Struktur target diambil dari `inofarm_test` setelah suite guarded menjalankan migration 1–19; database aplikasi `inofarm_finance_local` hanya dibaca, masih sampai migration 16. Tipe kolom/FK di bawah berasal dari information_schema MySQL 8.0.30. Ini bukan dump isi data atau instruksi migrate.
+Baseline setelah rollout19 dan remediasi10 November2026. Struktur target diambil dari `inofarm_test` setelah suite guarded menjalankan migration 1–19; database aplikasi `inofarm_finance_local` kini sampai migration19. Lihat AUDIT_REMEDIATION_20261110.md untuk backup dan rekonsiliasi. Tipe kolom/FK di bawah berasal dari information_schema MySQL 8.0.30. Ini bukan dump isi data atau instruksi migrate.
 
-Ringkasan: lokal 53 tabel/73 FK/21 migration total; uji 54 tabel/75 FK/24 migration total. Lima migration awal mencakup infrastruktur dan legacy, sehingga angka total berbeda dari nomor migration finance. Tidak ditemukan orphan pada FK yang diperiksa. Tidak ada perbedaan tipe/nullability/default/key untuk kolom yang ada di kedua database.
+Ringkasan: lokal 54 tabel/75 FK/24 migration total; uji 54 tabel/75 FK/24 migration total. Lima migration awal mencakup infrastruktur dan legacy, sehingga angka total berbeda dari nomor migration finance. Tidak ditemukan orphan pada FK yang diperiksa. Tidak ada perbedaan tipe/nullability/default/key untuk kolom yang ada di kedua database.
 
 Tabel legacy dipertahankan sesuai keputusan pengguna, bukan API IoT aktif. Tabel teknis mendukung Laravel/sesi. Tabel domain dan ledger mendukung operasional/keuangan. FK bukan bukti seluruh aturan saldo/scope: lihat audit dan services.
 
 | Tabel | Kategori | Baris lokal | Kolom lokal / target |
 |---|---|---:|---:|
-| `activities` | domain/ledger | 1 | 17 / 19 |
+| `activities` | domain/ledger | 1 | 19 / 19 |
 | `activity_materials` | domain/ledger | 0 | 5 / 5 |
 | `activity_reference_snapshots` | domain/ledger | 1 | 4 / 4 |
-| `activity_reviews` | domain/ledger | belum ada | 0 / 8 |
+| `activity_reviews` | domain/ledger | 0 | 8 / 8 |
 | `assets` | domain/ledger | 0 | 15 / 15 |
 | `audit_logs` | domain/ledger | 12 | 10 / 10 |
 | `backup_runs` | domain/ledger | 0 | 8 / 8 |
@@ -31,7 +31,7 @@ Tabel legacy dipertahankan sesuai keputusan pengguna, bukan API IoT aktif. Tabel
 | `grades` | domain/ledger | 2 | 7 / 7 |
 | `greenhouse_assignments` | domain/ledger | 2 | 10 / 10 |
 | `greenhouses` | domain/ledger | 1 | 9 / 9 |
-| `harvest_items` | domain/ledger | 2 | 10 / 11 |
+| `harvest_items` | domain/ledger | 2 | 11 / 11 |
 | `harvest_reference_snapshots` | domain/ledger | 2 | 4 / 4 |
 | `harvests` | domain/ledger | 1 | 9 / 9 |
 | `investment_cash_flow_versions` | domain/ledger | 0 | 7 / 7 |
@@ -39,11 +39,11 @@ Tabel legacy dipertahankan sesuai keputusan pengguna, bukan API IoT aktif. Tabel
 | `job_batches` | infrastruktur | 0 | 10 / 10 |
 | `jobs` | infrastruktur | 0 | 7 / 7 |
 | `materials` | domain/ledger | 0 | 8 / 8 |
-| `migrations` | infrastruktur | 21 | 3 / 3 |
+| `migrations` | infrastruktur | 24 | 3 / 3 |
 | `password_reset_tokens` | infrastruktur | 0 | 3 / 3 |
 | `personal_access_tokens` | infrastruktur | 2 | 10 / 10 |
 | `phase_versions` | legacy | 0 | 5 / 5 |
-| `planting_groups` | domain/ledger | 1 | 11 / 13 |
+| `planting_groups` | domain/ledger | 1 | 13 / 13 |
 | `record_attachments` | domain/ledger | 0 | 15 / 15 |
 | `report_snapshots` | domain/ledger | 0 | 12 / 12 |
 | `restore_runs` | domain/ledger | 0 | 11 / 11 |
@@ -88,8 +88,8 @@ PK/UNI/MUL mengikuti information_schema. Kolom tanpa FK dapat berupa snapshot/re
 | `created_at` | `timestamp(6)` | YES | `NULL` |  |  | ada |
 | `updated_at` | `timestamp(6)` | YES | `NULL` |  |  | ada |
 | `manual_ec` | `decimal(20,6)` | YES | `NULL` |  |  | ada |
-| `recorded_by_role` | `varchar(20)` | YES | `NULL` | MUL |  | **belum ada** |
-| `observations` | `json` | YES | `NULL` |  |  | **belum ada** |
+| `recorded_by_role` | `varchar(20)` | YES | `NULL` | MUL |  | ada |
+| `observations` | `json` | YES | `NULL` |  |  | ada |
 
 ### activity_materials
 
@@ -114,14 +114,14 @@ PK/UNI/MUL mengikuti information_schema. Kolom tanpa FK dapat berupa snapshot/re
 
 | Kolom | Tipe | Nullable | Default | Key | FK ke | Lokal |
 |---|---|---|---|---|---|---|
-| `id` | `char(36)` | NO | `NULL` | PRI |  | **belum ada** |
-| `activity_id` | `char(36)` | NO | `NULL` | MUL | activities.id | **belum ada** |
-| `activity_version` | `int unsigned` | NO | `NULL` |  |  | **belum ada** |
-| `reviewer_id` | `bigint unsigned` | NO | `NULL` | MUL | users.id | **belum ada** |
-| `reviewer_name` | `varchar(255)` | NO | `NULL` |  |  | **belum ada** |
-| `decision` | `varchar(12)` | NO | `NULL` |  |  | **belum ada** |
-| `reason` | `text` | YES | `NULL` |  |  | **belum ada** |
-| `reviewed_at` | `datetime(6)` | NO | `NULL` |  |  | **belum ada** |
+| `id` | `char(36)` | NO | `NULL` | PRI |  | ada |
+| `activity_id` | `char(36)` | NO | `NULL` | MUL | activities.id | ada |
+| `activity_version` | `int unsigned` | NO | `NULL` |  |  | ada |
+| `reviewer_id` | `bigint unsigned` | NO | `NULL` | MUL | users.id | ada |
+| `reviewer_name` | `varchar(255)` | NO | `NULL` |  |  | ada |
+| `decision` | `varchar(12)` | NO | `NULL` |  |  | ada |
+| `reason` | `text` | YES | `NULL` |  |  | ada |
+| `reviewed_at` | `datetime(6)` | NO | `NULL` |  |  | ada |
 
 ### assets
 
@@ -408,7 +408,7 @@ PK/UNI/MUL mengikuti information_schema. Kolom tanpa FK dapat berupa snapshot/re
 | `sold_weight_kg` | `decimal(20,6)` | NO | `0.000000` |  |  | ada |
 | `balance_version` | `int unsigned` | NO | `1` |  |  | ada |
 | `active` | `tinyint(1)` | NO | `1` |  |  | ada |
-| `quality` | `varchar(12)` | YES | `NULL` |  |  | **belum ada** |
+| `quality` | `varchar(12)` | YES | `NULL` |  |  | ada |
 
 ### harvest_reference_snapshots
 
@@ -473,7 +473,7 @@ PK/UNI/MUL mengikuti information_schema. Kolom tanpa FK dapat berupa snapshot/re
 | `name` | `varchar(255)` | NO | `NULL` |  |  | ada |
 | `total_jobs` | `int` | NO | `NULL` |  |  | ada |
 | `pending_jobs` | `int` | NO | `NULL` |  |  | ada |
-| `failed_jobs` | `int` | NO | `NULL` |  |  | ada |
+| `failed_jobs` | `int` | 0 | 7 / 7 |  |  | ada |
 | `failed_job_ids` | `longtext` | NO | `NULL` |  |  | ada |
 | `options` | `mediumtext` | YES | `NULL` |  |  | ada |
 | `cancelled_at` | `int` | YES | `NULL` |  |  | ada |
@@ -561,8 +561,8 @@ PK/UNI/MUL mengikuti information_schema. Kolom tanpa FK dapat berupa snapshot/re
 | `version` | `int unsigned` | NO | `1` |  |  | ada |
 | `created_at` | `timestamp(6)` | YES | `NULL` |  |  | ada |
 | `updated_at` | `timestamp(6)` | YES | `NULL` |  |  | ada |
-| `harvest_target` | `json` | YES | `NULL` |  |  | **belum ada** |
-| `harvest_completion` | `json` | YES | `NULL` |  |  | **belum ada** |
+| `harvest_target` | `json` | YES | `NULL` |  |  | ada |
+| `harvest_completion` | `json` | YES | `NULL` |  |  | ada |
 
 ### record_attachments
 

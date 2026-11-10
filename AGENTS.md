@@ -1,5 +1,7 @@
 # Instruksi agen Inofarm: baseline aktif29 Oktober 2026
 
+Baseline setelah remediasi10 November2026 mengikuti [bukti penyelesaian](docs/context/AUDIT_REMEDIATION_20261110.md). Database aplikasi lokal sudah migration19, parity route OpenAPI lengkap, filter latest mengikuti review dan cache konteks membaca seluruh halaman. Status audit lama di bawah harus dibaca sebagai checkpoint sebelum perbaikan. QA/keputusan produksi tetap mengikuti gate yang tercatat.
+
 ## Prioritas dan scope terbaru
 
 Pengguna meminta rombak ke **Aplikasi Mobile Pencatatan Operasional dan Evaluasi Keuangan Greenhouse Melon Hidroponik**, proposal `D:/Semester 7/Capstone 2/Proposal/Proposal Aplikasi Pencatatan Keuangan .pdf`. Stack tetap Android native **Kotlin + Jetpack Compose**, **Laravel REST API**, **MySQL**. Context aktif di `docs/context/`; instruksi sebelumnya di `docs/archive/pre-finance-20261029/AGENTS.md` bukan larangan yang mengatasi keputusan baru.

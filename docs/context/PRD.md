@@ -1,5 +1,11 @@
 # PRD: pencatatan operasional dan evaluasi keuangan greenhouse
 
+## Status setelah remediasi10 November2026
+
+[Bukti remediasi](AUDIT_REMEDIATION_20261110.md) mengatasi status terbuka pada audit sebelumnya. DB-01 selesai pada database lokal inofarm_finance_local, kini finance19/54 tabel/75 FK dan Beranda terbaca. API-01/API-02 selesai dengan152 operasi OpenAPI yang setara153 route runtime setelah ekspansi, schema respons dan tes parity. API-03 selesai dengan filter review invalid versi aktif. FE-01 selesai dengan pembacaan seluruh halaman cache scoped. Backend144 tes, JVM74 dan instrumentasi32 tes API30 lulus. QA-01, benchmark produksi dan keputusan bisnis tetap terbuka. Gunakan [CLAUDE.md](../../CLAUDE.md) sebagai pintu masuk terkini.
+
+Bagian audit sebelum remediasi di bawah mencatat kondisi saat diperiksa. Ketertinggalan schema dan daftar gap API pada bagian itu telah ditangani oleh perubahan terbaru.
+
 ## Baseline kebutuhan aktif, 10 November 2026
 
 KF01–14/KNF01–08 tetap berlaku. Keputusan terbaru menambah inbox verifikasi catatan pekerja per revisi, label belum diverifikasi pada pengukuran yang diterima server, pengecualian revisi invalid dari kartu pengelola, pengamatan opsional terstruktur, target panen terpisah dari populasi, kondisi layak/cacat per rincian, dan penyelesaian panen manual terpisah dari penutupan musim. Menu akun menyediakan Kelola greenhouse/Kelola akun. [Keputusan dan bukti PG0–PG7](MANAGER_ALIGNMENT_EVIDENCE_20261110.md).

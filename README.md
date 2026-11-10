@@ -6,7 +6,7 @@ Pengukuran EC (mS/cm) dan PPM (ppm) dicatat bersamaan tanpa harus memberikan bah
 
 Fitur mencakup HSS/HST, kegiatan dan bahan, panen, draf/outbox akun, audit/koreksi/pembatalan, biaya/alokasi, penjualan, aset/penyusutan, evaluasi musim, investasi, ekspor serta recovery terkontrol. Lihat [status implementasi dan batas acceptance](docs/context/IMPLEMENTATION_STATUS.md), [kontrak executable](contracts/v2/README.md), [perubahan EC/PPM](contracts/v2/MEASUREMENTS.md).
 
-Melanjutkan dari sesi baru/Claude Code: [CLAUDE.md](CLAUDE.md), [audit sistem10 November](docs/context/SYSTEM_AUDIT_20261110.md), [struktur database](docs/context/DATABASE_INVENTORY_20261110.md), dan [peta API](docs/context/API_ROUTE_MAP_20261110.md). Source `9a1613e` sudah mencakup penyelarasan pengelola PG0–PG7 dan migration19. Database aplikasi lokal `inofarm_finance_local` masih migration16; audit tidak menerapkan migration. Handoff8 November adalah histori, bukan titik lanjut terbaru.
+Melanjutkan dari sesi baru/Claude Code: [CLAUDE.md](CLAUDE.md), [hasil remediasi audit](docs/context/AUDIT_REMEDIATION_20261110.md), [struktur database](docs/context/DATABASE_INVENTORY_20261110.md) dan [peta API](docs/context/API_ROUTE_MAP_20261110.md). Database lokal sudah finance migration19. Parity API, filter verifikasi pengukuran dan pembacaan seluruh cache konteks telah ditangani.
 
 ## Build dan run
 

@@ -1,5 +1,7 @@
 # Backend Inofarm: transisi operasional dan keuangan
 
+Baseline setelah remediasi10 November2026 mengikuti [bukti penyelesaian](../docs/context/AUDIT_REMEDIATION_20261110.md). Database aplikasi lokal sudah migration19, parity route OpenAPI lengkap, filter latest mengikuti review dan cache konteks membaca seluruh halaman. Status audit lama di bawah harus dibaca sebagai checkpoint sebelum perbaikan. QA/keputusan produksi tetap mengikuti gate yang tercatat.
+
 Ikuti AGENTS root/context aktif29 Oktober2026 beserta keputusan pengguna2 November2026. Produk aktif hanya API v2 pekerja/pengelola scoped greenhouse, activities/pengukuran manual/harvest, expenses/allocation/assets/sales, evaluation/investment, sync/audit/report/recovery. Route/source owner/device v1 dilepas; tabel/migration historis tetap dipertahankan.
 
 Baseline 10 November 2026 source `9a1613e` sudah mencakup core/master/reference/activity/review/harvest/expense/allocation/sale/asset/evaluation/investment/export/recovery dan native terkait; acceptance tidak semuanya selesai. Baca CLAUDE.md root, docs/context/SYSTEM_AUDIT_20261110.md, contracts/v2/ dan routes/api_v2.php. API_V2/DATA_CONTRACTS lama mencakup rancangan, bukan nama route/tabel fisik yang selalu tepat. OpenAPI belum memuat 25 operasi runtime.

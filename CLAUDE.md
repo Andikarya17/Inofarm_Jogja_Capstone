@@ -1,10 +1,10 @@
 # Inofarm: konteks untuk Claude Code
 
-Baseline diperiksa **10 November 2026**, source `9a1613e`. Baca `AGENTS.md` root dan `backend/AGENTS.md` sebelum bekerja. Instruksi pengguna terbaru mengatasi histori. Dokumen ini adalah pintu masuk implementasi yang ada, bukan instruksi membangun ulang dari nol.
+Baseline diperbarui **10 November 2026 setelah remediasi**, source engineering `a67577d`. Baca `AGENTS.md` root dan `backend/AGENTS.md` sebelum bekerja. Instruksi pengguna terbaru mengatasi histori. [Bukti penyelesaian audit](docs/context/AUDIT_REMEDIATION_20261110.md) menjadi rujukan status terbaru.
 
 ## Mulai di sini
 
-1. [Audit database, frontend, backend dan API](docs/context/SYSTEM_AUDIT_20261110.md): temuan, prioritas, evidence dan batas pemeriksaan.
+1. [Bukti penyelesaian audit](docs/context/AUDIT_REMEDIATION_20261110.md), lalu [audit database, frontend, backend dan API](docs/context/SYSTEM_AUDIT_20261110.md): temuan, prioritas, evidence dan batas pemeriksaan.
 2. [Status implementasi](docs/context/IMPLEMENTATION_STATUS.md) dan [gap aktif](docs/context/GAP_ANALYSIS.md).
 3. [Inventaris database](docs/context/DATABASE_INVENTORY_20261110.md): seluruh tabel, kolom, tipe, FK dan perbedaan database aplikasi/uji.
 4. [Peta route aktual](docs/context/API_ROUTE_MAP_20261110.md), [kontrak v2](contracts/v2/README.md), [OpenAPI](contracts/v2/openapi.json), schema JSON dan fixture di `contracts/v2/`.
@@ -115,7 +115,7 @@ Mutasi domain memakai envelope JSON top-level: `schema_version: "2"`, `sync_epoc
 - Pull memakai cursor/epoch/scope. Client baru mengirim `activity_reviews=1`; pergantian scope memutar ulang feed yang sah. Restore epoch menahan antrean lama untuk rekonsiliasi, bukan replay/clear otomatis.
 - Request JSON dibatasi 16 KiB; file memiliki policy privat terpisah. Kebijakan produksi upload/retensi/recovery masih perlu keputusan.
 
-**Gap yang diketahui:** OpenAPI memuat 127 operasi (128 setelah pdf/csv diekspansi), sedangkan runtime 153; 25 operasi belum dicantumkan. Sebanyak 34 operasi memiliki respons sukses tanpa content/schema. Jangan mengandalkan code generation dari OpenAPI saja. `measurements/latest` belum memakai filter keputusan invalid seperti Beranda pengelola. Detail ada di audit; task ini tidak memperbaiki runtime/kontrak executable.
+**Hasil remediasi API:** OpenAPI kini memuat 108 path/152 operasi, setara 153 operasi runtime setelah pdf/csv diekspansi. Parity dua arah lulus. Respons sukses dengan body memiliki schema, sedangkan logout204 tanpa body. Schema master/acuan/akun, login/profil, review, receipt/audit dan latest diperjelas. Envelope feed memiliki payload polimorfik untuk snapshot historis. `measurements/latest` sudah mengecualikan review invalid pada revisi aktif dan menerima revisi koreksi pending. [Evidence](docs/context/AUDIT_REMEDIATION_20261110.md).
 
 ## Database dan model data
 
@@ -163,9 +163,9 @@ Nama konseptual `attachments`/`cash_flows` di rancangan lama bukan nama tabel fi
 
 Target database lengkap memiliki **54 tabel, 75 FK**, migration finance 1–19 ditambah lima migration awal. [Kamus kolom dan relasi lengkap](docs/context/DATABASE_INVENTORY_20261110.md) membedakan struktur target dari lokal. FK historis dijaga; jangan hard-delete histori/ledger atau mengonversi tank/event menjadi greenhouse/kegiatan manusia.
 
-**Kondisi laptop saat audit:** konfigurasi efektif `backend/.env` menuju MySQL `127.0.0.1:3307`, database **`inofarm_finance_local`**, bukan asumsi nama `inofarm_local` dari bootstrap lama. Tidak mencantumkan user/password/token di dokumen. Database ini memiliki 53 tabel/73 FK, hanya migration sampai 16. Migration 17–19 belum diterapkan: `activity_reviews`, `activities.recorded_by_role`, `activities.observations`, `planting_groups.harvest_target`, `planting_groups.harvest_completion`, `harvest_items.quality` belum ada. Pembacaan service Beranda pada database ini gagal SQLSTATE 42S02/1146. **Jangan menyebut runtime lokal siap hanya karena build/test lulus.**
+**Kondisi laptop setelah remediasi:** konfigurasi efektif backend menuju MySQL `127.0.0.1:3307`, database **inofarm_finance_local**. Migration17–19 telah diterapkan dengan cadangan SQL dan rekonsiliasi data. Kini 54 tabel/75 FK/24 migration total sampai finance19. Seluruh kolom asli pada52 tabel dengan74 baris identik sebelum/sesudah, orphan FK nol, registry14 identitas sehat dan pembacaan Beranda berhasil. Tabel review serta kolom observations/role/target/completion/quality sudah tersedia. Kondisi instalasi lain tetap diperiksa dari konfigurasi efektifnya.
 
-Audit tidak menerapkan migration atau mengubah data aplikasi. Perubahan database pengguna adalah pekerjaan terpisah: verifikasi koneksi efektif, backup/preflight, rencana additive dan otorisasi scope sebelum pelaksanaan. Selalu lindungi `inofarm_local`, `inofarm_finance_local` dan database pengguna lain. **Tes hanya effective MySQL `inofarm_test`**, guard sebelum SQL; jangan bypass guard atau menjalankan migrate:fresh/seed/restore ke database pengguna.
+Pengguna kemudian mengotorisasi penyelesaian temuan audit. Rollout additive lokal selesai dengan cadangan privat di outputs/audit-remediation-20261110. Restore cadangan rollout belum diuji. Untuk perubahan berikutnya, periksa koneksi efektif, pending migration, backup dan scope otorisasi. Lindungi inofarm_local, inofarm_finance_local dan database pengguna lainnya. **Tes hanya effective MySQL inofarm_test**, guard sebelum SQL. Jangan menjalankan reset/migrate:fresh/seed/restore pada database pengguna untuk pengujian.
 
 ## Aturan keuangan dan integritas
 
@@ -184,15 +184,14 @@ python scripts/check-finance-context.py
 
 Lokasi `.tools` spesifik laptop; gunakan tooling kompatibel jika tidak tersedia. Runner Android memerlukan JDK yang benar; JDK audit berada di `C:/Program Files/Eclipse Adoptium/jdk-25.0.4.101-hotspot`. Jangan menimpa env/SDK pengguna untuk menjalankan pemeriksaan. Runner HTTP fixture/device dan PHPUnit tidak boleh menulis database uji bersamaan. `scripts/local-database.ps1` adalah bootstrap/provisioning, bukan alat audit read-only. Jangan menjalankannya sembarang untuk memeriksa data existing.
 
-Hasil baru audit: backend 141 tes/2.827 assertion, guard 4 tes/12 assertion, JVM 74 tes, assembleDebug dan lint lulus (0 error, 16 warning, 1 hint), kontrak dan context checker lulus. Instrumentasi/emulator tidak dijalankan ulang dalam audit ini; [bukti PG7](docs/context/MANAGER_ALIGNMENT_EVIDENCE_20261110.md) tetap bukti historis tersendiri. Belum ada klaim UAT, pentest, fisik, Doze atau readiness produksi lulus.
+Hasil baru remediasi mencakup backend144 tes/3.690 assertion, guard4 tes/12 assertion, JVM74 tes, debug/test APK dan lint lulus (0 error,16 warning,1 hint). Instrumentasi32 tes penyimpanan/sync/pengukuran lulus pada emulator API30, termasuk1.005 data cache, isolasi akun dan pencabutan akses. ContextRepository membaca cache bertahap sampai selesai dalam scope. Snapshot list akhir tetap memakai memori sebanding jumlah data, sehingga benchmark skala produksi masih perlu bukti perangkat sasaran. [Evidence remediasi](docs/context/AUDIT_REMEDIATION_20261110.md).
 
 ## Prioritas lanjut dan aturan kerja
 
-1. Tangani ketertinggalan schema database aplikasi melalui task rollout yang disetujui; jangan mereset data agar tes terlihat lulus.
-2. Lengkapi OpenAPI dari route/controller aktual, termasuk akun dan master/audit/version, lalu uji parity dua arah dan DTO.
-3. Selaraskan semantik `measurements/latest` dengan aturan verifikasi terbaru atau tetapkan perbedaannya secara eksplisit; tambah regresi invalid-latest → fallback.
-4. Tindak lanjuti selector cache 1.000, TalkBack/perangkat fisik, UAT/pentest, kebijakan produksi dan gate akademik.
+1. DB-01, API-01, API-02, API-03 dan FE-01 telah ditangani pada baseline ini. Baca bukti remediasi sebelum membuka kembali temuan yang sama.
+2. Lanjutkan QA-01 sesuai kebutuhan pengguna, termasuk UAT mitra, pentest berizin, perangkat fisik, TalkBack, OS background/Doze, latency dan benchmark dataset besar.
+3. Keputusan produksi Q07/Q08, asumsi agronomi/keuangan dan pengecualian SOP tetap memerlukan keputusan pemilik.
 
-Task 10 November ini **audit + update context + CLAUDE.md saja**. Temuan bukan izin otomatis memperbaiki source/migrate/deploy. Branch per fitur/bug/docs berbeda dengan prefix `codex/`. Periksa status/diff/staging, pertahankan perubahan pengguna; jangan reset/stash/delete demi switch. Commit hanya file task sesudah checks. Remote publikasi yang diotorisasi adalah `github`; `origin` GitLab hanya histori tujuan operasional. Fetch sebelum push, jangan force-push, ubah URL remote atau merge main otomatis. Tidak stage env, credential, dump, log, build, outputs atau folder desain dengan provenance belum ditinjau.
+Scope terbaru10 November mencakup implementasi perbaikan audit dan pembaruan context. Perbaikan sudah dicatat per branch/commit. Branch per fitur/bug/docs memakai prefix codex/. Periksa status/diff/staging dan pertahankan kerja pengguna. Commit hanya file task setelah checks. Remote publikasi adalah github. Fetch sebelum push, verifikasi hasil, dan jangan force-push atau merge main otomatis. Secrets/env/dump/log/build/outputs serta desain yang provenance-nya belum ditinjau tidak di-stage.
 
 Untuk setiap perubahan berikutnya: requirement → acceptance → source/test → evidence → context. Bedakan hasil baru dari bukti lama dan mock dari API/database/device nyata. Tetap pertahankan KF01–14, KNF01–08, U01–21 kecuali ada keputusan formal.
