@@ -38,12 +38,24 @@ import com.inofarm.jogja.feature.Choice
 import com.inofarm.jogja.feature.FinanceField
 import com.inofarm.jogja.feature.Notice
 
-@Composable fun AdminHost(session:FinanceSession,repository:AdminRepository,onAccepted:()->Unit,onClose:()->Unit) {
+@Composable fun AdminHost(
+    session: FinanceSession, repository: AdminRepository, onAccepted: () -> Unit,
+    initialResource: AdminResource = AdminResource.GREENHOUSE,
+    onReviewPeriod: ((String) -> Unit)? = null,
+    onClose: () -> Unit,
+) {
     if(session.role!=UserRole.MANAGER) {LaunchedEffect(Unit) {onClose()};return}
     val vm:AdminViewModel=viewModel(key="admin-${session.scope.key}-${repository.vault.generation}",factory=object:ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST") override fun <T:ViewModel> create(modelClass:Class<T>)=AdminViewModel(repository,session) as T
     })
     val state by vm.state.collectAsStateWithLifecycle()
+    var entered by rememberSaveable(initialResource) { mutableStateOf(false) }
+    LaunchedEffect(initialResource, state.busy) {
+        if (!entered && !state.busy) {
+            entered = true
+            if (state.resource != initialResource || state.detail != null) vm.choose(initialResource)
+        }
+    }
     var search by rememberSaveable(state.resource,state.greenhouse) { mutableStateOf("") }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {vm.flush()}
     val close={if(!state.busy && vm.flush()) onClose()}
@@ -51,7 +63,8 @@ import com.inofarm.jogja.feature.Notice
         BackHandler {if(state.editing) vm.back() else if(state.detail!=null) vm.closeDetail() else close()}
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(horizontal = FarmSpace.Page)) {
-                FarmSheetHeading("Administrasi", close, !state.busy)
+                val title = if (initialResource == AdminResource.USER) "Kelola akun" else "Kelola greenhouse"
+                FarmSheetHeading(title, close, !state.busy)
                 HorizontalDivider()
                 CompositionLocalProvider(LocalFarmDialogPicker provides true) {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = FarmSpace.Medium),
@@ -75,22 +88,51 @@ import com.inofarm.jogja.feature.Notice
                             counts.forEach { (label,value) -> FarmFact(label,value.toString()) }
                         }
                     }
+                    if (isGreenhouse) FarmSection("Periode berjalan") {
+                        val period = state.period
+                        when (period?.optString("state")) {
+                            "ready" -> {
+                                FarmFact("Musim", period.getString("season_name"))
+                                FarmFact("Kelompok tanam", period.getString("group_name"))
+                                FarmFact("Varietas", period.getString("variety"))
+                                FarmFact("Populasi", period.optString("population").takeIf { it.isNotBlank() }?.let { "$it tanaman" } ?: "Belum tersedia")
+                                FarmFact("Semai", period.getString("sowing_date"))
+                                FarmFact("Pindah tanam", if (period.isNull("transplant_date")) "Belum dicatat" else period.getString("transplant_date"))
+                                val phase = period.optJSONObject("phase")
+                                FarmFact("Stadia aktual", phase?.optString("value") ?: "Belum dicatat")
+                                phase?.let { Text(com.inofarm.jogja.feature.timeLabel(it.getString("occurred_at"))) }
+                            }
+                            "inactive" -> Text("Greenhouse nonaktif. Riwayat tetap tersedia.")
+                            "needs_review", "no_active_period" -> Text("Periode berjalan belum ditetapkan.")
+                            else -> if (!state.busy) Text("Periode berjalan belum dapat diperiksa.")
+                        }
+                    }
                     FlowRow(horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small)) {
                         TextButton(onClick={vm.open(row)},enabled=!state.busy && state.form==null,
                             modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Ubah") }
                         if(isGreenhouse) {
-                            TextButton(onClick={vm.choose(AdminResource.ASSIGNMENT,row.getString("id"))},enabled=!state.busy,
-                                modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Atur penugasan") }
-                            TextButton(onClick={vm.choose(AdminResource.SEASON,row.getString("id"))},enabled=!state.busy,
-                                modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Siapkan musim") }
-                            TextButton(onClick={vm.choose(AdminResource.GROUP,row.getString("id"))},enabled=!state.busy,
-                                modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Siapkan kelompok") }
+                            TextButton(onClick={vm.setup(AdminResource.SEASON,row)},enabled=!state.busy,
+                                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("admin-setup-season")) { Text("Siapkan musim") }
+                            TextButton(onClick={vm.setup(AdminResource.VARIETY,row)},enabled=!state.busy,
+                                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("admin-setup-variety")) { Text("Siapkan varietas") }
+                            TextButton(onClick={vm.setup(AdminResource.GROUP,row)},enabled=!state.busy,
+                                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("admin-setup-group")) { Text("Siapkan kelompok") }
+                            if (onReviewPeriod != null) TextButton(onClick = {
+                                if (vm.flush()) onReviewPeriod(row.getString("id"))
+                            }, enabled = !state.busy && row.optBoolean("active", true),
+                                modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("admin-setup-period")) { Text("Tinjau periode berjalan") }
+                            TextButton(onClick={vm.setup(AdminResource.ASSIGNMENT,row)},enabled=!state.busy,
+                                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("admin-setup-assignment")) { Text("Atur penugasan") }
                         }
                     }
                     OutlinedButton(onClick=vm::closeDetail,enabled=!state.busy,
                         modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Kembali ke daftar") }
                 }
                 else {
+                    state.setupGreenhouse?.let { greenhouse ->
+                        TextButton(onClick = vm::returnToGreenhouse, enabled = !state.busy,
+                            modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kembali ke ${greenhouse.getString("name")}") }
+                    }
                     state.form?.let {Button(onClick=vm::resume,enabled=!state.busy,modifier=Modifier.testTag("admin-resume")) {Text(if(state.pending) "Tinjau pengajuan tertunda" else "Lanjutkan draf ${it.resource.label}")}}
                     FarmPanel(title = "Cakupan administrasi") {
                         Choice("Jenis data",state.resource.name,AdminResource.entries.map {org.json.JSONObject().put("id",it.name).put("name",it.label)},"admin-resource") {vm.choose(AdminResource.valueOf(it))}

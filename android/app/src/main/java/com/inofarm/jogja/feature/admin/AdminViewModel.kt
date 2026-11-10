@@ -22,7 +22,7 @@ data class AdminState(val resource:AdminResource=AdminResource.GREENHOUSE,val gr
     val form:AdminForm?=null,val editing:Boolean=false,val pending:Boolean=false,val needsPassword:Boolean=false,val busy:Boolean=false,val saved:Boolean=true,
     val options:Map<String,List<JSONObject>> = emptyMap(),val message:String?=null,val rejected:Boolean=false,val server:JSONObject?=null,
     val listChecked:Boolean=false,val detail:JSONObject?=null,val readiness:Map<String,Int>?=null,
-    val optionsLoading:Boolean=false)
+    val optionsLoading:Boolean=false,val period:JSONObject?=null,val setupGreenhouse:JSONObject?=null)
 
 class AdminViewModel(private val repository:AdminRepository,private val session:FinanceSession):ViewModel() {
     private val ticket=repository.vault.generation
@@ -54,10 +54,22 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
     fun choose(resource:AdminResource, greenhouse:String?=state.value.greenhouse) {
         if(state.value.busy) return
         mutable.value=state.value.copy(resource=resource,greenhouse=greenhouse,rows=emptyList(),cursor=null,
-            detail=null,readiness=null,listChecked=false)
+            detail=null,readiness=null,period=null,listChecked=false)
         reload()
     }
     fun greenhouse(id:String) = choose(state.value.resource,id)
+    fun setup(resource: AdminResource, row: JSONObject) {
+        if (state.value.busy) return
+        mutable.value = state.value.copy(setupGreenhouse = row)
+        choose(resource, row.getString("id"))
+    }
+    fun returnToGreenhouse() {
+        val row = state.value.setupGreenhouse ?: return
+        if (state.value.busy) return
+        mutable.value = state.value.copy(resource = AdminResource.GREENHOUSE, setupGreenhouse = null,
+            rows = emptyList(), cursor = null, listChecked = false)
+        detail(row)
+    }
     fun reload(more:Boolean=false) {if(!state.value.busy) viewModelScope.launch {load(more)}}
     private suspend fun load(more:Boolean=false) {
         mutable.value=state.value.copy(busy=true,message=null,listChecked=false)
@@ -77,7 +89,7 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
     }
     fun detail(row:JSONObject) {
         if(state.value.busy) return
-        mutable.value=state.value.copy(detail=row,readiness=null,message=null,busy=true)
+        mutable.value=state.value.copy(detail=row,readiness=null,period=null,message=null,busy=true)
         viewModelScope.launch {
             try {
                 val id=row.getString("id")
@@ -97,13 +109,20 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
                         "Grade aktif" to repository.options(session,ticket,"grades",id).count {it.optBoolean("active")})
                 }
                 mutable.value=state.value.copy(readiness=counts)
+                if (resource == AdminResource.GREENHOUSE) {
+                    mutable.value = state.value.copy(period = repository.greenhousePeriod(session, ticket, id))
+                }
             } catch(cancelled:CancellationException) {throw cancelled}
             catch(error:Exception) {mutable.value=state.value.copy(message=userMessage(error))}
             finally {mutable.value=state.value.copy(busy=false)}
         }
     }
     fun closeDetail() {
-        if(!state.value.busy) mutable.value=state.value.copy(detail=null,readiness=null,message=null)
+        if(!state.value.busy) {
+            val needsReload = !state.value.listChecked
+            mutable.value=state.value.copy(detail=null,readiness=null,period=null,message=null)
+            if (needsReload) reload()
+        }
     }
     fun open(row:JSONObject?=null,action:String="update") {
         if(state.value.busy || !loaded) return

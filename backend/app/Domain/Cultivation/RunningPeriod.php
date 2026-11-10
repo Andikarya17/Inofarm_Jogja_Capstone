@@ -16,7 +16,7 @@ final class RunningPeriod
             ->join('varieties as v', fn ($join) => $join->on('v.id', '=', 'g.variety_id')->on('v.greenhouse_id', '=', 's.greenhouse_id'))
             ->whereIn('s.greenhouse_id', $greenhouseIds)
             ->orderByDesc('g.sowing_date')->orderBy('g.id')
-            ->get(['g.id as group_id', 'g.name as group_name', 'g.active as group_active', 'g.sowing_date', 'g.transplant_date',
+            ->get(['g.id as group_id', 'g.name as group_name', 'g.active as group_active', 'g.sowing_date', 'g.transplant_date', 'g.population',
                 's.id as season_id', 's.name as season_name', 's.status as season_status', 's.greenhouse_id', 'v.name as variety']);
     }
 
