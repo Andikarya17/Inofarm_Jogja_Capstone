@@ -18,6 +18,7 @@ $app->make(Kernel::class)->bootstrap();
 $fixtureName = match ($argv[2] ?? '') {
     '' => 'finance-device-fixture.json',
     'manager-home' => 'manager-home-device-fixture.json',
+    'worker-alignment' => 'worker-alignment-device-fixture.json',
     default => throw new InvalidArgumentException('Unknown synthetic device fixture name.'),
 };
 $path = dirname(__DIR__).'/tmp/'.$fixtureName;
@@ -104,6 +105,28 @@ if ($mode === 'verify-manager-home' && $fixtureName === 'manager-home-device-fix
         throw new RuntimeException('Manager Home SQL reconciliation failed.');
     }
     echo 'PASS: guarded inofarm_test reconciled Android designation/audit, worker pair and exact asset payment.'.PHP_EOL;
+    exit(0);
+}
+if ($mode === 'verify-worker-harvest' && $fixtureName === 'worker-alignment-device-fixture.json') {
+    $worker = $actors->firstWhere('public_id', $fixture['worker_id']);
+    $harvest = DB::table('harvests')->where('planting_group_id', $groups[0])
+        ->where('recorded_by', $worker->id)->where('notes', 'Panen uji perangkat '.$fixture['fixture_id'])->sole();
+    $decisions = DB::table('harvest_reviews')->where('harvest_id', $harvest->id)->where('reviewer_id', $manager->id)
+        ->orderBy('harvest_version')->get();
+    $items = DB::table('harvest_items')->where('harvest_id', $harvest->id)->where('active', true)->get()->keyBy('quality');
+    if ($harvest->version !== 2 || $harvest->recorded_by_role !== 'worker' ||
+        $decisions->pluck('harvest_version')->all() !== [1, 2] ||
+        $decisions->pluck('decision')->all() !== ['invalid', 'valid'] ||
+        $items->count() !== 2 || $items['saleable']->weight_kg !== '9.250000' || $items['defective']->weight_kg !== '3.250000' ||
+        $items->pluck('sold_weight_kg')->unique()->values()->all() !== ['0.000000']) {
+        throw new RuntimeException('Worker harvest SQL reconciliation failed.');
+    }
+    foreach (['audit_logs', 'sync_operations', 'change_feed'] as $table) {
+        if (DB::table($table)->where('entity_type', 'harvest_review')->whereIn('entity_id', $decisions->pluck('id'))->count() !== 2) {
+            throw new RuntimeException('Review ledger reconciliation failed.');
+        }
+    }
+    echo 'PASS: guarded MySQL reconciled two grades, two revisions, two decisions, audit, receipts, feed and sold weight.'.PHP_EOL;
     exit(0);
 }
 if (in_array($mode, ['verify', 'verify-measurements'], true)) {
@@ -218,6 +241,7 @@ DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
     DB::table('cost_allocations')->whereIn('expense_id', $expenses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
     DB::table('expenses')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
     $harvests = DB::table('harvests')->whereIn('planting_group_id', $groups)->select('id');
+    DB::table('harvest_reviews')->whereIn('harvest_id', $harvests)->whereIn('reviewer_id', $actors->pluck('id'))->delete();
     foreach (['harvest_reference_snapshots', 'harvest_items'] as $table) {
         DB::table($table)->whereIn('harvest_id', $harvests)->delete();
     }

@@ -74,6 +74,7 @@ import com.inofarm.jogja.core.sync.ContextCheck
 import com.inofarm.jogja.feature.history.*
 import com.inofarm.jogja.feature.verification.ActivityVerificationRepository
 import com.inofarm.jogja.feature.verification.ActivityVerificationScreen
+import com.inofarm.jogja.feature.verification.ReviewKind
 import com.inofarm.jogja.feature.harvest.*
 import com.inofarm.jogja.feature.expenses.*
 import com.inofarm.jogja.feature.attachments.*
@@ -229,6 +230,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var queueOpening by remember { mutableStateOf(false) }
     var showOutbox by rememberSaveable { mutableStateOf(false) }
     var reviewActivity by rememberSaveable { mutableStateOf<String?>(null) }
+    var reviewKind by rememberSaveable { mutableStateOf(ReviewKind.ACTIVITY) }
     val verification = remember(runtime) { ActivityVerificationRepository(runtime.api, runtime.store, runtime.vault) }
     val manager = session.role == UserRole.MANAGER
     var managerRefresh by remember { mutableLongStateOf(0L) }
@@ -578,9 +580,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         showOutbox = true
                         tab = 1
                     })
-                tab == 1 && manager && !showOutbox -> tabState.SaveableStateProvider("verification") {
+                tab == 1 && manager && !showOutbox -> tabState.SaveableStateProvider("verification-${reviewKind.wire}") {
                     ActivityVerificationScreen(session, ticket, context, verification, syncUpdates, reviewActivity,
-                        { reviewActivity = it }, { showOutbox = true }, onSync)
+                        { reviewActivity = it }, { showOutbox = true }, onSync, reviewKind, { reviewKind = it })
                 }
                 tab==1 -> tabState.SaveableStateProvider(queueFocus?.let { "queue-$it" } ?: 1) {
                     QueueScreen(activity, context, sessionExpired, queueReviewOperation, queueReviewError, queueOpening, vm::reload,
@@ -608,15 +610,16 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                     tab = 3
                                     harvestProgressOpen = true
                                 }
-                                manager && kind == "activity_review" -> {
-                                    reviewActivity = op.envelope.getJSONObject("payload").getString("activity_id")
+                                manager && kind in setOf("activity_review", "harvest_review") -> {
+                                    reviewKind = ReviewKind.entries.first { it.operationKind == kind }
+                                    reviewActivity = op.envelope.getJSONObject("payload").getString(reviewKind.parentKey)
                                     showOutbox = false
                                 }
                             }
                         },
                         canReview = { op ->
                             val kind = op.envelope.optString("entity_type")
-                            kind in queueHistory || manager && (kind in investmentQueueKinds || kind in setOf("season_report", "activity_review", "planting_groups"))
+                            kind in queueHistory || manager && (kind in investmentQueueKinds || kind in setOf("season_report", "activity_review", "harvest_review", "planting_groups"))
                         }, focusOperation = queueFocus,
                         onVerification = if (manager) ({ showOutbox = false }) else null)
                 }

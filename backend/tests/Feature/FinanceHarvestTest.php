@@ -97,6 +97,68 @@ class FinanceHarvestTest extends FinanceTestCase
         return [...$payload, 'reason' => 'Koreksi panen sintetis', 'reference_policy' => 'preserve'];
     }
 
+    public function test_harvest_review_provenance_scope_replay_and_revision_history(): void
+    {
+        $ctx = $this->prepared();
+        $manager = $ctx['manager'];
+        $worker = $ctx['worker'];
+        $otherWorker = $this->account('worker');
+        $secondManager = $this->account('worker');
+        $this->asUser($manager);
+        foreach ([$otherWorker, $secondManager] as $user) {
+            $assignment = $this->createMaster('greenhouse_assignments', ['greenhouse_id' => $ctx['gh']['id'],
+                'user_id' => $user->public_id, 'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
+        }
+        $secondManager->update(['role' => 'manager']);
+        $harvest = $this->operation('harvest', $this->payload($ctx));
+        $id = $harvest['entity_id'];
+        $detail = "/api/v2/harvests/$id/verification";
+        $review = $this->operation('harvest_review', ['harvest_id' => $id, 'harvest_version' => 1,
+            'decision' => 'invalid', 'reason' => 'Periksa bobot kedua grade.']);
+        $this->asUser($worker)->postJson('/api/v2/harvests', $harvest)->assertCreated()->assertJsonPath('data.recorded_by_role', 'worker');
+        $this->getJson('/api/v2/harvest-reviews')->assertForbidden();
+        $this->postJson('/api/v2/harvest-reviews', $review)->assertForbidden();
+
+        $this->asUser($manager)->getJson('/api/v2/harvest-reviews?greenhouse_id='.$ctx['gh']['id'])
+            ->assertOk()->assertJsonPath('data.0.harvest.id', $id);
+        $this->getJson($detail)->assertOk()->assertJsonPath('can_review', true)->assertJsonPath('used_in_sales', false);
+        $this->postJson('/api/v2/harvest-reviews', [...$review, 'payload' => [...$review['payload'], 'reason' => ' ']])->assertUnprocessable();
+        $balance = DB::table('harvest_items')->where('harvest_id', $id)->orderBy('id')->get();
+        $feedBalances = DB::table('change_feed')->where('entity_type', 'harvest_balance')->count();
+        $receipt = $this->postJson('/api/v2/harvest-reviews', $review)->assertCreated()->assertJsonPath('data.harvest_version', 1)->json();
+        $this->assertEquals($balance, DB::table('harvest_items')->where('harvest_id', $id)->orderBy('id')->get());
+        $this->assertSame($feedBalances, DB::table('change_feed')->where('entity_type', 'harvest_balance')->count());
+        $this->getJson('/api/v2/harvest-reviews')->assertJsonCount(0, 'data');
+        $this->asUser($secondManager)->postJson('/api/v2/harvest-reviews', $this->operation('harvest_review', $review['payload']))
+            ->assertConflict()->assertJsonPath('code', 'harvest_already_reviewed')->assertJsonPath('current_version', 1);
+
+        $this->asUser($otherWorker)->getJson($detail)->assertNotFound();
+        $otherFeed = $this->getJson('/api/v2/sync/changes?harvest_reviews=1&limit=100')->assertOk()->json('data');
+        $this->assertNotContains('harvest_review', array_column($otherFeed, 'entity_type'));
+        $this->asUser($worker)->getJson($detail)->assertOk()->assertJsonPath('decision.reason', $review['payload']['reason'])
+            ->assertJsonMissingPath('used_in_sales')->assertJsonMissingPath('can_review');
+        $oldFeed = $this->getJson('/api/v2/sync/changes?limit=100')->assertOk()->json();
+        $this->assertNotContains('harvest_review', array_column($oldFeed['data'], 'entity_type'));
+        $ownerFeed = $this->getJson('/api/v2/sync/changes?harvest_reviews=1&limit=100&cursor='.$oldFeed['next_cursor'])->assertOk()->json('data');
+        $this->assertContains('harvest_review', array_column($ownerFeed, 'entity_type'));
+        $this->patchJson("/api/v2/harvests/$id", $this->operation('harvest', $this->correction($harvest['payload']), 'update', $id, 1))
+            ->assertOk()->assertJsonPath('data.recorded_by_role', 'worker');
+        $this->getJson($detail)->assertJsonPath('status', 'pending')->assertJsonPath('history.0.harvest_version', 1);
+        $this->getJson($detail.'?harvest_version=1')->assertJsonPath('status', 'invalid');
+
+        $this->asUser($manager)->postJson('/api/v2/harvest-reviews', $review)->assertCreated()->assertExactJson($receipt);
+        $this->postJson('/api/v2/harvest-reviews', $this->operation('harvest_review', $review['payload']))
+            ->assertConflict()->assertJsonPath('code', 'harvest_revision_changed')->assertJsonPath('current_version', 2);
+        $valid = $this->operation('harvest_review', ['harvest_id' => $id, 'harvest_version' => 2, 'decision' => 'valid']);
+        $this->asUser($secondManager)->postJson('/api/v2/harvest-reviews', $valid)->assertCreated();
+        DB::table('greenhouse_assignments')->where('id', $assignment['id'])->update(['active' => false]);
+        $this->postJson('/api/v2/harvest-reviews', $valid)->assertNotFound();
+        $this->getJson($detail)->assertNotFound();
+        $this->assertDatabaseCount('harvest_reviews', 2);
+        $this->assertSame(2, DB::table('audit_logs')->where('entity_type', 'harvest_review')->count());
+        $this->assertSame(2, DB::table('sync_operations')->where('entity_type', 'harvest_review')->count());
+    }
+
     public function test_multigrade_worker_receipt_balance_feed_and_every_read_are_scoped(): void
     {
         $ctx = $this->prepared();

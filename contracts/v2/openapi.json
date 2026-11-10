@@ -1634,13 +1634,34 @@
           {
             "name": "activity_reviews",
             "in": "query",
-            "schema": {"type": "integer", "enum": [1]}
+            "schema": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            }
           },
           {
             "name": "measurement_review_status",
             "in": "query",
             "description": "Bersama activity_reviews=1, pekerja menerima status minimal review pengukuran se-GH. Tanpa alasan atau identitas peninjau pada catatan akun lain. Mengubah scope cursor.",
-            "schema": {"type": "integer", "enum": [1]}
+            "schema": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            }
+          },
+          {
+            "name": "harvest_reviews",
+            "in": "query",
+            "description": "Opt-in feed keputusan panen. Pekerja hanya menerima keputusan pada panen sendiri. Mengubah scope cursor.",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            }
           }
         ],
         "responses": {
@@ -18097,6 +18118,305 @@
           }
         }
       }
+    },
+    "/harvest-reviews": {
+      "get": {
+        "operationId": "get__harvest_reviews",
+        "summary": "Antrean verifikasi panen pekerja",
+        "parameters": [
+          {
+            "name": "greenhouse_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "pending",
+                "decided",
+                "valid",
+                "invalid",
+                "legacy"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respons sesuai scope sesi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarvestReviewPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post__harvest_reviews",
+        "summary": "Simpan keputusan untuk revisi panen",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Respons sesuai scope sesi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarvestReviewReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "harvest-review-operation.schema.json"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/harvests/{id}/verification": {
+      "get": {
+        "operationId": "get__harvest_verification",
+        "summary": "Status dan histori verifikasi satu panen",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "harvest_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respons sesuai scope sesi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarvestVerificationDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -18670,6 +18990,13 @@
                 }
               }
             }
+          },
+          "recorded_by_role": {
+            "enum": [
+              "worker",
+              "manager",
+              null
+            ]
           }
         }
       },
@@ -24010,6 +24337,7 @@
                 "enum": [
                   "activity",
                   "harvest",
+                  "harvest_review",
                   "expense",
                   "cost_allocation",
                   "sale",
@@ -27952,6 +28280,287 @@
           "has_more",
           "next_cursor",
           "data"
+        ]
+      },
+      "HarvestDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "harvest_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "harvest_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "reviewer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reviewer_name": {
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "valid",
+              "invalid"
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "const": 1
+          },
+          "greenhouse_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "harvest_id",
+          "harvest_version",
+          "reviewer_id",
+          "reviewer_name",
+          "decision",
+          "reason",
+          "reviewed_at",
+          "version"
+        ]
+      },
+      "HarvestReviewEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "harvest": {
+            "$ref": "#/components/schemas/HarvestPublic"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "valid",
+              "invalid",
+              "manager",
+              "legacy"
+            ]
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HarvestDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "greenhouse_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "greenhouse": {
+                "type": "string"
+              },
+              "season": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "greenhouse_id",
+              "greenhouse",
+              "season",
+              "group"
+            ]
+          },
+          "used_in_sales": {
+            "type": "boolean",
+            "description": "Hanya pengelola."
+          },
+          "can_review": {
+            "type": "boolean",
+            "description": "Hanya pengelola."
+          }
+        },
+        "required": [
+          "harvest",
+          "status",
+          "decision",
+          "context"
+        ]
+      },
+      "HarvestReviewPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HarvestReviewEntry"
+            }
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "next_cursor"
+        ]
+      },
+      "HarvestReviewReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entity_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "$ref": "#/components/schemas/HarvestDecision"
+          }
+        },
+        "required": [
+          "operation_id",
+          "entity_id",
+          "version",
+          "committed_at",
+          "data"
+        ]
+      },
+      "HarvestVerificationDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "harvest": {
+            "$ref": "#/components/schemas/HarvestPublic"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "valid",
+              "invalid",
+              "manager",
+              "legacy"
+            ]
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HarvestDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "greenhouse_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "greenhouse": {
+                "type": "string"
+              },
+              "season": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "greenhouse_id",
+              "greenhouse",
+              "season",
+              "group"
+            ]
+          },
+          "current_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HarvestDecision"
+            }
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "used_in_sales": {
+            "type": "boolean",
+            "description": "Hanya pengelola."
+          },
+          "can_review": {
+            "type": "boolean",
+            "description": "Hanya pengelola."
+          }
+        },
+        "required": [
+          "harvest",
+          "status",
+          "decision",
+          "context",
+          "current_version",
+          "history",
+          "next_cursor"
         ]
       }
     }

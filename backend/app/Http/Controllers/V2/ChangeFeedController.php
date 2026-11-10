@@ -15,7 +15,8 @@ final class ChangeFeedController extends Controller
     public function __invoke(Request $request, GreenhouseAccess $access, ChangeCursor $cursor)
     {
         $input = $request->validate(['cursor' => 'nullable|string|max:1024', 'limit' => 'sometimes|integer|min:1|max:100',
-            'activity_reviews' => 'sometimes|in:1', 'measurement_review_status' => 'sometimes|in:1']);
+            'activity_reviews' => 'sometimes|in:1', 'measurement_review_status' => 'sometimes|in:1',
+            'harvest_reviews' => 'sometimes|in:1']);
 
         return DB::transaction(function () use ($request, $input, $access, $cursor) {
             $epoch = DB::table('sync_state')->where('id', 1)->lockForUpdate()->value('epoch');
@@ -30,9 +31,11 @@ final class ChangeFeedController extends Controller
             abort_if($scope->count() > 1000, 422, 'Scope terlalu besar untuk protokol ini; hubungi pengelola.');
             $ids = $scope->pluck('id')->all();
             $reviewSupport = isset($input['activity_reviews']);
+            $harvestSupport = isset($input['harvest_reviews']);
             $measurementStatus = $reviewSupport && isset($input['measurement_review_status']) && $actor->role === 'worker';
             $scopeKey = hash('sha256', $actor->role.'|'.implode(',', $ids)
-                .($reviewSupport ? '|activity_reviews' : '').($measurementStatus ? '|measurement_review_status' : ''));
+                .($reviewSupport ? '|activity_reviews' : '').($measurementStatus ? '|measurement_review_status' : '')
+                .($harvestSupport ? '|harvest_reviews' : ''));
             $position = isset($input['cursor']) ? $cursor->decode($input['cursor'], $actor, $epoch) : [];
             if (($position['scope'] ?? null) !== $scopeKey) {
                 // Previously invisible master records can predate the client's cursor.
@@ -44,16 +47,28 @@ final class ChangeFeedController extends Controller
             if (! $reviewSupport) {
                 $q->where('entity_type', '!=', 'activity_review');
             }
+            if (! $harvestSupport) {
+                $q->where('entity_type', '!=', 'harvest_review');
+            }
             $reviewOwners = collect();
-            if ($actor->role !== 'manager' && ! $reviewSupport) {
-                $q->where('audience', 'all');
-            } elseif ($actor->role !== 'manager') {
-                $ownReviews = DB::table('activity_reviews')->join('activities', 'activities.id', '=', 'activity_reviews.activity_id')
-                    ->where(fn ($reviews) => $reviews->where('activities.recorded_by', $actor->id)
-                        ->when($measurementStatus, fn ($measurements) => $measurements->orWhereNotNull('activities.manual_ppm')))
-                    ->select('activity_reviews.id');
-                $q->where(fn ($query) => $query->where('audience', 'all')->orWhere(fn ($review) => $review
-                    ->where('audience', 'activity_recorder')->where('entity_type', 'activity_review')->whereIn('entity_id', $ownReviews)));
+            if ($actor->role !== 'manager') {
+                $q->where(function ($query) use ($actor, $reviewSupport, $harvestSupport, $measurementStatus) {
+                    $query->where('audience', 'all');
+                    if ($reviewSupport) {
+                        $activityReviews = DB::table('activity_reviews')->join('activities', 'activities.id', '=', 'activity_reviews.activity_id')
+                            ->where(fn ($reviews) => $reviews->where('activities.recorded_by', $actor->id)
+                                ->when($measurementStatus, fn ($measurements) => $measurements->orWhereNotNull('activities.manual_ppm')))
+                            ->select('activity_reviews.id');
+                        $query->orWhere(fn ($review) => $review->where('audience', 'activity_recorder')
+                            ->where('entity_type', 'activity_review')->whereIn('entity_id', $activityReviews));
+                    }
+                    if ($harvestSupport) {
+                        $harvestReviews = DB::table('harvest_reviews')->join('harvests', 'harvests.id', '=', 'harvest_reviews.harvest_id')
+                            ->where('harvests.recorded_by', $actor->id)->select('harvest_reviews.id');
+                        $query->orWhere(fn ($review) => $review->where('audience', 'harvest_recorder')
+                            ->where('entity_type', 'harvest_review')->whereIn('entity_id', $harvestReviews));
+                    }
+                });
             }
             $rows = $q->orderBy('sequence')->limit($limit + 1)->get();
             $more = $rows->count() > $limit;

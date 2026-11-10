@@ -21,9 +21,9 @@ data class OperationRoute(val path:String,val method:String) {
                 else -> OperationRoute("harvests/$id/cancel","POST")
             }
             require(role==UserRole.MANAGER) {"Perubahan ini hanya untuk pengelola."}
-            if (kind == "activity_review") {
-                require(action == "create") { "Keputusan verifikasi tersimpan per revisi kegiatan." }
-                return OperationRoute("activity-reviews", "POST")
+            if (kind in setOf("activity_review", "harvest_review")) {
+                require(action == "create") { "Keputusan verifikasi tersimpan per revisi catatan." }
+                return OperationRoute(if (kind == "harvest_review") "harvest-reviews" else "activity-reviews", "POST")
             }
             if (kind == "planting_groups" && action in setOf("complete_harvest", "reopen_harvest")) {
                 return OperationRoute("planting-groups/$id/harvest-completion", "POST")

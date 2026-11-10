@@ -34,6 +34,117 @@ class FinanceBackendDeviceTest {
         rule.waitForFinanceMasterPull()
     }
 
+    @Test fun workerHarvestReviewRoundTripThroughGuardedBackend() {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("devicePhase") == "worker-harvest-review")
+        val fixture = JSONObject(android.util.Base64.decode(requireNotNull(args.getString("managerHomeFixture")),
+            android.util.Base64.NO_WRAP).toString(Charsets.UTF_8))
+        assertEquals("inofarm_test", fixture.getString("database"))
+        val first = fixture.getJSONArray("contexts").getJSONObject(0)
+        val greenhouse = first.getString("greenhouse_id")
+        val note = "Panen uji perangkat ${fixture.getString("fixture_id")}"
+        val reason = "Periksa bobot grade kedua."
+        val model = runtime()
+        fun waitTag(tag: String) = rule.waitUntil(20_000) { rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+        fun read(path: String): JSONObject {
+            val session = model.vault.current!!
+            return runBlocking { model.api.request(session.scope.server, session.token, path) }
+        }
+        fun submitHarvest() {
+            rule.onNodeWithTag("harvest-review").performScrollTo().performClick()
+            rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+        }
+        login(fixture, "worker")
+        waitTag("worker-greenhouse-$greenhouse")
+        rule.captureBotanicalWindow("worker-harvest-real-picker")
+        rule.onNodeWithTag("worker-greenhouse-$greenhouse").performClick()
+        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("harvest-new"))
+        rule.captureBotanicalWindow("worker-harvest-real-home")
+        rule.onNodeWithTag("harvest-new").performClick()
+        waitTag("harvest-pick-date")
+        rule.captureBotanicalWindow("worker-harvest-real-form")
+        repeat(2) { index ->
+            rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick()
+            choose("harvest-grade-$index", first.getJSONArray("grade_ids").getString(index))
+            choose("harvest-quality-$index", if (index == 0) "saleable" else "defective")
+            rule.onNodeWithTag("harvest-count-$index").performScrollTo().performTextReplacement(if (index == 0) "6" else "2")
+            rule.onNodeWithTag("harvest-weight-$index").performScrollTo().performTextReplacement(if (index == 0) "9,25" else "3")
+            hideKeyboard()
+        }
+        rule.onNodeWithTag("harvest-notes").performScrollTo().performTextReplacement(note)
+        hideKeyboard()
+        submitHarvest()
+        val worker = model.vault.current!!
+        fun originalHarvest() = model.store.outbox(worker.scope.key).firstOrNull {
+            it.envelope.optJSONObject("payload")?.optString("notes") == note && it.envelope.optString("action") == "create"
+        }
+        rule.waitUntil(20_000) { originalHarvest()?.state == "ACCEPTED" }
+        val harvest = originalHarvest()!!.entityId
+        val path = "harvests/$harvest/verification"
+        assertEquals("pending", read(path).getString("status"))
+        assertEquals(403, (runCatching { read("harvest-reviews") }.exceptionOrNull() as FinanceApiFailure).status)
+
+        fun decide(version: Int, decision: String, message: String?) {
+            rule.selectFinanceTab(1)
+            waitTag("activity-verification-list")
+            choose("verification-kind", "harvest")
+            val inbox = rule.onNodeWithTag("harvest-verification-list")
+            val entry = "verification-harvest-$harvest"
+            rule.waitUntil(20_000) { runCatching { inbox.performScrollToNode(hasTestTag(entry)) }.isSuccess }
+            rule.onNodeWithTag(entry).performClick()
+            val detail = rule.onNodeWithTag("harvest-verification-detail")
+            rule.waitUntil(20_000) { runCatching { detail.performScrollToNode(hasTestTag("verification-decision")) }.isSuccess }
+            choose("verification-decision", decision)
+            if (message != null) {
+                detail.performScrollToNode(hasTestTag("verification-reason"))
+                rule.onNodeWithTag("verification-reason").performTextReplacement(message)
+                hideKeyboard()
+            }
+            detail.performScrollToNode(hasTestTag("verification-review"))
+            rule.onNodeWithTag("verification-review").performClick()
+            rule.captureBotanicalWindow("worker-harvest-real-manager-${decision}")
+            rule.onNodeWithTag("verification-submit").performClick()
+            val manager = model.vault.current!!
+            fun operation() = model.store.outbox(manager.scope.key).firstOrNull {
+                val payload = it.envelope.optJSONObject("payload")
+                it.envelope.optString("entity_type") == "harvest_review" &&
+                    payload?.optString("harvest_id") == harvest && payload.optInt("harvest_version") == version
+            }
+            rule.waitUntil(20_000) { operation()?.state == "ACCEPTED" }
+            val sent = operation()!!
+            val replay = runBlocking { model.api.request(manager.scope.server, manager.token, "harvest-reviews", "POST", sent.envelope) }
+            assertEquals(sent.id, replay.getString("operation_id"))
+        }
+
+        login(fixture, "manager")
+        decide(1, "invalid", reason)
+        login(fixture, "worker")
+        rule.selectFinanceTab(3)
+        val row = "finance-record-$harvest"
+        rule.waitUntil(20_000) {
+            runCatching { rule.onNodeWithTag("finance-history-list").performScrollToNode(hasTestTag(row)) }.isSuccess
+        }
+        rule.onNodeWithTag(row).performClick()
+        rule.waitUntil(20_000) { rule.onAllNodesWithText(reason, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText(reason, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        rule.captureBotanicalWindow("worker-harvest-real-feedback")
+        rule.onNodeWithTag("finance-edit").performScrollTo().performClick()
+        rule.onNodeWithTag("harvest-weight-1").performScrollTo().performTextReplacement("3,25")
+        rule.onNodeWithTag("harvest-reason").performScrollTo().performTextReplacement("Bobot grade kedua ditimbang ulang.")
+        hideKeyboard()
+        submitHarvest()
+        rule.waitUntil(20_000) { model.store.record(worker.scope.key, harvest)?.serverVersion == 2L }
+        assertEquals("pending", read(path).getString("status"))
+        login(fixture, "manager")
+        decide(2, "valid", null)
+        val verified = read(path)
+        assertEquals("valid", verified.getString("status"))
+        assertEquals(2, verified.getJSONArray("history").length())
+        assertEquals(reason, verified.getJSONArray("history").getJSONObject(1).getString("reason"))
+        File(botanicalEvidenceDirectory(context), "worker-harvest-reconciliation.json").writeText(verified.toString(2))
+        rule.logoutFromAccount()
+    }
+
     @Test fun managerHomeReadsGuardedMysqlAndDesignatesFromNativeReview() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase") == "manager-home")
         val encoded = requireNotNull(InstrumentationRegistry.getArguments().getString("managerHomeFixture"))

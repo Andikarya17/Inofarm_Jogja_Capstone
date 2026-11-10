@@ -137,6 +137,7 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
     val state = operation.syncState()
     val label = OperationalKind.entries.find { it.wire == kind }?.label ?: when (kind) {
         "activity_review" -> "keputusan verifikasi"
+        "harvest_review" -> "verifikasi panen"
         "season_report" -> "evaluasi musim"
         "investment_scenario" -> "skenario investasi"
         "investment_report" -> "evaluasi investasi"
@@ -188,8 +189,9 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
             FarmFact("ID operasi", operation.id)
             FarmFact("ID catatan", operation.entityId)
             FarmFact("Percobaan pengiriman", operation.attempts.toString())
-            if (kind == "activity_review" && payload != null) {
-                FarmFact("Revisi kegiatan", payload.optLong("activity_version").toString())
+            if (kind in setOf("activity_review", "harvest_review") && payload != null) {
+                val parent = if (kind == "harvest_review") "panen" else "kegiatan"
+                FarmFact("Revisi $parent", payload.optLong("${kind.removeSuffix("_review")}_version").toString())
                 FarmFact("Keputusan", if (payload.optString("decision") == "valid") "Valid" else "Tidak valid")
                 payload.optString("reason").takeUnless { payload.isNull("reason") || it.isBlank() }?.let { FarmFact("Alasan", it) }
             } else if (state == SyncState.ACCEPTED) Text("Server telah menerima pengajuan. Periksa detail catatan untuk hasil pembandingan dengan acuan.")

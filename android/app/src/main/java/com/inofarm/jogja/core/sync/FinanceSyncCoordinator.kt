@@ -112,7 +112,7 @@ class FinanceSyncCoordinator(private val api: FinanceApi, private val vault: Fin
             if(!vault.matches(ticket,session.scope)) return
             val params=store.pullCursor(session.scope.key)?.let { mapOf("cursor" to it) } ?: emptyMap()
             val page=api.request(session.scope.server,session.token,"sync/changes",
-                query=params + mapOf("activity_reviews" to "1", "measurement_review_status" to "1"))
+                query=params + mapOf("activity_reviews" to "1", "measurement_review_status" to "1", "harvest_reviews" to "1"))
             if(!vault.matches(ticket,session.scope)) return
             store.applyPull(session.scope.key,page)
             if(!page.getBoolean("has_more")) return

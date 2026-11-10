@@ -185,5 +185,15 @@ review_validator.validate(review_operation)
 for patch in ({'activity_version': '1'}, {'reason': '   '}, {'reason': None}, {'decision': 'pending'}, {'reviewer_id': review_operation['entity_id']}):
     assert not review_validator.is_valid({**review_operation, 'payload': {**review_operation['payload'], **patch}}), patch
 assert not review_validator.is_valid({**review_operation, 'base_version': 1})
+harvest_review_schema = json.loads((root / 'harvest-review-operation.schema.json').read_text(encoding='utf-8'))
+Draft202012Validator.check_schema(harvest_review_schema)
+harvest_review = json.loads((root / 'fixtures/harvest-review-operation.json').read_text(encoding='utf-8'))
+harvest_review_validator = Draft202012Validator(harvest_review_schema, format_checker=wire_formats)
+harvest_review_validator.validate(harvest_review['operation'])
+encoded = json.dumps(harvest_review['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+assert hashlib.sha256(encoded).hexdigest() == harvest_review['canonical_sha256']
+for patch in ({'harvest_version': '1'}, {'reason': ' '}, {'decision': 'pending'}, {'reviewer_id': review_operation['entity_id']}):
+    operation = harvest_review['operation']
+    assert not harvest_review_validator.is_valid({**operation, 'payload': {**operation['payload'], **patch}}), patch
 review_validator.validate({**review_operation, 'payload': {'activity_id': fixture['operation']['entity_id'], 'activity_version': 1, 'decision': 'valid'}})
 print('PG1 review envelope, parent revision, required reason and forged reviewer checks: PASS')

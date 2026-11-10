@@ -66,7 +66,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         }
         if(role == UserRole.WORKER) {
             connection.delete("manager_home_cache","scope=?",arrayOf(scope))
-            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','activity_review','harvest','activity_audit','harvest_audit','harvest_balance','activity_attachment','harvest_attachment','activity_attachment_policy','harvest_attachment_policy','activity_attachment_audit','harvest_attachment_audit')",arrayOf(scope))
+            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','activity_review','harvest','harvest_review','activity_audit','harvest_audit','harvest_balance','activity_attachment','harvest_attachment','activity_attachment_policy','harvest_attachment_policy','activity_attachment_audit','harvest_attachment_audit')",arrayOf(scope))
             val reason=encrypt(scope,JSONObject().put("message","Peran saat ini tidak mengizinkan perubahan pengelola. Antrean tetap disimpan untuk ditinjau."))
             connection.execSQL("UPDATE outbox SET state='SCOPE_REVOKED',error=? WHERE scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW') AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=? AND kind NOT IN ('activity','harvest','activity_attachment','harvest_attachment'))",arrayOf(reason,scope,scope))
         }
@@ -151,7 +151,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             "group_id" to (form?.optString("group_id") ?: body.optString("planting_group_id")).takeIf {it.isNotBlank()},
             "record_state" to body.optString("record_state","active"),"occurred_millis" to runCatching {OffsetDateTime.parse(timestamp).toInstant().toEpochMilli()}.getOrNull(),
             "season_id" to (form?.optString("season_id") ?: body.optString("season_id")).takeIf {it.isNotBlank()},
-            "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"asset_id" to (form?.optString("asset_id") ?: body.optString("asset_id")).takeIf {it.isNotBlank()},"scenario_id" to (form?.optString("scenario_id") ?: body.optString("scenario_id")).takeUnless {it.isBlank() || it=="null"},"owner_id" to body.optString("owner_id").ifBlank { body.optString("activity_id") }.takeIf {it.isNotBlank()},"indexed" to 1)
+            "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"asset_id" to (form?.optString("asset_id") ?: body.optString("asset_id")).takeIf {it.isNotBlank()},"scenario_id" to (form?.optString("scenario_id") ?: body.optString("scenario_id")).takeUnless {it.isBlank() || it=="null"},"owner_id" to body.optString("owner_id").ifBlank { body.optString("activity_id") }.ifBlank { body.optString("harvest_id") }.takeIf {it.isNotBlank()},"indexed" to 1)
     }
     private fun ensureIndexed(scope:String)=transaction {
         while(true) {
@@ -186,7 +186,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     private fun requireKind(scope:String,kind:String) {
         val role=db.rawQuery("SELECT role FROM scope_metadata WHERE scope=?",arrayOf(scope)).use {if(it.moveToFirst()) it.getString(0) else null}
-        require(role=="manager" || kind in setOf("activity","activity_review","harvest","activity_audit","harvest_audit","harvest_balance","greenhouses","varieties","units","materials","grades","seasons","planting_groups","schedules","targets","activity_attachment","harvest_attachment","activity_attachment_policy","harvest_attachment_policy","activity_attachment_audit","harvest_attachment_audit")) {"Data ini hanya untuk pengelola."}
+        require(role=="manager" || kind in setOf("activity","activity_review","harvest","harvest_review","activity_audit","harvest_audit","harvest_balance","greenhouses","varieties","units","materials","grades","seasons","planting_groups","schedules","targets","activity_attachment","harvest_attachment","activity_attachment_policy","harvest_attachment_policy","activity_attachment_audit","harvest_attachment_audit")) {"Data ini hanya untuk pengelola."}
     }
     private fun requireMutationKind(scope:String,kind:String) {
         requireKind(scope,kind)
@@ -577,7 +577,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             if(version > old) {
                 db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to version,
                     "tombstone" to if(row.getBoolean("tombstone")) 1 else 0,"body" to encrypt(scope,row.getJSONObject("data"))),SQLiteDatabase.CONFLICT_REPLACE)
-                if(kind in setOf("activity","activity_review","harvest","expense","cost_allocation","sale","asset","depreciation_allocation") || kind in AttachmentContract.kinds || existing!=null) {
+                if(kind in setOf("activity","activity_review","harvest","harvest_review","expense","cost_allocation","sale","asset","depreciation_allocation") || kind in AttachmentContract.kinds || existing!=null) {
                     val local=existing;val body=row.getJSONObject("data")
                     if(local == null) {
                         val data=values("scope" to scope,"entity_id" to id,"kind" to kind,"greenhouse_id" to gh,"revision" to 1L,

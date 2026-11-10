@@ -1,0 +1,14 @@
+# Verifikasi dan progres panen
+
+## Kontrak PK0
+
+Review membuat entitas `harvest_review` versi 1 yang mengikat `harvest_id` dan `harvest_version`. Hanya pengelola yang memiliki penugasan efektif untuk greenhouse panen yang boleh membuat keputusan. Panen aktif harus berasal dari pekerja berdasarkan peran saat create. Tanggal, versi dan pencatat tidak diambil dari permintaan review. Satu keputusan per revisi. Koreksi menghasilkan revisi baru dan mempertahankan keputusan lama. Panen sebelum provenance tercatat muncul dalam filter historis.
+
+- `GET /harvest-reviews` memuat inbox pengelola. Filter `greenhouse_id`, `status` dan cursor. Default `pending` berisi panen aktif asal pekerja yang revisi terkininya belum diputuskan.
+- `POST /harvest-reviews` memakai envelope v2 create. Payload berisi `harvest_id`, `harvest_version`, `decision` bernilai `valid` atau `invalid`, dan `reason` opsional kecuali invalid. Respons adalah receipt v2. Conflict ketika revisi berubah atau sudah diputuskan. Replay memeriksa role, parent, scope dan epoch.
+- `GET /harvests/{id}/verification` memuat snapshot revisi, keputusan, dan histori keputusan dengan cursor. Hanya pengelola dalam cakupan dan pencatat panen yang dapat membaca detail verifikasi. Informasi panen yang telah digunakan penjualan hanya berupa penanda untuk pengelola.
+- `GET /planting-groups/{id}/harvest-progress` tetap merupakan progres kelompok scoped. Respons pekerja mengelompokkan hasil aktif berdasarkan kualitas dan status keputusan. Hasil tercatat mencakup seluruh versi aktif yang diterima server, dengan satu versi per ID. Target bersumber dari kelompok, buah sebagai integer dan kg sebagai decimal string. Capaian menggunakan kualitas layak, terpisah dari hasil cacat dan kualitas historis yang belum diketahui. Rincian sumber memakai referensi panen scoped.
+
+Perubahan tabel yang dirancang bersifat additive. `harvests.recorded_by_role` nullable tanpa backfill. `harvest_reviews` menyimpan ID keputusan, ID dan versi panen, reviewer, keputusan, alasan, waktu UTC, serta unique key pada pasangan panen dan versi. Mutasi, audit, receipt dan feed memakai satu transaksi ledger. Review tidak mengubah mutasi panen, ketersediaan penjualan, saldo, atau snapshot laporan. Catatan pengelola dan histori tanpa provenance tidak dihitung sebagai terverifikasi. Informasi review lengkap untuk pekerja dibatasi pada panen sendiri.
+
+Skenario fixture sintetis untuk tes adalah satu GH penugasan, satu GH di luar cakupan, satu pekerja, dua pengelola dan panen dua grade. Verifikasi menolak revisi 1 dengan alasan, koreksi menghasilkan revisi 2 pending, dan revisi 2 dapat dinyatakan valid. Catatan pengelola sendiri, panen batal, grade tanpa kualitas historis, serta target kosong memberi cakupan regresi. Fixture tidak berasal dari database pengguna.

@@ -57,15 +57,17 @@ internal fun WorkerDayAgenda(
                     it.recorderId() == session.scope.accountId ||
                         (it.serverVersion == null && it.syncState in setOf(SyncState.LOCAL, SyncState.QUEUED, SyncState.REJECTED))
                 }.sortedByDescending { it.body.optString("occurred_at") }
-                val corrections = store.cachedAll(scope, "activity_review", greenhouse).filter { it.optString("decision") == "invalid" }
+                val corrections = listOf("activity", "harvest").flatMap { kind ->
+                    store.cachedAll(scope, "${kind}_review", greenhouse).filter { it.optString("decision") == "invalid" }
                         .mapNotNull { review ->
-                            store.record(scope, review.optString("activity_id"))?.takeIf {
+                            store.record(scope, review.optString("${kind}_id"))?.takeIf {
                                 val accepted = it.serverBody ?: return@takeIf false
                                 it.recorderId() == session.scope.accountId && accepted.optString("record_state", "active") == "active" &&
                                     accepted.optString("planting_group_id") == group &&
-                                    it.serverVersion == review.optLong("activity_version")
+                                    it.serverVersion == review.optLong("${kind}_version")
                             }
                         }
+                }
                 val held = store.outbox(scope).count { operation ->
                     operation.state in setOf("REJECTED", "CONFLICT", "AUTH_REQUIRED", "SCOPE_REVOKED", "EPOCH_REVIEW") &&
                         store.record(scope, operation.entityId)?.greenhouseId == greenhouse
