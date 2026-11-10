@@ -110,11 +110,11 @@ final class ActivityReviewService
         });
     }
 
-    public static function current(?string $decision = null): Builder
+    public static function current(?string $decision = null, string $activity = 'activities'): Builder
     {
         return DB::table('activity_reviews')->selectRaw('1')
-            ->whereColumn('activity_reviews.activity_id', 'activities.id')
-            ->whereColumn('activity_reviews.activity_version', 'activities.version')
+            ->whereColumn('activity_reviews.activity_id', $activity.'.id')
+            ->whereColumn('activity_reviews.activity_version', $activity.'.version')
             ->when($decision !== null, fn ($query) => $query->where('activity_reviews.decision', $decision));
     }
 
