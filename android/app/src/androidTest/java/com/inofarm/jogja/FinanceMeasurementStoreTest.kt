@@ -25,6 +25,23 @@ class FinanceMeasurementStoreTest {
         store.applyPull("a",page(JSONArray().put(row)))
     }
     private fun latest()=store.latestMeasurement("a",gh,group,today)
+    @Test fun workerProgressCacheSurvivesRestartButNotAssignmentOrEpochChanges() {
+        store.initialize("a", epoch, UserRole.WORKER)
+        val snapshot = JSONObject().put("greenhouse_id", gh).put("group_id", group).put("records", 3)
+        store.cacheWorkerHarvestProgress("a", gh, group, snapshot, epoch)
+        helper.close()
+        helper = FinanceDatabase(context, name)
+        store = LocalFinanceStore(helper, FixtureCipher())
+        store.initialize("a", epoch, UserRole.WORKER)
+        assertEquals(3, store.cachedOne("a", "worker_harvest_progress", group)!!.getInt("records"))
+        store.applyPull("a", page(scope = JSONArray()))
+        assertNull(store.cachedOne("a", "worker_harvest_progress", group))
+        assertTrue(runCatching { store.cacheWorkerHarvestProgress("a", gh, group, snapshot, epoch) }.isFailure)
+        store.applyPull("a", page())
+        store.cacheWorkerHarvestProgress("a", gh, group, snapshot, epoch)
+        store.initialize("a", UUID.randomUUID().toString(), UserRole.WORKER)
+        assertNull(store.cachedOne("a", "worker_harvest_progress", group))
+    }
     @Test fun workerFallsBackAfterReviewAndReconsidersTheCorrectedRevision() {
         store.initialize("a",epoch,UserRole.WORKER)
         val older=UUID.randomUUID().toString()

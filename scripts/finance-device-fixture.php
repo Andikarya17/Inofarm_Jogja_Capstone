@@ -31,7 +31,7 @@ if ($mode === 'create') {
     if (! in_array($baseUrl, ['http://10.0.2.2:8001/api/v2/', 'http://127.0.0.1:8001/api/v2/'], true)) {
         throw new RuntimeException('Device fixture URL must use the isolated localhost test API.');
     }
-    $fixture = DB::transaction(function () use ($baseUrl) {
+    $fixture = DB::transaction(function () use ($baseUrl, $fixtureName) {
         DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();
         $id = (string) Str::uuid();
         $password = 'device-fixture-only-password';
@@ -49,7 +49,12 @@ if ($mode === 'create') {
             $gh = $create('greenhouses', ['name' => 'GH '.$name.' perangkat sintetis']);
             $variety = $create('varieties', ['greenhouse_id' => $gh['id'], 'name' => 'Varietas perangkat sintetis']);
             $season = $create('seasons', ['greenhouse_id' => $gh['id'], 'name' => 'Musim '.$name.' sintetis', 'start_date' => '2026-10-01', 'end_date' => null]);
-            $group = $create('planting_groups', ['season_id' => $season['id'], 'variety_id' => $variety['id'], 'name' => 'Kelompok '.$name.' sintetis', 'population' => 10, 'sowing_date' => '2026-10-01', 'transplant_date' => null]);
+            $groupInput = ['season_id' => $season['id'], 'variety_id' => $variety['id'], 'name' => 'Kelompok '.$name.' sintetis',
+                'population' => 10, 'sowing_date' => '2026-10-01', 'transplant_date' => null];
+            if ($fixtureName === 'worker-alignment-device-fixture.json' && $name === 'A') {
+                $groupInput['harvest_target'] = ['fruit_count' => 5, 'weight_kg' => '8', 'basis' => 'Target sintetis untuk uji perangkat'];
+            }
+            $group = $create('planting_groups', $groupInput);
             $grades = [];
             foreach (['A', 'B'] as $gradeName) {
                 $grades[] = $create('grades', ['greenhouse_id' => $gh['id'], 'name' => 'Grade '.$gradeName.' perangkat sintetis'])['id'];

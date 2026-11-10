@@ -66,7 +66,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         }
         if(role == UserRole.WORKER) {
             connection.delete("manager_home_cache","scope=?",arrayOf(scope))
-            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','activity_review','harvest','harvest_review','activity_audit','harvest_audit','harvest_balance','activity_attachment','harvest_attachment','activity_attachment_policy','harvest_attachment_policy','activity_attachment_audit','harvest_attachment_audit')",arrayOf(scope))
+            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','activity_review','harvest','harvest_review','activity_audit','harvest_audit','harvest_balance','activity_attachment','harvest_attachment','activity_attachment_policy','harvest_attachment_policy','activity_attachment_audit','harvest_attachment_audit','worker_harvest_progress')",arrayOf(scope))
             val reason=encrypt(scope,JSONObject().put("message","Peran saat ini tidak mengizinkan perubahan pengelola. Antrean tetap disimpan untuk ditinjau."))
             connection.execSQL("UPDATE outbox SET state='SCOPE_REVOKED',error=? WHERE scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW') AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=? AND kind NOT IN ('activity','harvest','activity_attachment','harvest_attachment'))",arrayOf(reason,scope,scope))
         }
@@ -92,6 +92,16 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     fun invalidateManagerHome(scope: String) = transaction {
         db.delete("manager_home_cache", "scope=?", arrayOf(scope))
+    }
+    fun cacheWorkerHarvestProgress(scope: String, gh: String, group: String, body: JSONObject, expectedEpoch: String?) = transaction {
+        requireKind(scope, "worker_harvest_progress")
+        require(epoch(scope) == expectedEpoch && gh in visibleGreenhouses(scope)) { "Cakupan rekap berubah. Sinkronkan kembali." }
+        db.insertWithOnConflict("cached_records", null,
+            values("scope" to scope, "kind" to "worker_harvest_progress", "entity_id" to group, "greenhouse_id" to gh,
+                "version" to 1, "tombstone" to 0, "body" to encrypt(scope, body)), SQLiteDatabase.CONFLICT_REPLACE)
+    }
+    fun forgetWorkerHarvestProgress(scope: String, group: String) = transaction {
+        db.delete("cached_records", "scope=? AND kind='worker_harvest_progress' AND entity_id=?", arrayOf(scope, group))
     }
     fun runningPeriodRequest(scope: String, gh: String): JSONObject? = transaction {
         requireMutationKind(scope, "greenhouses")
@@ -186,7 +196,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     private fun requireKind(scope:String,kind:String) {
         val role=db.rawQuery("SELECT role FROM scope_metadata WHERE scope=?",arrayOf(scope)).use {if(it.moveToFirst()) it.getString(0) else null}
-        require(role=="manager" || kind in setOf("activity","activity_review","harvest","harvest_review","activity_audit","harvest_audit","harvest_balance","greenhouses","varieties","units","materials","grades","seasons","planting_groups","schedules","targets","activity_attachment","harvest_attachment","activity_attachment_policy","harvest_attachment_policy","activity_attachment_audit","harvest_attachment_audit")) {"Data ini hanya untuk pengelola."}
+        require(role=="manager" || kind in setOf("activity","activity_review","harvest","harvest_review","activity_audit","harvest_audit","harvest_balance","greenhouses","varieties","units","materials","grades","seasons","planting_groups","schedules","targets","activity_attachment","harvest_attachment","activity_attachment_policy","harvest_attachment_policy","activity_attachment_audit","harvest_attachment_audit","worker_harvest_progress")) {"Data ini hanya untuk pengelola."}
     }
     private fun requireMutationKind(scope:String,kind:String) {
         requireKind(scope,kind)
@@ -562,7 +572,10 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     fun applyPull(scope: String, page: JSONObject) = transaction {
         require(page.getString("sync_epoch") == epoch(scope)) { "Epoch berubah; antrean harus ditinjau." }
         val scopes=page.getJSONArray("scope");val visible=(0 until scopes.length()).map { scopes.getJSONObject(it).getString("id") }.toSet()
-        if (visible != visibleGreenhouses(scope)) db.delete("manager_home_cache", "scope=?", arrayOf(scope))
+        if (visible != visibleGreenhouses(scope)) {
+            db.delete("manager_home_cache", "scope=?", arrayOf(scope))
+            db.delete("cached_records", "scope=? AND kind='worker_harvest_progress'", arrayOf(scope))
+        }
         db.delete("scope_access","scope=?",arrayOf(scope))
         visible.forEach { db.insertOrThrow("scope_access",null,values("scope" to scope,"greenhouse_id" to it)) }
         db.update("scope_metadata",values("visible_greenhouses" to JSONArray(visible.toList()).toString(),"pull_cursor" to page.getString("next_cursor"),"last_synced_at" to System.currentTimeMillis()),"scope=?",arrayOf(scope))

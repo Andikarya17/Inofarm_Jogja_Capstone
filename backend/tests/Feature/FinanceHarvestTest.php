@@ -159,6 +159,70 @@ class FinanceHarvestTest extends FinanceTestCase
         $this->assertSame(2, DB::table('sync_operations')->where('entity_type', 'harvest_review')->count());
     }
 
+    public function test_worker_progress_counts_only_active_revisions_and_resolves_scoped_sources(): void
+    {
+        $ctx = $this->prepared();
+        $group = $ctx['group']['id'];
+        $url = "/api/v2/planting-groups/$group/harvest-progress";
+        $source = $url.'/sources';
+        $this->asUser($ctx['worker'])->getJson($url)->assertOk()->assertJsonPath('target', null)
+            ->assertJsonPath('achievement_percent', null)->assertJsonPath('records', 0);
+        $target = ['name' => $ctx['group']['name'], 'variety_id' => $ctx['variety']['id'], 'population' => 171,
+            'sowing_date' => '2026-10-01', 'transplant_date' => '2026-10-10', 'active' => true, 'reason' => 'Target sintetis',
+            'harvest_target' => ['fruit_count' => 8, 'weight_kg' => '10', 'basis' => 'Target kualitas layak uji']];
+        $op = $this->operation('planting_groups', $target, 'update', $group, 1);
+        $this->patchJson("/api/v2/planting-groups/$group", $op)->assertForbidden();
+        $this->postJson("/api/v2/planting-groups/$group/harvest-completion",
+            $this->operation('planting_groups', ['reason' => 'Uji akses'], 'complete_harvest', $group, 1))->assertForbidden();
+        $this->asUser($ctx['manager'])->patchJson("/api/v2/planting-groups/$group", $op)->assertOk();
+        $create = function () use ($ctx) {
+            $payload = $this->payload($ctx);
+            $payload['items'][0]['quality'] = 'saleable';
+            $payload['items'][1] = [...$payload['items'][1], 'quality' => 'defective', 'fruit_count' => 2, 'weight_kg' => '1.5'];
+
+            return $this->operation('harvest', $payload);
+        };
+        $managerHarvest = $create();
+        $this->postJson('/api/v2/harvests', $managerHarvest)->assertCreated();
+        $first = $create();
+        $second = $create();
+        $this->asUser($ctx['worker'])->postJson('/api/v2/harvests', $first)->assertCreated();
+        $this->postJson('/api/v2/harvests', $second)->assertCreated();
+        $this->asUser($ctx['manager']);
+        foreach ([[$first, 'valid'], [$second, 'invalid']] as [$record, $decision]) {
+            $review = $this->operation('harvest_review', ['harvest_id' => $record['entity_id'], 'harvest_version' => 1,
+                'decision' => $decision, 'reason' => 'Uji progres']);
+            $this->postJson('/api/v2/harvest-reviews', $review)->assertCreated();
+        }
+        $worker = $this->asUser($ctx['worker'])->getJson($url)->assertOk()->assertJsonPath('records', 3)
+            ->assertJsonPath('totals.saleable.fruit_count', 30)->assertJsonPath('totals.defective.weight_kg', '4.500000')
+            ->assertJsonPath('achievement_percent', '375.000000')->assertJsonPath('weight_achievement_percent', '457.500000')
+            ->assertJsonPath('verification.valid.saleable.fruit_count', 10)->assertJsonPath('verification.invalid.defective.fruit_count', 2)
+            ->assertJsonPath('verification.manager.saleable.weight_kg', '15.250000')->assertJsonPath('verification.pending.saleable.fruit_count', 0)
+            ->assertJsonMissingPath('target.set_by')->assertJsonMissingPath('population')->assertJsonMissingPath('completion')->json();
+        $this->assertArrayNotHasKey('sales', $worker);
+        $page = $this->getJson($source.'?limit=1')->assertOk()->assertJsonCount(1, 'data')->json();
+        $this->getJson($source.'?limit=1&cursor='.urlencode($page['next_cursor']))->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonMissing(['id' => $page['data'][0]['id']]);
+        $this->getJson($source.'?status=valid')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $first['entity_id'])->assertJsonPath('data.0.version', 1)->assertJsonMissingPath('data.0.reason');
+        $edit = $this->correction($first['payload']);
+        $edit['items'][0]['fruit_count'] = 9;
+        $this->patchJson('/api/v2/harvests/'.$first['entity_id'], $this->operation('harvest', $edit, 'update', $first['entity_id'], 1))->assertOk();
+        $this->getJson($url)->assertJsonPath('records', 3)->assertJsonPath('totals.saleable.fruit_count', 29)
+            ->assertJsonPath('verification.valid.saleable.fruit_count', 0)->assertJsonPath('verification.pending.saleable.fruit_count', 9);
+        $this->getJson($source.'?status=pending')->assertOk()->assertJsonPath('data.0.version', 2);
+
+        $this->asUser($ctx['manager'])->postJson('/api/v2/harvests/'.$second['entity_id'].'/cancel',
+            $this->operation('harvest', ['reason' => 'Batal uji'], 'cancel', $second['entity_id'], 1))->assertOk();
+        $this->asUser($ctx['worker'])->getJson($url)->assertJsonPath('records', 2)->assertJsonPath('verification.invalid.saleable.fruit_count', 0);
+        DB::table('seasons')->where('id', $ctx['season']['id'])->update(['status' => 'closed']);
+        $this->getJson($url)->assertOk()->assertJsonPath('season_status', 'closed');
+        DB::table('greenhouse_assignments')->where('greenhouse_id', $ctx['gh']['id'])->where('user_id', $ctx['worker']->id)->update(['active' => false]);
+        $this->getJson($url)->assertNotFound();
+        $this->getJson($source)->assertNotFound();
+    }
+
     public function test_multigrade_worker_receipt_balance_feed_and_every_read_are_scoped(): void
     {
         $ctx = $this->prepared();

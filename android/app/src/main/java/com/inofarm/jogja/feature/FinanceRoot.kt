@@ -325,6 +325,13 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var harvestProgressOpen by rememberSaveable { mutableStateOf(false) }
     var harvestProgressGroup by rememberSaveable { mutableStateOf<String?>(null) }
     var harvestProgressGreenhouse by rememberSaveable { mutableStateOf<String?>(null) }
+    var workerProgressSourceError by remember { mutableStateOf<String?>(null) }
+    fun openWorkerHarvestProgress() {
+        harvestProgressGreenhouse = gh
+        harvestProgressGroup = group
+        workerProgressSourceError = null
+        harvestProgressOpen = true
+    }
     var entryGreenhouse by rememberSaveable { mutableStateOf<String?>(null) }
     var entrySeason by rememberSaveable { mutableStateOf<String?>(null) }
     var entryGroup by rememberSaveable { mutableStateOf<String?>(null) }
@@ -357,7 +364,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             if (season == null || selectedGroup == null) group = null
         }
     }
-    BackHandler(investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
+    BackHandler(harvestProgressOpen || investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
         when {
             writing || queueOpening -> Unit
             ime -> keyboard?.hide()
@@ -503,7 +510,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             }
                         })
                 }
-                tab==0 -> tabState.SaveableStateProvider("worker-home-${selectedGreenhouse?.optString("id").orEmpty()}") { LazyColumn(
+                tab==0 && !harvestProgressOpen -> tabState.SaveableStateProvider("worker-home-${selectedGreenhouse?.optString("id").orEmpty()}") { LazyColumn(
                     modifier=Modifier.fillMaxSize().testTag("finance-home-list"),
                     verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium),
                     contentPadding=PaddingValues(
@@ -562,6 +569,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 onQueue = { tab = 1 })
                         }
                     }
+                    if (selectedGreenhouse != null) item("harvest-progress-link") {
+                        FarmActionRow("Progres panen", "Target, hasil tercatat dan hasil terverifikasi", FarmIcon.Report,
+                            Modifier.testTag("worker-harvest-progress-open"), onClick = ::openWorkerHarvestProgress)
+                    }
                     if (selectedGroup == null) item("sync") {
                         FarmPanel(title = "Sinkronisasi") {
                             if (!sessionExpired) context.message?.let {
@@ -580,6 +591,12 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         showOutbox = true
                         tab = 1
                     })
+                harvestProgressOpen -> tabState.SaveableStateProvider("worker-progress-${harvestProgressGreenhouse.orEmpty()}-${harvestProgressGroup.orEmpty()}") {
+                    WorkerHarvestProgress(session, ticket, context, runtime.harvest,
+                        harvestProgressGreenhouse, harvestProgressGroup, syncUpdates, { harvestProgressOpen = false },
+                        onSource = { id, version -> harvestHistoryVm.select(id, expectedVersion = version) { workerProgressSourceError = it } },
+                        sourceSelectionError = workerProgressSourceError)
+                }
                 tab == 1 && manager && !showOutbox -> tabState.SaveableStateProvider("verification-${reviewKind.wire}") {
                     ActivityVerificationScreen(session, ticket, context, verification, syncUpdates, reviewActivity,
                         { reviewActivity = it }, { showOutbox = true }, onSync, reviewKind, { reviewKind = it })
@@ -665,6 +682,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                     harvestProgressOpen = true
                                 }, shape = FarmShape.Control, modifier = Modifier.heightIn(min = FarmSpace.Touch)
                                     .testTag("harvest-progress-open")) { Text("Rekap panen") }
+                            }
+                            if (!manager && !isActivity) item("worker-harvest-progress-link") {
+                                FarmActionRow("Progres panen", "Lihat target dan hasil kelompok tanam", FarmIcon.Report,
+                                    Modifier.testTag("worker-harvest-progress-open"), onClick = ::openWorkerHarvestProgress)
                             }
                         })
                 }

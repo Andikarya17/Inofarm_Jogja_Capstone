@@ -128,8 +128,11 @@ class FinanceBackendDeviceTest {
         rule.waitUntil(20_000) { rule.onAllNodesWithText(reason, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText(reason, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         rule.captureBotanicalWindow("worker-harvest-real-feedback")
+        val acceptedItems = read("harvests/$harvest").getJSONArray("items")
+        val correctedGrade = first.getJSONArray("grade_ids").getString(1)
+        val correctedIndex = (0 until acceptedItems.length()).single { acceptedItems.getJSONObject(it).getString("grade_id") == correctedGrade }
         rule.onNodeWithTag("finance-edit").performScrollTo().performClick()
-        rule.onNodeWithTag("harvest-weight-1").performScrollTo().performTextReplacement("3,25")
+        rule.onNodeWithTag("harvest-weight-$correctedIndex").performScrollTo().performTextReplacement("3,25")
         rule.onNodeWithTag("harvest-reason").performScrollTo().performTextReplacement("Bobot grade kedua ditimbang ulang.")
         hideKeyboard()
         submitHarvest()
@@ -142,6 +145,31 @@ class FinanceBackendDeviceTest {
         assertEquals(2, verified.getJSONArray("history").length())
         assertEquals(reason, verified.getJSONArray("history").getJSONObject(1).getString("reason"))
         File(botanicalEvidenceDirectory(context), "worker-harvest-reconciliation.json").writeText(verified.toString(2))
+        if (args.getString("checkWorkerProgress") == "1") {
+            login(fixture, "worker")
+            val group = first.getString("group_id")
+            rule.selectFinanceTab(3)
+            rule.onNodeWithTag("finance-history-list").performScrollToNode(hasTestTag("worker-harvest-progress-open"))
+            rule.onNodeWithTag("worker-harvest-progress-open").performClick()
+            waitTag("worker-harvest-progress")
+            choose("worker-progress-gh", greenhouse)
+            rule.waitUntil(20_000) { rule.onAllNodesWithText("120% target buah · target terlampaui").fetchSemanticsNodes().isNotEmpty() }
+            rule.captureBotanicalWindow("worker-harvest-real-progress")
+            val progress = read("planting-groups/$group/harvest-progress")
+            assertEquals("9.250000", progress.getJSONObject("verification").getJSONObject("valid")
+                .getJSONObject("saleable").getString("weight_kg"))
+            assertEquals("3.250000", progress.getJSONObject("totals").getJSONObject("defective").getString("weight_kg"))
+            assertFalse(progress.has("completion"))
+            rule.onNodeWithTag("worker-harvest-progress").performScrollToNode(hasTestTag("worker-progress-sources"))
+            rule.onNodeWithTag("worker-progress-sources").performClick()
+            val sourceTag = "worker-progress-source-$harvest"
+            rule.waitUntil(20_000) {
+                runCatching { rule.onNodeWithTag("worker-harvest-progress").performScrollToNode(hasTestTag(sourceTag)) }.isSuccess
+            }
+            rule.onNodeWithTag(sourceTag).performClick()
+            rule.waitUntil(20_000) { rule.onAllNodesWithText("Detail panen", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
+            File(botanicalEvidenceDirectory(context), "worker-progress-reconciliation.json").writeText(progress.toString(2))
+        }
         rule.logoutFromAccount()
     }
 

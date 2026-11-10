@@ -5565,67 +5565,74 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "group_id",
-                    "group_version",
-                    "target",
-                    "completion",
-                    "records",
-                    "totals",
-                    "complete_quality",
-                    "achievement_percent",
-                    "difference_fruit"
-                  ],
-                  "properties": {
-                    "group_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "group_version": {
-                      "type": "integer",
-                      "minimum": 1
-                    },
-                    "target": {
-                      "type": [
-                        "object",
-                        "null"
-                      ]
-                    },
-                    "completion": {
-                      "type": [
-                        "object",
-                        "null"
-                      ]
-                    },
-                    "records": {
-                      "type": "integer",
-                      "minimum": 0
-                    },
-                    "totals": {
+                  "oneOf": [
+                    {
                       "type": "object",
                       "required": [
-                        "saleable",
-                        "defective",
-                        "unknown"
-                      ]
+                        "group_id",
+                        "group_version",
+                        "target",
+                        "completion",
+                        "records",
+                        "totals",
+                        "complete_quality",
+                        "achievement_percent",
+                        "difference_fruit"
+                      ],
+                      "properties": {
+                        "group_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "group_version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "target": {
+                          "type": [
+                            "object",
+                            "null"
+                          ]
+                        },
+                        "completion": {
+                          "type": [
+                            "object",
+                            "null"
+                          ]
+                        },
+                        "records": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totals": {
+                          "type": "object",
+                          "required": [
+                            "saleable",
+                            "defective",
+                            "unknown"
+                          ]
+                        },
+                        "complete_quality": {
+                          "type": "boolean"
+                        },
+                        "achievement_percent": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "difference_fruit": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      }
                     },
-                    "complete_quality": {
-                      "type": "boolean"
-                    },
-                    "achievement_percent": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "difference_fruit": {
-                      "type": [
-                        "integer",
-                        "null"
-                      ]
+                    {
+                      "$ref": "#/components/schemas/WorkerHarvestProgress"
                     }
-                  }
+                  ]
                 }
               }
             }
@@ -5680,7 +5687,118 @@
               }
             }
           }
-        }
+        },
+        "description": "Pengelola menerima rekap existing. Pekerja menerima proyeksi hasil aktif menurut kualitas dan status review tanpa informasi saldo atau transaksi."
+      }
+    },
+    "/planting-groups/{id}/harvest-progress/sources": {
+      "get": {
+        "operationId": "get__harvest_progress_sources",
+        "summary": "Revisi aktif sumber progres panen",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "valid",
+                "invalid",
+                "pending",
+                "manager",
+                "legacy"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarvestProgressSources"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Sumber versi aktif dalam kelompok scoped, tanpa alasan atau identitas peninjau. Cursor digunakan dengan filter yang sama."
       }
     },
     "/planting-groups/{id}/harvest-completion": {
@@ -28562,6 +28680,265 @@
           "history",
           "next_cursor"
         ]
+      },
+      "HarvestProgressAmount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fruit_count",
+          "weight_kg"
+        ],
+        "properties": {
+          "fruit_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "weight_kg": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{6}$"
+          }
+        }
+      },
+      "HarvestProgressTotals": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "saleable",
+          "defective",
+          "unknown"
+        ],
+        "properties": {
+          "saleable": {
+            "$ref": "#/components/schemas/HarvestProgressAmount"
+          },
+          "defective": {
+            "$ref": "#/components/schemas/HarvestProgressAmount"
+          },
+          "unknown": {
+            "$ref": "#/components/schemas/HarvestProgressAmount"
+          }
+        }
+      },
+      "WorkerHarvestProgress": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "greenhouse_id",
+          "greenhouse",
+          "season",
+          "season_status",
+          "group_id",
+          "group",
+          "variety",
+          "completed",
+          "target",
+          "records",
+          "totals",
+          "verification",
+          "complete_quality",
+          "achievement_percent",
+          "weight_achievement_percent",
+          "as_of"
+        ],
+        "properties": {
+          "greenhouse_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "greenhouse": {
+            "type": "string"
+          },
+          "season": {
+            "type": "string"
+          },
+          "season_status": {
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "group_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "group": {
+            "type": "string"
+          },
+          "variety": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "fruit_count",
+                  "weight_kg",
+                  "basis",
+                  "version"
+                ],
+                "properties": {
+                  "fruit_count": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "weight_kg": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[0-9]+\\.[0-9]{6}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "basis": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "records": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totals": {
+            "$ref": "#/components/schemas/HarvestProgressTotals"
+          },
+          "verification": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "valid",
+              "invalid",
+              "pending",
+              "manager",
+              "legacy"
+            ],
+            "properties": {
+              "valid": {
+                "$ref": "#/components/schemas/HarvestProgressTotals"
+              },
+              "invalid": {
+                "$ref": "#/components/schemas/HarvestProgressTotals"
+              },
+              "pending": {
+                "$ref": "#/components/schemas/HarvestProgressTotals"
+              },
+              "manager": {
+                "$ref": "#/components/schemas/HarvestProgressTotals"
+              },
+              "legacy": {
+                "$ref": "#/components/schemas/HarvestProgressTotals"
+              }
+            }
+          },
+          "complete_quality": {
+            "type": "boolean"
+          },
+          "achievement_percent": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]{6}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "weight_achievement_percent": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]{6}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "HarvestProgressSources": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "version",
+                "occurred_at",
+                "verification_status"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "occurred_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "verification_status": {
+                  "enum": [
+                    "valid",
+                    "invalid",
+                    "pending",
+                    "manager",
+                    "legacy"
+                  ]
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       }
     }
   }
