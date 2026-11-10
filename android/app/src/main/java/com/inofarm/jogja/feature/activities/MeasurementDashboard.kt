@@ -36,7 +36,7 @@ import java.time.LocalDate
 
 @Composable internal fun MeasurementDashboard(
     runtime: FinanceRuntime, session: FinanceSession, gh: String, group: String, changed: Any?,
-    lastSync: Long?, syncMessage: String?
+    lastSync: Long?, syncMessage: String?, lastKnown: Boolean
 ) {
     val lifecycle=LocalLifecycleOwner.current.lifecycle
     val android=LocalContext.current
@@ -68,9 +68,9 @@ import java.time.LocalDate
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-        MeasurementCards(pair, loading)
+        MeasurementCards(pair?.let { it.copy(ec = it.ec?.replace('.', ','), ppm = it.ppm.replace('.', ',')) }, loading)
         message?.let { Notice(it, true) }
-        MeasurementSource(pair, today, offline, syncedAt, syncMessage)
+        MeasurementSource(pair, today, offline || lastKnown, syncedAt, syncMessage)
     }
 }
 

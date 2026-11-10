@@ -10,6 +10,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import com.inofarm.jogja.core.contracts.OperationalKind
 import com.inofarm.jogja.core.contracts.SyncState
 import com.inofarm.jogja.core.database.QueuedOperation
@@ -36,6 +39,7 @@ internal fun RecordStatus(state: SyncState) {
     }, tween(FarmMotion.State), label = "Status catatan")
     Text(
         state.label(),
+        Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         style = MaterialTheme.typography.labelLarge,
         color = color
     )
@@ -63,8 +67,7 @@ internal fun QueueScreen(
     }
     FarmMenuList(Modifier.testTag("finance-queue-list")) {
         item("queue-header") {
-            FarmMenuHeader(if (onVerification == null) "Antrean" else "Pengiriman saya",
-                "Pengajuan lokal dan tanggapan server untuk akun ini.") {
+            FarmMenuHeader("Pengiriman saya", "Pengajuan dari perangkat ini dan tanggapan server.") {
                 if (onVerification != null) TextButton(onClick = onVerification, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
                     Text("Kembali ke verifikasi")
                 }

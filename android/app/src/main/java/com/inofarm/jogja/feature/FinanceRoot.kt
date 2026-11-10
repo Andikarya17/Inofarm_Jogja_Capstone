@@ -2,6 +2,7 @@ package com.inofarm.jogja.feature
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -21,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -37,7 +39,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.inofarm.jogja.feature.assets.*
 import com.inofarm.jogja.feature.reports.*
@@ -129,6 +133,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {assets.pauseAutosave();val session=auth.state.value.session;val snapshot=assets.state.value.draft;if(session!=null && snapshot!=null) assets.persist(session,runtime.vault.generation,snapshot)}
     val saleState by sales.state.collectAsStateWithLifecycle();val saleHistoryState by saleHistory.state.collectAsStateWithLifecycle()
     val authState by auth.state.collectAsStateWithLifecycle();val contextState by context.state.collectAsStateWithLifecycle();val activityState by activities.state.collectAsStateWithLifecycle()
+    val completedSync by runtime.sync.updates.collectAsStateWithLifecycle()
+    LaunchedEffect(completedSync, authState.session?.scope, authState.session?.role) {
+        if (completedSync > 0 && authState.session?.role == UserRole.WORKER) context.reloadCache()
+    }
     val historyState by history.state.collectAsStateWithLifecycle()
     val harvestState by harvest.state.collectAsStateWithLifecycle();val harvestHistoryState by harvestHistory.state.collectAsStateWithLifecycle()
     val financialState by financial.state.collectAsStateWithLifecycle();val expenseHistoryState by expenseHistory.state.collectAsStateWithLifecycle();val allocationHistoryState by allocationHistory.state.collectAsStateWithLifecycle()
@@ -145,6 +153,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     LaunchedEffect(harvestState.records) {if(authState.session!=null) harvestHistory.reload()}
     LaunchedEffect(harvestState.changed,harvestHistoryState.changed) {if((harvestState.changed>0 || harvestHistoryState.changed>0) && authState.session!=null) {activities.reload();context.refresh()} }
     LaunchedEffect(contextState.lastSyncedAt) {if(authState.session?.role==UserRole.MANAGER) {expenseHistory.reload();allocationHistory.reload();saleHistory.reload();assetHistory.reload();depreciationHistory.reload();reports.reload();investments.reload()}}
+    LaunchedEffect(contextState.lastSyncedAt, authState.session?.role) {
+        if (authState.session?.role == UserRole.WORKER && contextState.lastSyncedAt != null) {
+            activities.reload()
+            history.reload()
+            harvest.reload()
+            harvestHistory.reload()
+        }
+    }
     LaunchedEffect(financialState.changed,expenseHistoryState.changed,allocationHistoryState.changed,saleState.changed,saleHistoryState.changed) {
         if(authState.session?.role==UserRole.MANAGER) {expenseHistory.reload();allocationHistory.reload();saleHistory.reload();if(financialState.changed>0 || expenseHistoryState.changed>0 || allocationHistoryState.changed>0 || saleState.changed>0 || saleHistoryState.changed>0) {activities.reload();context.refresh()}}
     }
@@ -233,6 +249,15 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var reviewKind by rememberSaveable { mutableStateOf(ReviewKind.ACTIVITY) }
     val verification = remember(runtime) { ActivityVerificationRepository(runtime.api, runtime.store, runtime.vault) }
     val manager = session.role == UserRole.MANAGER
+    val tabEntrance = remember { Animatable(1f) }
+    var previousWorkerTab by remember { mutableIntStateOf(tab) }
+    LaunchedEffect(tab, manager) {
+        if (!manager && tab != previousWorkerTab) {
+            previousWorkerTab = tab
+            tabEntrance.snapTo(0f)
+            tabEntrance.animateTo(1f, tween(180))
+        }
+    }
     var managerRefresh by remember { mutableLongStateOf(0L) }
     var periodReview by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(adminPeriodRequest, manager) {
@@ -248,10 +273,13 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val homeRepository = remember(runtime) { ManagerHomeRepository(runtime.vault, runtime.store, runtime.api) }
     val syncUpdates by runtime.sync.updates.collectAsStateWithLifecycle()
     var workerToday by remember { mutableStateOf(LocalDate.now(ActivityDraft.WIB)) }
-    if (!manager) LaunchedEffect(Unit) {
-        while (true) {
-            workerToday = LocalDate.now(ActivityDraft.WIB)
-            delay(5_000)
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    if (!manager) LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                workerToday = LocalDate.now(ActivityDraft.WIB)
+                delay(5_000)
+            }
         }
     }
     val managerHome = if (manager) rememberManagerHome(homeRepository, session, ticket, gh, syncUpdates, activity.records, managerRefresh)
@@ -364,7 +392,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             if (season == null || selectedGroup == null) group = null
         }
     }
-    BackHandler(harvestProgressOpen || investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
+    BackHandler(harvestProgressOpen || !manager && selectedGreenhouse != null || investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
         when {
             writing || queueOpening -> Unit
             ime -> keyboard?.hide()
@@ -400,6 +428,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             harvestProgressOpen -> harvestProgressOpen = false
             tab == 1 && manager && showOutbox -> showOutbox = false
             tab == 1 && reviewActivity != null -> reviewActivity = null
+            tab == 0 && !manager && selectedGreenhouse != null -> { gh = null; season = null; group = null }
             else -> tab=0
         }
     }
@@ -469,7 +498,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         } else padding
         Box(Modifier.fillMaxSize().padding(contentPadding).consumeWindowInsets(padding).imePadding().padding(horizontal=FarmSpace.Page),
             contentAlignment = Alignment.TopCenter) {
-        Box(Modifier.widthIn(max = 900.dp).fillMaxSize()) {
+        val workerTabMotion = if (!manager && menuViewport) Modifier.graphicsLayer {
+            alpha = .74f + .26f * tabEntrance.value
+            translationY = 5.dp.toPx() * (1f - tabEntrance.value)
+        } else Modifier
+        Box(Modifier.widthIn(max = 900.dp).fillMaxSize().then(workerTabMotion)) {
             when {
                 session.role==UserRole.MANAGER && investments.state.active -> InvestmentScreen(investments,context,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && reports.state.active -> SeasonReportScreen(reports,context,returnToQueue=tab==1)
@@ -521,13 +554,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     )
                 ) {
                     item("context") {
-                        HomeContextCard(context, if (selectedGreenhouse == null) HomeContext() else HomeContext(gh, season, group), workerToday) {
+                        HomeContextCard(context, if (selectedGreenhouse == null) HomeContext() else HomeContext(gh, season, group), workerToday,
+                            onOverview = { setWorkerContext(HomeContext()) }) {
                             contextSheet = "context"
                         }
                     }
                     if (selectedGreenhouse == null) item("greenhouses") {
                         WorkerGreenhouseList(context, workerToday) { greenhouse ->
-                            setWorkerContext(context.workerDefault(greenhouse))
+                            setWorkerContext(context.workerDefault(greenhouse, workerToday))
                         }
                     }
                     contextChange?.let { message -> item("context-changed") { Notice(message) } }
@@ -549,6 +583,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             }
                         }
                     }
+                    if (selectedGreenhouse != null) item("harvest-progress-link") {
+                        FarmActionRow("Progres panen", "Target, hasil tercatat dan hasil terverifikasi", FarmIcon.Report,
+                            Modifier.testTag("worker-harvest-progress-open"), onClick = ::openWorkerHarvestProgress)
+                    }
                     if (selectedGreenhouse != null && selectedSeason != null && selectedGroup != null) {
                         val greenhouseId = selectedGreenhouse.getString("id")
                         val groupId = selectedGroup.getString("id")
@@ -556,7 +594,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         item("measurements") {
                             com.inofarm.jogja.feature.activities.MeasurementDashboard(
                                 runtime, session, greenhouseId, groupId, activity.records, context.lastSyncedAt,
-                                context.message.takeUnless { sessionExpired }
+                                context.message.takeUnless { sessionExpired },
+                                lastKnown = context.check in setOf(ContextCheck.OFFLINE, ContextCheck.FAILED)
                             )
                         }
                         item("worker-day") {
@@ -568,10 +607,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 },
                                 onQueue = { tab = 1 })
                         }
-                    }
-                    if (selectedGreenhouse != null) item("harvest-progress-link") {
-                        FarmActionRow("Progres panen", "Target, hasil tercatat dan hasil terverifikasi", FarmIcon.Report,
-                            Modifier.testTag("worker-harvest-progress-open"), onClick = ::openWorkerHarvestProgress)
                     }
                     if (selectedGroup == null) item("sync") {
                         FarmPanel(title = "Sinkronisasi") {

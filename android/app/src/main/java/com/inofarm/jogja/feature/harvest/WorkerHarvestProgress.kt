@@ -174,27 +174,39 @@ private fun ProgressSummary(data: JSONObject, saved: Boolean, showSources: Boole
     val percent = data.optString("achievement_percent").toBigDecimalOrNull()
     val ratio by animateFloatAsState(((percent?.toFloat() ?: 0f) / 100f).coerceIn(0f, 1f), tween(240), label = "Capaian buah layak")
     var details by rememberSaveable(data.getString("group_id")) { mutableStateOf(false) }
-    FarmPanel(title = data.getString("group")) {
+    Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+        FarmSectionHeading(data.getString("group"))
         Text(listOfNotNull(data.optString("greenhouse"), data.optString("season"),
             data.optString("variety").takeUnless { data.isNull("variety") }).joinToString(" · "))
         if (data.optString("season_status") == "closed") Text("Musim ditutup")
         if (data.optBoolean("completed")) Text("Panen kelompok ditandai selesai")
         Text(if (saved) "Data tersimpan · ${timeLabel(data.getString("as_of"))}"
             else "Diperbarui ${timeLabel(data.getString("as_of"))}", style = MaterialTheme.typography.bodySmall)
-        HorizontalDivider()
-        FarmFact("Hasil layak tercatat", formatHarvestAmount(saleable), prominent = true)
-        if (target == null) Text("Target belum ditetapkan.")
-        else {
-            Text("Target layak ${target.getLong("fruit_count")} buah" +
-                if (target.isNull("weight_kg")) "" else " · ${harvestDecimal(target.getString("weight_kg"))} kg")
-            Text(target.getString("basis"), style = MaterialTheme.typography.bodySmall)
-            if (percent != null) {
-                Text("${harvestDecimal(percent.toPlainString())}% target buah" + if (percent > BigDecimal("100")) " · target terlampaui" else "")
-                LinearProgressIndicator(progress = { ratio }, modifier = Modifier.fillMaxWidth())
-            } else Text(if (data.optInt("records") == 0) "Belum ada panen tercatat."
-                else "Capaian belum lengkap karena kondisi sebagian buah belum diketahui.")
-            data.optString("weight_achievement_percent").toBigDecimalOrNull()?.let {
-                Text("${harvestDecimal(it.toPlainString())}% target bobot")
+        Surface(Modifier.fillMaxWidth(), shape = FarmShape.Card, color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer) {
+            Column(Modifier.padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                    FarmNavigationIcon(3)
+                    Text("Hasil layak tercatat", style = MaterialTheme.typography.titleMedium)
+                }
+                Text(formatHarvestAmount(saleable), style = MaterialTheme.typography.headlineSmall)
+                if (target == null) Text("Target belum ditetapkan.")
+                else {
+                    Text("Target layak ${target.getLong("fruit_count")} buah" +
+                        if (target.isNull("weight_kg")) "" else " · ${harvestDecimal(target.getString("weight_kg"))} kg")
+                    Text(target.getString("basis"), style = MaterialTheme.typography.bodySmall)
+                    if (percent != null) {
+                        Text("${harvestDecimal(percent.toPlainString())}% target buah" +
+                            if (percent > BigDecimal("100")) " · target terlampaui" else "")
+                        LinearProgressIndicator(progress = { ratio }, modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .23f))
+                    } else Text(if (data.optInt("records") == 0) "Belum ada panen tercatat."
+                        else "Capaian belum lengkap karena kondisi sebagian buah belum diketahui.")
+                    data.optString("weight_achievement_percent").toBigDecimalOrNull()?.let {
+                        Text("${harvestDecimal(it.toPlainString())}% target bobot")
+                    }
+                }
             }
         }
         HorizontalDivider()

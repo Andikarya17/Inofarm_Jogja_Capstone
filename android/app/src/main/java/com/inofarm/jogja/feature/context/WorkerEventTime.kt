@@ -61,9 +61,13 @@ internal fun WorkerEventTime(
     var picker by rememberSaveable { mutableStateOf<String?>(null) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
         OutlinedButton(onClick = { picker = "date" }, shape = FarmShape.Control,
-            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("$tag-pick-date")) { Text(dayLabel) }
+            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("$tag-pick-date")) {
+            Text(if (day == null) dayLabel else "Tanggal $dayLabel")
+        }
         OutlinedButton(onClick = { picker = "time" }, shape = FarmShape.Control,
-            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("$tag-pick-time")) { Text(if (clock == null) "Pilih jam" else "$time WIB") }
+            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("$tag-pick-time")) {
+            Text(if (clock == null) "Pilih jam" else "Jam $time WIB")
+        }
     }
     TextButton(onClick = { manual = !manual }, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("$tag-manual-time")) {
         Text(if (manual) "Tutup isian manual" else "Ketik tanggal atau jam")

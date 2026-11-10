@@ -34,6 +34,38 @@ class FinanceBackendDeviceTest {
         rule.waitForFinanceMasterPull()
     }
 
+    @Test fun workerProgressMotionFixtureSession() {
+        val args = InstrumentationRegistry.getArguments()
+        val phase = args.getString("devicePhase")
+        assumeTrue(phase in setOf("worker-motion", "worker-progress-offline", "worker-motion-logout"))
+        val fixture = JSONObject(android.util.Base64.decode(requireNotNull(args.getString("managerHomeFixture")),
+            android.util.Base64.NO_WRAP).toString(Charsets.UTF_8))
+        assertEquals("inofarm_test", fixture.getString("database"))
+        if (phase == "worker-motion") {
+            login(fixture, "worker")
+            rule.captureBotanicalWindow("worker-picker-after")
+            return
+        }
+        val session = runtime().vault.current
+        assertEquals(fixture.getString("worker_id"), session?.scope?.accountId)
+        if (phase == "worker-motion-logout") {
+            rule.logoutFromAccount()
+            return
+        }
+        val greenhouse = fixture.getJSONArray("contexts").getJSONObject(0).getString("greenhouse_id")
+        rule.waitUntil(15_000) { rule.onAllNodesWithTag("finance-home-list").fetchSemanticsNodes().isNotEmpty() }
+        val home = rule.onNodeWithTag("finance-home-list")
+        home.performScrollToNode(hasTestTag("worker-greenhouse-$greenhouse"))
+        rule.onNodeWithTag("worker-greenhouse-$greenhouse").performClick()
+        home.performScrollToNode(hasTestTag("worker-harvest-progress-open"))
+        rule.onNodeWithTag("worker-harvest-progress-open").performClick()
+        rule.waitUntil(25_000) {
+            rule.onAllNodesWithText("Data tersimpan ·", substring = true).fetchSemanticsNodes().isNotEmpty() &&
+                rule.onAllNodesWithText("Hasil layak tercatat").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.captureBotanicalWindow("worker-harvest-progress-offline")
+    }
+
     @Test fun workerHarvestReviewRoundTripThroughGuardedBackend() {
         val args = InstrumentationRegistry.getArguments()
         assumeTrue(args.getString("devicePhase") == "worker-harvest-review")

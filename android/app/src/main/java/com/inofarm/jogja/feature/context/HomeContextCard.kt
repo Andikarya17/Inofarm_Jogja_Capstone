@@ -3,6 +3,7 @@ package com.inofarm.jogja.feature.context
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -39,11 +42,14 @@ import java.util.Locale
 
 internal data class HomeContext(val greenhouse: String? = null, val season: String? = null, val group: String? = null)
 
-internal fun CultivationUiState.workerDefault(greenhouse: JSONObject): HomeContext {
+internal fun CultivationUiState.workerDefault(greenhouse: JSONObject, today: LocalDate = LocalDate.now(ActivityDraft.WIB)): HomeContext {
     val id = greenhouse.getString("id")
     val openSeasons = seasons.filter { it.optString("greenhouse_id") == id && it.optString("status") == "open" }
     val openIds = openSeasons.map { it.getString("id") }.toSet()
-    val candidates = groups.filter { it.optString("season_id") in openIds && it.optBoolean("active", true) }
+    val candidates = groups.filter {
+        it.optString("season_id") in openIds && it.optBoolean("active", true) &&
+            runCatching { LocalDate.parse(it.getString("sowing_date")) <= today }.getOrDefault(false)
+    }
     val preferred = candidates.find { it.optString("id") == greenhouse.optString("running_group_id") }
         ?: candidates.singleOrNull()
     return HomeContext(id, preferred?.getString("season_id") ?: openSeasons.singleOrNull()?.getString("id"),
@@ -57,7 +63,7 @@ internal fun WorkerGreenhouseList(data: CultivationUiState, today: LocalDate, on
     FarmPanel(title = "Greenhouse penugasan") {
         greenhouses.forEachIndexed { index, greenhouse ->
             if (index > 0) FarmRowDivider()
-            val preferred = data.workerDefault(greenhouse)
+            val preferred = data.workerDefault(greenhouse, today)
             val season = data.seasons.find { it.optString("id") == preferred.season }
             val group = data.groups.find { it.optString("id") == preferred.group }
             val active = greenhouse.optBoolean("active", true)
@@ -102,6 +108,7 @@ internal fun HomeContextCard(
     data: CultivationUiState,
     selected: HomeContext,
     today: LocalDate,
+    onOverview: () -> Unit,
     onOpen: () -> Unit
 ) {
     val greenhouses = data.greenhouses.filter { it.optBoolean("active", true) }
@@ -121,9 +128,15 @@ internal fun HomeContextCard(
         ) {
             BoxWithConstraints {
                 val artwork = maxWidth >= 320.dp && LocalDensity.current.fontScale <= 1.3f
-                if (artwork) Image(painterResource(R.drawable.background_dashboard), contentDescription = null,
-                    modifier = Modifier.align(Alignment.TopEnd).width(104.dp).height(110.dp),
-                    contentScale = ContentScale.Crop, alignment = Alignment.TopEnd, alpha = .8f)
+                if (artwork) Box(Modifier.align(Alignment.TopEnd).width(104.dp).height(110.dp)) {
+                    Image(painterResource(R.drawable.background_dashboard), contentDescription = null,
+                        modifier = Modifier.matchParentSize(), contentScale = ContentScale.Crop,
+                        alignment = Alignment.TopEnd, alpha = .8f)
+                    Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
+                        0f to ForestScheme.background, .34f to Color.Transparent)))
+                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(
+                        .58f to Color.Transparent, 1f to ForestScheme.background)))
+                }
                 Column(
                     Modifier.padding(start = FarmSpace.Large, end = if (artwork) 116.dp else FarmSpace.Large,
                         top = FarmSpace.Large, bottom = FarmSpace.Small),
@@ -143,11 +156,18 @@ internal fun HomeContextCard(
                         else -> "Pilih kelompok tanam untuk mulai mencatat."
                     }
                     Text(summary, style = MaterialTheme.typography.bodyMedium, color = ForestScheme.onSurfaceVariant)
-                    TextButton(
-                        onClick = onOpen, shape = FarmShape.Control,
-                        contentPadding = PaddingValues(end = FarmSpace.Large),
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-context-open")
-                    ) { Text(if (greenhouse == null) "Pilihan konteks" else "Ubah konteks") }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                        TextButton(
+                            onClick = onOpen, shape = FarmShape.Control,
+                            contentPadding = PaddingValues(end = FarmSpace.Large),
+                            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-context-open")
+                        ) { Text(if (greenhouse == null) "Pilihan konteks" else "Ubah musim atau kelompok") }
+                        if (greenhouse != null) TextButton(
+                            onClick = onOverview, shape = FarmShape.Control,
+                            contentPadding = PaddingValues(end = FarmSpace.Large),
+                            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("worker-greenhouse-overview")
+                        ) { Text("Daftar greenhouse") }
+                    }
                 }
             }
         }
