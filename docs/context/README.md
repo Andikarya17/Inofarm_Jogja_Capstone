@@ -1,5 +1,9 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+## Penyelarasan visi pengelola, 9 November 2026 (audit dan rencana)
+
+[Audit kebutuhan terbaru terhadap source, Excel dan makalah](MANAGER_VISION_AUDIT_20261109.md) memakai baseline `8d74cba`. Gap utama: inbox verifikasi kegiatan pekerja, target-versus-hasil panen, sebagian pengamatan/acuan Excel, serta kejelasan alur pengelola. Edit email dan reset password sudah ada. [Master prompt perbaikan pengelola](MASTER_PROMPT_MANAGER_ALIGNMENT.md) dan [prompt eksekusi 6.1 Sol](RUN_MANAGER_ALIGNMENT_SOL.md) tersedia. Belum ada perubahan runtime dari task penyusunan ini; usulan kebijakan dalam prompt bukan persetujuan produksi.
+
 ## Pemulihan pencatatan pekerja dan administrasi, 9 November 2026
 
 [Hasil pemulihan dan verifikasi WR-01 sampai WR-13](WORKER_RECORDING_RECOVERY_20261109.md) mencatat kondisi penugasan awal, perbaikan cursor sinkronisasi, formulir pekerja, administrasi, dan hasil pengujian. [Audit awal](WORKER_RECORDING_AUDIT_20261109.md) dan [master prompt](MASTER_PROMPT_WORKER_RECORDING_RECOVERY.md) menjelaskan baseline dan skenario penerimaan.
