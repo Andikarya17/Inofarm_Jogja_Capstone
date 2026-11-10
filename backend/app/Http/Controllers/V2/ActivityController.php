@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V2;
 
 use App\Domain\Activities\ActivityService;
+use App\Domain\Activities\ActivityReviewService;
 use App\Domain\Cultivation\MasterService;
 use App\Domain\Sync\AcceptedSnapshot;
 use App\Domain\Sync\ScopedRead;
@@ -22,6 +23,7 @@ final class ActivityController extends Controller
             $tomorrow = CarbonImmutable::now('Asia/Jakarta')->startOfDay()->addDay()->utc()->format('Y-m-d H:i:s');
             $row = $service->scope($actor)->where('planting_group_id', $input['planting_group_id'])
                 ->where('record_state', 'active')->where('work_state', 'completed')->whereNotNull('manual_ppm')
+                ->whereNotExists(ActivityReviewService::current('invalid'))
                 ->where('occurred_at', '<', $tomorrow)->orderByDesc('occurred_at')->orderByDesc('id')->first();
             return ['data' => $row === null ? null : app(AcceptedSnapshot::class)->read('activity', $row),
                 'calendar' => 'Asia/Jakarta', 'as_of' => CarbonImmutable::now()->toISOString()];

@@ -11,3 +11,7 @@ Dashboard Android memakai seluruh cache dari stable paginated pull, bukan list10
 Tanggal/jam WIB, input manual, actor accepted dari sesi server. Queued create menandai akun ini menunggu penerimaan server; queued koreksi mempertahankan pencatat awal dari accepted server body, termasuk koreksi oleh pengelola lain. Data lama: **Belum ada pengukuran hari ini. Data [tanggal/jam].** Koneksi/data tersimpan dan sinkron terakhir terpisah, tidak mengklaim server paling mutakhir. UI reload saat aktivitas/pull berubah, dan memeriksa cache setiap5detik saat STARTED agar background pull/revoke dan pergantian hari tercermin. Scope/account keys dan session generation mencegah respons akun lama tampil; tidak clear/purge draf.
 
 Server dan Android harus diperbarui bersama sebelum memakai tipe baru. Aplikasi lama masih bisa membaca tipe yang dikenal; rollout source ini bukan izin deploy. Backup inventory lossless mengikutsertakan kolom baru; restore paket schema14 ke target schema15 harus memakai staging/schema yang sesuai dan rekonsiliasi, bukan menurunkan/drop schema.
+
+## Penyelarasan verifikasi 10 November 2026
+
+Endpoint latest mengecualikan keputusan invalid pada versi kegiatan yang sedang aktif, memakai predicate ActivityReviewService yang juga dipakai Beranda pengelola. Jika semua kandidat invalid, data null. Koreksi menjadi revisi baru boleh tampil selama belum dinyatakan invalid. Scope, kalender WIB, tie-break UUID dan pasangan EC/PPM tetap mengikuti aturan di atas.

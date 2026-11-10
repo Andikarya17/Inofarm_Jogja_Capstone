@@ -9,3 +9,7 @@ Branch `codex/local-finance-schema-alignment`. Konfigurasi efektif diperiksa seb
 Cadangan SQL dibuat melalui mysqldump single-transaction, hex-blob, tanpa tablespaces. Berkas lokal privat `outputs/audit-remediation-20261110/before-schema19.sql` berukuran114.163 byte dengan SHA-256 `b65a3d0fc1bf5411a408709b0aab744ea74bae994dacfc87e50fe702ca4a1b40`. Dump selesai diperiksa. Restore cadangan ini belum diuji. Credential tidak dimasukkan ke argumen command, log atau Git.
 
 Migration17,18,19 berhasil. Fingerprint seluruh kolom asli pada52 tabel selain tabel migrations identik sebelum/sesudah, meliputi74 baris. Pemeriksaan registry menemukan14 identitas, nol collision, nol missing/mismatch dan nol UUID invalid. Pembacaan ManagerHome dengan manager lokal berhasil. Hasil terperinci lokal berada di rollout-result.json pada direktori evidence yang sama. DB-01 telah ditutup untuk instance lokal ini. Instalasi lain perlu memeriksa pending migration masing-masing.
+
+## API-03 selesai
+
+Branch codex/measurement-review-filter menggunakan predicate review versi saat ini pada measurements/latest. Regresi meliputi fallback ke catatan lebih lama, semua invalid menjadi null, akses pekerja, dan revisi koreksi pending menjadi kandidat lagi. Guard4 tes/12 assertion dan suite FinanceMeasurementTest/ActivityReviewTest/ManagerHomeTest11 tes/397 assertion lulus pada MySQL inofarm_test.

@@ -1242,446 +1242,446 @@
         }
       }
     },
-      "/activity-reviews": {
-        "get": {
-          "operationId": "get__activity_reviews",
-          "summary": "Antrean verifikasi kegiatan pekerja",
-          "parameters": [
-            {
-              "name": "greenhouse_id",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-              }
-            },
-            {
-              "name": "worker_id",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-              }
-            },
-            {
-              "name": "activity_type",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "enum": [
-                  "measurement",
-                  "nutrition",
-                  "spray",
-                  "general",
-                  "stage"
-                ]
-              }
-            },
-            {
-              "name": "status",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "enum": [
-                  "pending",
-                  "decided",
-                  "valid",
-                  "invalid",
-                  "legacy"
-                ]
-              }
-            },
-            {
-              "name": "from",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "string",
-                "format": "date"
-              }
-            },
-            {
-              "name": "until",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "string",
-                "format": "date"
-              }
-            },
-            {
-              "name": "limit",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 50
-              }
-            },
-            {
-              "name": "cursor",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "string",
-                "maxLength": 512
+    "/activity-reviews": {
+      "get": {
+        "operationId": "get__activity_reviews",
+        "summary": "Antrean verifikasi kegiatan pekerja",
+        "parameters": [
+          {
+            "name": "greenhouse_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "worker_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "activity_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "measurement",
+                "nutrition",
+                "spray",
+                "general",
+                "stage"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "pending",
+                "decided",
+                "valid",
+                "invalid",
+                "legacy"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
               }
             }
-          ],
-          "responses": {
-            "200": {
-              "description": "Berhasil",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "object"
-                  }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            },
-            "401": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            },
-            "403": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            },
-            "404": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            },
-            "409": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            },
-            "422": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post__activity_reviews",
+        "summary": "Simpan keputusan untuk revisi kegiatan",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
           }
         },
-        "post": {
-          "operationId": "post__activity_reviews",
-          "summary": "Simpan keputusan untuk revisi kegiatan",
-          "parameters": [],
-          "responses": {
-            "201": {
-              "description": "Berhasil",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "object"
-                  }
-                }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "activity-review-operation.schema.json"
               }
-            },
-            "401": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "403": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "404": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "409": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "422": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
+            }
+          }
+        }
+      }
+    },
+    "/activity-reviews/recorders": {
+      "get": {
+        "operationId": "get__activity_reviews_recorders",
+        "summary": "Daftar pencatat dalam cakupan verifikasi",
+        "parameters": [
+          {
+            "name": "greenhouse_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
                 }
               }
             }
           },
-          "requestBody": {
-            "required": true,
+          "401": {
+            "description": "Kesalahan terstruktur",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "activity-review-operation.schema.json"
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
           }
         }
-      },
-      "/activity-reviews/recorders": {
-        "get": {
-          "operationId": "get__activity_reviews_recorders",
-          "summary": "Daftar pencatat dalam cakupan verifikasi",
-          "parameters": [
-            {
-              "name": "greenhouse_id",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-              }
-            },
-            {
-              "name": "limit",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 50
-              }
-            },
-            {
-              "name": "cursor",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "string",
-                "maxLength": 512
+      }
+    },
+    "/activities/{id}/verification": {
+      "get": {
+        "operationId": "get__activity_verification",
+        "summary": "Status dan histori verifikasi satu kegiatan",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "activity_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
               }
             }
-          ],
-          "responses": {
-            "200": {
-              "description": "Berhasil",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "object"
-                  }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            },
-            "401": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            },
-            "403": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            },
-            "404": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            },
-            "409": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "422": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
           }
         }
-      },
-      "/activities/{id}/verification": {
-        "get": {
-          "operationId": "get__activity_verification",
-          "summary": "Status dan histori verifikasi satu kegiatan",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-              }
-            },
-            {
-              "name": "activity_version",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 2147483647
-              }
-            },
-            {
-              "name": "limit",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 50
-              }
-            },
-            {
-              "name": "cursor",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "string",
-                "maxLength": 512
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Berhasil",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "object"
-                  }
-                }
-              }
-            },
-            "401": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "403": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "404": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "409": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "422": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
+      }
+    },
     "/activities": {
       "get": {
         "operationId": "get__activities",
@@ -3287,281 +3287,280 @@
         ]
       }
     },
-      "/planting-groups/{id}/harvest-progress": {
-        "get": {
-          "operationId": "get__harvest_progress",
-          "summary": "Rekap target dan hasil panen kelompok",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Berhasil",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "object",
-                    "required": [
-                      "group_id",
-                      "group_version",
-                      "target",
-                      "completion",
-                      "records",
-                      "totals",
-                      "complete_quality",
-                      "achievement_percent",
-                      "difference_fruit"
-                    ],
-                    "properties": {
-                      "group_id": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "group_version": {
-                        "type": "integer",
-                        "minimum": 1
-                      },
-                      "target": {
-                        "type": [
-                          "object",
-                          "null"
-                        ]
-                      },
-                      "completion": {
-                        "type": [
-                          "object",
-                          "null"
-                        ]
-                      },
-                      "records": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "totals": {
-                        "type": "object",
-                        "required": [
-                          "saleable",
-                          "defective",
-                          "unknown"
-                        ]
-                      },
-                      "complete_quality": {
-                        "type": "boolean"
-                      },
-                      "achievement_percent": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      },
-                      "difference_fruit": {
-                        "type": [
-                          "integer",
-                          "null"
-                        ]
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            "401": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "403": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "404": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "409": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "422": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
+    "/planting-groups/{id}/harvest-progress": {
+      "get": {
+        "operationId": "get__harvest_progress",
+        "summary": "Rekap target dan hasil panen kelompok",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
           }
-        }
-      },
-      "/planting-groups/{id}/harvest-completion": {
-        "post": {
-          "operationId": "post__harvest_completion",
-          "summary": "Selesaikan atau buka kembali panen kelompok",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Berhasil",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "object"
-                  }
-                }
-              }
-            },
-            "401": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "403": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "404": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "409": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            },
-            "422": {
-              "description": "Kesalahan terstruktur",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/Error"
-                  }
-                }
-              }
-            }
-          },
-          "requestBody": {
-            "required": true,
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "required": [
-                    "schema_version",
-                    "sync_epoch",
-                    "operation_id",
-                    "entity_id",
-                    "entity_type",
-                    "action",
-                    "base_version",
-                    "payload"
+                    "group_id",
+                    "group_version",
+                    "target",
+                    "completion",
+                    "records",
+                    "totals",
+                    "complete_quality",
+                    "achievement_percent",
+                    "difference_fruit"
                   ],
-                  "additionalProperties": false,
                   "properties": {
-                    "schema_version": {
-                      "const": "2"
-                    },
-                    "sync_epoch": {
+                    "group_id": {
                       "type": "string",
                       "format": "uuid"
                     },
-                    "operation_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "entity_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "entity_type": {
-                      "const": "planting_groups"
-                    },
-                    "action": {
-                      "enum": [
-                        "complete_harvest",
-                        "reopen_harvest"
-                      ]
-                    },
-                    "base_version": {
+                    "group_version": {
                       "type": "integer",
                       "minimum": 1
                     },
-                    "payload": {
+                    "target": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "completion": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "records": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "totals": {
                       "type": "object",
                       "required": [
-                        "reason"
-                      ],
-                      "additionalProperties": false,
-                      "properties": {
-                        "reason": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 1000,
-                          "pattern": "\\S"
-                        }
+                        "saleable",
+                        "defective",
+                        "unknown"
+                      ]
+                    },
+                    "complete_quality": {
+                      "type": "boolean"
+                    },
+                    "achievement_percent": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "difference_fruit": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/planting-groups/{id}/harvest-completion": {
+      "post": {
+        "operationId": "post__harvest_completion",
+        "summary": "Selesaikan atau buka kembali panen kelompok",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "sync_epoch",
+                  "operation_id",
+                  "entity_id",
+                  "entity_type",
+                  "action",
+                  "base_version",
+                  "payload"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "schema_version": {
+                    "const": "2"
+                  },
+                  "sync_epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "entity_type": {
+                    "const": "planting_groups"
+                  },
+                  "action": {
+                    "enum": [
+                      "complete_harvest",
+                      "reopen_harvest"
+                    ]
+                  },
+                  "base_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "payload": {
+                    "type": "object",
+                    "required": [
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000,
+                        "pattern": "\\S"
                       }
                     }
                   }
@@ -3570,7 +3569,8 @@
             }
           }
         }
-      },
+      }
+    },
     "/planting-groups/{id}": {
       "patch": {
         "operationId": "patch_planting_groups_update",
@@ -12744,7 +12744,7 @@
         ],
         "responses": {
           "200": {
-            "description": "data satu accepted activity atau null; EC histori boleh absent/null. occurred_at DESC, id DESC; future calendar day, skipped dan cancelled tidak dipilih."
+            "description": "data satu accepted activity atau null; EC histori boleh absent/null. occurred_at DESC, id DESC; future calendar day, skipped dan cancelled tidak dipilih. Revisi dengan keputusan invalid saat ini dikecualikan; koreksi pending boleh dipilih."
           },
           "401": {
             "description": "Sesi diperlukan"
