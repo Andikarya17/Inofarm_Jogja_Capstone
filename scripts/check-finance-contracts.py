@@ -46,6 +46,16 @@ def inspect(value):
             inspect(child)
 
 inspect(api)
+for name, definition in api['components']['schemas'].items():
+    Draft202012Validator.check_schema(definition)
+for path, operations in api['paths'].items():
+    for method, operation in operations.items():
+        if method not in ('get', 'post', 'patch', 'put', 'delete'):
+            continue
+        for status, response in operation['responses'].items():
+            if status.startswith('2') and status != '204':
+                assert response.get('content'), (method, path, status)
+print('OpenAPI component schemas and non-empty success response contracts: PASS')
 unicode_fixture = json.loads((root / 'fixtures/canonical-unicode.json').read_text(encoding='utf-8'))
 unicode_canonical = json.dumps(unicode_fixture['value'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
 assert hashlib.sha256(unicode_canonical.encode()).hexdigest() == unicode_fixture['canonical_sha256']
