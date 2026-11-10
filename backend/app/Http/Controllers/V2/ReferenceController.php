@@ -50,11 +50,11 @@ final class ReferenceController extends Controller
 
     private function mutate(Request $request, string $table, ReferenceService $service, string $action, ?string $id = null)
     {
-        $rules = ['activity_type' => 'required|in:nutrition,spray,general,stage'];
+        $rules = ['activity_type' => 'required|in:measurement,nutrition,spray,general,stage'];
         if ($table === 'schedules') {
             $rules += ['planned_at' => 'required|date_format:Y-m-d\TH:i:sP', 'notes' => 'present|string|max:2000'];
         } else {
-            $rules += ['parameter' => 'required|in:manual_ppm,manual_ph', 'unit' => 'required|in:ppm,pH',
+            $rules += ['parameter' => 'required|in:manual_ec,manual_ppm,manual_ph', 'unit' => 'required|in:mS/cm,ppm,pH',
                 'effective_from' => 'required|date_format:Y-m-d\TH:i:sP', 'effective_until' => 'present|nullable|date_format:Y-m-d\TH:i:sP'];
             foreach (['target_value', 'minimum', 'maximum', 'tolerance'] as $key) {
                 $rules[$key] = 'present|nullable|string|max:30';

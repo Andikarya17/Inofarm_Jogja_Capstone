@@ -279,7 +279,7 @@ private fun VerificationDetail(
                     entry.optJSONObject("decision")?.let { DecisionFacts(it) }
                 }
             }
-            item { FarmPanel(title = "Catatan aktual") { ActivityFacts(record, session, context) } }
+            item { FarmPanel(title = "Catatan aktual") { ActivityFacts(record, session, context, showComparison = false) } }
             item { ReferenceFacts(activity) }
             if (attachments != null && current) item {
                 OutlinedButton(onClick = { attachments(record) }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
@@ -326,6 +326,10 @@ private fun ReferenceFacts(activity: JSONObject) {
             Text("Acuan belum tersedia.")
         } else {
             Text("Versi kelompok ${snapshot.optInt("planting_group_version")} · pembanding ${snapshot.optString("comparator_version")}")
+            snapshot.optJSONObject("schedule")?.let { schedule ->
+                FarmFact("Jadwal versi ${schedule.optInt("version")}", timeLabel(schedule.optString("planned_at")))
+                schedule.text("notes")?.let { Text(it) }
+            }
             val checks = snapshot.optJSONObject("checks")
             listOf("manual_ec" to "EC", "manual_ppm" to "PPM", "manual_ph" to "pH").forEach { (key, label) ->
                 val check = checks?.optJSONObject(key)
@@ -336,6 +340,16 @@ private fun ReferenceFacts(activity: JSONObject) {
                 FarmFact(label, if (target == null || value == null) "Acuan belum tersedia"
                     else "$value ${target.optString("unit")} · versi ${target.optInt("version")}")
                 target?.text("tolerance")?.let { Text("Toleransi $it ${target.optString("unit")}") }
+                val comparison = when (check?.text("status")) {
+                    "within_range" -> "Dalam rentang acuan"
+                    "outside_range" -> "Di luar rentang acuan"
+                    "delta_only" -> "Selisih ${check.text("delta").orEmpty()}"
+                    else -> "Belum dapat dibandingkan"
+                }
+                Text(comparison, style = MaterialTheme.typography.bodySmall)
+                check?.optJSONArray("reasons")?.let { reasons ->
+                    repeat(reasons.length()) { Text(reasons.getString(it), style = MaterialTheme.typography.bodySmall) }
+                }
             }
         }
     }

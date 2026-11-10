@@ -30,6 +30,7 @@ final class ActivityService
         $recorder = User::findOrFail($row->recorded_by);
         $result['recorded_by'] = $recorder->public_id;
         $result['recorded_by_name'] = $recorder->name;
+        $result['observations'] = $row->observations === null ? null : json_decode($row->observations, true, flags: JSON_THROW_ON_ERROR);
         foreach (['occurred_at', 'created_at', 'updated_at'] as $key) {
             $result[$key] = CarbonImmutable::parse($result[$key], 'UTC')->toISOString();
         }
@@ -84,6 +85,14 @@ final class ActivityService
                     }
                 }
                 $data = array_intersect_key($p, array_flip(['planting_group_id', 'schedule_id', 'activity_type', 'manual_ec', 'manual_ppm', 'manual_ph', 'actual_stage', 'work_state', 'skipped_reason', 'notes']));
+                if (array_key_exists('observations', $p)) {
+                    $observations = array_filter($p['observations'] ?? [], fn ($value) => $value !== null);
+                    $data['observations'] = $observations === [] ? null : json_encode($observations, JSON_THROW_ON_ERROR);
+                }
+                if ($before === null || ($p['reference_policy'] ?? '') === 'refresh' || ($p['schedule_id'] ?? null) !== $before['schedule_id']) {
+                    $schedule = DB::table('schedules')->where('id', $p['schedule_id'] ?? null)->first();
+                    $snapshot['schedule'] = $schedule === null ? null : $this->references->publicRow($schedule);
+                }
                 $data['occurred_at'] = CarbonImmutable::parse($p['occurred_at'])->utc()->format('Y-m-d H:i:s.u');
                 foreach (['schedule_id', 'manual_ec', 'manual_ppm', 'manual_ph', 'actual_stage', 'skipped_reason'] as $key) {
                     $data[$key] = $data[$key] ?? null;
@@ -114,6 +123,16 @@ final class ActivityService
     {
         foreach (['manual_ec', 'manual_ppm', 'manual_ph'] as $key) {
             $this->nonNegative($p[$key] ?? null, $key);
+        }
+        foreach (['dissolved_oxygen_mg_l', 'plant_height_cm', 'leaf_width_cm'] as $field) {
+            $this->nonNegative($p['observations'][$field] ?? null, 'observations.'.$field);
+        }
+        if (isset($p['observations']['water_temperature_c'])) {
+            try {
+                DecimalValue::parse($p['observations']['water_temperature_c']);
+            } catch (InvalidArgumentException $e) {
+                throw ValidationException::withMessages(['observations.water_temperature_c' => $e->getMessage()]);
+            }
         }
         abort_if(isset($p['manual_ph']) && bccomp($p['manual_ph'], '14', 6) > 0, 422, 'pH harus 0 sampai 14.');
         foreach ($p['materials'] as $item) {

@@ -27,11 +27,11 @@ enum class AdminResource(val path:String,val kind:String,val label:String) {
             }
             SCHEDULE,TARGET -> {
                 if(!update) add(AdminField("planting_group_id","Kelompok tanam",source="planting-groups"))
-                add(AdminField("activity_type","Jenis kegiatan",choices=mapOf("nutrition" to "Nutrisi","spray" to "Penyemprotan","general" to "Pekerjaan umum","stage" to "Stadia")))
+                add(AdminField("activity_type","Jenis kegiatan",choices=mapOf("measurement" to "Pengukuran manual","nutrition" to "Nutrisi","spray" to "Penyemprotan","general" to "Pekerjaan umum","stage" to "Stadia")))
                 if(this@AdminResource==SCHEDULE) {add(AdminField("planned_at","Waktu rencana",type="timestamp"));add(AdminField("notes","Catatan",true))}
                 else {
-                    add(AdminField("parameter","Parameter",choices=mapOf("manual_ppm" to "PPM manual","manual_ph" to "pH manual")))
-                    add(AdminField("unit","Satuan",choices=mapOf("ppm" to "ppm","pH" to "pH")))
+                    add(AdminField("parameter","Parameter",choices=mapOf("manual_ec" to "EC manual","manual_ppm" to "PPM manual","manual_ph" to "pH manual")))
+                    add(AdminField("unit","Satuan",choices=mapOf("mS/cm" to "mS/cm","ppm" to "ppm","pH" to "pH")))
                     add(AdminField("effective_from","Mulai berlaku",type="timestamp"));add(AdminField("effective_until","Akhir berlaku",true,type="timestamp"))
                     listOf("target_value" to "Nilai target","minimum" to "Batas minimum","maximum" to "Batas maksimum","tolerance" to "Toleransi").forEach { (key,label) -> add(AdminField(key,label,true,type="decimal")) }
                 }
@@ -87,7 +87,10 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
             if(has(from) && has(until) && !isNull(until)) require(getString(until)>=getString(from)) {"Tanggal akhir/pindah tidak boleh sebelum tanggal mulai/semai."}
         }
         if(has("effective_from") && has("effective_until") && !isNull("effective_until")) require(OffsetDateTime.parse(getString("effective_until")).toInstant()>OffsetDateTime.parse(getString("effective_from")).toInstant()) {"Akhir berlaku harus sesudah awal."}
-        if(resource==AdminResource.TARGET) require((getString("parameter")=="manual_ppm" && getString("unit")=="ppm") || (getString("parameter")=="manual_ph" && getString("unit")=="pH")) {"Satuan harus sesuai parameter PPM/pH."}
+        if (resource == AdminResource.TARGET) {
+            val unit = mapOf("manual_ec" to "mS/cm", "manual_ppm" to "ppm", "manual_ph" to "pH").getValue(getString("parameter"))
+            require(getString("unit") == unit) { "Satuan parameter ini harus $unit." }
+        }
         if(resource==AdminResource.USER) {
             require(getString("email").matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))) {"Format email belum sesuai."}
             require(version!=null || password.length>=12) {"Password akun baru minimal 12 karakter."}

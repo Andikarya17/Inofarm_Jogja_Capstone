@@ -17,3 +17,7 @@ Scope terkini menyertakan greenhouse nonaktif untuk histori. Klien menyembunyika
 History paginated order occurred_at/id descending dengan cursor Laravel; filters group/type/from/until kalender WIB; batal tetap dapat ditelusuri. Audit cursor integer default50/max100. Receipt/draft retention tidak dipurge otomatis. Status accepted menunjukkan penerimaan server, bukan kesesuaian agronomi atau kelengkapan transaksi.
 
 Uji concurrency tambahan `php scripts/test-finance-concurrency.php` memakai dua proses/koneksi MySQL inofarm_test dan file barrier; membersihkan hanya fixture UUID/actor miliknya. Tidak membuka SQL sebelum TestDatabaseGuard. Tidak menjalankan script terhadap database pengguna.
+
+## Pengamatan lapangan opsional
+
+Payload aktivitas menerima `observations` dengan DO `dissolved_oxygen_mg_l`, suhu air `water_temperature_c`, tinggi `plant_height_cm`, lebar `leaf_width_cm` (desimal string), `leaf_count` (integer helai), dan `sample_basis` (teks maksimum 500 karakter). Kosong tidak menghasilkan nol. Pada koreksi, field observations yang tidak dikirim mempertahankan nilai lama. Kirim null untuk mengosongkan. Snapshot baru merekam versi jadwal yang ditautkan saat dipilih atau di-refresh secara eksplisit.

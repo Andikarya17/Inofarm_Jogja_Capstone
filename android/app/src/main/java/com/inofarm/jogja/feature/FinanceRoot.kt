@@ -50,6 +50,7 @@ import com.inofarm.jogja.core.cultivation.PlantAge
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.activities.ActivityUiState
 import com.inofarm.jogja.feature.activities.ActivityViewModel
+import com.inofarm.jogja.feature.activities.domain.ObservationField
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.activities.domain.MaterialDraft
@@ -283,6 +284,25 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val selectedGroup = context.groups.find { it.optString("id") == group && it.optString("season_id") == season && it.optBoolean("active", true) }
     var contextSheet by rememberSaveable { mutableStateOf<String?>(null) }
     var contextChange by rememberSaveable { mutableStateOf<String?>(null) }
+    var managerActivityPicker by rememberSaveable { mutableStateOf(false) }
+    var entryGreenhouse by rememberSaveable { mutableStateOf<String?>(null) }
+    var entrySeason by rememberSaveable { mutableStateOf<String?>(null) }
+    var entryGroup by rememberSaveable { mutableStateOf<String?>(null) }
+    if (managerActivityPicker) WorkerContextSheet(
+        context, HomeContext(entryGreenhouse, entrySeason, entryGroup), "Catat kegiatan",
+        onSelect = { entryGreenhouse = it.greenhouse; entrySeason = it.season; entryGroup = it.group },
+        onClose = { managerActivityPicker = false },
+        onContinue = {
+            val parent = entryGreenhouse
+            val plantingGroup = entryGroup
+            if (parent != null && plantingGroup != null) {
+                managerActivityPicker = false
+                vm.new(parent, plantingGroup)
+            }
+        },
+        onSync = onSync,
+        onSetup = { managerActivityPicker = false; onAdmin() }
+    )
     LaunchedEffect(context.lastSyncedAt, context.greenhouses, context.seasons, context.groups) {
         if (!manager && (context.lastSyncedAt != null || context.greenhouses.isNotEmpty())) {
             if (gh != null && selectedGreenhouse == null) {
@@ -551,15 +571,20 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         kind=if (isActivity) OperationalKind.ACTIVITY else OperationalKind.HARVEST,
                         onRecord={
                             if (!manager) recordWorker(if (isActivity) "activity" else "harvest")
-                            else if (!canRecord) tab=0
+                            else if (isActivity && !canRecord) {
+                                entryGreenhouse = gh
+                                entrySeason = null
+                                entryGroup = null
+                                managerActivityPicker = true
+                            } else if (!canRecord) tab=0
                             else {
                                 if (isActivity) vm.new(gh!!, runningGroup!!, runningPeriodVersion = runningVersion)
                                 else harvestVm.new(gh!!, runningGroup!!, runningVersion)
                             }
                         },
                         recordLabel=when {
-                            manager && !canRecord -> "Lihat konteks di Beranda"
                             isActivity -> "Catat kegiatan"
+                            manager && !canRecord -> "Lihat konteks di Beranda"
                             else -> "Catat panen"
                         },
                         recordScope=if (canRecord && manager) listOfNotNull(homeSnapshot?.selected?.text("name"),homeSnapshot?.period?.text("season_name")).joinToString(" · ")
@@ -693,11 +718,27 @@ internal fun ExpiredSessionNotice() {
             state.errors["materials"]?.let { Notice(it,true) }
             }
         }
+        var observationsOpen by rememberSaveable(draft.id) { mutableStateOf(draft.observations.values.any { it.isNotBlank() }) }
         FarmSection(title = "Catatan lapangan") {
             if(draft.type==ActivityType.GENERAL) Text(
-                "Untuk pengamatan tanaman, tulis tinggi dan lebar daun (cm) serta jumlah daun (helai). Catat DO (mg/L), suhu air (°C), atau pekerjaan seperti polinasi dan seleksi buah bila relevan.",
+                "Jelaskan pekerjaan seperti persemaian, kebersihan, polinasi, seleksi buah, atau penanganan hama.",
                 style=MaterialTheme.typography.bodySmall
             )
+            TextButton(onClick = { observationsOpen = !observationsOpen }, modifier = Modifier.heightIn(min = FarmSpace.Touch)
+                .testTag("activity-observations")) {
+                Text(if (observationsOpen) "Tutup isian pengamatan" else "Tambah pengamatan (opsional)")
+            }
+            if (observationsOpen) ObservationField.entries.forEach { field ->
+                val label = if (field.unit.isBlank()) field.label else "${field.label} (${field.unit})"
+                val keyboard = when (field) {
+                    ObservationField.LEAF_COUNT -> KeyboardType.Number
+                    ObservationField.SAMPLE_BASIS -> KeyboardType.Text
+                    else -> KeyboardType.Decimal
+                }
+                FinanceField(label, draft.observations[field].orEmpty(),
+                    { value -> vm.edit { it.copy(observations = it.observations + (field to value)) } },
+                    "activity-${field.wire}", state.errors["observations.${field.wire}"], keyboard)
+            }
             FinanceField("Keterangan pekerjaan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"finance-notes",state.errors["notes"],singleLine=false)
         }
         if(draft.baseVersion!=null) {
@@ -736,6 +777,7 @@ internal fun ExpiredSessionNotice() {
                 val unit=context.units.find {it.optString("id")==item.unitId}?.optString("name").orEmpty()
                 FarmFact(name, "${item.quantity} $unit".trim())
             }
+            ObservationFacts(draft)
             if (draft.notes.isNotBlank()) FarmFact("Keterangan", draft.notes)
             if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi", draft.reason)
         }
@@ -761,7 +803,13 @@ internal fun ExpiredSessionNotice() {
         }
     }
 }
-@Composable internal fun ActivityFacts(record:LocalRecord,session:FinanceSession,context:CultivationUiState) {
+@Composable private fun ObservationFacts(draft: ActivityDraft) {
+    draft.observations.filterValues { it.isNotBlank() }.forEach { (field, value) ->
+        FarmFact(field.label, "$value ${field.unit}".trim())
+    }
+}
+
+@Composable internal fun ActivityFacts(record:LocalRecord,session:FinanceSession,context:CultivationUiState, showComparison: Boolean = true) {
         if(record.body.optString("record_state")=="cancelled") Text("Dibatalkan",color=MaterialTheme.colorScheme.error)
         val shown=runCatching {ActivityDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion)}.getOrNull()
         shown?.let { draft ->
@@ -773,6 +821,7 @@ internal fun ExpiredSessionNotice() {
             if(draft.ph.isNotBlank()) Text("pH manual: ${draft.ph}")
             if(draft.stage.isNotBlank()) Text("Stadia aktual: ${draft.stage}")
             draft.materials.forEach { material -> Text("${context.materials.find {it.optString("id")==material.materialId}?.optString("name") ?: "Bahan ${material.materialId.take(8)}"}: ${material.quantity} ${context.units.find {it.optString("id")==material.unitId}?.optString("name").orEmpty()}") }
+            ObservationFacts(draft)
             Text(draft.notes)
         } ?: Text(record.body.optString("notes"))
         val recorder=record.body.optString("recorded_by_name").ifBlank {record.serverBody?.optString("recorded_by_name").orEmpty()}.ifBlank {
@@ -783,7 +832,7 @@ internal fun ExpiredSessionNotice() {
         val snapshot=record.body.optJSONObject("reference_snapshot")
         snapshot?.let { snap -> val age=snap.optJSONObject("age");Text("HSS ${if(age?.isNull("hss")==false) age.optString("hss") else "belum tersedia"} · HST ${if(age?.isNull("hst")==false) age.optString("hst") else "belum berlaku"}")
             age?.optJSONArray("reasons")?.let { a -> repeat(a.length()) {Text(a.getString(it))} }
-            snap.optJSONObject("checks")?.let { checks -> checks.keys().forEach { parameter -> val check=checks.getJSONObject(parameter);Text("${when(parameter) {"manual_ec" -> "EC";"manual_ppm" -> "PPM";else -> "pH"}}: ${when(check.optString("status")) {"delta_only" -> "selisih ${check.optString("delta")}";"within_range" -> "dalam rentang";"outside_range" -> "di luar rentang";else -> "belum dapat dibandingkan"}}")
+            if (showComparison) snap.optJSONObject("checks")?.let { checks -> checks.keys().forEach { parameter -> val check=checks.getJSONObject(parameter);Text("${when(parameter) {"manual_ec" -> "EC";"manual_ppm" -> "PPM";else -> "pH"}}: ${when(check.optString("status")) {"delta_only" -> "selisih ${check.optString("delta")}";"within_range" -> "dalam rentang";"outside_range" -> "di luar rentang";else -> "belum dapat dibandingkan"}}")
                 check.optJSONArray("reasons")?.let { a -> repeat(a.length()) {Text(a.getString(it),style=MaterialTheme.typography.bodySmall)} } } }
         }
 }

@@ -3,6 +3,7 @@ package com.inofarm.jogja
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.activities.domain.MaterialDraft
+import com.inofarm.jogja.feature.activities.domain.ObservationField
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.UUID
@@ -32,5 +33,19 @@ class ActivityDraftTest {
         val restored=ActivityDraft.from(UUID.randomUUID().toString(),gh,payload,1)
         assertEquals("08:00:35",restored.time)
         assertEquals("2026-10-29T08:00:35+07:00",restored.copy(reason="Koreksi catatan").payload().getString("occurred_at"))
+    }
+    @Test fun optionalObservationsKeepLocaleDraftAndUseTypedWireValues() {
+        val draft = nutrition().copy(observations = mapOf(
+            ObservationField.OXYGEN to "6,25", ObservationField.LEAF_COUNT to "0",
+            ObservationField.WATER_TEMPERATURE to "", ObservationField.SAMPLE_BASIS to "Tiga tanaman"
+        ))
+        assertEquals(draft, ActivityDraft.from(draft.id, gh, draft.localJson(), null))
+        val values = draft.payload().getJSONObject("observations")
+        assertEquals("6.25", values.getString("dissolved_oxygen_mg_l"))
+        assertEquals(0, values.getInt("leaf_count"))
+        assertFalse(values.has("water_temperature_c"))
+        assertFalse(nutrition().payload().has("observations"))
+        assertTrue(draft.copy(observations = mapOf(ObservationField.LEAF_COUNT to "1,5"))
+            .validation().containsKey("observations.leaf_count"))
     }
 }
