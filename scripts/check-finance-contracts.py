@@ -161,3 +161,19 @@ for key,value in [('role','owner'),('id','invalid'),('version',0),('password','f
     bad=json.loads(json.dumps(status));bad['user'][key]=value
     assert not status_validator.is_valid(bad)
 print('FIN16 sync profile: public identity, role, version and credential exclusion PASS')
+
+review_schema = json.loads((root / 'activity-review-operation.schema.json').read_text(encoding='utf-8'))
+Draft202012Validator.check_schema(review_schema)
+review_validator = Draft202012Validator(review_schema, format_checker=wire_formats)
+review_operation = {
+    **fixture['operation'],
+    'entity_type': 'activity_review',
+    'payload': {'activity_id': fixture['operation']['entity_id'], 'activity_version': 1,
+                'decision': 'invalid', 'reason': 'Periksa satuan.'},
+}
+review_validator.validate(review_operation)
+for patch in ({'activity_version': '1'}, {'reason': '   '}, {'reason': None}, {'decision': 'pending'}, {'reviewer_id': review_operation['entity_id']}):
+    assert not review_validator.is_valid({**review_operation, 'payload': {**review_operation['payload'], **patch}}), patch
+assert not review_validator.is_valid({**review_operation, 'base_version': 1})
+review_validator.validate({**review_operation, 'payload': {'activity_id': fixture['operation']['entity_id'], 'activity_version': 1, 'decision': 'valid'}})
+print('PG1 review envelope, parent revision, required reason and forged reviewer checks: PASS')

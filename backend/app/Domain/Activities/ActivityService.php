@@ -92,7 +92,7 @@ final class ActivityService
             $data['version'] = $before === null ? 1 : $before['version'] + 1;
             $data['updated_at'] = now();
             if ($before === null) {
-                DB::table('activities')->insert([...$data, 'id' => $op['entity_id'], 'recorded_by' => $current->id, 'created_at' => now()]);
+                DB::table('activities')->insert([...$data, 'id' => $op['entity_id'], 'recorded_by' => $current->id, 'recorded_by_role' => $current->role, 'created_at' => now()]);
             } else {
                 DB::table('activities')->where('id', $op['entity_id'])->update($data);
             }

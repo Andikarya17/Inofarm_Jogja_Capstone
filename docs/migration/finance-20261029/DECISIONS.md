@@ -1,5 +1,10 @@
 # Decision register target baru
 
+## Keputusan penyelarasan pengelola, 10 November 2026
+
+- Kartu EC/PPM boleh menampilkan catatan pekerja yang sudah diterima server dan belum diperiksa dengan label **Belum diverifikasi**. Catatan tidak valid tetap tersedia di riwayat.
+- Pencatat memilih **layak** atau **cacat** per rincian panen. Grade yang sama dapat memiliki klasifikasi berbeda di panen lain.
+
 ## Keputusan terkini yang direkonsiliasi, 8 November 2026
 
 Ringkasan keputusan berikut berasal dari chat proyek yang dibaca pada [audit serah terima](../../context/DOCUMENTATION_AUDIT_20261108.md), dibandingkan dengan source/kontrak. Bukan persetujuan baru terhadap seluruh Q terbuka.

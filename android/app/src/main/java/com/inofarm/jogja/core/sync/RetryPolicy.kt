@@ -8,7 +8,7 @@ object RetryPolicy {
         error.status == 401 -> SyncState.AUTH_REQUIRED
         error.status == 403 || error.status == 404 -> SyncState.SCOPE_REVOKED
         error.code == "epoch_mismatch" -> SyncState.EPOCH_REVIEW
-        error.code == "version_conflict" -> SyncState.CONFLICT
+        error.code in setOf("version_conflict", "activity_revision_changed", "activity_already_reviewed") -> SyncState.CONFLICT
         error.status == 429 || error.status >= 500 -> SyncState.QUEUED
         else -> SyncState.REJECTED
     }

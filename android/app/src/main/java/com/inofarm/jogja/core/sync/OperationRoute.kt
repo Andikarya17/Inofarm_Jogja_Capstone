@@ -21,6 +21,10 @@ data class OperationRoute(val path:String,val method:String) {
                 else -> OperationRoute("harvests/$id/cancel","POST")
             }
             require(role==UserRole.MANAGER) {"Perubahan ini hanya untuk pengelola."}
+            if (kind == "activity_review") {
+                require(action == "create") { "Keputusan verifikasi tersimpan per revisi kegiatan." }
+                return OperationRoute("activity-reviews", "POST")
+            }
             if(kind in setOf("season_report","investment_report")) {
                 require(action=="create") {"Laporan immutable. Buat evaluasi baru untuk revisi."}
                 return OperationRoute(if(kind=="season_report") "season-reports" else "investment-reports","POST")

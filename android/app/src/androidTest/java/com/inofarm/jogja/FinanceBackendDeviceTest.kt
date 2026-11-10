@@ -103,6 +103,124 @@ class FinanceBackendDeviceTest {
             JSONObject().put("greenhouse", gh).put("group", group).put("measurement", measurement)
                 .put("expense", expense).put("worker_http_status", 403).put("payments", "100.01").toString(2))
     }
+    @Test fun managerVerifiesWorkerRevisionsThroughGuardedBackend() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase") == "activity-verification")
+        val encoded = requireNotNull(InstrumentationRegistry.getArguments().getString("managerHomeFixture"))
+        val fixture = JSONObject(android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP).toString(Charsets.UTF_8))
+        assertEquals("inofarm_test", fixture.getString("database"))
+        val first = fixture.getJSONArray("contexts").getJSONObject(0)
+        val model = runtime()
+        val note = "Verifikasi sintetis ${UUID.randomUUID()}"
+        fun waitFor(tag: String) = rule.waitUntil(20_000) { rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+        fun read(path: String): JSONObject {
+            val session = model.vault.current!!
+            return runBlocking { model.api.request(session.scope.server, session.token, path) }
+        }
+
+        login(fixture, "worker")
+        choose("finance-gh", first.getString("greenhouse_id"))
+        choose("finance-season", first.getString("season_id"))
+        choose("finance-group", first.getString("group_id"))
+        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("finance-measurement-new"))
+        rule.onNodeWithTag("finance-measurement-new").performClick()
+        rule.onNodeWithTag("finance-ec").performScrollTo().performTextReplacement("1,25")
+        rule.onNodeWithTag("finance-ppm").performScrollTo().performTextReplacement("625,5")
+        rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement(note)
+        hideKeyboard()
+        rule.onNodeWithTag("finance-review").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        val worker = model.vault.current!!
+        fun workerOperation() = model.store.outbox(worker.scope.key).firstOrNull {
+            it.envelope.optJSONObject("payload")?.optString("notes") == note
+        }
+        rule.waitUntil(20_000) { workerOperation()?.state == "ACCEPTED" }
+        val original = workerOperation()!!
+        val activity = original.entityId
+
+        fun openReview() {
+            rule.selectFinanceTab(1)
+            waitFor("activity-verification-list")
+            val tag = "verification-activity-$activity"
+            rule.waitUntil(20_000) {
+                runCatching { rule.onNodeWithTag("activity-verification-list").performScrollToNode(hasTestTag(tag)) }.isSuccess
+            }
+            rule.onNodeWithTag(tag).performClick()
+            waitFor("activity-verification-detail")
+        }
+
+        fun decide(choice: String, reason: String? = null) {
+            val detail = rule.onNodeWithTag("activity-verification-detail")
+            rule.waitUntil(20_000) {
+                runCatching { detail.performScrollToNode(hasTestTag("verification-decision")) }.isSuccess
+            }
+            rule.onNodeWithTag("verification-decision").performClick()
+            rule.onNodeWithTag("verification-decision-option-$choice").performClick()
+            if (reason != null) {
+                detail.performScrollToNode(hasTestTag("verification-reason"))
+                rule.onNodeWithTag("verification-reason").performTextReplacement(reason)
+                hideKeyboard()
+            }
+            detail.performScrollToNode(hasTestTag("verification-review"))
+            rule.onNodeWithTag("verification-review").performClick()
+            rule.onNodeWithTag("verification-submit").performClick()
+        }
+
+        login(fixture, "manager")
+        openReview()
+        rule.captureBotanicalWindow("pg1-manager-review")
+        val reason = "Periksa satuan pada versi pertama."
+        decide("invalid", reason)
+        val manager = model.vault.current!!
+        rule.waitUntil(20_000) { model.store.outbox(manager.scope.key).any {
+            it.envelope.optString("entity_type") == "activity_review" && it.state == "ACCEPTED" &&
+                it.envelope.getJSONObject("payload").optString("activity_id") == activity
+        } }
+        val decisionOp = model.store.outbox(manager.scope.key).first {
+            it.envelope.optString("entity_type") == "activity_review" &&
+                it.envelope.getJSONObject("payload").optString("activity_id") == activity
+        }
+        val replay = runBlocking { model.api.request(manager.scope.server, manager.token, "activity-reviews", "POST", decisionOp.envelope) }
+        assertEquals(decisionOp.id, replay.getString("operation_id"))
+        rule.captureBotanicalWindow("pg1-manager-decision")
+        androidx.test.espresso.Espresso.pressBack()
+        waitFor("activity-verification-list")
+        rule.onNodeWithTag("activity-verification-list").performScrollToNode(hasTestTag("verification-outbox"))
+        rule.onNodeWithTag("verification-outbox").performClick()
+        rule.onNodeWithTag("finance-queue-list").assertIsDisplayed()
+
+        login(fixture, "worker")
+        val currentWorker = model.vault.current!!
+        val path = "activities/$activity/verification"
+        assertEquals(reason, read(path).getJSONObject("decision").getString("reason"))
+        rule.selectFinanceTab(2)
+        rule.waitUntil(20_000) { rule.onAllNodesWithText(note).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText(note).performClick()
+        rule.onNodeWithText(reason).performScrollTo().assertIsDisplayed()
+        rule.captureBotanicalWindow("pg1-worker-feedback")
+        val payload = JSONObject(original.envelope.getJSONObject("payload").toString()).put("manual_ppm", "630")
+            .put("reason", "Koreksi uji").put("reference_policy", "preserve")
+        val correction = JSONObject(original.envelope.toString()).put("operation_id", UUID.randomUUID().toString())
+            .put("action", "update").put("base_version", 1).put("payload", payload)
+        val updated = runBlocking { model.api.request(currentWorker.scope.server, currentWorker.token, "sync/operations", "POST", correction) }
+        assertEquals(2, updated.getInt("version"))
+        assertEquals("pending", read(path).getString("status"))
+
+        login(fixture, "manager")
+        openReview()
+        decide("valid")
+        rule.waitUntil(20_000) { model.store.outbox(model.vault.current!!.scope.key).any {
+            it.envelope.optString("entity_type") == "activity_review" && it.state == "ACCEPTED" &&
+                it.envelope.getJSONObject("payload").optString("activity_id") == activity &&
+                it.envelope.getJSONObject("payload").optLong("activity_version") == 2L
+        } }
+        val checked = read(path)
+        assertEquals("valid", checked.getString("status"))
+        assertEquals(2, checked.getJSONArray("history").length())
+        assertEquals("invalid", checked.getJSONArray("history").getJSONObject(1).getString("decision"))
+        File(botanicalEvidenceDirectory(context), "pg1-reconciliation.json").writeText(checked.toString(2))
+        rule.logoutFromAccount()
+    }
+
     private fun choose(tag:String,id:String) {
         rule.prepareChoice(tag)
         rule.waitUntil(10000) {rule.onAllNodesWithTag(tag).fetchSemanticsNodes().size==1}

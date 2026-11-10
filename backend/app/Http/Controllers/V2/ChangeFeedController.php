@@ -14,7 +14,8 @@ final class ChangeFeedController extends Controller
 {
     public function __invoke(Request $request, GreenhouseAccess $access, ChangeCursor $cursor)
     {
-        $input = $request->validate(['cursor' => 'nullable|string|max:1024', 'limit' => 'sometimes|integer|min:1|max:100']);
+        $input = $request->validate(['cursor' => 'nullable|string|max:1024', 'limit' => 'sometimes|integer|min:1|max:100',
+            'activity_reviews' => 'sometimes|in:1']);
 
         return DB::transaction(function () use ($request, $input, $access, $cursor) {
             $epoch = DB::table('sync_state')->where('id', 1)->lockForUpdate()->value('epoch');
@@ -28,7 +29,8 @@ final class ChangeFeedController extends Controller
             $scope = $access->query($actor)->orderBy('id')->limit(1001)->get(['id', 'active', 'version']);
             abort_if($scope->count() > 1000, 422, 'Scope terlalu besar untuk protokol ini; hubungi pengelola.');
             $ids = $scope->pluck('id')->all();
-            $scopeKey = hash('sha256', $actor->role.'|'.implode(',', $ids));
+            $reviewSupport = isset($input['activity_reviews']);
+            $scopeKey = hash('sha256', $actor->role.'|'.implode(',', $ids).($reviewSupport ? '|activity_reviews' : ''));
             $position = isset($input['cursor']) ? $cursor->decode($input['cursor'], $actor, $epoch) : [];
             if (($position['scope'] ?? null) !== $scopeKey) {
                 // Previously invisible master records can predate the client's cursor.
@@ -37,8 +39,16 @@ final class ChangeFeedController extends Controller
             $upper = $position['upper'] ?? (int) (DB::table('change_feed')->max('sequence') ?? 0);
             $limit = (int) ($input['limit'] ?? 50);
             $q = DB::table('change_feed')->whereIn('greenhouse_id', $ids)->where('sequence', '>', $position['after'])->where('sequence', '<=', $upper);
-            if ($actor->role !== 'manager') {
+            if (! $reviewSupport) {
+                $q->where('entity_type', '!=', 'activity_review');
+            }
+            if ($actor->role !== 'manager' && ! $reviewSupport) {
                 $q->where('audience', 'all');
+            } elseif ($actor->role !== 'manager') {
+                $ownReviews = DB::table('activity_reviews')->join('activities', 'activities.id', '=', 'activity_reviews.activity_id')
+                    ->where('activities.recorded_by', $actor->id)->select('activity_reviews.id');
+                $q->where(fn ($query) => $query->where('audience', 'all')->orWhere(fn ($review) => $review
+                    ->where('audience', 'activity_recorder')->where('entity_type', 'activity_review')->whereIn('entity_id', $ownReviews)));
             }
             $rows = $q->orderBy('sequence')->limit($limit + 1)->get();
             $more = $rows->count() > $limit;

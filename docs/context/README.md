@@ -1,5 +1,9 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+## Eksekusi penyelarasan pengelola, 10 November 2026
+
+[Checkpoint PG0–PG7](MANAGER_ALIGNMENT_EVIDENCE_20261110.md) mencatat perubahan, keputusan pengguna, verifikasi dan batas tiap fase. Audit 9 November tetap sebagai baseline.
+
 ## Penyelarasan visi pengelola, 9 November 2026 (audit dan rencana)
 
 [Audit kebutuhan terbaru terhadap source, Excel dan makalah](MANAGER_VISION_AUDIT_20261109.md) memakai baseline `8d74cba`. Gap utama: inbox verifikasi kegiatan pekerja, target-versus-hasil panen, sebagian pengamatan/acuan Excel, serta kejelasan alur pengelola. Edit email dan reset password sudah ada. [Master prompt perbaikan pengelola](MASTER_PROMPT_MANAGER_ALIGNMENT.md) dan [prompt eksekusi 6.1 Sol](RUN_MANAGER_ALIGNMENT_SOL.md) tersedia. Belum ada perubahan runtime dari task penyusunan ini; usulan kebijakan dalam prompt bukan persetujuan produksi.
