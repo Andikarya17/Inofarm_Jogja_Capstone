@@ -25,6 +25,30 @@ class FinanceMeasurementStoreTest {
         store.applyPull("a",page(JSONArray().put(row)))
     }
     private fun latest()=store.latestMeasurement("a",gh,group,today)
+    @Test fun workerFallsBackAfterReviewAndReconsidersTheCorrectedRevision() {
+        store.initialize("a",epoch,UserRole.WORKER)
+        val older=UUID.randomUUID().toString()
+        val newer=UUID.randomUUID().toString()
+        accept(older,body("2026-11-01T23:59:59+07:00"))
+        accept(newer,body("2026-11-02T00:00:00+07:00","1.8","850"))
+        assertEquals(newer,latest()!!.id)
+        fun invalidate(activity: String) {
+            val id=UUID.randomUUID().toString()
+            val review=JSONObject().put("id",id).put("version",1).put("activity_id",activity)
+                .put("activity_version",1).put("decision","invalid")
+            val row=JSONObject().put("entity_type","activity_review").put("entity_id",id).put("greenhouse_id",gh)
+                .put("version",1).put("tombstone",false).put("data",review)
+            store.applyPull("a",page(JSONArray().put(row)))
+        }
+        invalidate(newer)
+        assertEquals(older,latest()!!.id)
+        invalidate(older)
+        assertNull(latest())
+        accept(newer,body("2026-11-02T00:00:00+07:00","1.3","620").put("recorded_by_role","worker"),2)
+        assertEquals("1.3",latest()!!.ec)
+        assertEquals("620",latest()!!.ppm)
+        assertNull(store.latestMeasurement("a",gh,group,today.minusDays(1)))
+    }
     @Test fun fallbackTieDelayedSyncCorrectionCancellationAndWholeCache() {
         assertNull(latest());val old=UUID.randomUUID().toString();accept(old,body("2026-10-28T08:00:00+07:00"));assertEquals(old,latest()!!.id)
         val yesterday=UUID.randomUUID().toString();accept(yesterday,body("2026-11-01T23:59:00+07:00"));assertEquals(yesterday,latest()!!.id)

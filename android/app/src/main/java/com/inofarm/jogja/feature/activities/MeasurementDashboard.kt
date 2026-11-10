@@ -110,7 +110,7 @@ internal fun MeasurementSource(
     pair: ManualMeasurement?, today: LocalDate, offline: Boolean, syncedAt: Long?, syncMessage: String?,
     snapshotSource: Boolean = false,
 ) {
-    var expanded by rememberSaveable(pair?.id) { mutableStateOf(false) }
+    var expanded by rememberSaveable(pair?.id, pair?.at) { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
     Surface(shape = FarmShape.Control, color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)) {
         Column(Modifier.fillMaxWidth().animateContentSize(tween(200)).padding(horizontal = FarmSpace.Medium, vertical = FarmSpace.Small),
@@ -122,6 +122,16 @@ internal fun MeasurementSource(
                         Text(if (snapshotSource) timeLabel(pair.at.toString()) else pair.message(today), style = MaterialTheme.typography.labelLarge)
                         Text(if (pair.queued) "Belum tersinkron" else "Diterima server",
                             style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                        if (!snapshotSource) {
+                            val label = when (pair.verification) {
+                                "valid" -> "Terverifikasi pengelola"
+                                "pending" -> "Belum diverifikasi"
+                                "manager" -> "Dicatat pengelola"
+                                "legacy" -> "Historis · belum diverifikasi"
+                                else -> null
+                            }
+                            label?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
+                        }
                     }
                     if (offline) Text("Menampilkan data tersimpan.", style = MaterialTheme.typography.bodySmall)
                     Text(syncedAt?.let {

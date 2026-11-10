@@ -15,3 +15,6 @@ Server dan Android harus diperbarui bersama sebelum memakai tipe baru. Aplikasi 
 ## Penyelarasan verifikasi 10 November 2026
 
 Endpoint latest mengecualikan keputusan invalid pada versi kegiatan yang sedang aktif, memakai predicate ActivityReviewService yang juga dipakai Beranda pengelola. Jika semua kandidat invalid, data null. Koreksi menjadi revisi baru boleh tampil selama belum dinyatakan invalid. Scope, kalender WIB, tie-break UUID dan pasangan EC/PPM tetap mengikuti aturan di atas.
+# Cache keputusan pengukuran
+
+`GET /sync/changes?activity_reviews=1&measurement_review_status=1` memutar ulang feed sesuai scope efektif. Untuk pengukuran milik akun lain, pekerja hanya menerima `id`, `version`, `activity_id`, `activity_version` dan `decision`. Alasan dan identitas peninjau tetap mengikuti batas baca detail. Versi aktif yang ditolak dikeluarkan dari pilihan kartu EC/PPM. Riwayat revisi tetap tersimpan, dan koreksi dengan versi baru diperiksa sebagai kandidat baru.

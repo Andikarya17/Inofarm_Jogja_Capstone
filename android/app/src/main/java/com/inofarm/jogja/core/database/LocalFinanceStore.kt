@@ -66,7 +66,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         }
         if(role == UserRole.WORKER) {
             connection.delete("manager_home_cache","scope=?",arrayOf(scope))
-            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','harvest','activity_audit','harvest_audit','harvest_balance','activity_attachment','harvest_attachment','activity_attachment_policy','harvest_attachment_policy','activity_attachment_audit','harvest_attachment_audit')",arrayOf(scope))
+            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','activity_review','harvest','activity_audit','harvest_audit','harvest_balance','activity_attachment','harvest_attachment','activity_attachment_policy','harvest_attachment_policy','activity_attachment_audit','harvest_attachment_audit')",arrayOf(scope))
             val reason=encrypt(scope,JSONObject().put("message","Peran saat ini tidak mengizinkan perubahan pengelola. Antrean tetap disimpan untuk ditinjau."))
             connection.execSQL("UPDATE outbox SET state='SCOPE_REVOKED',error=? WHERE scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW') AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=? AND kind NOT IN ('activity','harvest','activity_attachment','harvest_attachment'))",arrayOf(reason,scope,scope))
         }
@@ -122,13 +122,27 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
                 ORDER BY occurred_millis DESC,entity_id DESC LIMIT 100 OFFSET ?""",arrayOf(scope,gh,group,scope,today.toString(),offset.toString())).use {cursor -> buildList {while(cursor.moveToNext()) add(cursor.record(scope))}}
             for(row in rows) {
                 val cancel=row.syncState==SyncState.QUEUED && row.latestOperationId?.let {id -> db.rawQuery("SELECT envelope FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,id)).use {c -> c.moveToFirst() && decode(scope,c.getString(0))?.optString("action")=="cancel"}}==true
-                if(!cancel) com.inofarm.jogja.feature.activities.domain.ManualMeasurement.from(row,today)?.let {return@transaction it}
+                if (cancel) continue
+                val pair = com.inofarm.jogja.feature.activities.domain.ManualMeasurement.from(row,today) ?: continue
+                val decision = if (pair.queued) null else measurementDecision(scope, gh, row.id, row.serverVersion)
+                if (decision != "invalid") return@transaction pair.copy(verification = decision ?: pair.verification)
             }
             if(rows.size<100) return@transaction null
             offset+=rows.size
         }
         @Suppress("UNREACHABLE_CODE") null
     }
+    private fun measurementDecision(scope: String, greenhouse: String, activity: String, version: Long?): String? =
+        db.rawQuery("""SELECT c.body FROM local_records r JOIN cached_records c
+            ON c.scope=r.scope AND c.kind=r.kind AND c.entity_id=r.entity_id
+            WHERE r.scope=? AND r.kind='activity_review' AND r.owner_id=? AND c.greenhouse_id=? AND c.tombstone=0""",
+            arrayOf(scope, activity, greenhouse)).use { rows ->
+            while (rows.moveToNext()) {
+                val review = decode(scope, rows.getString(0)) ?: continue
+                if (review.optLong("activity_version") == version) return@use review.optString("decision")
+            }
+            null
+        }
     private fun indexValues(body:JSONObject):ContentValues {
         val form=body.optJSONObject("_local_form")
         val timestamp=listOf("occurred_at","paid_at","created_at").firstNotNullOfOrNull {key -> body.optString(key).takeUnless {it.isBlank() || it=="null"}}

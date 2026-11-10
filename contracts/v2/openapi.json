@@ -1630,6 +1630,19 @@
       "get": {
         "operationId": "get__sync_changes",
         "summary": "Pull stable cursor dengan scope diperiksa ulang",
+        "parameters": [
+          {
+            "name": "activity_reviews",
+            "in": "query",
+            "schema": {"type": "integer", "enum": [1]}
+          },
+          {
+            "name": "measurement_review_status",
+            "in": "query",
+            "description": "Bersama activity_reviews=1, pekerja menerima status minimal review pengukuran se-GH. Tanpa alasan atau identitas peninjau pada catatan akun lain. Mengubah scope cursor.",
+            "schema": {"type": "integer", "enum": [1]}
+          }
+        ],
         "responses": {
           "200": {
             "description": "Respons sesuai scope sesi.",
