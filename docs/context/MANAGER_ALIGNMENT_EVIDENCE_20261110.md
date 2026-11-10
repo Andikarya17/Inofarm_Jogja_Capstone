@@ -59,3 +59,9 @@ Branch `codex/manager-finance-workflows` bergantung pada `b99cb9a`. Keuangan men
 Hasil oracle studi: FC Rp5.421.100, VC Rp3.430.000, TC Rp8.851.100, TR Rp24.435.000, laba Rp15.583.900, R/C 2,76067381, B/C sederhana 1,76067381, BEP 327,818519 kg dan Rp9.780,220994/kg. Teks makalah menyebut R/C 2,26 dan memberi judul B/C yang sama dengan R/C, padahal contoh B/C memakai laba. Jumlah PV tercetak Rp80.270.654,42 memberi NPV −Rp219.729.345,58 bila dikurangi I0 Rp300.000.000 sekali. Subtotal makalah menambahkan PV lagi. Investasi Rp310.161.000 berasal dari tabel aset dengan cakupan berbeda. Diskonto per musim/panen dan per tahun tidak konsisten, serta lampiran yang berlabel PP memakai PV. Tidak ada penyamaan panen dengan tahun, konversi basis diskonto, atau seed nilai studi.
 
 PG-AC10–11: 25 tes MySQL guarded dan 498 assertion lulus untuk aset, evaluasi musim, investasi dan ekspor. Suite menjalankan transaksi sampai preview, publikasi snapshot dan export. Oracle independen memeriksa 1.025 kasus evaluasi musim, 259 investasi, dan 1.016 anggaran penyusutan tahunan, termasuk hash snapshot sumber dan pembulatan. Build/JVM/lint lulus. Klik alur laporan dari APK terhubung fixture diuji terpisah pada PG7.
+
+## PG6 · Administrasi
+
+Branch `codex/manager-administration-entry` bergantung pada `313ad5e`. Menu akun menyediakan Kelola greenhouse dan Kelola akun. Detail greenhouse menampilkan kesiapan, musim, varietas, populasi, tanggal semai/pindah serta stadia aktual bertanggal. Aksi penyiapan memakai editor yang sudah ada dan dapat kembali ke detail greenhouse. Penetapan periode membuka review Beranda pada greenhouse yang dipilih. Form dan pengajuan admin tetap tersimpan per akun melalui jurnal existing.
+
+Build, JVM, lint dan build instrumentasi lulus. PG-AC12–13 memakai regresi backend dan uji jalur menu pada PG7. Backend akun, pencabutan sesi, validasi email dan perlindungan password memakai jalur yang sama dengan pemulihan sebelumnya.

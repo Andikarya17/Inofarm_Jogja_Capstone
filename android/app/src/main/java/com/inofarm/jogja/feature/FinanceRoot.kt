@@ -54,6 +54,8 @@ import com.inofarm.jogja.feature.activities.domain.ObservationField
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.activities.domain.MaterialDraft
+import com.inofarm.jogja.feature.admin.AdminHost
+import com.inofarm.jogja.feature.admin.AdminResource
 import com.inofarm.jogja.feature.auth.AuthViewModel
 import com.inofarm.jogja.feature.auth.FinanceLogin
 import com.inofarm.jogja.feature.context.ContextViewModel
@@ -164,8 +166,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             }
         }
     }
-    var adminOpen by rememberSaveable(authState.session?.scope?.key) {mutableStateOf(false)}
-    val openAdmin:()->Unit={adminOpen=true}
+    var adminEntry by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<AdminResource?>(null) }
+    var adminPeriodRequest by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<String?>(null) }
+    val openAdmin: (AdminResource) -> Unit = { adminEntry = it }
     BackHandler(authState.loading && authState.session!=null) { /* Wait for the bounded local persistence boundary. */ }
     Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
         if(authState.session==null) {
@@ -186,7 +189,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                     financialState, financial, expenseHistoryState, expenseHistory, allocationHistoryState,
                                     allocationHistory, attachmentState, attachments, runtime.vault.generation, saleState,
                                     sales, saleHistoryState, saleHistory, assetWorkspace, reportWorkspace,
-                                    investmentWorkspace, openAdmin, { adminOpen = false })
+                                    investmentWorkspace, openAdmin, { adminEntry = null },
+                                    adminPeriodRequest, { adminPeriodRequest = null })
                             }
                         }
                     }
@@ -194,13 +198,20 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             }
         }
     }
-    if(adminOpen && authState.session?.role==UserRole.MANAGER && authState.session?.rejected==false) com.inofarm.jogja.feature.admin.AdminHost(authState.session!!,runtime.admin,context::refresh) {adminOpen=false}
+    val admin = adminEntry
+    val adminSession = authState.session
+    if (admin != null && adminSession?.role == UserRole.MANAGER && !adminSession.rejected) {
+        AdminHost(adminSession, runtime.admin, context::refresh, admin,
+            onReviewPeriod = { greenhouse -> adminPeriodRequest = greenhouse; adminEntry = null },
+            onClose = { adminEntry = null })
+    }
     if(authState.session!=null && !authState.loading && authState.error!=null) AlertDialog(onDismissRequest=auth::clearError,title={Text("Belum keluar")},text={Text(authState.error!!)},confirmButton={TextButton(onClick=auth::clearError) {Text("Kembali ke isian")}})
 }
 
 @Composable private fun FinanceHome(session:FinanceSession,context:CultivationUiState,activity:ActivityUiState,onSync:()->Unit,onLogout:()->Unit,vm:ActivityViewModel,history:HistoryUiState,historyVm:HistoryViewModel,
     harvest:HarvestUiState,harvestVm:HarvestViewModel,harvestHistory:HistoryUiState,harvestHistoryVm:HistoryViewModel,financial:FinancialEntryState,financialVm:FinancialEntryViewModel,
-    expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:AssetWorkspace,reports:SeasonReportWorkspace,investments:InvestmentWorkspace,onAdmin:()->Unit,onAccessDenied:()->Unit) {
+    expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:AssetWorkspace,reports:SeasonReportWorkspace,investments:InvestmentWorkspace,onAdmin:(AdminResource)->Unit,onAccessDenied:()->Unit,
+    adminPeriodRequest: String?, onAdminPeriodOpened: () -> Unit) {
     val runtime:FinanceRuntime=viewModel()
     val tabState = rememberSaveableStateHolder()
     var tab by rememberSaveable { mutableStateOf(0) };var gh by rememberSaveable { mutableStateOf<String?>(null) };var season by rememberSaveable { mutableStateOf<String?>(null) };var group by rememberSaveable { mutableStateOf<String?>(null) }
@@ -214,6 +225,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val manager = session.role == UserRole.MANAGER
     var managerRefresh by remember { mutableLongStateOf(0L) }
     var periodReview by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(adminPeriodRequest, manager) {
+        if (manager && adminPeriodRequest != null) {
+            gh = adminPeriodRequest
+            tab = 0
+            periodReview = true
+            onAdminPeriodOpened()
+        }
+    }
     var financeKind by rememberSaveable { mutableStateOf(OperationalKind.EXPENSE.wire) }
     var financeLink by rememberSaveable { mutableIntStateOf(0) }
     val homeRepository = remember(runtime) { ManagerHomeRepository(runtime.vault, runtime.store, runtime.api) }
@@ -305,7 +324,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             }
         },
         onSync = onSync,
-        onSetup = { managerRecording = null; onAdmin() },
+        onSetup = { managerRecording = null; onAdmin(AdminResource.GREENHOUSE) },
         chooseSingleGroup = destination == "harvest",
     ) }
     LaunchedEffect(context.lastSyncedAt, context.greenhouses, context.seasons, context.groups) {
@@ -451,7 +470,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             if (canRecordFromHome) vm.new(gh!!, runningGroup!!, type, schedule, runningVersion)
                         },
                         onHarvest = { if (canRecordFromHome) harvestVm.new(gh!!, runningGroup!!, runningVersion) },
-                        onAdmin = onAdmin,
+                        onAdmin = { onAdmin(AdminResource.GREENHOUSE) },
                         seasonActions = { row -> SeasonActions(row, history.busy, history.message, historyVm::season) },
                         onDesignate = { groupId, reason ->
                             try {
@@ -637,7 +656,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     sessionExpired: Boolean,
     onSync: () -> Unit,
     onLogout: () -> Unit,
-    onAdmin: () -> Unit
+    onAdmin: (AdminResource) -> Unit
 ) {
     var accountOpen by rememberSaveable { mutableStateOf(false) }
     Row(
@@ -667,11 +686,18 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 HorizontalDivider(Modifier.padding(horizontal = FarmSpace.Page))
                 if (session.role == UserRole.MANAGER) {
                     DropdownMenuItem(
-                        text = { Text("Administrasi") },
-                        leadingIcon = { FarmControlIcon(FarmIcon.Account, null) },
-                        onClick = { accountOpen = false; onAdmin() },
+                        text = { Text("Kelola greenhouse") },
+                        leadingIcon = { FarmControlIcon(FarmIcon.ChevronRight, null) },
+                        onClick = { accountOpen = false; onAdmin(AdminResource.GREENHOUSE) },
                         enabled = !writing,
                         modifier = Modifier.testTag("finance-admin")
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Kelola akun") },
+                        leadingIcon = { FarmControlIcon(FarmIcon.Account, null) },
+                        onClick = { accountOpen = false; onAdmin(AdminResource.USER) },
+                        enabled = !writing,
+                        modifier = Modifier.testTag("finance-admin-accounts")
                     )
                     HorizontalDivider(Modifier.padding(horizontal = FarmSpace.Page))
                 }

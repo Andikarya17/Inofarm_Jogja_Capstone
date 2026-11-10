@@ -64,6 +64,13 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
         current(session,ticket)
         result.getJSONObject("data")
     }
+    suspend fun greenhousePeriod(session: FinanceSession, ticket: Long, greenhouse: String): JSONObject = withContext(Dispatchers.IO) {
+        current(session, ticket)
+        val snapshot = api.request(session.scope.server, session.token, "manager-home", query = mapOf("greenhouse_id" to greenhouse))
+        current(session, ticket)
+        require(snapshot.getString("greenhouse_id") == greenhouse)
+        snapshot.getJSONArray("greenhouses").getJSONObject(0).getJSONObject("period")
+    }
     suspend fun prepare(session:FinanceSession,ticket:Long,form:AdminForm,password:String,journal:JSONObject):JSONObject=withContext(Dispatchers.IO) {
         current(session,ticket)
         val status=api.request(session.scope.server,session.token,"sync/status")

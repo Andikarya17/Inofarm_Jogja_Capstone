@@ -44,7 +44,7 @@ class FinanceAdminUiTest {
     }
     @After fun cleanup() {helper.close();context.deleteDatabase(name+".db");listOf("-session","-admin").forEach {context.getSharedPreferences(name+it,0).edit().clear().commit()}}
     @Test fun largeFontFormSavesBeforeBackAndResumesWithoutSending() {
-        rule.setContent {CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density,2f)) {MaterialTheme(colorScheme=ForestScheme) {androidx.compose.material3.Text("Admin fixture");AdminHost(session,repository,{},{})}}}
+        rule.setContent {CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density,2f)) {MaterialTheme(colorScheme=ForestScheme) {androidx.compose.material3.Text("Admin fixture");AdminHost(session,repository,{},onClose={})}}}
         rule.waitUntil(10000) {rule.onAllNodesWithTag("admin-new").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("admin-new").performScrollTo().performClick()
         rule.onNodeWithTag("admin-name").performScrollTo().performTextInput("GH draf sintetis")
@@ -59,7 +59,7 @@ class FinanceAdminUiTest {
     }
     @Test fun explicitConfirmationIsRequiredBeforeAnAdminMutation() {
         var accepted=0
-        rule.setContent {MaterialTheme {androidx.compose.material3.Text("Admin fixture");AdminHost(session,repository,{accepted++},{})}}
+        rule.setContent {MaterialTheme {androidx.compose.material3.Text("Admin fixture");AdminHost(session,repository,{accepted++},onClose={})}}
         rule.waitUntil(10000) {rule.onAllNodesWithTag("admin-new").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("admin-new").performScrollTo().performClick()
         rule.onNodeWithTag("admin-name").performScrollTo().performTextInput("GH diterima sintetis")
