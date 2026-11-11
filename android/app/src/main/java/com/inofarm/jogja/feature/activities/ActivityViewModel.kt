@@ -68,7 +68,7 @@ class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
             repository.save(session,ticket,draft,queue)
             if(vault.matches(ticket,session.scope) && state.value.draft?.id==draft.id) {
                 mutable.value=state.value.copy(draft=if(close) null else state.value.draft,saved=state.value.draft==draft,reviewing=if(close) false else state.value.reviewing,
-                    message=if(queue) "Catatan disimpan di perangkat dan dimasukkan ke antrean." else if(close) "Draf tersimpan di perangkat." else state.value.message)
+                    message=if(queue) "Tersimpan. Terkirim otomatis saat ada internet." else if(close) "Draf tersimpan di perangkat." else state.value.message)
                 reload()
             }
         } catch(cancelled:CancellationException) { throw cancelled }

@@ -929,8 +929,7 @@ internal fun ExpiredSessionNotice() {
             if (draft.notes.isNotBlank()) FarmFact("Keterangan", draft.notes)
             if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi", draft.reason)
         }
-        Notice("Catatan akan disimpan lokal dan diantrekan. Status diterima diberikan setelah server mengonfirmasi.")
-        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-queue")) {Text(if(busy) "Menyimpan…" else "Simpan lokal & antrekan")}
+        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-queue")) {Text(if(busy) "Menyimpan…" else "Simpan")}
         OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke isian")}
     }
 }
@@ -947,7 +946,7 @@ internal fun ExpiredSessionNotice() {
         if(record.body.optString("record_state")!="cancelled" && (own || session.role==UserRole.MANAGER)) OutlinedButton(onClick=onEdit,modifier=Modifier.fillMaxWidth().testTag("finance-edit")) {Text(if(record.serverVersion==null) "Lanjutkan draf" else "Koreksi catatan")}
         actions()
         OutlinedButton(onClick=onClose,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {
-            Text(if (returnToQueue) "Kembali ke antrean" else "Kembali ke riwayat")
+            Text(if (returnToQueue) "Kembali ke belum terkirim" else "Kembali ke riwayat")
         }
     }
 }

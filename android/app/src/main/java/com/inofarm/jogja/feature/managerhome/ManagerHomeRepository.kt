@@ -137,20 +137,22 @@ internal class ManagerHomeRepository(
 
     suspend fun designate(session: FinanceSession, ticket: Long, snapshot: HomeSnapshot, group: String?, reason: String) = withContext(Dispatchers.IO) {
         checkSession(session, ticket)
-        require(!session.expired()) { "Masuk kembali untuk menetapkan periode." }
+        require(!session.expired()) { "Masuk lagi untuk mengganti tanam saat ini." }
         val gh = requireNotNull(snapshot.selection)
         val key = session.scope.key
         val epoch = snapshot.epoch
-        require(epoch == store.epoch(key)) { "Epoch berubah. Sinkronkan dan tinjau pemulihan." }
+        require(epoch == store.epoch(key)) { "Data dipulihkan dari cadangan. Beberapa catatan perlu dicek." }
         val pending = store.runningPeriodRequest(key, gh)
         val operation = pending ?: run {
-            require(reason.isNotBlank() && reason.length <= 1000) { "Isi alasan penetapan, maksimal 1.000 karakter." }
+            require(reason.length <= 1000) { "Catatan maksimal 1.000 karakter." }
+            val payload = JSONObject().put("planting_group_id", group ?: JSONObject.NULL)
+            if (reason.isNotBlank()) payload.put("reason", reason.trim())
             store.storeRunningPeriodRequest(key, gh, JSONObject().put("schema_version", "2").put("sync_epoch", epoch)
                 .put("operation_id", UUID.randomUUID().toString()).put("entity_id", gh).put("entity_type", "greenhouses")
                 .put("action", "designate_period").put("base_version", snapshot.selected!!.getInt("version"))
-                .put("payload", JSONObject().put("planting_group_id", group ?: JSONObject.NULL).put("reason", reason.trim())))
+                .put("payload", payload))
         }
-        require(operation.getString("sync_epoch") == epoch) { "Pengajuan periode lama perlu rekonsiliasi setelah pemulihan." }
+        require(operation.getString("sync_epoch") == epoch) { "Perubahan lama perlu dicek setelah data dipulihkan." }
         try {
             val receipt = api.request(session.scope.server, session.token, "greenhouses/$gh/running-period", "POST", operation)
             checkSession(session, ticket)

@@ -112,12 +112,9 @@ import java.math.BigDecimal
             if(draft.notes.isNotBlank()) FarmFact("Keterangan", draft.notes)
             if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi", draft.reason)
         }
-        if(draft.replaceValidationRejected) Notice("Panen yang ditolak akan diganti setelah tinjauan ini. Pengajuan lama tetap disimpan sebagai riwayat.")
-        Notice(if (worker && draft.baseVersion != null)
-            "Perubahan hasil panen yang sudah dipakai untuk penjualan perlu ditinjau pengelola."
-        else if (worker) "Catatan disimpan di perangkat dan dikirim saat server dapat dihubungi."
-        else "Panen disimpan lokal dan diantrekan. Pembaruan atau pembatalan dibatasi oleh bobot yang sudah dipakai penjualan.")
-        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("harvest-queue")) {Text(if(busy) "Menyimpan…" else "Simpan lokal & antrekan")}
+        if(draft.replaceValidationRejected) Notice("Panen yang ditolak diganti dengan catatan ini. Catatan lama tetap ada di riwayat.")
+        if (worker && draft.baseVersion != null) Notice("Hasil panen yang sudah dijual perlu dicek pengelola sebelum diubah.")
+        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("harvest-queue")) {Text(if(busy) "Menyimpan…" else "Simpan")}
         OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Kembali ke isian")}
     }
 }

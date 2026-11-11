@@ -97,11 +97,11 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
                 val greenhouse=if(resource==AdminResource.GREENHOUSE) id else state.value.greenhouse
                 val assignments=repository.options(session,ticket,"assignments",greenhouse)
                 val counts=if(resource==AdminResource.USER) {
-                    mapOf("Penugasan di greenhouse ini" to assignments.count {it.optString("user_id")==id})
+                    mapOf("Bertugas di greenhouse ini" to assignments.count {it.optString("user_id")==id})
                 } else {
                     val seasons=repository.options(session,ticket,"seasons",id)
                         .filter {it.optString("status")=="open"}.map {it.getString("id")}.toSet()
-                    mapOf("Penugasan terdaftar" to assignments.size, "Musim terbuka" to seasons.size,
+                    mapOf("Pekerja terdaftar" to assignments.size, "Musim terbuka" to seasons.size,
                         "Kelompok aktif pada musim terbuka" to repository.options(session,ticket,"planting-groups",id)
                             .count {it.optBoolean("active") && it.optString("season_id") in seasons},
                         "Bahan aktif" to repository.options(session,ticket,"materials",id).count {it.optBoolean("active")},
@@ -139,7 +139,7 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
     fun back() {if(!state.value.busy && flush()) mutable.value=state.value.copy(editing=false)}
     fun discard() {
         if(state.value.busy || state.value.pending) return
-        mutable.value=state.value.copy(form=null,editing=false,message="Draf administrasi dihapus atas pilihan Anda.")
+        mutable.value=state.value.copy(form=null,editing=false,message="Draf dihapus.")
         journal=JSONObject();flush()
     }
     fun edit(key:String,value:String) {
@@ -162,7 +162,7 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
                 val candidate=repository.assignmentCandidate(session,ticket,greenhouse,email)
                 val source="assignment-users"
                 val rows=(state.value.options[source].orEmpty()+candidate).distinctBy {it.getString("id")}
-                mutable.value=state.value.copy(options=state.value.options+(source to rows),message="Akun ditemukan. Pilih akun untuk ditugaskan.")
+                mutable.value=state.value.copy(options=state.value.options+(source to rows),message="Pekerja ditemukan. Pilih untuk ditambahkan.")
             } catch(cancelled:CancellationException) {throw cancelled}
             catch(error:Exception) {mutable.value=state.value.copy(message=userMessage(error))}
             finally {if(kotlinx.coroutines.currentCoroutineContext().isActive) mutable.value=state.value.copy(optionsLoading=false)}
@@ -190,13 +190,13 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
         if(!state.value.rejected || state.value.busy) return
         // Only definitive validation/version rejection may be replaced after explicit review.
         journal.remove("pending");journal.remove("hash");journal.remove("needs_password");journal.remove("rejected");journal.remove("server")
-        mutable.value=state.value.copy(pending=false,needsPassword=false,rejected=false,server=null,message="Draf lokal dipertahankan. Versi dasar tidak diganti otomatis; bandingkan dan muat ulang sebelum koreksi konflik.")
+        mutable.value=state.value.copy(pending=false,needsPassword=false,rejected=false,server=null,message="Isian Anda tetap tersimpan. Bandingkan dengan data terbaru sebelum menyimpan lagi.")
         flush()
     }
     fun useServer() {
         val row=state.value.server ?: return;val form=state.value.form ?: return
         if(!state.value.rejected || state.value.busy) return
-        journal=JSONObject();mutable.value=state.value.copy(form=AdminForm.edit(form.resource,row,form.action),pending=false,needsPassword=false,rejected=false,server=null,message="Versi server dimuat atas pilihan Anda.")
+        journal=JSONObject();mutable.value=state.value.copy(form=AdminForm.edit(form.resource,row,form.action),pending=false,needsPassword=false,rejected=false,server=null,message="Data terbaru dipakai.")
         flush();loadOptions()
     }
     fun submit(password:String,onAccepted:()->Unit) {
@@ -213,9 +213,9 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
                     greenhouse=if(form.resource==AdminResource.GREENHOUSE && form.version==null) form.id else state.value.greenhouse)
                 persist(snapshot());onAccepted();load()
                 mutable.value=state.value.copy(message=if(state.value.listChecked) {
-                    if(form.resource==AdminResource.USER && form.version==null) "Akun diterima server dan sudah ditugaskan ke greenhouse awal."
-                    else "Perubahan diterima server dan tercatat dalam audit."
-                } else "Perubahan diterima server. ${state.value.message ?: "Daftar belum diperiksa ulang."}")
+                    if(form.resource==AdminResource.USER && form.version==null) "Akun tersimpan dan sudah ditambahkan ke greenhouse ini."
+                    else "Tersimpan."
+                } else "Tersimpan. ${state.value.message ?: "Daftar belum diperbarui."}")
             } catch(cancelled:CancellationException) {throw cancelled}
             catch(error:Exception) {
                 val definitive=error is FinanceApiFailure && (error.status==422 || error.code=="version_conflict")

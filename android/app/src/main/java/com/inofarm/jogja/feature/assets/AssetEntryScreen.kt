@@ -96,11 +96,9 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         FarmPageTitle(if (acquisition) "Periksa perolehan aset" else "Periksa alokasi penyusutan")
         FarmPanel { AssetDraftFacts(draft,context) }
-        Notice(if (acquisition) "Pengajuan disimpan di perangkat. Server memeriksa sumber pembayaran dan nilai perolehan saat menerima pengajuan."
-            else "Nominal alokasi diisi manual. Server memeriksa anggaran tahunan, batas penyusutan, dan duplikasi pemakaian.")
-        if(draft.replaceValidationRejected) Notice("Perbaikan membuat operasi baru; pengajuan lama yang ditolak tetap disimpan.")
+        if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat.")
         Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,
-            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("asset-queue")) {Text("Simpan lokal & antrekan")}
+            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("asset-queue")) {Text("Simpan")}
         OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,
             modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Kembali ke isian")}
     }

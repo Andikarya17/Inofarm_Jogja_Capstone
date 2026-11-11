@@ -76,10 +76,9 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         FarmPageTitle("Periksa penjualan lunas")
         FarmPanel(title = "Rincian transaksi") { SaleDraftFacts(draft,context) }
-        Notice("Pratinjau dihitung dari harga/bobot manual, total dibulatkan sekali. Saldo terakhir diketahui dan kelengkapan diperiksa ulang server.")
-        if(draft.replaceValidationRejected) Notice("Perbaikan membuat operasi baru; pengajuan yang ditolak tetap disimpan.")
+        if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat.")
         Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,
-            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("sale-queue")) {Text("Simpan lokal & antrekan")}
+            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("sale-queue")) {Text("Simpan")}
         OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,
             modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Kembali ke isian")}
     }

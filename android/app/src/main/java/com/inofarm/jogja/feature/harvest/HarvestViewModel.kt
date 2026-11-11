@@ -58,7 +58,7 @@ class HarvestViewModel(private val repository:HarvestRepository):ViewModel() {
             repository.save(session,ticket,draft,queue)
             if(vault.matches(ticket,session.scope) && state.value.draft?.id==draft.id) {
                 mutable.value=state.value.copy(draft=if(close) null else state.value.draft,saved=state.value.draft==draft,reviewing=if(close) false else state.value.reviewing,
-                    changed=if(queue) state.value.changed+1 else state.value.changed,message=if(queue) "Tersimpan lokal dan masuk antrean. Belum diterima server." else if(close) "Draf tersimpan di perangkat." else state.value.message)
+                    changed=if(queue) state.value.changed+1 else state.value.changed,message=if(queue) "Tersimpan. Terkirim otomatis saat ada internet." else if(close) "Draf tersimpan di perangkat." else state.value.message)
                 reload()
             }
         } catch(cancelled:CancellationException) { throw cancelled }

@@ -14,16 +14,16 @@ enum class AdminResource(val path:String,val kind:String,val label:String) {
     GROUP("planting-groups","planting_groups","Kelompok tanam"), VARIETY("varieties","varieties","Varietas"),
     UNIT("units","units","Satuan"), MATERIAL("materials","materials","Bahan"), GRADE("grades","grades","Grade panen"),
     CATEGORY("expense-categories","expense_categories","Kategori biaya"), USER("users","users","Akun"),
-    ASSIGNMENT("assignments","greenhouse_assignments","Penugasan"), SCHEDULE("schedules","schedules","Jadwal"), TARGET("targets","targets","Target");
+    ASSIGNMENT("assignments","greenhouse_assignments","Pekerja greenhouse"), SCHEDULE("schedules","schedules","Jadwal"), TARGET("targets","targets","Target");
 
     fun fields(update:Boolean,action:String):List<AdminField> = buildList {
-        if(action in setOf("close","reopen")) { add(AdminField("reason","Alasan"));return@buildList }
+        if(action in setOf("close","reopen")) { add(AdminField("reason","Catatan",true));return@buildList }
         if((!update && this@AdminResource !in setOf(GREENHOUSE,GROUP,SCHEDULE,TARGET)) || this@AdminResource==USER)
             add(AdminField("greenhouse_id","Greenhouse",source="greenhouses"))
         when(this@AdminResource) {
             ASSIGNMENT -> {
-                if(!update) add(AdminField("user_id","Akun",source="assignment-users"))
-                add(AdminField("effective_from","Mulai penugasan",type="timestamp"));add(AdminField("effective_until","Akhir penugasan",true,type="timestamp"))
+                if(!update) add(AdminField("user_id","Pekerja",source="assignment-users"))
+                add(AdminField("effective_from","Mulai bertugas",type="timestamp"));add(AdminField("effective_until","Akhir bertugas",true,type="timestamp"))
             }
             SCHEDULE,TARGET -> {
                 if(!update) add(AdminField("planting_group_id","Kelompok tanam",source="planting-groups"))
@@ -59,7 +59,7 @@ enum class AdminResource(val path:String,val kind:String,val label:String) {
         }
         if(update) {
             if(this@AdminResource!=SEASON) add(AdminField("active","Aktif",type="boolean"))
-            add(AdminField("reason","Alasan perubahan"))
+            add(AdminField("reason","Catatan",true))
         }
     }
 }
@@ -71,6 +71,7 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
             val rawValue=values[field.key].orEmpty()
             val value=if (field.type=="email") rawValue.trim().lowercase(Locale.ROOT) else rawValue
             require(field.optional || value.isNotBlank()) {"${field.label} wajib diisi."}
+            if(field.key=="reason" && value.isBlank()) return@forEach
             put(field.key,when {
                 value.isBlank() && field.optional && field.key!="notes" -> JSONObject.NULL
                 field.type=="boolean" -> {require(value in setOf("true","false"));value.toBooleanStrict()}
@@ -123,7 +124,7 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
                     target.optString(key).takeUnless { target.isNull(key) }
                 }.orEmpty()
                 field.key=="reason" || row.isNull(field.key) -> ""
-                field.type=="boolean" -> when(row.get(field.key).toString()) {"1","true" -> "true";"0","false" -> "false";else -> error("Status aktif server tidak sah.")}
+                field.type=="boolean" -> when(row.get(field.key).toString()) {"1","true" -> "true";"0","false" -> "false";else -> error("Status aktif tidak dikenali.")}
                 else -> row.get(field.key).toString()
             }})
         }

@@ -45,7 +45,7 @@ class SaleEntryViewModel(private val repository:SaleRepository):ViewModel() {
             repository.save(session,ticket,draft,queue)
             if(vault.matches(ticket,session.scope) && state.value.draft?.id==draft.id) mutable.value=state.value.copy(draft=if(close) null else state.value.draft,
                 saved=state.value.draft==draft,reviewing=if(close) false else state.value.reviewing,changed=if(queue || close) state.value.changed+1 else state.value.changed,
-                message=if(queue) "Tersimpan lokal dan masuk antrean. Belum diterima server." else if(close) "Draf penjualan tersimpan di perangkat." else state.value.message)
+                message=if(queue) "Tersimpan. Terkirim otomatis saat ada internet." else if(close) "Draf penjualan tersimpan di perangkat." else state.value.message)
         } catch(cancelled:CancellationException) {throw cancelled}
         catch(error:SaleValidationFailure) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(draft=state.value.draft?.copy(baseVersion=error.baseVersion),errors=error.fields,reviewing=false,message=error.message)}
         catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error))}
