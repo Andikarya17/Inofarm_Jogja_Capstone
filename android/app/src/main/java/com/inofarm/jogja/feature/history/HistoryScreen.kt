@@ -44,6 +44,7 @@ import com.inofarm.jogja.core.design.LocalFarmDialogPicker
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.*
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
+import com.inofarm.jogja.feature.activities.domain.CorrectionReference
 import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.assets.AssetDraft
 import com.inofarm.jogja.feature.context.CultivationUiState
@@ -366,7 +367,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
 @Composable private fun AuditCard(entry:AuditEntry,record:LocalRecord,session:FinanceSession,context:CultivationUiState,kind:OperationalKind) {
     var expanded by rememberSaveable(entry.id) {mutableStateOf(false)}
     OutlinedCard(Modifier.fillMaxWidth().animateContentSize(tween(FarmMotion.State))) {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text("${when(entry.action) {"create" -> "Pencatatan";"update" -> "Koreksi";"cancel" -> "Pembatalan";else -> "Perubahan"}} · versi ${entry.version}",fontWeight=FontWeight.SemiBold)
+        Text("${when(entry.action) {"create" -> "Pencatatan";"update" -> "Koreksi";"cancel" -> "Pembatalan";else -> "Perubahan"}}${if(session.role==UserRole.MANAGER) " · versi ${entry.version}" else ""}",fontWeight=FontWeight.SemiBold)
         Text("${entry.actor} · ${timeLabel(entry.at)}");if(entry.reason.isNotBlank()) Text("Catatan: ${entry.reason}")
         TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Tutup perubahan" else "Lihat sebelum dan sesudah")}
         if(expanded) {Text("Sebelum",fontWeight=FontWeight.Bold);entry.before?.let {RecordFacts(record.copy(body=it,serverVersion=entry.version-1),session,context,kind)} ?: Text("Belum ada catatan.")
@@ -378,18 +379,21 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
     var reason by rememberSaveable(reviewed.id,reviewed.revision,reviewed.serverVersion) {mutableStateOf("")}
     var policy by rememberSaveable(reviewed.id,reviewed.revision,reviewed.serverVersion) {mutableStateOf("")}
     var useServer by remember {mutableStateOf(false)}
+    val worker=session.role==UserRole.WORKER
+    // A worker is never asked for the reference: it is refreshed only when the event time differs from the server revision.
+    val chosenPolicy=if(worker) CorrectionReference.policyBetween(reviewed.body.optString("occurred_at").takeIf {it.isNotBlank()},reviewed.serverBody?.optString("occurred_at")) else policy
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         com.inofarm.jogja.core.design.FarmPageTitle("Data ini baru diubah di perangkat lain")
-        FarmPanel(title = "Isian saya · versi ${reviewed.baseVersion ?: "belum terkirim"}") {
+        FarmPanel(title = if(worker) "Isian saya" else "Isian saya · versi ${reviewed.baseVersion ?: "belum terkirim"}") {
             RecordFacts(reviewed,session,context,kind)
         }
-        FarmPanel(title = "Data terbaru · versi ${reviewed.serverVersion ?: "belum tersedia"}") {
+        FarmPanel(title = if(worker) "Data terbaru" else "Data terbaru · versi ${reviewed.serverVersion ?: "belum tersedia"}") {
             reviewed.serverBody?.let {RecordFacts(reviewed.copy(body=it),session,context,kind)} ?: Notice("Data terbaru belum tersedia. Perbarui lalu buka perbandingan lagi.",true)
         }
         FinanceField(if(session.role==UserRole.MANAGER) "Catatan (opsional)" else "Alasan memakai isian saya",reason,{reason=it},"conflict-reason",singleLine=false)
-        if(!kind.financial) Choice("Acuan untuk koreksi",policy,listOf(JSONObject().put("id","preserve").put("name","Pertahankan acuan historis"),JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"conflict-policy") {policy=it}
+        if(!kind.financial && !worker) Choice("Acuan untuk koreksi",policy,listOf(JSONObject().put("id","preserve").put("name","Pertahankan acuan historis"),JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"conflict-policy") {policy=it}
         message?.let {Notice(it,true)}
-        Button(onClick={onResolve(true,reason,policy)},enabled=!busy && (session.role==UserRole.MANAGER || reason.isNotBlank()) && (kind.financial || policy.isNotBlank()) && reviewed.serverBody!=null,modifier=Modifier.fillMaxWidth().testTag("conflict-keep-local")) {Text("Pakai isian saya")}
+        Button(onClick={onResolve(true,reason,chosenPolicy)},enabled=!busy && (session.role==UserRole.MANAGER || reason.isNotBlank()) && (kind.financial || chosenPolicy.isNotBlank()) && reviewed.serverBody!=null,modifier=Modifier.fillMaxWidth().testTag("conflict-keep-local")) {Text("Pakai isian saya")}
         OutlinedButton(onClick={useServer=true},enabled=!busy && reviewed.serverBody!=null,modifier=Modifier.fillMaxWidth().testTag("conflict-use-server")) {Text("Pakai data terbaru")}
         TextButton(onClick=onClose,enabled=!busy,modifier=Modifier.fillMaxWidth()) {Text("Kembali")}
     }

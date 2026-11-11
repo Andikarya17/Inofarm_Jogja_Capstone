@@ -49,7 +49,7 @@ internal fun WorkerEventTime(
     if (preserveAge) {
         val hss = historicalAge?.takeUnless { it.isNull("hss") }?.optString("hss") ?: "belum tersedia"
         val hst = historicalAge?.takeUnless { it.isNull("hst") }?.optString("hst") ?: "belum berlaku"
-        Text("Acuan historis · HSS $hss · HST $hst", style = MaterialTheme.typography.bodySmall)
+        Text("Umur saat dicatat · HSS $hss · HST $hst", style = MaterialTheme.typography.bodySmall)
     } else {
         Text("HSS ${age?.hss ?: "belum tersedia"} · HST ${age?.hst ?: "belum berlaku"}", style = MaterialTheme.typography.bodySmall)
         age?.reasons?.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }

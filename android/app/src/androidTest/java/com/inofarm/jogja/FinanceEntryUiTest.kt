@@ -468,6 +468,42 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("history-from-clear").assertDoesNotExist()
     }
 
+    @Test fun workerActivityFormNeverOffersMeasurementAndScheduleLocksTheType() {
+        chooseContext()
+        readyNode("finance-type").performClick()
+        rule.onAllNodesWithText("Pengukuran manual").assertCountEquals(0)
+        Espresso.pressBack()
+        readyNode("finance-save-draft").performScrollTo().assertTextContains("Simpan sebagai draf")
+        Espresso.pressBack()
+        rule.activityRule.scenario.recreate()
+    }
+
+    @Test fun workerScheduleEntryHasNoTypeChoice() {
+        agenda.set(true)
+        readyNode("finance-sync").performClick()
+        val home = rule.onNodeWithTag("finance-home-list")
+        home.performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
+        readyNode("worker-greenhouse-$gh").performClick()
+        home.performScrollToNode(hasTestTag("worker-schedule-$agendaSchedule"))
+        readyNode("worker-schedule-$agendaSchedule").performScrollTo().performClick()
+        readyNode("finance-pick-date").assertExists()
+        rule.onNodeWithTag("finance-type").assertDoesNotExist()
+    }
+
+    @Test fun workerCorrectionHasNoReferenceChoiceAndUsesPlainButtons() {
+        createAccepted("Catatan yang akan dikoreksi")
+        readyNode("finance-edit").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-reference-policy").assertDoesNotExist()
+        rule.onNodeWithTag("finance-type").assertDoesNotExist()
+        readyNode("finance-save-draft").performScrollTo().assertTextContains("Simpan sebagai draf")
+        readyNode("finance-reason").performScrollTo().performTextReplacement("Salah ketik keterangan")
+        hideKeyboard()
+        rule.onNodeWithTag("finance-review").performScrollTo().performClick()
+        readyNode("finance-queue").performScrollTo().assertTextContains("Kirim")
+        rule.onAllNodesWithText("Acuan", substring = true).assertCountEquals(0)
+        rule.onAllNodesWithText("versi", substring = true, ignoreCase = true).assertCountEquals(0)
+    }
+
     @Test fun workerAgendaDistinguishesRealizationsAndSkippedRecords() {
         agenda.set(true)
         readyNode("finance-sync").performClick()
@@ -880,7 +916,7 @@ class FinanceEntryUiTest {
         chooseContext();choose("finance-type","nutrition")
         rule.onNodeWithTag("finance-ppm").assertTextContains("")
         rule.onNodeWithTag("finance-review").performScrollTo().performClick()
-        rule.onAllNodesWithText("PPM manual wajib; kosong bukan nol.").onFirst().assertExists()
+        rule.onAllNodesWithText("Isi PPM manual.").onFirst().assertExists()
         rule.onNodeWithTag("finance-ppm").performScrollTo().performTextReplacement("900")
         rule.onNodeWithTag("finance-ph").performScrollTo().performTextReplacement("6,1")
         hideKeyboard()

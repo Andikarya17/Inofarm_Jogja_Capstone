@@ -56,7 +56,9 @@ import com.inofarm.jogja.core.cultivation.PlantAge
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.activities.ActivityUiState
 import com.inofarm.jogja.feature.activities.ActivityViewModel
+import com.inofarm.jogja.feature.activities.domain.CorrectionReference
 import com.inofarm.jogja.feature.activities.domain.ObservationField
+import com.inofarm.jogja.feature.activities.domain.workerTargetLine
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.activities.domain.MaterialDraft
@@ -685,7 +687,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 session.role==UserRole.MANAGER && asset.entry.draft!=null -> if(asset.entry.reviewing) FarmReviewEntrance { AssetReview(asset.entry.draft,context,asset.entry.busy,asset.vm::backToForm,asset.vm::queue) } else AssetForm(asset.entry,context,asset.vm)
                 session.role==UserRole.MANAGER && asset.history.selected!=null -> HistoryScreen(session,context,asset.history,asset.historyVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.historyVm.close()},kind=OperationalKind.ASSET,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && asset.depreciation.selected!=null -> HistoryScreen(session,context,asset.depreciation,asset.depreciationVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.depreciationVm.close()},kind=OperationalKind.DEPRECIATION,returnToQueue=tab==1)
-                activity.draft!=null -> if(activity.reviewing) FarmReviewEntrance { ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue) } else ActivityForm(activity,context,vm,worker = !manager)
+                activity.draft!=null -> if(activity.reviewing) FarmReviewEntrance { ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue,worker = !manager) } else ActivityForm(activity,context,vm,worker = !manager)
                 harvest.draft!=null -> if(harvest.reviewing) FarmReviewEntrance { HarvestReview(harvest.draft,context,harvest.busy,harvestVm::backToForm,harvestVm::queue,worker = !manager) } else HarvestForm(harvest,context,harvestVm,worker = !manager)
                 session.role==UserRole.MANAGER && sale.draft!=null -> if(sale.reviewing) FarmReviewEntrance { SaleReview(sale.draft,context,sale.busy,saleVm::backToForm,saleVm::queue) } else SaleForm(sale,context,saleVm)
                 session.role==UserRole.MANAGER && saleHistory.selected!=null -> HistoryScreen(session,context,saleHistory,saleHistoryVm,activity.queue,onEdit={record,replace -> saleVm.open(record,replace);saleHistoryVm.close()},kind=OperationalKind.SALE,returnToQueue=tab==1)
@@ -921,6 +923,10 @@ internal fun ExpiredSessionNotice() {
 
 @Composable private fun ActivityForm(state:ActivityUiState,context:CultivationUiState,vm:ActivityViewModel,worker:Boolean) {
     val draft=state.draft ?: return
+    if (worker && draft.baseVersion != null) {
+        val policy = CorrectionReference.policy(draft.date, draft.time, state.records.find { it.id == draft.id }?.serverBody?.optString("occurred_at"))
+        LaunchedEffect(policy, draft.referencePolicy) { if (draft.referencePolicy != policy) vm.edit { it.copy(referencePolicy = policy) } }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         val title = when {
             draft.baseVersion != null -> "Koreksi kegiatan"
@@ -930,7 +936,10 @@ internal fun ExpiredSessionNotice() {
         FarmPageTitle(title)
         FarmDraftStatus(state.saved, Modifier.testTag("finance-draft-status"))
         FarmSection(title = "Waktu dan kelompok") {
-            Choice("Jenis kegiatan",draft.type.wire,ActivityType.entries.map { JSONObject().put("id",it.wire).put("name",it.label) },"finance-type") { value -> vm.edit { it.copy(type=ActivityType.entries.single { type -> type.wire==value }) } }
+            // A schedule, a correction or a measurement fixes the type; a worker's plain activity never offers Pengukuran.
+            val typeLocked = worker && (draft.scheduleId != null || draft.baseVersion != null || draft.type == ActivityType.MEASUREMENT)
+            if (!typeLocked) Choice("Jenis kegiatan",draft.type.wire,ActivityType.entries.filter { !worker || it != ActivityType.MEASUREMENT }.map { JSONObject().put("id",it.wire).put("name",it.label) },"finance-type") { value -> vm.edit { it.copy(type=ActivityType.entries.single { type -> type.wire==value }) } }
+            else Text(draft.type.label, style = MaterialTheme.typography.titleMedium)
             if (worker) {
                 WorkerEventTime(context, draft.greenhouseId, draft.groupId, draft.date, draft.time,
                     { value -> vm.edit { it.copy(date = value) } }, { value -> vm.edit { it.copy(time = value) } },
@@ -1006,9 +1015,10 @@ internal fun ExpiredSessionNotice() {
         }
         if(draft.baseVersion!=null) {
             FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"finance-reason",state.errors["reason"])
-            Choice("Acuan koreksi",draft.referencePolicy,listOf(JSONObject().put("id","preserve").put("name","Pertahankan tanggal/target historis"),JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"finance-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
+            if(!worker) Choice("Acuan koreksi",draft.referencePolicy,listOf(JSONObject().put("id","preserve").put("name","Pertahankan tanggal/target historis"),JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"finance-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
         }
-        if(draft.baseVersion!=null && draft.referencePolicy=="preserve") {
+        if(worker) ReferenceCards(context,draft.groupId,draft,worker=true)
+        else if(draft.baseVersion!=null && draft.referencePolicy=="preserve") {
             Notice("Koreksi mempertahankan tanggal dan target historis. Pilih nilai ulang bila acuan memang perlu diperbarui.")
             val historical=state.records.find {it.id==draft.id}?.serverBody?.optJSONObject("reference_snapshot")
             historical?.optJSONObject("age")?.let { age -> Text("HSS acuan: ${if(age.isNull("hss")) "belum tersedia" else age.optString("hss")} · HST acuan: ${if(age.isNull("hst")) "belum berlaku" else age.optString("hst")}") }
@@ -1016,12 +1026,12 @@ internal fun ExpiredSessionNotice() {
         state.message?.let { Notice(it,true) }
         state.errors.values.distinct().forEach { Notice(it,true) }
         Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-review")) {Text("Periksa catatan")}
-        OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-save-draft")) {Text("Simpan draf dan kembali")}
+        OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-save-draft")) {Text(if(worker) "Simpan sebagai draf" else "Simpan draf dan kembali")}
         Spacer(Modifier.height(16.dp))
     }
 }
 
-@Composable private fun ActivityReview(draft:ActivityDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
+@Composable private fun ActivityReview(draft:ActivityDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit,worker:Boolean=false) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         FarmPageTitle("Periksa catatan")
         if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat dan tidak dikirim ulang.")
@@ -1044,7 +1054,7 @@ internal fun ExpiredSessionNotice() {
             if (draft.notes.isNotBlank()) FarmFact("Keterangan", draft.notes)
             if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi", draft.reason)
         }
-        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-queue")) {Text(if(busy) "Menyimpan…" else "Simpan")}
+        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-queue")) {Text(if(busy) "Menyimpan…" else if(worker) "Kirim" else "Simpan")}
         OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke isian")}
     }
 }
@@ -1090,18 +1100,21 @@ internal fun ExpiredSessionNotice() {
             if(record.serverVersion==null || record.recorderId()==session.scope.accountId) session.name else "Nama pencatat belum tersedia"
         }
         Text("Pencatat: $recorder")
-        Text("Versi: ${record.serverVersion ?: "belum terkirim"}")
+        if(session.role==UserRole.MANAGER) Text("Versi: ${record.serverVersion ?: "belum terkirim"}")
         val snapshot=record.body.optJSONObject("reference_snapshot")
         snapshot?.let { snap -> val age=snap.optJSONObject("age");Text("HSS ${if(age?.isNull("hss")==false) age.optString("hss") else "belum tersedia"} · HST ${if(age?.isNull("hst")==false) age.optString("hst") else "belum berlaku"}")
             age?.optJSONArray("reasons")?.let { a -> repeat(a.length()) {Text(a.getString(it))} }
-            if (showComparison) snap.optJSONObject("checks")?.let { checks -> checks.keys().forEach { parameter -> val check=checks.getJSONObject(parameter);Text("${when(parameter) {"manual_ec" -> "EC";"manual_ppm" -> "PPM";else -> "pH"}}: ${when(check.optString("status")) {"delta_only" -> "selisih ${check.optString("delta")}";"within_range" -> "dalam rentang";"outside_range" -> "di luar rentang";else -> "belum dapat dibandingkan"}}")
-                check.optJSONArray("reasons")?.let { a -> repeat(a.length()) {Text(a.getString(it),style=MaterialTheme.typography.bodySmall)} } } }
+            if (showComparison) snap.optJSONObject("checks")?.let { checks -> checks.keys().forEach { parameter -> val check=checks.getJSONObject(parameter)
+                val worker=session.role==UserRole.WORKER
+                val verdict=when(check.optString("status")) {"delta_only" -> if(worker) null else "selisih ${check.optString("delta")}";"within_range" -> "dalam rentang";"outside_range" -> "di luar rentang";else -> if(worker) null else "belum dapat dibandingkan"}
+                verdict?.let { Text("${when(parameter) {"manual_ec" -> "EC";"manual_ppm" -> "PPM";else -> "pH"}}: $it") }
+                if(!worker) check.optJSONArray("reasons")?.let { a -> repeat(a.length()) {Text(a.getString(it),style=MaterialTheme.typography.bodySmall)} } } }
         }
 }
 
-@Composable private fun ReferenceCards(context:CultivationUiState,group:String,draft:ActivityDraft?) {
+@Composable private fun ReferenceCards(context:CultivationUiState,group:String,draft:ActivityDraft?,worker:Boolean=false) {
     val instant=draft?.let { runCatching {OffsetDateTime.parse(it.occurredAt()).toInstant()}.getOrNull() }
-    if(draft!=null) {
+    if(draft!=null && !worker) {
         val groupData=context.groups.find {it.optString("id")==group}
         val age=runCatching { if(groupData==null) null else PlantAge.calculate(groupData.getString("sowing_date"),if(groupData.isNull("transplant_date")) null else groupData.getString("transplant_date"),draft.occurredAt()) }.getOrNull()
         if(age!=null) { Text("HSS ${age.hss ?: "belum tersedia"} · HST ${age.hst ?: "belum berlaku"}");age.reasons.forEach {Text(it,style=MaterialTheme.typography.bodySmall)} }
@@ -1109,6 +1122,13 @@ internal fun ExpiredSessionNotice() {
     }
     val targets=context.targets.filter { it.optString("planting_group_id")==group && it.optBoolean("active",true) && (draft!=null || it.optString("parameter")!="manual_ph") && (draft==null || it.optString("activity_type")==draft.type.wire) }.filter { target ->
         instant==null || runCatching { !instant.isBefore(OffsetDateTime.parse(target.getString("effective_from")).toInstant()) && (target.isNull("effective_until") || instant.isBefore(OffsetDateTime.parse(target.getString("effective_until")).toInstant())) }.getOrDefault(false)
+    }
+    if(worker) {
+        targets.forEach { target ->
+            fun text(key:String)=target.takeUnless {it.isNull(key)}?.optString(key)
+            workerTargetLine(target.optString("parameter"),target.optString("unit"),text("target_value"),text("minimum"),text("maximum"))?.let { Text(it,style=MaterialTheme.typography.bodyMedium) }
+        }
+        return
     }
     if(targets.isEmpty()) Notice("Belum ada target untuk waktu ini. Nilai aktual tetap dicatat.")
     targets.forEach { target -> OutlinedCard { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {

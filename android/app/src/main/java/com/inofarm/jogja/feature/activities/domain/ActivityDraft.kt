@@ -38,14 +38,14 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
             }
         }
         if(type==ActivityType.MEASUREMENT) {
-            if(ec.isBlank()) put("manual_ec","EC manual wajib; kosong bukan nol.")
-            if(ppm.isBlank()) put("manual_ppm","PPM manual wajib; kosong bukan nol.")
+            if(ec.isBlank()) put("manual_ec","Isi EC manual.")
+            if(ppm.isBlank()) put("manual_ppm","Isi PPM manual.")
             if(skipped) put("work_state","Pengukuran harus selesai untuk dikirim.")
             if(materials.isNotEmpty()) put("materials","Catat pemberian bahan sebagai kegiatan nutrisi terpisah.")
         }
         if(skipped) { if(skippedReason.isBlank()) put("skipped_reason","Alasan kegiatan dilewati wajib diisi.") }
         else {
-            if(type==ActivityType.NUTRITION) { if(ppm.isBlank()) put("manual_ppm","PPM manual wajib; kosong bukan nol.");if(ph.isBlank()) put("manual_ph","pH manual wajib; kosong bukan nol.") }
+            if(type==ActivityType.NUTRITION) { if(ppm.isBlank()) put("manual_ppm","Isi PPM manual.");if(ph.isBlank()) put("manual_ph","Isi pH manual.") }
             if(type in setOf(ActivityType.NUTRITION,ActivityType.SPRAY) && materials.isEmpty()) put("materials","Tambahkan sedikitnya satu bahan aktual.")
             if(type==ActivityType.STAGE && stage.isBlank()) put("actual_stage","Isi kondisi stadia aktual.")
             if(type==ActivityType.GENERAL && notes.isBlank()) put("notes","Isi keterangan pekerjaan umum.")

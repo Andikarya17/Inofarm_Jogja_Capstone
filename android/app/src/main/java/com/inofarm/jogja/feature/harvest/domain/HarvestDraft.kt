@@ -28,7 +28,7 @@ data class HarvestDraft(val id:String=UUID.randomUUID().toString(),val greenhous
         items.forEachIndexed {index,line ->
             if(runCatching {WireContract.uuid(line.id);WireContract.uuid(line.gradeId)}.isFailure) put("items.$index.grade","Pilih grade untuk rincian ${index+1}.")
             if (requireQuality && line.quality == null) put("items.$index.quality", "Pilih layak atau cacat untuk rincian ${index + 1}.")
-            if(count(line.fruitCount)==null) put("items.$index.count","Jumlah buah harus integer 0–2.147.483.647; kosong bukan nol.")
+            if(count(line.fruitCount)==null) put("items.$index.count","Isi jumlah buah sebagai bilangan bulat, 0 atau lebih.")
             val weight=runCatching {number(line.weightKg)}.getOrNull()
             if(weight==null || weight<BigDecimal.ZERO) put("items.$index.weight","Isi bobot kg desimal tidak negatif, maksimal 6 angka di belakang koma.")
         }
