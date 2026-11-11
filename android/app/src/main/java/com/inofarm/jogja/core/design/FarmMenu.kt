@@ -19,12 +19,15 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
+/** Extra room at the end of every menu list so a floating button never hides the last row. */
+internal val LocalFarmListBottomInset = androidx.compose.runtime.compositionLocalOf { 0.dp }
+
 @Composable
 internal fun FarmMenuList(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium),
-        contentPadding = PaddingValues(top = FarmSpace.Medium, bottom = FarmSpace.Large),
+        contentPadding = PaddingValues(top = FarmSpace.Medium, bottom = FarmSpace.Large + LocalFarmListBottomInset.current),
         content = content
     )
 }

@@ -233,6 +233,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     if(authState.session!=null && !authState.loading && authState.error!=null) AlertDialog(onDismissRequest=auth::clearError,title={Text("Belum keluar")},text={Text(authState.error!!)},confirmButton={TextButton(onClick=auth::clearError) {Text("Kembali ke isian")}})
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun FinanceHome(session:FinanceSession,context:CultivationUiState,activity:ActivityUiState,onSync:()->Unit,onLogout:()->Unit,vm:ActivityViewModel,history:HistoryUiState,historyVm:HistoryViewModel,
     harvest:HarvestUiState,harvestVm:HarvestViewModel,harvestHistory:HistoryUiState,harvestHistoryVm:HistoryViewModel,financial:FinancialEntryState,financialVm:FinancialEntryViewModel,
     expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:AssetWorkspace,reports:SeasonReportWorkspace,investments:InvestmentWorkspace,onAdmin:(AdminResource)->Unit,onAccessDenied:()->Unit,
@@ -245,6 +246,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var queueFocus by rememberSaveable { mutableStateOf<String?>(null) }
     var queueOpening by remember { mutableStateOf(false) }
     var showOutbox by rememberSaveable { mutableStateOf(false) }
+    var recordSheet by rememberSaveable { mutableStateOf(false) }
+    var moneyPick by rememberSaveable { mutableStateOf<String?>(null) }
+    var historyChip by rememberSaveable { mutableStateOf("activity") }
+    var lastGreenhouse by rememberSaveable { mutableStateOf<String?>(null) }
     var reviewActivity by rememberSaveable { mutableStateOf<String?>(null) }
     var reviewKind by rememberSaveable { mutableStateOf(ReviewKind.ACTIVITY) }
     val verification = remember(runtime) { ActivityVerificationRepository(runtime.api, runtime.store, runtime.vault) }
@@ -270,8 +275,19 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     }
     var financeKind by rememberSaveable { mutableStateOf(OperationalKind.EXPENSE.wire) }
     var financeLink by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(gh) { if (gh != null) lastGreenhouse = gh }
     val homeRepository = remember(runtime) { ManagerHomeRepository(runtime.vault, runtime.store, runtime.api) }
     val syncUpdates by runtime.sync.updates.collectAsStateWithLifecycle()
+    var reviewCount by remember { mutableStateOf<Int?>(null) }
+    if (manager) LaunchedEffect(syncUpdates, session.scope) {
+        val readTicket = runtime.vault.generation
+        reviewCount = runCatching {
+            ReviewKind.entries.sumOf { kind ->
+                verification.read(session, readTicket, kind.inbox, mapOf("status" to "pending", "limit" to "50"))
+                    .optJSONArray("data")?.length() ?: 0
+            }
+        }.getOrNull()
+    }
     var workerToday by remember { mutableStateOf(LocalDate.now(ActivityDraft.WIB)) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     if (!manager) LaunchedEffect(lifecycle) {
@@ -325,9 +341,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             financeKind = destination.kind.wire
             financeLink++
         }
+        val shownTab = if (manager && destinationTab in 2..3) 5 else destinationTab
+        if (shownTab == 5) historyChip = if (destinationTab == 2) "activity" else "harvest"
         val id = destination.recordId
-        if (id == null) tab = destinationTab
-        else target.select(id) { error -> if (error != null) tab = destinationTab }
+        if (id == null) tab = shownTab
+        else target.select(id) { error -> if (error != null) tab = shownTab }
     }
     val queueHistory = buildMap {
         put(OperationalKind.ACTIVITY.wire, historyVm)
@@ -365,7 +383,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var entryGroup by rememberSaveable { mutableStateOf<String?>(null) }
     managerRecording?.let { destination -> WorkerContextSheet(
         context, HomeContext(entryGreenhouse, entrySeason, entryGroup),
-        if (destination == "harvest") "Catat panen" else "Catat kegiatan",
+        when (destination) { "harvest" -> "Catat panen"; "measurement" -> "Catat pengukuran"; else -> "Catat kegiatan" },
         onSelect = { entryGreenhouse = it.greenhouse; entrySeason = it.season; entryGroup = it.group },
         onClose = { managerRecording = null },
         onContinue = {
@@ -373,7 +391,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             val plantingGroup = entryGroup
             if (parent != null && plantingGroup != null) {
                 managerRecording = null
-                if (destination == "harvest") harvestVm.new(parent, plantingGroup) else vm.new(parent, plantingGroup)
+                when (destination) {
+                    "harvest" -> harvestVm.new(parent, plantingGroup)
+                    "measurement" -> vm.new(parent, plantingGroup, ActivityType.MEASUREMENT)
+                    else -> vm.new(parent, plantingGroup)
+                }
             }
         },
         onSync = onSync,
@@ -426,13 +448,12 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison()
             harvestHistory.selected!=null -> harvestHistoryVm.close()
             harvestProgressOpen -> harvestProgressOpen = false
-            tab == 1 && manager && showOutbox -> showOutbox = false
             tab == 1 && reviewActivity != null -> reviewActivity = null
             tab == 0 && !manager && selectedGreenhouse != null -> { gh = null; season = null; group = null }
             else -> tab=0
         }
     }
-    val showNavigation = !harvestProgressOpen && !(tab == 1 && !showOutbox && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
+    val showNavigation = !harvestProgressOpen && !(tab == 1 && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
     val sessionExpired = session.expired()
     val workerReady = selectedGreenhouse != null && selectedGroup != null &&
         selectedSeason?.optString("status") == "open" && context.check != ContextCheck.ACCESS_CHANGED
@@ -465,6 +486,96 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         }, onSelect = ::setWorkerContext, onClose = { contextSheet = null }, onContinue = { recordWorker(destination) }, onSync = onSync,
             preferRunningPeriod = true)
     }
+    val queueScreen: @Composable () -> Unit = {
+        QueueScreen(activity, context, sessionExpired, queueReviewOperation, queueReviewError, queueOpening, vm::reload,
+            onReview = { op ->
+                queueReviewError = null
+                queueReviewOperation = op.id
+                val kind = op.envelope.optString("entity_type")
+                val destination = queueHistory[kind]
+                if (manager) showOutbox = false
+                when {
+                    destination != null -> {
+                        queueOpening = true
+                        destination.select(op.entityId) { error ->
+                            queueOpening = false
+                            queueReviewError = error
+                        }
+                    }
+                    manager && kind in investmentQueueKinds -> investments.vm.select(op.entityId,fromQueue=true)
+                    manager && kind == "season_report" -> reports.vm.select(op.entityId)
+                    manager && kind == "planting_groups" -> {
+                        val parent = context.groups.find { it.optString("id") == op.entityId }
+                        harvestProgressGroup = parent?.optString("id")
+                        harvestProgressGreenhouse = context.seasons.find {
+                            it.optString("id") == parent?.optString("season_id")
+                        }?.optString("greenhouse_id")
+                        historyChip = "harvest"
+                        tab = 5
+                        harvestProgressOpen = true
+                    }
+                    manager && kind in setOf("activity_review", "harvest_review") -> {
+                        reviewKind = ReviewKind.entries.first { it.operationKind == kind }
+                        reviewActivity = op.envelope.getJSONObject("payload").getString(reviewKind.parentKey)
+                        tab = 1
+                    }
+                }
+            },
+            canReview = { op ->
+                val kind = op.envelope.optString("entity_type")
+                kind in queueHistory || manager && (kind in investmentQueueKinds || kind in setOf("season_report", "activity_review", "harvest_review", "planting_groups"))
+            }, focusOperation = queueFocus,
+            onSendNow = if (manager) onSync else null,
+            title = if (manager) "Belum terkirim" else "Pengiriman saya")
+    }
+    val unsent = activity.queue.count { it.state != "ACCEPTED" && it.state != "SUPERSEDED" }
+    fun startRecord(choice: RecordChoice) {
+        recordSheet = false
+        val target = gh ?: lastGreenhouse ?: context.greenhouses.singleOrNull()?.optString("id")
+        when (choice) {
+            RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST ->
+                if (canRecordFromHome) when (choice) {
+                    RecordChoice.HARVEST -> harvestVm.new(gh!!, runningGroup!!, runningVersion)
+                    RecordChoice.MEASUREMENT -> vm.new(gh!!, runningGroup!!, ActivityType.MEASUREMENT, null, runningVersion)
+                    else -> vm.new(gh!!, runningGroup!!, ActivityType.GENERAL, null, runningVersion)
+                } else {
+                    entryGreenhouse = target
+                    entrySeason = null
+                    entryGroup = null
+                    managerRecording = when (choice) { RecordChoice.HARVEST -> "harvest"; RecordChoice.MEASUREMENT -> "measurement"; else -> "activity" }
+                }
+            RecordChoice.EXPENSE ->
+                if (target != null) financialVm.new(com.inofarm.jogja.core.contracts.RecordKind.EXPENSE, target)
+                else moneyPick = "expense"
+            RecordChoice.SALE ->
+                if (target != null) saleVm.new(target)
+                else moneyPick = "sale"
+        }
+    }
+    moneyPick?.let { kind ->
+        FarmPicker(
+            title = "Pilih greenhouse",
+            options = context.greenhouses.filter { it.optBoolean("active", true) }.map { FarmOption(it.getString("id"), it.getString("name")) },
+            selected = "",
+            optionTag = { "record-greenhouse-$it" },
+            onDismiss = { moneyPick = null },
+            onSelect = { id ->
+                moneyPick = null
+                if (kind == "expense") financialVm.new(com.inofarm.jogja.core.contracts.RecordKind.EXPENSE, id) else saleVm.new(id)
+            },
+            sheet = true
+        )
+    }
+    val recordButton = manager && showNavigation && !writing && (tab == 0 || tab == 5)
+    if (manager && recordSheet) RecordSheet(::startRecord,
+        if (gh != null && runningGroup == null && !managerHome.loading) ({ recordSheet = false; onAdmin(AdminResource.GROUP) }) else null,
+        { recordSheet = false })
+    if (manager && showOutbox) ModalBottomSheet(
+        onDismissRequest = { showOutbox = false; queueFocus = null },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = { WindowInsets.safeDrawing }
+    ) { Box(Modifier.fillMaxHeight(.92f).padding(horizontal = FarmSpace.Page)) { queueScreen() } }
     val translucentNavigation = tab == 0 && showNavigation && !writing && LocalDensity.current.fontScale <= 1.4f &&
         android.os.Build.VERSION.SDK_INT >= 31 && androidx.compose.ui.platform.LocalView.current.isHardwareAccelerated
     Scaffold(
@@ -477,14 +588,28 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         if((attachment.parent!=null && (ime || LocalDensity.current.fontScale>1.5f || LocalConfiguration.current.screenHeightDp<400)) || (ime && (investments.state.scenarioDraft!=null || investments.state.reportDraft!=null || investments.state.cancelReason!=null || reports.state.draft!=null || asset.entry.draft!=null || sale.draft!=null || activity.draft!=null || harvest.draft!=null || financial.draft!=null))) {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(if(attachment.parent!=null) "Lampiran" else if(investments.state.active) "Investasi" else if(reports.state.draft!=null) "Evaluasi" else if(asset.entry.draft!=null) "Aset" else if(sale.draft!=null) "Penjualan" else if(financial.draft!=null && LocalDensity.current.fontScale>1.5f) "Isian" else if(financial.draft!=null) "Catat ${financial.draft.kind.label}" else if(harvest.draft!=null) "Catat panen" else "Catat kegiatan",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={keyboard?.hide();if(attachment.parent!=null) {if(attachment.selected!=null) attachmentVm.closeSelected() else attachmentVm.close()} else if(investments.state.active) investments.vm.back() else if(reports.state.draft!=null) reports.vm.back() else if(asset.entry.draft!=null) asset.vm.saveAndClose() else if(sale.draft!=null) saleVm.saveAndClose() else if(financial.draft!=null) financialVm.saveAndClose() else if(harvest.draft!=null) harvestVm.saveAndClose() else vm.saveAndClose()},enabled=!writing) {Text(if(attachment.parent!=null) "Kembali" else "Simpan draf")} }
         } else {
-            FinanceToolbar(session, context.loading, writing, sessionExpired, onSync, onLogout, onAdmin)
+            FinanceToolbar(session, context.loading, writing, sessionExpired, onSync, onLogout, onAdmin,
+                unsent = unsent, onUnsent = { queueFocus = null; showOutbox = true })
         }
-    } },bottomBar={
-        if (showNavigation) FinanceNavigation(tab, manager, translucentNavigation) {
-            if (!queueOpening) {
-                queueFocus = null
-                if (it != tab) { showOutbox = false; reviewActivity = null }
-                tab = it
+    } },floatingActionButton={
+        if (recordButton) ExtendedFloatingActionButton(
+            onClick = { recordSheet = true },
+            icon = { FarmControlIcon(FarmIcon.Add, null) },
+            text = { Text("Catat") },
+            modifier = Modifier.testTag("manager-record-fab")
+        )
+    },bottomBar={
+        if (showNavigation) {
+            val internalTabs = if (manager) ManagerScreenIds else intArrayOf(0, 1, 2, 3)
+            val selectedIndex = if (manager) managerNavIndex(tab) else tab
+            FinanceNavigation(selectedIndex, if (manager) ManagerDestinations else WorkerDestinations,
+                translucentNavigation, allowMenu = !manager) { index ->
+                if (!queueOpening) {
+                    queueFocus = null
+                    val target = internalTabs[index]
+                    if (target != tab) { showOutbox = false; reviewActivity = null }
+                    tab = target
+                }
             }
         }
     }) { padding ->
@@ -502,6 +627,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             alpha = .74f + .26f * tabEntrance.value
             translationY = 5.dp.toPx() * (1f - tabEntrance.value)
         } else Modifier
+        CompositionLocalProvider(LocalFarmListBottomInset provides if (recordButton) 80.dp else 0.dp) {
         Box(Modifier.widthIn(max = 900.dp).fillMaxSize().then(workerTabMotion)) {
             when {
                 session.role==UserRole.MANAGER && investments.state.active -> InvestmentScreen(investments,context,returnToQueue=tab==1)
@@ -523,11 +649,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 tab == 0 && manager -> tabState.SaveableStateProvider("manager-home-${gh.orEmpty()}") {
                     ManagerHomeScreen(gh, managerHome, activity.queue, PaddingValues(
                         top = FarmSpace.Medium,
-                        bottom = FarmSpace.Large + if (translucentNavigation) (padding.calculateBottomPadding() - systemBottom).coerceAtLeast(0.dp) else 0.dp,
+                        bottom = FarmSpace.Large + LocalFarmListBottomInset.current + if (translucentNavigation) (padding.calculateBottomPadding() - systemBottom).coerceAtLeast(0.dp) else 0.dp,
                     ), periodReview, { periodReview = it }, { id -> gh = id; periodReview = false }, {
                         managerRefresh++
                         onSync()
-                    }, openHomeDestination, { operation -> queueFocus = operation.id; showOutbox = true; tab = 1 },
+                    }, openHomeDestination, { operation -> queueFocus = operation.id; showOutbox = true },
                         onRecord = { type, schedule ->
                             if (canRecordFromHome) vm.new(gh!!, runningGroup!!, type, schedule, runningVersion)
                         },
@@ -541,7 +667,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 managerRefresh++
                                 onSync()
                             }
-                        })
+                        },
+                        reviewCount = reviewCount,
+                        onReviewInbox = { reviewActivity = null; tab = 1 },
+                        onAddGreenhouse = { onAdmin(AdminResource.GREENHOUSE) })
                 }
                 tab==0 && !harvestProgressOpen -> tabState.SaveableStateProvider("worker-home-${selectedGreenhouse?.optString("id").orEmpty()}") { LazyColumn(
                     modifier=Modifier.fillMaxSize().testTag("finance-home-list"),
@@ -632,54 +761,19 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         onSource = { id, version -> harvestHistoryVm.select(id, expectedVersion = version) { workerProgressSourceError = it } },
                         sourceSelectionError = workerProgressSourceError)
                 }
-                tab == 1 && manager && !showOutbox -> tabState.SaveableStateProvider("verification-${reviewKind.wire}") {
+                tab == 1 && manager -> tabState.SaveableStateProvider("verification-${reviewKind.wire}") {
                     ActivityVerificationScreen(session, ticket, context, verification, syncUpdates, reviewActivity,
                         { reviewActivity = it }, { showOutbox = true }, onSync, reviewKind, { reviewKind = it })
                 }
-                tab==1 -> tabState.SaveableStateProvider(queueFocus?.let { "queue-$it" } ?: 1) {
-                    QueueScreen(activity, context, sessionExpired, queueReviewOperation, queueReviewError, queueOpening, vm::reload,
-                        onReview = { op ->
-                            queueReviewError = null
-                            queueReviewOperation = op.id
-                            val kind = op.envelope.optString("entity_type")
-                            val destination = queueHistory[kind]
-                            when {
-                                destination != null -> {
-                                    queueOpening = true
-                                    destination.select(op.entityId) { error ->
-                                        queueOpening = false
-                                        queueReviewError = error
-                                    }
-                                }
-                                manager && kind in investmentQueueKinds -> investments.vm.select(op.entityId,fromQueue=true)
-                                manager && kind == "season_report" -> reports.vm.select(op.entityId)
-                                manager && kind == "planting_groups" -> {
-                                    val parent = context.groups.find { it.optString("id") == op.entityId }
-                                    harvestProgressGroup = parent?.optString("id")
-                                    harvestProgressGreenhouse = context.seasons.find {
-                                        it.optString("id") == parent?.optString("season_id")
-                                    }?.optString("greenhouse_id")
-                                    tab = 3
-                                    harvestProgressOpen = true
-                                }
-                                manager && kind in setOf("activity_review", "harvest_review") -> {
-                                    reviewKind = ReviewKind.entries.first { it.operationKind == kind }
-                                    reviewActivity = op.envelope.getJSONObject("payload").getString(reviewKind.parentKey)
-                                    showOutbox = false
-                                }
-                            }
-                        },
-                        canReview = { op ->
-                            val kind = op.envelope.optString("entity_type")
-                            kind in queueHistory || manager && (kind in investmentQueueKinds || kind in setOf("season_report", "activity_review", "harvest_review", "planting_groups"))
-                        }, focusOperation = queueFocus,
-                        onVerification = if (manager) ({ showOutbox = false }) else null)
-                }
+                tab==1 && !manager -> tabState.SaveableStateProvider(queueFocus?.let { "queue-$it" } ?: 1) { queueScreen() }
                 tab==4 && manager -> tabState.SaveableStateProvider(4) {
                     FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync,financeKind,financeLink)
                 }
-                tab==2 || tab==3 -> tabState.SaveableStateProvider(tab) {
-                    val isActivity = tab == 2
+                tab==6 && manager -> tabState.SaveableStateProvider(6) {
+                    ManageScreen(session.name, onAdmin, onLogout, enabled = !writing)
+                }
+                tab==2 || tab==3 || tab==5 && manager -> tabState.SaveableStateProvider(if (tab == 5) "history-$historyChip" else tab) {
+                    val isActivity = tab == 2 || tab == 5 && historyChip != "harvest"
                     val canRecord = if (manager) canRecordFromHome else workerReady
                     HistoryScreen(session,context,if (isActivity) history else harvestHistory,
                         if (isActivity) historyVm else harvestHistoryVm,activity.queue,
@@ -688,7 +782,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             else { harvestVm.open(record,replace);harvestHistoryVm.close() }
                         },
                         kind=if (isActivity) OperationalKind.ACTIVITY else OperationalKind.HARVEST,
-                        onRecord={
+                        onRecord=if (manager) null else ({
                             if (!manager) recordWorker(if (isActivity) "activity" else "harvest")
                             else if (!canRecord) {
                                 entryGreenhouse = gh
@@ -700,7 +794,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 if (isActivity) vm.new(gh!!, runningGroup!!, runningPeriodVersion = runningVersion)
                                 else harvestVm.new(gh!!, runningGroup!!, runningVersion)
                             }
-                        },
+                        }),
                         recordLabel=when {
                             isActivity -> "Catat kegiatan"
                             else -> "Catat panen"
@@ -709,6 +803,22 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         else if (canRecord) listOf(selectedGreenhouse,selectedSeason,selectedGroup)
                             .joinToString(" · ") { it!!.getString("name") } else null,
                         onSync=onSync,
+                        historyKindPicker = if (tab == 5) ({
+                            RecordTypeChips(historyChip) { id ->
+                                when (id) {
+                                    "activity", "measurement" -> {
+                                        historyChip = id
+                                        historyVm.filter(history.filter.copy(type = if (id == "measurement") ActivityType.MEASUREMENT.wire else null), history.filterSeason)
+                                    }
+                                    "harvest" -> historyChip = id
+                                    else -> {
+                                        financeKind = when (id) { "expense" -> OperationalKind.EXPENSE.wire; "sale" -> OperationalKind.SALE.wire; else -> OperationalKind.ASSET.wire }
+                                        financeLink++
+                                        tab = 4
+                                    }
+                                }
+                            }
+                        }) else null,
                         header = {
                             if (manager && !isActivity) item("harvest-progress-link") {
                                 OutlinedButton(onClick = {
@@ -727,6 +837,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             }
         }
         }
+        }
     }
 }
 
@@ -737,21 +848,35 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     sessionExpired: Boolean,
     onSync: () -> Unit,
     onLogout: () -> Unit,
-    onAdmin: (AdminResource) -> Unit
+    onAdmin: (AdminResource) -> Unit,
+    unsent: Int = 0,
+    onUnsent: () -> Unit = {}
 ) {
     var accountOpen by rememberSaveable { mutableStateOf(false) }
+    val manager = session.role == UserRole.MANAGER
     Row(
         Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text("Inofarm", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-        if (syncing && LocalDensity.current.fontScale <= 1.3f) Text(
-            "Memperbarui",
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
-        )
-        IconButton(onClick = onSync, enabled = !syncing, modifier = Modifier.testTag("finance-sync")) {
-            FarmControlIcon(FarmIcon.Sync, if (syncing) "Memperbarui" else "Perbarui")
+        if (manager) {
+            if (unsent > 0) TextButton(onClick = onUnsent, shape = FarmShape.Control,
+                modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-unsent")
+                    .semantics { liveRegion = LiveRegionMode.Polite }) {
+                FarmControlIcon(FarmIcon.Sync, null)
+                Spacer(Modifier.width(FarmSpace.Small))
+                Text("$unsent belum terkirim", style = MaterialTheme.typography.labelLarge)
+            } else if (syncing) Text("Memperbarui", Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                style = MaterialTheme.typography.labelMedium)
+        } else {
+            if (syncing && LocalDensity.current.fontScale <= 1.3f) Text(
+                "Memperbarui",
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            )
+            IconButton(onClick = onSync, enabled = !syncing, modifier = Modifier.testTag("finance-sync")) {
+                FarmControlIcon(FarmIcon.Sync, if (syncing) "Memperbarui" else "Perbarui")
+            }
         }
         Box {
             IconButton(onClick = { accountOpen = true }, modifier = Modifier.testTag("finance-account")) {
@@ -765,23 +890,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 HorizontalDivider(Modifier.padding(horizontal = FarmSpace.Page))
-                if (session.role == UserRole.MANAGER) {
-                    DropdownMenuItem(
-                        text = { Text("Kelola greenhouse") },
-                        leadingIcon = { FarmControlIcon(FarmIcon.ChevronRight, null) },
-                        onClick = { accountOpen = false; onAdmin(AdminResource.GREENHOUSE) },
-                        enabled = !writing,
-                        modifier = Modifier.testTag("finance-admin")
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Kelola akun") },
-                        leadingIcon = { FarmControlIcon(FarmIcon.Account, null) },
-                        onClick = { accountOpen = false; onAdmin(AdminResource.USER) },
-                        enabled = !writing,
-                        modifier = Modifier.testTag("finance-admin-accounts")
-                    )
-                    HorizontalDivider(Modifier.padding(horizontal = FarmSpace.Page))
-                }
                 DropdownMenuItem(
                     text = { Text("Keluar") },
                     leadingIcon = { FarmControlIcon(FarmIcon.Logout, null) },
@@ -1023,7 +1131,7 @@ internal fun ExpiredSessionNotice() {
         modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }
     ) { Text(message, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium) }
 }
-@Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true) {
+@Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true,enabled:Boolean=true) {
     val labelAbove = LocalDensity.current.fontScale > 1.5f
     val support = error ?: hint
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1037,7 +1145,7 @@ internal fun ExpiredSessionNotice() {
             label = if (labelAbove) null else ({ Text(label) }),
             isError = error != null,
             supportingText = support?.let { message -> { Text(message) } },
-            singleLine = singleLine, keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+            singleLine = singleLine, enabled = enabled, keyboardOptions = KeyboardOptions(keyboardType = keyboard),
             modifier = Modifier.fillMaxWidth().testTag(tag).semantics { if (labelAbove) contentDescription = label }
         )
     }

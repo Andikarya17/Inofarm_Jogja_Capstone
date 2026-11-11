@@ -13,25 +13,50 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.core.design.*
 
+/** A bottom-bar destination. [icon] picks the drawing in [FarmNavigationIcon]. */
+internal data class NavDestination(val label: String, val icon: Int)
+
+/** Where each role's tabs lead. The manager has four always-visible tabs; the worker keeps the original four. */
+internal enum class ManagerTab(val label: String, val icon: Int) {
+    HOME("Beranda", 0), HISTORY("Riwayat", 1), FINANCE("Keuangan", 4), MANAGE("Kelola", 5)
+}
+
+internal val WorkerDestinations = listOf(
+    NavDestination("Beranda", 0), NavDestination("Antrean", 1), NavDestination("Kegiatan", 2), NavDestination("Panen", 3)
+)
+internal val ManagerDestinations = ManagerTab.entries.map { NavDestination(it.label, it.icon) }
+
+/**
+ * Screen ids FinanceHome renders: 0 Beranda, 1 Cek catatan, 2 and 3 old activity/harvest lists,
+ * 4 Keuangan, 5 Riwayat, 6 Kelola. These map each bottom-bar position to a screen id and back.
+ */
+internal val ManagerScreenIds = intArrayOf(0, 5, 4, 6)
+internal fun managerNavIndex(screen: Int): Int = when (screen) { 0, 1 -> 0; 2, 3, 5 -> 1; 4 -> 2; 6 -> 3; else -> 0 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun FinanceNavigation(tab: Int, manager: Boolean, transmitBackdrop: Boolean, onSelect: (Int) -> Unit) {
-    val labels = listOf("Beranda", "Antrean", "Kegiatan", "Panen", "Keuangan").take(if (manager) 5 else 4)
+internal fun FinanceNavigation(
+    selected: Int,
+    destinations: List<NavDestination>,
+    transmitBackdrop: Boolean,
+    allowMenu: Boolean,
+    onSelect: (Int) -> Unit
+) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     FarmGlass(
         Modifier.navigationBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp),
         transmitBackdrop = transmitBackdrop
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Tiny)) {
-            val compact = maxWidth / LocalDensity.current.fontScale < 54.dp * labels.size
+            val compact = allowMenu && maxWidth / LocalDensity.current.fontScale < 54.dp * destinations.size
             if (compact) {
                 TextButton(
                     onClick = { expanded = true }, shape = FarmShape.Control,
                     modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("finance-navigation-menu")
                 ) {
-                    FarmNavigationIcon(tab)
+                    FarmNavigationIcon(destinations[selected].icon)
                     Spacer(Modifier.width(FarmSpace.Small))
-                    Text("Menu · ${labels[tab]}", style = MaterialTheme.typography.labelLarge)
+                    Text("Menu · ${destinations[selected].label}", style = MaterialTheme.typography.labelLarge)
                 }
                 if (expanded) ModalBottomSheet(
                     onDismissRequest = { expanded = false },
@@ -44,20 +69,20 @@ internal fun FinanceNavigation(tab: Int, manager: Boolean, transmitBackdrop: Boo
                     ) {
                         FarmSheetHeading("Pindah halaman", { expanded = false })
                         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).selectableGroup()) {
-                            labels.forEachIndexed { index, label ->
-                                FarmTab(index, label, tab == index, {
+                            destinations.forEachIndexed { index, destination ->
+                                FarmTab(destination.icon, destination.label, selected == index, {
                                     onSelect(index)
                                     expanded = false
                                 }, Modifier.fillMaxWidth().testTag("finance-tab-$index"), inline = true)
-                                if (index < labels.lastIndex) FarmRowDivider(FarmSpace.Medium * 2 + 24.dp)
+                                if (index < destinations.lastIndex) FarmRowDivider(FarmSpace.Medium * 2 + 24.dp)
                             }
                         }
                     }
                 }
             } else {
                 Row(Modifier.fillMaxWidth().selectableGroup()) {
-                    labels.forEachIndexed { index, label ->
-                        FarmTab(index, label, tab == index, { onSelect(index) },
+                    destinations.forEachIndexed { index, destination ->
+                        FarmTab(destination.icon, destination.label, selected == index, { onSelect(index) },
                             Modifier.weight(1f).testTag("finance-tab-$index"))
                     }
                 }

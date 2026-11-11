@@ -59,6 +59,9 @@ internal fun ManagerHomeScreen(
     onAdmin: () -> Unit,
     seasonActions: @Composable (JSONObject) -> Unit,
     onDesignate: suspend (String?, String) -> Unit,
+    reviewCount: Int? = null,
+    onReviewInbox: () -> Unit = {},
+    onAddGreenhouse: () -> Unit = {},
 ) {
     val snapshot = state.snapshot
     val selected = snapshot?.selected
@@ -91,6 +94,12 @@ internal fun ManagerHomeScreen(
                     }
                     if (selection != null) TextButton(onClick = { onSelect(null) }, shape = FarmShape.Control,
                         modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-home-all")) { Text("Semua greenhouse") }
+                    if (selection == null) OutlinedButton(onClick = onAddGreenhouse, shape = FarmShape.Control,
+                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-add-greenhouse")) {
+                        FarmControlIcon(FarmIcon.Add, null)
+                        Spacer(Modifier.width(FarmSpace.Small))
+                        Text("Tambah greenhouse")
+                    }
                 }
                 if (snapshot != null) Text(
                     if (state.cached) "Data tersimpan · ${timeLabel(snapshot.asOf.toString())}"
@@ -109,6 +118,17 @@ internal fun ManagerHomeScreen(
         if (snapshot == null) {
             if (state.loading) item("loading") { FarmPanel { Text("Memuat ringkasan greenhouse…") } }
         } else if (selection == null) {
+            if (reviewCount == null) item("review-inbox") {
+                OutlinedButton(onClick = onReviewInbox, shape = FarmShape.Control,
+                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-review-inbox")) { Text("Cek catatan pekerja") }
+            } else if (reviewCount > 0) item("review-inbox") {
+                FarmPanel {
+                    Text("${if (reviewCount >= 50) "50+" else reviewCount.toString()} catatan pekerja perlu dicek",
+                        Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
+                    Button(onClick = onReviewInbox, shape = FarmShape.Control,
+                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-review-inbox")) { Text("Buka daftar") }
+                }
+            }
             item("greenhouse-title") { SectionTitle("Greenhouse") }
             if (snapshot.cards.isEmpty()) item("empty") { FarmPanel { Text("Belum ada greenhouse. Tambah greenhouse pertama.") } }
             items(snapshot.cards, key = { it.getString("id") }) { card ->

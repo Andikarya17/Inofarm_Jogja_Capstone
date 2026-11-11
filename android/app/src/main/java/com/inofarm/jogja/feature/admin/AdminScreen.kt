@@ -63,7 +63,11 @@ import com.inofarm.jogja.feature.Notice
         BackHandler {if(state.editing) vm.back() else if(state.detail!=null) vm.closeDetail() else close()}
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(horizontal = FarmSpace.Page)) {
-                val title = if (initialResource == AdminResource.USER) "Kelola akun" else "Kelola greenhouse"
+                val title = when (initialResource) {
+                    AdminResource.USER -> "Pekerja dan akun"
+                    AdminResource.GREENHOUSE -> "Greenhouse"
+                    else -> initialResource.label
+                }
                 FarmSheetHeading(title, close, !state.busy)
                 HorizontalDivider()
                 CompositionLocalProvider(LocalFarmDialogPicker provides true) {

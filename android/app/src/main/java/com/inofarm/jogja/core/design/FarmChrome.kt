@@ -62,7 +62,7 @@ import androidx.compose.ui.unit.dp
 
 internal enum class FarmIcon {
     Account, Sync, Eye, EyeOff, Close, ChevronRight, ChevronDown,
-    Allocate, Payment, Asset, Depreciation, Report, Investment, Backup, Logout, Greenhouse, Schedule
+    Allocate, Payment, Asset, Depreciation, Report, Investment, Backup, Logout, Greenhouse, Schedule, Add
 }
 
 @Composable internal fun FarmControlIcon(icon: FarmIcon, description: String?) {
@@ -156,6 +156,10 @@ internal enum class FarmIcon {
                 path.moveTo(4 * u, 9 * u); path.lineTo(20 * u, 9 * u)
                 path.moveTo(9 * u, 13 * u); path.lineTo(15 * u, 13 * u)
             }
+            FarmIcon.Add -> {
+                path.moveTo(12 * u, 5 * u); path.lineTo(12 * u, 19 * u)
+                path.moveTo(5 * u, 12 * u); path.lineTo(19 * u, 12 * u)
+            }
             FarmIcon.Logout -> {
                 path.moveTo(12 * u, 4 * u); path.lineTo(4 * u, 4 * u); path.lineTo(4 * u, 20 * u); path.lineTo(12 * u, 20 * u)
                 path.moveTo(9 * u, 12 * u); path.lineTo(21 * u, 12 * u)
@@ -203,11 +207,17 @@ internal enum class FarmIcon {
                 FarmNavigationIcon(index)
             }
         }
-        Text(
-            label, style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        )
+        // Four short labels share the bar, so the label stops growing past 1.3x; the full name stays in semantics.
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+            androidx.compose.ui.unit.Density(density.density, minOf(density.fontScale, 1.3f))) {
+            Text(
+                label, style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -333,6 +343,7 @@ private val rupiahGroupSeparator = Regex("(?<=\\d)\\.(?=\\d{3}(?:[.,]|$))")
             1 -> {drawCircle(color,8*u,Offset(12*u,12*u),style=Stroke(1.8f*u));path.moveTo(12*u,7*u);path.lineTo(12*u,12*u);path.lineTo(16*u,14*u)}
             2 -> {for(y in listOf(6,12,18)) {path.moveTo(8*u,y*u);path.lineTo(21*u,y*u);drawCircle(color,1.2f*u,Offset(3*u,y*u))}}
             3 -> {path.moveTo(4*u,8*u);path.lineTo(20*u,8*u);path.lineTo(18*u,21*u);path.lineTo(6*u,21*u);path.close();path.moveTo(8*u,8*u);path.quadraticTo(12*u,-1*u,16*u,8*u);path.moveTo(9*u,12*u);path.lineTo(10*u,18*u);path.moveTo(15*u,12*u);path.lineTo(14*u,18*u)}
+            5 -> {for((y,x) in listOf(6 to 8,12 to 16,18 to 10)) {path.moveTo(3*u,y*u);path.lineTo(21*u,y*u);drawCircle(color,2.2f*u,Offset(x*u,y*u),style=Stroke(1.8f*u))}}
             else -> {path.moveTo(3*u,5*u);path.lineTo(21*u,5*u);path.lineTo(21*u,21*u);path.lineTo(3*u,21*u);path.close();path.moveTo(3*u,10*u);path.lineTo(21*u,10*u);path.moveTo(15*u,14*u);path.lineTo(21*u,14*u);path.moveTo(15*u,17*u);path.lineTo(21*u,17*u)}
         }
         drawPath(path,color,style=Stroke(1.8f*u))
