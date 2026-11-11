@@ -69,7 +69,10 @@ import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.context.HomeContext
 import com.inofarm.jogja.feature.context.HomeContextCard
 import com.inofarm.jogja.feature.context.WorkerContextSheet
-import com.inofarm.jogja.feature.context.WorkerGreenhouseList
+import com.inofarm.jogja.feature.context.WorkerCorrectionsCard
+import com.inofarm.jogja.feature.context.WorkerCorrectionsScreen
+import com.inofarm.jogja.feature.context.WorkerGreenhouseCards
+import com.inofarm.jogja.feature.context.rememberWorkerCorrections
 import com.inofarm.jogja.feature.context.WorkerEventTime
 import com.inofarm.jogja.feature.context.WorkerDayAgenda
 import com.inofarm.jogja.feature.context.greenhouseAvailability
@@ -87,7 +90,9 @@ import com.inofarm.jogja.feature.managerhome.*
 import org.json.JSONObject
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import java.time.Duration
 import java.time.Instant
+import java.time.ZonedDateTime
 import java.time.LocalDate
 import java.util.Locale
 import kotlinx.coroutines.delay
@@ -316,11 +321,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     if (!manager) LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
-                workerToday = LocalDate.now(ActivityDraft.WIB)
-                delay(5_000)
+                val now = ZonedDateTime.now(ActivityDraft.WIB)
+                workerToday = now.toLocalDate()
+                delay(Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay(ActivityDraft.WIB)).toMillis() + 1_000)
             }
         }
     }
+    val workerCorrections = if (manager || tab != 0) emptyList() else
+        rememberWorkerCorrections(runtime, session, Triple(activity.records, harvest.records, activity.queue), syncUpdates)
     val managerHome = if (manager) rememberManagerHome(homeRepository, session, ticket, gh, syncUpdates, activity.records, managerRefresh)
         else ManagerHomeState()
     if (session.rejected || managerHome.sessionRejected) {
@@ -392,6 +400,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var contextChange by rememberSaveable { mutableStateOf<String?>(null) }
     var managerRecording by rememberSaveable { mutableStateOf<String?>(null) }
     var harvestProgressOpen by rememberSaveable { mutableStateOf(false) }
+    var correctionsOpen by rememberSaveable { mutableStateOf(false) }
     var harvestProgressGroup by rememberSaveable { mutableStateOf<String?>(null) }
     var harvestProgressGreenhouse by rememberSaveable { mutableStateOf<String?>(null) }
     var workerProgressSourceError by remember { mutableStateOf<String?>(null) }
@@ -437,7 +446,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             if (season == null || selectedGroup == null) group = null
         }
     }
-    BackHandler(harvestProgressOpen || !manager && selectedGreenhouse != null || investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
+    BackHandler(harvestProgressOpen || correctionsOpen || !manager && selectedGreenhouse != null || investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
         when {
             writing || queueOpening -> Unit
             ime -> keyboard?.hide()
@@ -471,6 +480,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             harvestHistory.comparison!=null -> harvestHistoryVm.closeComparison()
             harvestHistory.selected!=null -> harvestHistoryVm.close()
             harvestProgressOpen -> harvestProgressOpen = false
+            correctionsOpen -> correctionsOpen = false
             tab == 1 && reviewActivity != null -> reviewActivity = null
             tab == 0 && !manager && selectedGreenhouse != null -> { gh = null; season = null; group = null }
             else -> tab=0
@@ -507,7 +517,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             "measurement" -> "Catat pengukuran"
             else -> null
         }, onSelect = ::setWorkerContext, onClose = { contextSheet = null }, onContinue = { recordWorker(destination) }, onSync = onSync,
-            preferRunningPeriod = true)
+            preferRunningPeriod = true, startableOnly = true)
     }
     val queueScreen: @Composable () -> Unit = {
         QueueScreen(activity, context, sessionExpired, queueReviewOperation, queueReviewError, queueOpening, vm::reload,
@@ -606,8 +616,18 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     ) { Box(Modifier.fillMaxHeight(.92f).padding(horizontal = FarmSpace.Page)) { queueScreen() } }
     val translucentNavigation = tab == 0 && showNavigation && !writing && LocalDensity.current.fontScale <= 1.4f &&
         android.os.Build.VERSION.SDK_INT >= 31 && androidx.compose.ui.platform.LocalView.current.isHardwareAccelerated
+    val snackbar = remember { SnackbarHostState() }
+    // A worker's save message belongs to the screen the form returned to, so it shows there and clears itself.
+    val savedMessage = if (manager || activity.draft != null || harvest.draft != null) null else activity.message ?: harvest.message
+    LaunchedEffect(savedMessage) {
+        if (savedMessage != null) {
+            snackbar.showSnackbar(savedMessage)
+            vm.clearMessage()
+            harvestVm.clearMessage()
+        }
+    }
     Scaffold(
-        contentWindowInsets=WindowInsets.safeDrawing,topBar={ Column(
+        contentWindowInsets=WindowInsets.safeDrawing,snackbarHost={ SnackbarHost(snackbar) },topBar={ Column(
             Modifier.fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
@@ -635,6 +655,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     queueFocus = null
                     val target = internalTabs[index]
                     if (target != tab) { showOutbox = false; reviewActivity = null }
+                    correctionsOpen = false
                     tab = target
                 }
             }
@@ -700,6 +721,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         onAddGreenhouse = onAddGreenhouse,
                         onAdminFor = { resource, edit -> onAdmin(resource); onAdminGreenhouse(gh, edit) })
                 }
+                tab==0 && correctionsOpen -> WorkerCorrectionsScreen(workerCorrections, context, onOpen = { row ->
+                    if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
+                }, onClose = { correctionsOpen = false })
                 tab==0 && !harvestProgressOpen -> tabState.SaveableStateProvider("worker-home-${selectedGreenhouse?.optString("id").orEmpty()}") { LazyColumn(
                     modifier=Modifier.fillMaxSize().testTag("finance-home-list"),
                     verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium),
@@ -716,29 +740,20 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             contextSheet = "context"
                         }
                     }
+                    if (selectedGreenhouse == null) item("corrections") {
+                        WorkerCorrectionsCard(workerCorrections.size) { correctionsOpen = true }
+                    }
                     if (selectedGreenhouse == null) item("greenhouses") {
-                        WorkerGreenhouseList(context, workerToday) { greenhouse ->
+                        WorkerGreenhouseCards(runtime, session, context, workerToday,
+                            Triple(activity.records, harvest.records, activity.queue), syncUpdates) { greenhouse ->
                             setWorkerContext(context.workerDefault(greenhouse, workerToday))
                         }
                     }
                     contextChange?.let { message -> item("context-changed") { Notice(message) } }
                     context.greenhouseAvailability()?.let { message -> item("context-availability") { Notice(message) } }
                     if (sessionExpired) item("expired-session") { ExpiredSessionNotice() }
-                    if (selectedGreenhouse != null) item("recording") {
-                        Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                            if (selectedSeason?.optString("status") == "closed")
-                                FarmAttention("Musim ditutup. Pilih musim terbuka untuk mencatat.")
-                            if (workerReady) Button(onClick={recordWorker("measurement")},shape=FarmShape.Control,
-                                modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("finance-measurement-new")) {Text("Catat pengukuran")}
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small), verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
-                                FilledTonalButton(onClick={recordWorker("activity")},shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-new")) {
-                                    FarmNavigationIcon(2); Spacer(Modifier.width(6.dp)); Text("Catat kegiatan")
-                                }
-                                FilledTonalButton(onClick={recordWorker("harvest")},shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("harvest-new")) {
-                                    FarmNavigationIcon(3); Spacer(Modifier.width(6.dp)); Text("Catat panen")
-                                }
-                            }
-                        }
+                    if (selectedGreenhouse != null && selectedSeason?.optString("status") == "closed") item("recording") {
+                        FarmAttention("Musim ditutup. Pilih musim terbuka untuk mencatat.")
                     }
                     if (selectedGreenhouse != null) item("harvest-progress-link") {
                         FarmActionRow("Progres panen", "Target, hasil tercatat dan hasil yang sudah dicek", FarmIcon.Report,
@@ -765,16 +780,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 onQueue = { queueFocus = null; showOutbox = true })
                         }
                     }
-                    if (selectedGroup == null) item("sync") {
-                        FarmPanel(title = "Pembaruan data") {
-                            if (!sessionExpired) context.message?.let {
-                                Text(it, Modifier.testTag("finance-sync-message"), style = MaterialTheme.typography.bodySmall)
-                            }
-                            Text(context.lastSyncedAt?.let { "Diperbarui: ${timeLabel(Instant.ofEpochMilli(it).toString())}" }
-                                ?: "Belum ada data tersimpan.", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    item { activity.message?.let { Notice(it) } }
                 } }
                 harvestProgressOpen && manager -> HarvestProgressScreen(session, ticket, context, runtime.harvest,
                     harvestProgressGreenhouse, harvestProgressGroup, syncUpdates,
@@ -870,7 +875,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         if (unsent > 0) TextButton(onClick = onUnsent, shape = FarmShape.Control,
             modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-unsent")
                 .semantics { liveRegion = LiveRegionMode.Polite }) {
-            FarmControlIcon(FarmIcon.Sync, null)
+            FarmControlIcon(if (manager) FarmIcon.Sync else FarmIcon.Schedule, null)
             Spacer(Modifier.width(FarmSpace.Small))
             Text("$unsent belum terkirim", style = MaterialTheme.typography.labelLarge)
         } else if (syncing && (manager || LocalDensity.current.fontScale <= 1.3f)) Text("Memperbarui",

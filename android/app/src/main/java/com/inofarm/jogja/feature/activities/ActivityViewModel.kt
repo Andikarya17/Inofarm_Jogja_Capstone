@@ -48,6 +48,7 @@ class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
             }
         }
     }
+    fun clearMessage() {mutable.value=state.value.copy(message=null)}
     fun new(gh:String,group:String,type:ActivityType=ActivityType.GENERAL,scheduleId:String?=null,runningPeriodVersion:Long?=null) { saveJob?.cancel();mutable.value=state.value.copy(draft=ActivityDraft(greenhouseId=gh,groupId=group,type=type,scheduleId=scheduleId,runningPeriodVersion=runningPeriodVersion),errors=emptyMap(),saved=false,reviewing=false,message=null) }
     fun open(record:LocalRecord,replaceRejected:Boolean=false) {
         saveJob?.cancel()

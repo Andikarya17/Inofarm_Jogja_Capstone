@@ -32,7 +32,7 @@ private data class WorkerDay(
     val held: Int,
 )
 
-private fun dayRecords(store: LocalFinanceStore, scope: String, kind: String, filter: LocalHistoryFilter): List<LocalRecord> {
+internal fun dayRecords(store: LocalFinanceStore, scope: String, kind: String, filter: LocalHistoryFilter): List<LocalRecord> {
     val records = mutableListOf<LocalRecord>()
     do {
         val page = store.records(scope, kind = kind, filter = filter, limit = 100, offset = records.size)
@@ -64,22 +64,30 @@ private fun readWorkerDay(
         it.optString("planting_group_id") == group && it.optString("record_state", "active") == "active" &&
             dateWib(it.optString("occurred_at")) == today
     }
-    val corrections = listOf("activity", "harvest").flatMap { kind ->
+    val corrections = workerCorrections(store, session, greenhouse, group)
+    val held = store.outbox(scope).count { operation ->
+        operation.state in setOf("REJECTED", "CONFLICT", "AUTH_REQUIRED", "SCOPE_REVOKED", "EPOCH_REVIEW") &&
+            store.record(scope, operation.entityId)?.greenhouseId == greenhouse
+    }
+    return WorkerDay(synchronizedActivities, notes, corrections, held)
+}
+
+/** Own accepted records whose current revision the manager marked "Perlu diperbaiki", optionally limited to one greenhouse or group. */
+internal fun workerCorrections(store: LocalFinanceStore, session: FinanceSession, greenhouse: String? = null, group: String? = null): List<LocalRecord> {
+    val scope = session.scope.key
+    val visible = store.visibleGreenhouses(scope)
+    return listOf("activity", "harvest").flatMap { kind ->
         store.cachedAll(scope, "${kind}_review", greenhouse).filter { it.optString("decision") == "invalid" }
             .mapNotNull { review ->
                 val row = store.record(scope, review.optString("${kind}_id")) ?: return@mapNotNull null
                 val accepted = row.serverBody ?: return@mapNotNull null
                 row.takeIf {
-                    it.recorderId() == session.scope.accountId && accepted.optString("record_state", "active") == "active" &&
-                        accepted.optString("planting_group_id") == group && it.serverVersion == review.optLong("${kind}_version")
+                    it.greenhouseId in visible && it.recorderId() == session.scope.accountId && accepted.optString("record_state", "active") == "active" &&
+                        (group == null || accepted.optString("planting_group_id") == group) &&
+                        it.serverVersion == review.optLong("${kind}_version")
                 }
             }
-    }
-    val held = store.outbox(scope).count { operation ->
-        operation.state in setOf("REJECTED", "CONFLICT", "AUTH_REQUIRED", "SCOPE_REVOKED", "EPOCH_REVIEW") &&
-            store.record(scope, operation.entityId)?.greenhouseId == greenhouse
-    }
-    return WorkerDay(synchronizedActivities, notes, corrections.distinctBy { it.id }, held)
+    }.distinctBy { it.id }
 }
 
 @Composable
@@ -151,11 +159,11 @@ internal fun WorkerDayAgenda(
     }
 }
 
-private fun dateWib(timestamp: String): LocalDate? =
+internal fun dateWib(timestamp: String): LocalDate? =
     runCatching { OffsetDateTime.parse(timestamp).atZoneSameInstant(ActivityDraft.WIB).toLocalDate() }.getOrNull()
 
 @Composable
-private fun WorkerNoteRow(row: LocalRecord, status: String, onRecord: (LocalRecord) -> Unit) {
+internal fun WorkerNoteRow(row: LocalRecord, status: String, onRecord: (LocalRecord) -> Unit) {
     val draft = row.body.optJSONObject("_local_form")
     val name = if (row.kind == "harvest") "Panen" else ActivityType.entries.find {
         it.wire == (draft?.optString("type") ?: row.body.optString("activity_type"))

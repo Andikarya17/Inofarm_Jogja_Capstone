@@ -36,6 +36,7 @@ class HarvestViewModel(private val repository:HarvestRepository):ViewModel() {
                 mutable.value=state.value.copy(records=data.records,queue=data.queue,draft=if(draft?.baseVersion==null && known!=null) draft?.copy(baseVersion=known) else draft)
             } }
     }
+    fun clearMessage() {mutable.value=state.value.copy(message=null)}
     fun new(gh:String,group:String,runningPeriodVersion:Long?=null) {saveJob?.cancel();mutable.value=state.value.copy(draft=HarvestDraft(greenhouseId=gh,groupId=group,runningPeriodVersion=runningPeriodVersion, requireQuality=true),errors=emptyMap(),saved=false,reviewing=false,message=null)}
     fun open(record:LocalRecord,replaceRejected:Boolean=false) {
         saveJob?.cancel()

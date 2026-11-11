@@ -29,6 +29,13 @@ internal fun FinanceTestRule.openWorkerHarvestHistory() {
     onNodeWithTag("history-chip-harvest").performClick()
 }
 
+/** Opens a form through the Catat button; [choice] is activity, measurement or harvest. */
+internal fun FinanceTestRule.openRecord(choice: String) {
+    waitUntil(10_000) { onAllNodesWithTag("finance-record-fab").fetchSemanticsNodes().isNotEmpty() }
+    onNodeWithTag("finance-record-fab").performClick()
+    onNodeWithTag("record-$choice").performClick()
+}
+
 /** The "N belum terkirim" button in the top bar opens the outbox sheet; it only exists while something is unsent. */
 internal fun FinanceTestRule.openFinanceOutbox() {
     waitUntil(10_000) { onAllNodesWithTag("finance-unsent").fetchSemanticsNodes().isNotEmpty() }
