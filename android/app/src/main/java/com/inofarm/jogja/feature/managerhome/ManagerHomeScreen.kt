@@ -62,6 +62,7 @@ internal fun ManagerHomeScreen(
     reviewCount: Int? = null,
     onReviewInbox: () -> Unit = {},
     onAddGreenhouse: () -> Unit = {},
+    onAdminFor: (com.inofarm.jogja.feature.admin.AdminResource) -> Unit = {},
 ) {
     val snapshot = state.snapshot
     val selected = snapshot?.selected
@@ -69,6 +70,7 @@ internal fun ManagerHomeScreen(
     val today = LocalDate.now(ActivityDraft.WIB)
     val validToday = snapshot?.day == today && snapshot.complete && !state.cached && !state.loading
     var picker by rememberSaveable { mutableStateOf(false) }
+    var section by rememberSaveable(selection) { mutableStateOf("summary") }
     val list = rememberLazyListState()
     val placeholderList = rememberLazyListState()
     val appearance = remember { Animatable(if (selection == null) 1f else .78f) }
@@ -107,6 +109,10 @@ internal fun ManagerHomeScreen(
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (selection != null && selected != null) {
+                    Caption(if (selected.optBoolean("active", true)) "Aktif" else "Nonaktif")
+                    PeriodFacts(selected.getJSONObject("period"), expanded = false)
+                }
             }
         }
         if (state.message != null || state.cached) item("coverage") {
@@ -151,7 +157,8 @@ internal fun ManagerHomeScreen(
                     modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch)) { Text("Pilih greenhouse untuk mencatat") }
             }
         } else if (selected != null) {
-            item("period") {
+            item("hub-sections") { HubSections(section) { section = it } }
+            if (section == "settings") item("period") {
                 FarmPanel(title = "Tanam saat ini") {
                     PeriodFacts(selected.getJSONObject("period"), expanded = true)
                     TextButton(onClick = { onPeriodReview(true) }, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-period-history")) {
@@ -159,7 +166,7 @@ internal fun ManagerHomeScreen(
                     }
                 }
             }
-            item("measurement") {
+            if (section == "summary") item("measurement") {
                 Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                     val server = snapshot.detail?.optJSONObject("measurement")
                     val dayState = snapshot.detail?.text("measurement_day_state")
@@ -188,7 +195,7 @@ internal fun ManagerHomeScreen(
                     }
                 }
             }
-            if (period != null) {
+            if (period != null && section in setOf("summary", "activity")) {
                 item("record") {
                     Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                         Button(onClick = { onRecord(ActivityType.MEASUREMENT, null) }, shape = FarmShape.Control,
@@ -202,7 +209,7 @@ internal fun ManagerHomeScreen(
                     }
                 }
             }
-            item("work") {
+            if (section == "activity") item("work") {
                 FarmPanel(title = "Kegiatan dan jadwal") {
                     val schedules = snapshot.detail?.rows("schedules").orEmpty()
                     if (period != null && schedules.isEmpty()) Caption("Belum ada jadwal aktif mulai tanggal ringkasan.")
@@ -218,7 +225,7 @@ internal fun ManagerHomeScreen(
                         modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat kegiatan") }
                 }
             }
-            item("harvest") {
+            if (section in setOf("summary", "harvest")) item("harvest") {
                 FarmPanel(title = if (period == null) "Riwayat panen" else "Panen tanam saat ini") {
                     snapshot.detail?.optJSONObject("harvest")?.let { harvest ->
                         if (harvest.getInt("records") == 0) Caption("Belum ada panen tercatat.")
@@ -232,11 +239,24 @@ internal fun ManagerHomeScreen(
                         modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat panen") }
                 }
             }
+            if (section == "settings") item("settings") {
+                FarmPanel(title = "Pengaturan greenhouse") {
+                    val active = selected.optBoolean("active", true)
+                    TextButton(onClick = { onAdminFor(com.inofarm.jogja.feature.admin.AdminResource.SEASON) }, enabled = active,
+                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("hub-seasons")) { Text("Musim dan kelompok tanam") }
+                    TextButton(onClick = { onAdminFor(com.inofarm.jogja.feature.admin.AdminResource.ASSIGNMENT) }, enabled = active,
+                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("hub-workers")) { Text("Pekerja di greenhouse ini") }
+                    TextButton(onClick = { onAdminFor(com.inofarm.jogja.feature.admin.AdminResource.GREENHOUSE) },
+                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("hub-edit")) {
+                        Text(if (active) "Ubah atau nonaktifkan greenhouse" else "Ubah greenhouse")
+                    }
+                }
+            }
         }
         val findings = snapshot?.json?.rows("attention").orEmpty().filter {
             !state.cached && (it.text("type") == "period_review" || validToday)
         }
-        if (findings.isNotEmpty() || queued != null) {
+        if ((findings.isNotEmpty() || queued != null) && (selection == null || section == "summary")) {
             item("attention") { SectionTitle("Perlu perhatian") }
             if (queued != null) item("local-queue") {
                 FarmPanel(title = "Belum terkirim") {
@@ -279,7 +299,7 @@ internal fun ManagerHomeScreen(
             }
         }
         if (snapshot != null) {
-            item("recent") {
+            if (selection == null || section in setOf("activity", "harvest")) item("recent") {
                 FarmPanel(title = "Catatan terbaru") {
                     val recent = snapshot.json.rows("recent")
                     if (snapshot.json.isNull("recent")) Caption("Catatan terbaru belum dapat dibaca lengkap.")
@@ -315,7 +335,7 @@ internal fun ManagerHomeScreen(
                     }
                 }
             }
-            item("cash") { CashSummary(snapshot, onOpen) }
+            if (selection == null || section in setOf("summary", "finance")) item("cash") { CashSummary(snapshot, onOpen) }
         }
     }
 
@@ -331,6 +351,17 @@ internal fun ManagerHomeScreen(
         sheet = true
     )
     if (periodReview && snapshot?.selected != null) RunningPeriodSheet(snapshot, state, onPeriodReview, onAdmin, onOpen, seasonActions, onDesignate)
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HubSections(selected: String, onSelect: (String) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+        listOf("summary" to "Ringkasan", "activity" to "Kegiatan", "harvest" to "Panen",
+            "finance" to "Keuangan", "settings" to "Pengaturan").forEach { (id, label) ->
+            FilterChip(selected == id, { onSelect(id) }, label = { Text(label) }, modifier = Modifier.testTag("hub-section-$id"))
+        }
+    }
 }
 
 @Composable

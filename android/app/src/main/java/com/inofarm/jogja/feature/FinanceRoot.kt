@@ -193,6 +193,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     }
     var adminEntry by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<AdminResource?>(null) }
     var adminPeriodRequest by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<String?>(null) }
+    var adminGreenhouse by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<String?>(null) }
     val openAdmin: (AdminResource) -> Unit = { adminEntry = it }
     BackHandler(authState.loading && authState.session!=null) { /* Wait for the bounded local persistence boundary. */ }
     Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
@@ -215,7 +216,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                     allocationHistory, attachmentState, attachments, runtime.vault.generation, saleState,
                                     sales, saleHistoryState, saleHistory, assetWorkspace, reportWorkspace,
                                     investmentWorkspace, openAdmin, { adminEntry = null },
-                                    adminPeriodRequest, { adminPeriodRequest = null })
+                                    adminPeriodRequest, { adminPeriodRequest = null }, { adminGreenhouse = it })
                             }
                         }
                     }
@@ -228,7 +229,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     if (admin != null && adminSession?.role == UserRole.MANAGER && !adminSession.rejected) {
         AdminHost(adminSession, runtime.admin, context::refresh, admin,
             onReviewPeriod = { greenhouse -> adminPeriodRequest = greenhouse; adminEntry = null },
-            onClose = { adminEntry = null })
+            onClose = { adminEntry = null; adminGreenhouse = null }, initialGreenhouse = adminGreenhouse)
     }
     if(authState.session!=null && !authState.loading && authState.error!=null) AlertDialog(onDismissRequest=auth::clearError,title={Text("Belum keluar")},text={Text(authState.error!!)},confirmButton={TextButton(onClick=auth::clearError) {Text("Kembali ke isian")}})
 }
@@ -237,7 +238,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
 @Composable private fun FinanceHome(session:FinanceSession,context:CultivationUiState,activity:ActivityUiState,onSync:()->Unit,onLogout:()->Unit,vm:ActivityViewModel,history:HistoryUiState,historyVm:HistoryViewModel,
     harvest:HarvestUiState,harvestVm:HarvestViewModel,harvestHistory:HistoryUiState,harvestHistoryVm:HistoryViewModel,financial:FinancialEntryState,financialVm:FinancialEntryViewModel,
     expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:AssetWorkspace,reports:SeasonReportWorkspace,investments:InvestmentWorkspace,onAdmin:(AdminResource)->Unit,onAccessDenied:()->Unit,
-    adminPeriodRequest: String?, onAdminPeriodOpened: () -> Unit) {
+    adminPeriodRequest: String?, onAdminPeriodOpened: () -> Unit, onAdminGreenhouse: (String?) -> Unit) {
     val runtime:FinanceRuntime=viewModel()
     val tabState = rememberSaveableStateHolder()
     var tab by rememberSaveable { mutableStateOf(0) };var gh by rememberSaveable { mutableStateOf<String?>(null) };var season by rememberSaveable { mutableStateOf<String?>(null) };var group by rememberSaveable { mutableStateOf<String?>(null) }
@@ -658,7 +659,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             if (canRecordFromHome) vm.new(gh!!, runningGroup!!, type, schedule, runningVersion)
                         },
                         onHarvest = { if (canRecordFromHome) harvestVm.new(gh!!, runningGroup!!, runningVersion) },
-                        onAdmin = { onAdmin(AdminResource.GREENHOUSE) },
+                        onAdmin = { onAdminGreenhouse(gh); onAdmin(AdminResource.SEASON) },
                         seasonActions = { row -> SeasonActions(row, history.busy, history.message, historyVm::season) },
                         onDesignate = { groupId, reason ->
                             try {
@@ -670,7 +671,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         },
                         reviewCount = reviewCount,
                         onReviewInbox = { reviewActivity = null; tab = 1 },
-                        onAddGreenhouse = { onAdmin(AdminResource.GREENHOUSE) })
+                        onAddGreenhouse = { onAdmin(AdminResource.GREENHOUSE) },
+                        onAdminFor = { resource -> onAdminGreenhouse(gh); onAdmin(resource) })
                 }
                 tab==0 && !harvestProgressOpen -> tabState.SaveableStateProvider("worker-home-${selectedGreenhouse?.optString("id").orEmpty()}") { LazyColumn(
                     modifier=Modifier.fillMaxSize().testTag("finance-home-list"),
