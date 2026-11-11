@@ -62,7 +62,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
                 Choice("Riwayat keuangan",selected,listOf(option(RecordKind.EXPENSE.wire,"Pembayaran aktual"),option(RecordKind.COST_ALLOCATION.wire,"Alokasi biaya musim"),option(RecordKind.SALE.wire,"Penjualan lunas"),option(RecordKind.ASSET.wire,"Aset"),option(RecordKind.DEPRECIATION.wire,"Alokasi penyusutan")),"expense-history-kind") {selected=it}
             }) {
             item("finance-workspace") {
-                FarmMenuHeader("Keuangan", "Pencatatan dan riwayat dalam penugasan Anda.") {
+                FarmMenuHeader("Keuangan", "Catat dan lihat riwayat keuangan.") {
                     FarmPanel(title = "Catatan baru") {
                         Choice("Greenhouse pencatatan",gh,greenhouses,"expense-gh",loading=context.loading) {gh=it}
                         if (!canRecord) Text("Pilih greenhouse untuk mencatat pengeluaran.",
@@ -214,7 +214,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
 @Composable fun FinancialFacts(record:LocalRecord,context:CultivationUiState) {
     val kind=RecordKind.entries.single {it.wire==record.kind}
     val draft=runCatching {FinancialDraft.from(record.id,kind,record.greenhouseId,record.body,record.baseVersion)}.getOrNull()
-    if(draft==null) {Notice("Isi catatan belum dapat dibaca lengkap. Data tetap disimpan untuk ditinjau.",true);return}
+    if(draft==null) {Notice("Isi catatan belum dapat dibaca lengkap. Data tetap tersimpan.",true);return}
     FinancialDraftFacts(draft,context)
     if(record.body.has("category_name")) Text("Kategori saat diterima: ${record.body.getString("category_name")}")
     if(record.body.has("season_name")) Text("Musim saat diterima: ${record.body.getString("season_name")}")
@@ -225,7 +225,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
 
 @Composable fun ExpenseBalanceCard(expense:JSONObject?,context:CultivationUiState) {
     val balance=expense?.let {source -> context.expenseBalances.find {it.optString("expense_id")==source.optString("id") && it.optLong("expense_version")==source.optLong("version")}}
-    if(balance==null) Notice("Saldo alokasi belum tersedia untuk versi pembayaran ini. Sinkronkan; nilai kosong tidak dianggap nol.")
+    if(balance==null) Notice("Saldo alokasi belum tersedia untuk versi pembayaran ini. Perbarui; nilai kosong tidak dianggap nol.")
     else FarmSection("Saldo terakhir tersimpan Â· versi ${balance.optLong("version")}") {
         FarmFact("Sisa untuk alokasi", moneyLabel(balance.getString("available_amount")),
             Modifier.testTag("expense-remaining-fact").semantics(mergeDescendants = true) {}, prominent = true)
@@ -235,7 +235,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
             Text("Teralokasi ${moneyLabel(balance.getString("allocated_amount"))}")
         }
         if(!balance.optBoolean("active")) Text("Sumber tidak tersedia untuk alokasi biaya operasi.")
-        Text("Saldo server dapat berubah sebelum pengajuan diterima.",style=MaterialTheme.typography.bodySmall)
-        Text(context.lastSyncedAt?.let {"Terakhir diperiksa: ${timeLabel(java.time.Instant.ofEpochMilli(it).toString())}"} ?: "Waktu pemeriksaan terakhir belum tersedia.",style=MaterialTheme.typography.bodySmall)
+        Text("Saldo bisa berubah sebelum catatan terkirim.",style=MaterialTheme.typography.bodySmall)
+        Text(context.lastSyncedAt?.let {"Diperbarui: ${timeLabel(java.time.Instant.ofEpochMilli(it).toString())}"} ?: "Waktu pemeriksaan terakhir belum tersedia.",style=MaterialTheme.typography.bodySmall)
     }
 }

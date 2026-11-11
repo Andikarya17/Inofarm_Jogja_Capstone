@@ -2,7 +2,7 @@
 
 ## Pengelola super admin dan UI Versi B
 
-**Terbukti (tes baru dari sesi ini):** backend 156 tes/3.960 assertion lulus pada `inofarm_test`; pengelola tanpa penugasan membaca dan mengubah semua greenhouse dan akun, pekerja tetap terbatas penugasan, alasan opsional hanya untuk pengelola, urutan permintaan wizard diterima server. Android: build debug, 89 tes JVM, lint (0 error, 16 warning, 1 hint). **Tidak terbukti:** tampilan di emulator atau perangkat, instrumentasi Android, TalkBack, font 200%, benchmark. Instrumentasi lama yang mencocokkan teks atau tab Antrean pengelola belum diperbarui dan belum dijalankan. Tidak ada migration; database lokal tidak disentuh. Rincian, string lama yang tersisa dan batas: [bukti](MANAGER_SUPERADMIN_EVIDENCE_20261111.md).
+**Terbukti (tes baru dari sesi ini):** backend 157 tes/3.972 assertion lulus pada `inofarm_test`; pengelola tanpa penugasan membaca dan mengubah semua greenhouse dan akun, pekerja tetap terbatas penugasan, alasan opsional hanya untuk pengelola, urutan permintaan wizard diterima server. Android: build debug, 89 tes JVM, lint (0 error, 16 warning, 1 hint). **Tidak terbukti:** tampilan di emulator atau perangkat, instrumentasi Android, TalkBack, font 200%, benchmark. Teks di tes instrumentasi sudah diselaraskan dan dikompilasi, tetapi tidak dijalankan. Tidak ada migration; database lokal tidak disentuh. Rincian, string lama yang tersisa dan batas: [bukti](MANAGER_SUPERADMIN_EVIDENCE_20261111.md).
 
 ## Penyelarasan pekerja
 

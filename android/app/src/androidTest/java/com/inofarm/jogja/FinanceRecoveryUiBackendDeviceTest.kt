@@ -29,7 +29,7 @@ class FinanceRecoveryUiBackendDeviceTest {
         rule.waitUntil(15000){rule.onAllNodesWithTag("manager-home-picker").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("finance-tab-4").performClick();rule.clickFinanceTool("recovery-open")
         rule.waitUntil(15000){rule.onAllNodesWithTag("recovery-reason").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)==false}
-        val text="Drill terisolasi terverifikasi: "+f.getString("restored_run_id")
+        val text="Uji pemulihan berhasil: "+f.getString("restored_run_id")
         rule.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex) and hasAnyAncestor(isDialog())).performScrollToNode(hasText(text))
         rule.onNodeWithText(text).assertIsDisplayed();rule.onNodeWithText("Tutup").performClick();rule.onNodeWithTag("finance-tools").assertExists()
     }

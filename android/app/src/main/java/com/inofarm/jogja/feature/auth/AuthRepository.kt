@@ -19,10 +19,10 @@ class AuthRepository(private val api:FinanceApi, val vault:FinanceSessionVault,p
         val result=api.request(normalized,null,"auth/login","POST",JSONObject().put("email",email.trim().lowercase()).put("password",password))
         val user=result.getJSONObject("user");val id=WireContract.uuid(user.getString("id"));val expires=result.getString("expires_at");Instant.parse(expires)
         val session=FinanceSession(AccountScope(normalized,id),result.getString("token"),expires,user.getString("name"),UserRole.parse(user.getString("role")))
-        val status=api.request(normalized,session.token,"sync/status");require(status.getString("schema_version")=="2") { "Versi API tidak sesuai." }
+        val status=api.request(normalized,session.token,"sync/status");require(status.getString("schema_version")=="2") { "Versi aplikasi tidak cocok dengan layanan. Perbarui aplikasi." }
         check(ticket==vault.generation) { "Sesi telah berubah." }
         store.initialize(session.scope.key,status.getString("sync_epoch"),session.role)
-        check(vault.save(ticket,session)) { "Respons login lama diabaikan." }
+        check(vault.save(ticket,session)) { "Login sebelumnya diabaikan. Masuk lagi." }
         onSessionAvailable()
         session
     }

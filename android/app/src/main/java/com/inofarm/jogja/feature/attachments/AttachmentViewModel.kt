@@ -27,7 +27,7 @@ class AttachmentViewModel(private val repository:AttachmentRepository,private va
     private val mutable=MutableStateFlow(AttachmentUiState());val state=mutable.asStateFlow()
     private var bound:String?=null;private var role:String?=null;private var count=50;private var selection=0L
     private var query:Job?=null;private var policyJob:Job?=null;private var saveJob:Job?=null
-    private fun current(session:FinanceSession,ticket:Long) {check(vault.matches(ticket,session.scope)) {"Sesi berubah."}}
+    private fun current(session:FinanceSession,ticket:Long) {check(vault.matches(ticket,session.scope)) {"Akun berubah. Coba lagi."}}
     fun bind(session:FinanceSession?) {
         if(bound==session?.scope?.key && role==session?.role?.wire) return
         bound=session?.scope?.key;role=session?.role?.wire;selection++;query?.cancel();policyJob?.cancel();pauseAutosave();mutable.value=AttachmentUiState();count=50
@@ -54,34 +54,34 @@ class AttachmentViewModel(private val repository:AttachmentRepository,private va
                 val policy=repository.policy(session,ticket,parent)
                 if(vault.matches(ticket,session.scope) && state.value.parent?.id==parent.id) mutable.value=state.value.copy(policy=policy,policyCached=false)
             } catch(cancelled:CancellationException) {throw cancelled}
-            catch(error:Exception) {if(vault.matches(ticket,session.scope) && state.value.parent?.id==parent.id) mutable.value=state.value.copy(policyCached=true,message="Batas terbaru belum tersedia. ${userMessage(error)}")}
+            catch(error:Exception) {if(vault.matches(ticket,session.scope) && state.value.parent?.id==parent.id) mutable.value=state.value.copy(policyCached=true,message="Batas terbaru belum bisa dimuat. ${userMessage(error)}")}
         }
     }
     fun select(id:String) {mutate(false) {session,ticket ->
-        flushCurrent(session);val detail=repository.detail(session,id) ?: error("Lampiran tidak tersedia dalam penugasan ini.")
+        flushCurrent(session);val detail=repository.detail(session,id) ?: error("Lampiran tidak ditemukan.")
         val form=repository.form(session,id)
         current(session,ticket)
         selection++;mutable.value=state.value.copy(selected=detail.record,pending=detail.pending,reviewing=false,parentReview=null,cancelEditing=form!=null,reason=form?.optString("reason").orEmpty(),reasonSaved=true,audit=null,message=null)
     }}
     fun importResult(uri:Uri,scopeKey:String,ownerId:String,ticket:Long,name:String?=null) {
         val parent=state.value.parent ?: return;val session=vault.current ?: return
-        if(session.scope.key!=scopeKey || parent.id!=ownerId || vault.generation!=ticket) {mutable.value=state.value.copy(message="Akun atau catatan berubah. Pilih berkas kembali untuk akun ini.");return}
+        if(session.scope.key!=scopeKey || parent.id!=ownerId || vault.generation!=ticket) {mutable.value=state.value.copy(message="Akun atau catatan berubah. Pilih berkas lagi.");return}
         mutate(false) {captured,generation ->
             val record=repository.importUri(captured,generation,parent,uri,name)
             current(captured,generation)
-            selection++;mutable.value=state.value.copy(selected=record,pending=emptyList(),reviewing=false,cancelEditing=false,reason="",reasonSaved=true,message="Salinan terenkripsi siap di perangkat. Berkas belum masuk antrean atau diterima server.")
+            selection++;mutable.value=state.value.copy(selected=record,pending=emptyList(),reviewing=false,cancelEditing=false,reason="",reasonSaved=true,message="Berkas siap disimpan.")
         }
     }
     fun resumeCopy() {val selected=state.value.selected ?: return;mutate(false) {session,ticket -> repository.resumeCopy(session,ticket,selected.id)}}
     fun review() {mutable.value=state.value.copy(reviewing=true,parentReview=null,message=null)}
     fun backToDetails() {mutable.value=state.value.copy(reviewing=false,parentReview=null)}
-    fun queue() {val selected=state.value.selected ?: return;mutate {session,ticket -> repository.queue(session,ticket,selected.id);current(session,ticket);mutable.value=state.value.copy(reviewing=false,message="Lampiran masuk antrean lokal. Penerimaan server ditampilkan terpisah.")}}
+    fun queue() {val selected=state.value.selected ?: return;mutate {session,ticket -> repository.queue(session,ticket,selected.id);current(session,ticket);mutable.value=state.value.copy(reviewing=false,message="Tersimpan. Terkirim otomatis saat ada internet.")}}
     fun retry() {val selected=state.value.selected ?: return;mutate {session,ticket -> repository.retry(session,ticket,selected.id)}}
     fun inspectParent() {val selected=state.value.selected ?: return;mutate(false) {session,ticket ->
         val snapshot=repository.inspectParent(session,ticket,selected);current(session,ticket);mutable.value=state.value.copy(parentReview=snapshot,reviewing=false)
     }}
     fun confirmParent() {val selected=state.value.selected ?: return;val snapshot=state.value.parentReview ?: return;mutate {session,ticket ->
-        repository.reviewParent(session,ticket,selected,snapshot);current(session,ticket);mutable.value=state.value.copy(parentReview=null,message="Versi induk telah ditinjau. Operasi baru memakai salinan berkas yang sama; operasi lama tetap tersimpan.")
+        repository.reviewParent(session,ticket,selected,snapshot);current(session,ticket);mutable.value=state.value.copy(parentReview=null,message="Tersimpan. Terkirim otomatis saat ada internet.")
     }}
     fun beginCancel() {mutable.value=state.value.copy(cancelEditing=true,reviewing=false,parentReview=null)}
     fun editReason(value:String) {
@@ -101,7 +101,7 @@ class AttachmentViewModel(private val repository:AttachmentRepository,private va
     fun cancel() {val record=state.value.selected ?: return;val reason=state.value.reason;pauseAutosave();mutate {session,ticket ->
         repository.flushForm(session,ticket,record.id,reason);repository.cancel(session,ticket,record,reason)
         current(session,ticket)
-        mutable.value=state.value.copy(cancelEditing=false,reason="",reasonSaved=true,message="Pembatalan masuk antrean. Riwayat dan berkas tetap disimpan.")
+        mutable.value=state.value.copy(cancelEditing=false,reason="",reasonSaved=true,message="Pembatalan tersimpan. Terkirim otomatis saat ada internet.")
     }}
     fun close() {mutate(false) {session,ticket ->
         flushCurrent(session);current(session,ticket);selection++;policyJob?.cancel();mutable.value=state.value.copy(parent=null,selected=null,pending=emptyList(),reviewing=false,parentReview=null,cancelEditing=false,reason="",audit=null)

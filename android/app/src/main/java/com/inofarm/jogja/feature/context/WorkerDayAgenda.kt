@@ -124,10 +124,10 @@ internal fun WorkerDayAgenda(
             val accepted = day.synchronizedActivities.filter { it.optString("schedule_id") == id }
             val completed = accepted.count { it.optString("work_state") == "completed" }
             val skipped = accepted.count { it.optString("work_state") == "skipped" }
-            val status = listOfNotNull("Ada $completed realisasi tersinkron".takeIf { completed > 0 },
+            val status = listOfNotNull("Ada $completed catatan hasil terkirim".takeIf { completed > 0 },
                 "$skipped dilewati dengan alasan".takeIf { skipped > 0 }).joinToString(" · ")
-                .ifBlank { "Belum ada catatan tersinkron hari ini" }
-            FarmActionRow(type?.let { "Catat realisasi · ${it.label}" } ?: "Kegiatan", "${timeLabel(schedule.optString("planned_at"))}\n$status",
+                .ifBlank { "Belum ada catatan terkirim hari ini" }
+            FarmActionRow(type?.let { "Catat hasil · ${it.label}" } ?: "Kegiatan", "${timeLabel(schedule.optString("planned_at"))}\n$status",
                 FarmIcon.Schedule, Modifier.testTag("worker-schedule-$id"), enabled = canRecord && type != null) {
                 type?.let { onSchedule(it, id) }
             }
@@ -146,7 +146,7 @@ internal fun WorkerDayAgenda(
         }
         if (day.held > 0) {
             HorizontalDivider()
-            FarmActionRow("Kiriman tertahan", "${day.held} kiriman saya di greenhouse ini", FarmIcon.Schedule, onClick = onQueue)
+            FarmActionRow("Catatan tertahan", "${day.held} catatan saya di greenhouse ini", FarmIcon.Schedule, onClick = onQueue)
         }
     }
 }

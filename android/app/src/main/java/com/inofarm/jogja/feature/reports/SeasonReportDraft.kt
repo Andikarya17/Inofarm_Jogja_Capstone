@@ -9,11 +9,11 @@ data class SeasonReportDraft(val id:String=UUID.randomUUID().toString(),val gree
     val pending:String="",val requestedState:String="",val note:String="",val previewText:String?=null,val previewFetchedAt:Long?=null,val replaceRejected:Boolean=false) {
     fun validation():Map<String,String> = buildMap {
         if(runCatching {WireContract.uuid(greenhouseId);WireContract.uuid(seasonId)}.isFailure) put("scope","Pilih greenhouse dan musim yang sesuai.")
-        if(costs !in coverage || sales !in coverage) put("coverage","Nyatakan kelengkapan biaya dan penjualan secara eksplisit.")
-        if(requestedState !in setOf("provisional","reviewed_final")) put("state","Pilih laporan sementara atau akhir setelah ditinjau.")
-        if(pending.isNotBlank() && ( !Regex("0|[1-9][0-9]{0,9}").matches(pending) || pending.toIntOrNull()==null)) put("pending","Jumlah antrean harus integer nonnegatif; kosong berarti belum diketahui.")
-        if(requestedState=="reviewed_final" && (costs!="complete" || sales!="complete" || pending!="0")) put("final","Laporan akhir memerlukan biaya dan penjualan ditinjau lengkap serta antrean dinyatakan nol.")
-        if(note.isBlank() || note.length>2000) put("note","Catatan tinjauan wajib, maksimal 2.000 karakter.")
+        if(costs !in coverage || sales !in coverage) put("coverage","Pilih kelengkapan biaya dan penjualan.")
+        if(requestedState !in setOf("provisional","reviewed_final")) put("state","Pilih status laporan: sementara atau akhir.")
+        if(pending.isNotBlank() && ( !Regex("0|[1-9][0-9]{0,9}").matches(pending) || pending.toIntOrNull()==null)) put("pending","Jumlah catatan belum terkirim harus angka 0 atau lebih. Kosongkan jika belum tahu.")
+        if(requestedState=="reviewed_final" && (costs!="complete" || sales!="complete" || pending!="0")) put("final","Laporan akhir butuh biaya dan penjualan yang sudah lengkap, dan tidak ada catatan belum terkirim.")
+        if(note.isBlank() || note.length>2000) put("note","Isi catatan laporan, maksimal 2.000 karakter.")
     }
     fun input():JSONObject {
         require(validation().isEmpty()) {validation().values.joinToString("\n")}
@@ -22,12 +22,12 @@ data class SeasonReportDraft(val id:String=UUID.randomUUID().toString(),val gree
     }
     fun preview():JSONObject?=previewText?.let {SeasonReportContract.validate(JSONObject(it),false)}
     fun payload():JSONObject {
-        val preview=preview() ?: error("Muat dan tinjau pratinjau server sebelum mengantrekan laporan.")
+        val preview=preview() ?: error("Lihat dulu laporannya sebelum menyimpan.")
         require(preview.getString("greenhouse_id")==greenhouseId && preview.getString("season_id")==seasonId)
         val reviewed=input()
         require(preview.getJSONObject("coverage").getString("costs")==costs && preview.getJSONObject("coverage").getString("sales")==sales &&
             preview.getString("report_state")==requestedState && preview.getString("review_note")==reviewed.getString("review_note") &&
-            preview.get("known_pending_count")==reviewed.get("known_pending_count")) {"Isian berubah setelah pratinjau. Muat dan tinjau kembali."}
+            preview.get("known_pending_count")==reviewed.get("known_pending_count")) {"Isian berubah setelah Anda melihat laporan. Lihat dulu lagi."}
         return input().put("expected_sources_hash",preview.getString("sources_hash")).put("expected_formula_version",preview.getString("formula_version"))
     }
     fun localJson():JSONObject=JSONObject().put("season_id",seasonId).put("completeness",if(previewText==null) "draft" else "ready")

@@ -128,6 +128,27 @@ final class ManagerSuperAdminAccessTest extends FinanceTestCase
         $this->assertFalse($unassigned->fresh()->active);
     }
 
+    public function test_the_last_active_manager_cannot_be_removed_through_the_api(): void
+    {
+        $first = $this->account();
+        $ctx = $this->context($first);
+        $gh = $ctx['gh']['id'];
+        $second = $this->account();
+        $this->assertSame(2, User::where('role', 'manager')->where('active', true)->count());
+
+        $dropSecond = $this->operation('users', ['greenhouse_id' => $gh, 'name' => 'Pengelola kedua', 'role' => 'worker', 'active' => true], 'update', $second->public_id, 1);
+        $this->asUser($first)->patchJson('/api/v2/users/'.$second->public_id, $dropSecond)->assertOk();
+        $this->assertSame(1, User::where('role', 'manager')->where('active', true)->count());
+
+        $dropFirst = $this->operation('users', ['greenhouse_id' => $gh, 'name' => 'Pengelola pertama', 'role' => 'worker', 'active' => true], 'update', $first->public_id, 1);
+        $this->asUser($first)->patchJson('/api/v2/users/'.$first->public_id, $dropFirst)->assertUnprocessable();
+        $this->assertSame(1, User::where('role', 'manager')->where('active', true)->count());
+
+        $demoted = $this->asUser($second->fresh())->patchJson('/api/v2/users/'.$first->public_id, $dropFirst);
+        $this->assertGreaterThanOrEqual(400, $demoted->getStatusCode());
+        $this->assertSame('manager', $first->fresh()->role);
+    }
+
     public function test_change_note_is_optional_for_a_manager_and_still_required_for_a_worker(): void
     {
         $manager = $this->account();

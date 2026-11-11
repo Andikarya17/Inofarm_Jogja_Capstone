@@ -66,7 +66,7 @@ internal fun FinanceLogin(
     val focus = LocalFocusManager.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (awaitingPermission && granted && endpoint != null) onLogin(endpoint, email, password)
-        if (!granted) permissionMessage = "Izinkan akses jaringan lokal untuk tersambung ke server Inofarm."
+        if (!granted) permissionMessage = "Izinkan akses jaringan lokal untuk tersambung ke Inofarm."
         awaitingPermission = false
     }
     val enabled = endpoint != null && !state.loading && !awaitingPermission &&

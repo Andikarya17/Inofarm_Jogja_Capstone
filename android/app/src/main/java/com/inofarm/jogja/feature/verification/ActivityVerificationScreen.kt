@@ -307,7 +307,7 @@ private fun VerificationDetail(
                     DecisionEditor(session, ticket, repository, kind, entry, draft, onOutbox, onSync) { draft = it }
                 } else Text("Panen sendiri perlu diperiksa pengelola lain.")
             }
-            if (history.isNotEmpty()) item { FarmSectionHeading("Histori keputusan") }
+            if (history.isNotEmpty()) item { FarmSectionHeading("Riwayat keputusan") }
             items(history, key = { it.getString("id") }) { review ->
                 FarmRecordCard(onOpen = {
                     val requested = review.getLong(kind.versionKey)

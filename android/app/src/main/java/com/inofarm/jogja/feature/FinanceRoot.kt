@@ -549,7 +549,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 kind in queueHistory || manager && (kind in investmentQueueKinds || kind in setOf("season_report", "activity_review", "harvest_review", "planting_groups"))
             }, focusOperation = queueFocus,
             onSendNow = if (manager) onSync else null,
-            title = if (manager) "Belum terkirim" else "Pengiriman saya")
+            title = "Belum terkirim")
     }
     val unsent = activity.queue.count { it.state != "ACCEPTED" && it.state != "SUPERSEDED" }
     fun startRecord(choice: RecordChoice) {
@@ -986,7 +986,7 @@ internal fun ExpiredSessionNotice() {
                 Choice("Bahan ${index+1}",row.materialId,materials.filter {it.optBoolean("active",true) || it.optString("id")==row.materialId},"finance-material-$index") {change(row.copy(materialId=it,unitId=""))}
                 Choice("Satuan ${index+1}",row.unitId,compatibleUnits,"finance-unit-$index") {change(row.copy(unitId=it))}
                 if(material!=null && compatibleUnits.isEmpty() && !context.loading)
-                    Text("Belum ada satuan aktif dengan dimensi yang sesuai. Minta pengelola menyiapkannya.")
+                    Text("Belum ada satuan aktif dengan dimensi yang sesuai. Minta pengelola menambahkannya.")
                 FinanceField("Jumlah ${index+1}",row.quantity,{change(row.copy(quantity=it))},"finance-quantity-$index",state.errors["materials.$index"],KeyboardType.Decimal,hint="Desimal boleh koma; tanpa pemisah ribuan")
                 TextButton(onClick={vm.edit {it.copy(materials=it.materials.filterIndexed { i,_ -> i!=index })}},
                     modifier=Modifier.heightIn(min=FarmSpace.Touch)) {Text("Hapus bahan ${index+1}")}
@@ -1041,7 +1041,7 @@ internal fun ExpiredSessionNotice() {
 @Composable private fun ActivityReview(draft:ActivityDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         FarmPageTitle("Periksa catatan")
-        if(draft.replaceValidationRejected) Notice("Perbaikan ini membuat operasi baru. Operasi yang ditolak tetap disimpan sebagai riwayat dan tidak dikirim ulang.")
+        if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat dan tidak dikirim ulang.")
         FarmPanel(title = draft.type.label) {
             if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
             FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
@@ -1127,7 +1127,7 @@ internal fun ExpiredSessionNotice() {
     val targets=context.targets.filter { it.optString("planting_group_id")==group && it.optBoolean("active",true) && (draft!=null || it.optString("parameter")!="manual_ph") && (draft==null || it.optString("activity_type")==draft.type.wire) }.filter { target ->
         instant==null || runCatching { !instant.isBefore(OffsetDateTime.parse(target.getString("effective_from")).toInstant()) && (target.isNull("effective_until") || instant.isBefore(OffsetDateTime.parse(target.getString("effective_until")).toInstant())) }.getOrDefault(false)
     }
-    if(targets.isEmpty()) Notice("Target pada konteks/waktu ini belum tersedia. Nilai aktual tetap dicatat; kesesuaian belum dapat dibandingkan.")
+    if(targets.isEmpty()) Notice("Belum ada target untuk waktu ini. Nilai aktual tetap dicatat.")
     targets.forEach { target -> OutlinedCard { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
         Text("Acuan ${if(target.optString("parameter")=="manual_ppm") "PPM" else "pH"} · versi ${target.optInt("version")}",fontWeight=FontWeight.SemiBold)
         val single=if(target.isNull("target_value")) null else target.optString("target_value")

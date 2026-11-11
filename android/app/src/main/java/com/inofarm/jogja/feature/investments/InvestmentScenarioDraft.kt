@@ -19,15 +19,15 @@ data class InvestmentScenarioDraft(val id:String=UUID.randomUUID().toString(),va
         if(runCatching {WireContract.uuid(greenhouseId)}.isFailure) put("greenhouse","Pilih greenhouse.")
         if(name.isBlank() || name.length>120) put("name","Nama wajib, maksimal 120 karakter.")
         val count=runCatching {InvestmentInputs.horizon(horizon)}.getOrNull()
-        if(count==null) put("horizon","Jumlah tahun harus integer 1–100; batas teknis aplikasi.")
-        if(runCatching {InvestmentInputs.baseDate(baseDate,count ?: 1)}.isFailure) put("base_date","Isi tanggal dasar YYYY-MM-DD dan periode dalam tahun 1–9999.")
-        if(runCatching {InvestmentInputs.money(initial,true)}.isFailure) put("initial","Investasi awal nonnegatif, maksimal 2 desimal. Kosong berarti belum diketahui.")
-        if(runCatching {InvestmentInputs.rateFromPercent(discountPercent)}.isFailure) put("discount","Diskonto harus lebih dari −100%; jangan memakai pemisah ribuan. Maksimal presisi setara 8 desimal fraksi.")
-        if(convention !in setOf("","interpolation","end_of_year")) put("convention","Pilih konvensi yang tersedia.")
-        if(initialKind !in setOf("","actual","projection") || initialReference.length>200 || initialBasis.length>2000) put("initial_source","Periksa jenis, referensi (200) dan dasar (2.000 karakter) investasi awal.")
+        if(count==null) put("horizon","Jumlah tahun harus angka bulat 1 sampai 100.")
+        if(runCatching {InvestmentInputs.baseDate(baseDate,count ?: 1)}.isFailure) put("base_date","Isi tanggal dasar dengan format 2026-01-31.")
+        if(runCatching {InvestmentInputs.money(initial,true)}.isFailure) put("initial","Investasi awal harus 0 atau lebih, maksimal 2 angka desimal. Kosongkan jika belum tahu.")
+        if(runCatching {InvestmentInputs.rateFromPercent(discountPercent)}.isFailure) put("discount","Diskonto harus lebih dari −100%, tanpa pemisah ribuan, maksimal 6 angka desimal.")
+        if(convention !in setOf("","interpolation","end_of_year")) put("convention","Pilih cara hitung waktu pengembalian dari daftar.")
+        if(initialKind !in setOf("","actual","projection") || initialReference.length>200 || initialBasis.length>2000) put("initial_source","Periksa sumber investasi awal. Referensi maksimal 200 karakter, dasar maksimal 2.000.")
         if(count!=null) {
-            if(flows.size<count) put("flows","Lengkapi baris tahun 1 sampai horizon.")
-            flows.take(count).forEachIndexed {i,f->if(runCatching {InvestmentInputs.money(f.amount)}.isFailure || f.kind !in setOf("","actual","projection") || f.reference.length>200 || f.basis.length>2000) put("flow-${i+1}","Periksa nominal bertanda, sumber, referensi dan dasar tahun ${i+1}.")}
+            if(flows.size<count) put("flows","Lengkapi isian untuk setiap tahun.")
+            flows.take(count).forEachIndexed {i,f->if(runCatching {InvestmentInputs.money(f.amount)}.isFailure || f.kind !in setOf("","actual","projection") || f.reference.length>200 || f.basis.length>2000) put("flow-${i+1}","Periksa kas neto, sumber, referensi dan dasar tahun ${i+1}. Kas neto boleh negatif.")}
         }
         if(notes.length>2000) put("notes","Catatan maksimal 2.000 karakter.")
         if(reason.length>2000 || reasonRequired && baseVersion!=null && reason.isBlank()) put("reason","Isi alasan koreksi, maksimal 2.000 karakter.")

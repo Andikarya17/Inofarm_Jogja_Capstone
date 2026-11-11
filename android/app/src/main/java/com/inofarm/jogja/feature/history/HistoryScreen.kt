@@ -158,7 +158,7 @@ private fun HistoryRecordRow(record: LocalRecord, kind: OperationalKind, context
                 }.toPlainString()
             }.getOrNull()
             if (displayAmount != null) FarmAmount(moneyLabel(displayAmount))
-            else Text("Nominal draf belum valid",style=MaterialTheme.typography.bodySmall)
+            else Text("Nominal draf belum benar",style=MaterialTheme.typography.bodySmall)
         }
         if (kind == OperationalKind.HARVEST) facts.optJSONArray("items")?.let { grades ->
             repeat(minOf(grades.length(), 2)) { index ->

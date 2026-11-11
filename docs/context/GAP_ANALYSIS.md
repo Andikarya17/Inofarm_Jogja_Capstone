@@ -3,7 +3,7 @@
 ## Gap setelah pengelola menjadi super admin
 
 1. **Verifikasi perangkat:** semua perubahan UI pengelola (empat tab, Catat, indikator belum terkirim, detail greenhouse, wizard) belum dilihat di emulator atau perangkat. Mesin pengembangan kekurangan memori sehingga instalasi emulator macet.
-2. **Sapuan teks:** sekitar 295 string unik di kode Android masih memuat server, antrean, sinkron, tinjau, pengajuan, epoch, snapshot, cakupan atau penugasan, terutama di layar laporan, investasi, lampiran, pemulihan, pesan repositori keuangan dan `FinanceSyncCoordinator`. Layar Kelola, Beranda, Cek catatan, Riwayat, dan tombol simpan sudah mengikuti glosarium.
+2. **Sapuan teks:** selesai untuk teks yang tampil ke pengguna (sekitar 300 string di layar laporan, investasi, lampiran, pemulihan, repositori, sinkron dan pesan galat). Sisa kecocokan kata lama hampir semuanya kunci kawat, nama variabel dan pengecualian internal. Tab pekerja "Antrean" sengaja dibiarkan karena navigasi pekerja tidak berubah. Belum ada pengecekan tampilan nyata: panjang teks baru pada layar kecil dan font 200% belum dilihat.
 3. **Instrumentasi Android** untuk alur pengelola perlu diperbarui (tab dan teks lama) dan dijalankan.
 4. **Penjaga "minimal satu pengelola aktif"** belum bisa diuji lewat API.
 5. **Proposal:** butir KF/KNF/U tentang peran dan akses per greenhouse perlu pengecekan formal terhadap keputusan super admin.

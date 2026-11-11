@@ -40,14 +40,14 @@ class WorkerContextUiTest {
                 }
             }
         }
-        rule.onNodeWithText("Memeriksa penugasan", substring = true).assertExists()
+        rule.onNodeWithText("Memeriksa greenhouse dan musim Anda", substring = true).assertExists()
         rule.runOnIdle { data.value = CultivationUiState(check = ContextCheck.OFFLINE) }
-        rule.onNodeWithText("Server belum dapat dihubungi", substring = true).assertExists()
-        rule.onNodeWithText("Belum ada penugasan efektif", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("Belum bisa terhubung dan belum ada greenhouse tersimpan", substring = true).assertExists()
+        rule.onNodeWithText("Anda belum ditugaskan di greenhouse mana pun", substring = true).assertDoesNotExist()
         rule.runOnIdle { data.value = CultivationUiState(check = ContextCheck.FAILED) }
-        rule.onNodeWithText("Penugasan gagal dimuat", substring = true).assertExists()
+        rule.onNodeWithText("Greenhouse gagal dimuat", substring = true).assertExists()
         rule.runOnIdle { data.value = CultivationUiState(check = ContextCheck.CHECKED) }
-        rule.onNodeWithText("Belum ada penugasan efektif", substring = true).assertExists()
+        rule.onNodeWithText("Anda belum ditugaskan di greenhouse mana pun", substring = true).assertExists()
         rule.onNodeWithTag("finance-context-continue").assertDoesNotExist()
 
         rule.runOnIdle {

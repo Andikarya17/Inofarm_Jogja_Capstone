@@ -23,16 +23,16 @@ class AssetRepository(val vault:FinanceSessionVault,private val store:LocalFinan
         if(!queue && onlyIfChanged && existing!=null && runCatching {AssetDraft.from(existing.id,existing.greenhouseId,draft.kind,existing.body,known)}.getOrNull()==draft.copy(baseVersion=draft.baseVersion ?: known)) return@withLock existing
         val effective=draft.copy(baseVersion=draft.baseVersion ?: known)
         if(!queue) return@withLock store.saveDraft(session.scope.key,draft.id,draft.greenhouseId,draft.localJson(),existing?.revision,draft.baseVersion,kind=draft.kind.wire)
-        require(existing?.serverBody?.optString("record_state")!="cancelled") {"Catatan telah dibatalkan. Tinjau histori."}
+        require(existing?.serverBody?.optString("record_state")!="cancelled") {"Catatan telah dibatalkan. Lihat riwayat."}
         existing=store.saveDraft(session.scope.key,draft.id,draft.greenhouseId,draft.localJson(),existing?.revision,draft.baseVersion,kind=draft.kind.wire)
         val errors=effective.validation(session.role!=UserRole.MANAGER);if(errors.isNotEmpty()) throw AssetValidationFailure(errors,effective.baseVersion)
         if(draft.kind==AssetKind.ASSET) {
-            val payment=store.cachedOne(session.scope.key,"expense",effective.expenseId) ?: error("Pembayaran sumber belum tersinkron. Simpan draf dahulu.")
+            val payment=store.cachedOne(session.scope.key,"expense",effective.expenseId) ?: error("Pembayaran sumber belum tersedia di perangkat. Perbarui dulu.")
             require(payment.getString("greenhouse_id")==draft.greenhouseId && payment.getString("record_state")=="active" && payment.getString("payment_kind")=="asset_acquisition") {"Pilih pembayaran pembelian aset aktif pada greenhouse yang sama."}
             require(AssetDraft.money(effective.cost)<=AssetDraft.money(payment.getString("amount"))) {"Harga aset melebihi pembayaran sumber terakhir diketahui."}
         } else {
-            val asset=store.cachedOne(session.scope.key,"asset",effective.assetId) ?: error("Aset sumber belum tersinkron. Simpan draf dahulu.")
-            val season=store.cachedOne(session.scope.key,"seasons",effective.seasonId) ?: error("Musim belum tersinkron.")
+            val asset=store.cachedOne(session.scope.key,"asset",effective.assetId) ?: error("Aset sumber belum tersedia di perangkat. Perbarui dulu.")
+            val season=store.cachedOne(session.scope.key,"seasons",effective.seasonId) ?: error("Musim belum tersedia di perangkat. Perbarui dulu.")
             require(asset.getString("greenhouse_id")==draft.greenhouseId && asset.getString("record_state")=="active" && season.getString("greenhouse_id")==draft.greenhouseId && season.getString("status")=="open") {"Aset aktif dan musim terbuka harus satu greenhouse."}
             val budget=DepreciationAmounts.year(asset.getString("cost"),asset.getString("residual"),asset.getInt("life_years"),AssetDraft.year(effective.usageYear),AssetDraft.date(asset.getString("in_service_date")))
             require(!AssetDraft.date(effective.periodStart).isBefore(budget.start) && !AssetDraft.date(effective.periodEnd).isAfter(budget.end)) {"Periode di luar tahun pemakaian aset."}

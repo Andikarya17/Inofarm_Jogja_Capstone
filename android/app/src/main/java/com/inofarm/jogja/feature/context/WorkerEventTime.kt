@@ -39,7 +39,7 @@ internal fun WorkerEventTime(
     val group = context.groups.find { it.optString("id") == groupId }
     val season = context.seasons.find { it.optString("id") == group?.optString("season_id") }
     val parents = listOfNotNull(greenhouse?.optString("name"), season?.optString("name"), group?.optString("name"))
-    Text(parents.joinToString(" · ").ifBlank { "Konteks belum tersimpan" }, style = MaterialTheme.typography.titleMedium)
+    Text(parents.joinToString(" · ").ifBlank { "Pilihan belum tersimpan" }, style = MaterialTheme.typography.titleMedium)
     val age = remember(group, date, time, preserveAge) {
         if (preserveAge || group == null) null else runCatching {
             PlantAge.calculate(group.getString("sowing_date"), group.optString("transplant_date").takeUnless { group.isNull("transplant_date") },

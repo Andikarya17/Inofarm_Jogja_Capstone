@@ -48,7 +48,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
             FinanceField("Umur pemakaian (tahun)",draft.lifeYears,{value -> vm.edit {it.copy(lifeYears=value)}},"asset-life",state.errors["depreciation"],KeyboardType.Number)
             FinanceField("Mulai dipakai (YYYY-MM-DD)",draft.inServiceDate,{value -> vm.edit {it.copy(inServiceDate=value)}},"asset-start",state.errors["depreciation"])
             runCatching {DepreciationAmounts.year(AssetDraft.money(draft.cost).toPlainString(),AssetDraft.money(draft.residual).toPlainString(),AssetDraft.year(draft.lifeYears),1,AssetDraft.date(draft.inServiceDate))}.getOrNull()?.let {
-                FarmFact("Pratinjau anggaran tahun pertama", moneyLabel(it.amount.toPlainString()))
+                FarmFact("Perkiraan anggaran tahun pertama", moneyLabel(it.amount.toPlainString()))
                 Text("${it.start} hingga ${it.end}, akhir tidak termasuk.", style = MaterialTheme.typography.bodySmall)
             }
             }
@@ -76,7 +76,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
                 hint = "Isi nominal pemakaian untuk musim tujuan.")
             runCatching {val source=sources.single {it.getString("id")==draft.assetId};DepreciationAmounts.year(source.getString("cost"),source.getString("residual"),source.getInt("life_years"),AssetDraft.year(draft.usageYear),AssetDraft.date(source.getString("in_service_date")))}.getOrNull()?.let {
                 FarmFact("Anggaran tahun pemakaian", moneyLabel(it.amount.toPlainString()))
-                Text("Server memeriksa sisa anggaran setelah alokasi lain.", style = MaterialTheme.typography.bodySmall)
+                Text("Sisa anggaran diperiksa saat catatan terkirim.", style = MaterialTheme.typography.bodySmall)
             }
             }
         }
@@ -84,7 +84,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
         FinanceField("Dasar pemakaian / pembagian",draft.basis,{value -> vm.edit {it.copy(basis=value)}},"asset-basis",state.errors["basis"],singleLine=false)
         if(draft.baseVersion!=null) FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"asset-reason",state.errors["reason"],singleLine=false)
         }
-        Notice("Harga pembelian aset terpisah dari biaya operasi dan alokasi penyusutan. Draf/antrean belum diterima server. Anggaran dan sumber diperiksa ulang saat sinkronisasi.")
+        Notice("Harga pembelian aset terpisah dari biaya operasi dan alokasi penyusutan. Anggaran dan sumber diperiksa ulang saat catatan terkirim.")
         state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
         Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("asset-review")) {Text("Periksa catatan aset")}
         OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("asset-save-draft")) {Text("Simpan draf dan kembali")}
@@ -106,7 +106,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
 
 @Composable private fun AssetDraftFacts(draft:AssetDraft,context:CultivationUiState) {
     fun nominal(value:String) = runCatching { moneyLabel(AssetDraft.money(value).toPlainString()) }
-        .getOrDefault(if (value.isBlank()) "Belum diisi" else "Isian belum valid")
+        .getOrDefault(if (value.isBlank()) "Belum diisi" else "Isian belum benar")
     if(draft.kind==AssetKind.ASSET) {
         FarmFact("Aset",draft.name.ifBlank { "Belum diisi" })
         FarmFact("Harga perolehan",nominal(draft.cost),Modifier.testTag("asset-cost-fact"),prominent=true)

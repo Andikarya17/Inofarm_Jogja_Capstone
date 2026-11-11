@@ -105,7 +105,7 @@ internal class ManagerHomeRepository(
         }
         checkSession(session, ticket)
         val snapshot = HomeSnapshot(json)
-        require(json.getString("account_id") == session.scope.accountId && snapshot.selection == selection) { "Cakupan respons ringkasan tidak sesuai." }
+        require(json.getString("account_id") == session.scope.accountId && snapshot.selection == selection) { "Data ringkasan tidak cocok. Perbarui lalu coba lagi." }
         val currentEpoch = store.epoch(key)
         val currentScope = store.visibleGreenhouses(key)
         if (currentEpoch != null && currentEpoch != snapshot.epoch ||

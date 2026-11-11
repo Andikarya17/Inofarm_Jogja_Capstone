@@ -21,13 +21,13 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
         if(runCatching {WireContract.uuid(greenhouseId)}.isFailure) put("greenhouse","Pilih greenhouse.")
         if(runCatching {WireContract.uuid(seasonId)}.isFailure) put("season","Pilih musim penjualan.")
         if(runCatching {paidAt()}.isFailure) put("paid_at","Isi tanggal YYYY-MM-DD dan jam HH:mm WIB yang sah.")
-        if(!paid) put("paid","Konfirmasikan pembayaran sudah lunas sebelum pengajuan.")
+        if(!paid) put("paid","Konfirmasikan pembayaran sudah lunas sebelum menyimpan.")
         if(customer.length>200) put("customer","Nama pembeli maksimal200 karakter.")
         if(notes.length>2000) put("notes","Keterangan maksimal2.000 karakter.")
         if(items.size !in 1..30) put("items","Sertakan1–30 rincian sumber panen.")
         if(items.map {it.id}.toSet().size!=items.size || items.map {it.sourceId}.toSet().size!=items.size) put("items","Identitas rincian dan sumber panen tidak boleh berulang.")
         items.forEachIndexed {index,line ->
-            if(runCatching {WireContract.uuid(line.id);WireContract.uuid(line.sourceId)}.isFailure) put("items.$index.source","Pilih sumber panen yang telah diterima server.")
+            if(runCatching {WireContract.uuid(line.id);WireContract.uuid(line.sourceId)}.isFailure) put("items.$index.source","Pilih sumber panen yang sudah terkirim.")
             if(runCatching {decimal(line.quantity,true)}.isFailure) put("items.$index.quantity","Bobot kg harus lebih dari nol, maksimal6 desimal; kosong bukan nol.")
             if(runCatching {decimal(line.price,false)}.isFailure) put("items.$index.price","Harga IDR/kg wajib tidak negatif, maksimal6 desimal; kosong bukan nol.")
         }

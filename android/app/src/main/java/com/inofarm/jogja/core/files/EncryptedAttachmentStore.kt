@@ -45,8 +45,8 @@ class EncryptedAttachmentStore(context:Context,private val root:File=File(contex
         return AttachmentContract.inspect(name,prefix.toByteArray(),count,digest.digest().joinToString("") {"%02x".format(it)})
     }
     @Synchronized fun copy(scope:String,id:String,name:String,input:InputStream,checkActive:()->Unit={}):AttachmentBytes {
-        val path=file(scope,id);require(!path.exists()) {"Salinan berkas sudah ada. Identitas salinan tidak ditimpa."}
-        check(path.parentFile!!.isDirectory || path.parentFile!!.mkdirs()) {"Penyimpanan privat belum tersedia."}
+        val path=file(scope,id);require(!path.exists()) {"Berkas sudah ada."}
+        check(path.parentFile!!.isDirectory || path.parentFile!!.mkdirs()) {"Penyimpanan di perangkat belum bisa dipakai."}
         val atomic=AtomicFile(path);val output=atomic.startWrite()
         try {
             val cipher=Cipher.getInstance("AES/GCM/NoPadding").apply {init(Cipher.ENCRYPT_MODE,key());updateAAD(aad(scope,id))}
@@ -55,7 +55,7 @@ class EncryptedAttachmentStore(context:Context,private val root:File=File(contex
             var total=0L;val buffer=ByteArray(32768)
             while(true) {
                 checkActive();val read=input.read(buffer);if(read<0) break;if(read==0) continue
-                total+=read;require(total<=AttachmentContract.MAX_SUPPORTED_BYTES) {"Berkas melebihi batas teknis32MiB. Batas produksi mengikuti server."}
+                total+=read;require(total<=AttachmentContract.MAX_SUPPORTED_BYTES) {"Berkas terlalu besar. Maksimal 32 MB."}
                 if(prefix.size()<8) prefix.write(buffer,0,minOf(8-prefix.size(),read))
                 digest.update(buffer,0,read);cipher.update(buffer,0,read)?.let(output::write)
             }
@@ -72,13 +72,13 @@ class EncryptedAttachmentStore(context:Context,private val root:File=File(contex
             val length=input.readUnsignedByte();require(length==12);val iv=ByteArray(length);input.readFully(iv)
             val cipher=Cipher.getInstance("AES/GCM/NoPadding").apply {init(Cipher.DECRYPT_MODE,key(),GCMParameterSpec(128,iv));updateAAD(aad(scope,id))}
             return CipherInputStream(input,cipher)
-        } catch(error:Exception) {input.close();throw LocalAttachmentFailure("Salinan terenkripsi tidak dapat dibuka. Pilih kembali atau tinjau berkas yang tertahan.")}
+        } catch(error:Exception) {input.close();throw LocalAttachmentFailure("Berkas tidak bisa dibuka. Pilih berkasnya lagi.")}
     }
     fun verify(scope:String,id:String,expected:AttachmentBytes) {
         try {
             val digest=MessageDigest.getInstance("SHA-256");var count=0L
             open(scope,id).use {input -> val buffer=ByteArray(32768);while(true) {val size=input.read(buffer);if(size<0) break;count+=size;require(count<=expected.bytes && count<=AttachmentContract.MAX_SUPPORTED_BYTES);digest.update(buffer,0,size)}}
             require(count==expected.bytes && digest.digest().joinToString("") {"%02x".format(it)}==expected.sha256)
-        } catch(error:Exception) {throw LocalAttachmentFailure("Salinan berkas hilang, rusak, atau checksum berubah. Pengiriman ditahan; operasi dan draf tetap disimpan.")}
+        } catch(error:Exception) {throw LocalAttachmentFailure("Berkas hilang atau rusak. Pilih berkasnya lagi.")}
     }
 }

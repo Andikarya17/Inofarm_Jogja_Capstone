@@ -54,7 +54,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
                 connection.update("outbox",values("state" to "EPOCH_REVIEW"),"scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED')",arrayOf(scope))
                 connection.execSQL("""INSERT OR IGNORE INTO local_record_revisions(scope,entity_id,revision,kind,greenhouse_id,body,server_body,base_version,server_version,resolution,saved_at)
                     SELECT scope,entity_id,revision,kind,greenhouse_id,body,server_body,base_version,server_version,'restore_epoch_changed',? FROM local_records WHERE scope=?""",arrayOf<Any>(System.currentTimeMillis(),scope))
-                val cached=encrypt(scope,JSONObject().put("code","restore_cached_copy").put("message","Salinan server lama diarsipkan; menunggu pembacaan titik pemulihan."))
+                val cached=encrypt(scope,JSONObject().put("code","restore_cached_copy").put("message","Salinan lama diarsipkan. Menunggu data pemulihan."))
                 connection.update("local_records",values("error" to cached),"scope=? AND sync_state='ACCEPTED'",arrayOf(scope))
                 connection.update("local_records",values("sync_state" to "EPOCH_REVIEW","server_version" to null,"server_body" to null,"base_version" to null),"scope=?",arrayOf(scope))
                 connection.delete("cached_records","scope=?",arrayOf(scope))
@@ -67,7 +67,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         if(role == UserRole.WORKER) {
             connection.delete("manager_home_cache","scope=?",arrayOf(scope))
             connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','activity_review','harvest','harvest_review','activity_audit','harvest_audit','harvest_balance','activity_attachment','harvest_attachment','activity_attachment_policy','harvest_attachment_policy','activity_attachment_audit','harvest_attachment_audit','worker_harvest_progress')",arrayOf(scope))
-            val reason=encrypt(scope,JSONObject().put("message","Peran saat ini tidak mengizinkan perubahan pengelola. Antrean tetap disimpan untuk ditinjau."))
+            val reason=encrypt(scope,JSONObject().put("message","Peran Anda sekarang tidak bisa mengubah data ini. Catatan tetap tersimpan."))
             connection.execSQL("UPDATE outbox SET state='SCOPE_REVOKED',error=? WHERE scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW') AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=? AND kind NOT IN ('activity','harvest','activity_attachment','harvest_attachment'))",arrayOf(reason,scope,scope))
         }
     }
@@ -95,7 +95,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     fun cacheWorkerHarvestProgress(scope: String, gh: String, group: String, body: JSONObject, expectedEpoch: String?) = transaction {
         requireKind(scope, "worker_harvest_progress")
-        require(epoch(scope) == expectedEpoch && gh in visibleGreenhouses(scope)) { "Cakupan rekap berubah. Sinkronkan kembali." }
+        require(epoch(scope) == expectedEpoch && gh in visibleGreenhouses(scope)) { "Pilihan rekap berubah. Perbarui lagi." }
         db.insertWithOnConflict("cached_records", null,
             values("scope" to scope, "kind" to "worker_harvest_progress", "entity_id" to group, "greenhouse_id" to gh,
                 "version" to 1, "tombstone" to 0, "body" to encrypt(scope, body)), SQLiteDatabase.CONFLICT_REPLACE)
@@ -105,13 +105,13 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     fun runningPeriodRequest(scope: String, gh: String): JSONObject? = transaction {
         requireMutationKind(scope, "greenhouses")
-        require(gh in visibleGreenhouses(scope)) { "Penugasan greenhouse perlu diperiksa kembali." }
+        require(gh in visibleGreenhouses(scope)) { "Akses greenhouse perlu diperiksa lagi." }
         db.rawQuery("SELECT body FROM running_period_requests WHERE scope=? AND greenhouse_id=?",
             arrayOf(scope, gh)).use { if (it.moveToFirst()) decode(scope, it.getString(0)) else null }
     }
     fun storeRunningPeriodRequest(scope: String, gh: String, operation: JSONObject): JSONObject = transaction {
         runningPeriodRequest(scope, gh)?.let { return@transaction it }
-        require(operation.getString("sync_epoch") == epoch(scope)) { "Epoch berubah. Sinkronkan dan tinjau pemulihan." }
+        require(operation.getString("sync_epoch") == epoch(scope)) { "Data di server dipulihkan. Beberapa catatan perlu dicek." }
         db.insertOrThrow("running_period_requests", null, values("scope" to scope, "greenhouse_id" to gh, "body" to encrypt(scope, operation)))
         operation
     }
@@ -239,7 +239,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         }
     }
     fun blobsFor(scope:String,id:String):List<LocalBlob> {
-        val record=record(scope,id) ?: return emptyList();require(record.greenhouseId in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        val record=record(scope,id) ?: return emptyList();require(record.greenhouseId in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
         return db.rawQuery("SELECT blob_id FROM local_blobs WHERE scope=? AND entity_id=? ORDER BY updated_at DESC,blob_id",arrayOf(scope,id)).use {rows -> buildList {while(rows.moveToNext()) add(blob(scope,rows.getString(0))!!)}}
     }
     fun beginAttachmentCopy(scope:String,id:String,gh:String,kind:String,body:JSONObject,blobId:String,source:JSONObject):LocalRecord=transaction {
@@ -252,11 +252,11 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     fun finishAttachmentCopy(scope:String,blobId:String,metadata:AttachmentBytes):LocalRecord=transaction {
         val blob=blob(scope,blobId) ?: error("Salinan berkas tidak ditemukan.");require(blob.state in setOf("COPYING","FAILED")) {"Salinan siap tidak dapat ditimpa."}
-        val record=record(scope,blob.entityId)!!;if(blob.body.optString("copy_mode")!="download") require(record.latestOperationId==null) {"Salinan telah terikat pengajuan."}
+        val record=record(scope,blob.entityId)!!;if(blob.body.optString("copy_mode")!="download") require(record.latestOperationId==null) {"Salinan berkas sudah terikat pada catatan."}
         val details=JSONObject(blob.body.toString()).apply {metadata.json().keys().forEach {key -> put(key,metadata.json().get(key))}}
         db.update("local_blobs",values("state" to "READY","body" to encrypt(scope,details),"updated_at" to System.currentTimeMillis()),"scope=? AND blob_id=?",arrayOf(scope,blobId))
         if(blob.body.optString("copy_mode")=="download") {
-            require(AttachmentBytes.parse(blob.body)==metadata) {"Unduhan tidak cocok dengan metadata diterima."}
+            require(AttachmentBytes.parse(blob.body)==metadata) {"Berkas unduhan tidak cocok dengan data lampiran."}
             return@transaction record
         }
         val body=JSONObject(record.body.toString()).apply {metadata.json().keys().forEach {key -> put(key,metadata.json().get(key))}}.put("_copy_state","READY")
@@ -297,9 +297,9 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         db.update("local_attachment_forms",values("submitted" to 1),"scope=? AND entity_id=?",arrayOf(scope,id));result
     }
     fun retryAttachment(scope:String,operationId:String)=transaction {
-        val op=db.rawQuery("SELECT * FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,operationId)).use {if(it.moveToFirst()) it.operation(scope) else null} ?: error("Pengajuan tidak ditemukan.")
-        require(op.envelope.getString("entity_type") in AttachmentContract.kinds && op.state=="REJECTED" && op.error?.optString("code") in setOf("attachment_configuration_missing","attachment_limit_reached","season_closed","local_attachment_unavailable")) {"Penolakan ini perlu tinjauan lain."}
-        require(op.envelope.getString("sync_epoch")==epoch(scope)) {"Epoch perlu rekonsiliasi."}
+        val op=db.rawQuery("SELECT * FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,operationId)).use {if(it.moveToFirst()) it.operation(scope) else null} ?: error("Catatan kiriman tidak ditemukan.")
+        require(op.envelope.getString("entity_type") in AttachmentContract.kinds && op.state=="REJECTED" && op.error?.optString("code") in setOf("attachment_configuration_missing","attachment_limit_reached","season_closed","local_attachment_unavailable")) {"Penolakan ini perlu ditangani dengan cara lain."}
+        require(op.envelope.getString("sync_epoch")==epoch(scope)) {"Data di server dipulihkan. Beberapa catatan perlu dicek."}
         val row=record(scope,op.entityId)!!;requireMutationKind(scope,row.kind);require(row.greenhouseId in visibleGreenhouses(scope))
         db.update("outbox",values("state" to "QUEUED","next_attempt_at" to 0L,"error" to null),"scope=? AND operation_id=?",arrayOf(scope,op.id))
         if(row.revision==op.revision) db.update("local_records",values("sync_state" to "QUEUED","error" to null),"scope=? AND entity_id=?",arrayOf(scope,row.id))
@@ -307,7 +307,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     fun reviewAttachmentParent(scope:String,id:String,parentVersion:Long,expectedRevision:Long,blobId:String):LocalRecord=transaction {
         val row=record(scope,id) ?: error("Lampiran tidak ditemukan.");require(row.kind in AttachmentContract.kinds && row.revision==expectedRevision && parentVersion>0 && row.baseVersion==null)
         val pending=pending(scope,id)
-        require(pending.isEmpty() || pending.all {it.state=="REJECTED" && it.error?.optString("code")=="parent_version_conflict"}) {"Pengajuan lama belum dapat diganti."}
+        require(pending.isEmpty() || pending.all {it.state=="REJECTED" && it.error?.optString("code")=="parent_version_conflict"}) {"Catatan lama belum bisa diganti."}
         archive(scope,row,"review_attachment_parent_version")
         db.update("outbox",values("state" to "SUPERSEDED"),"scope=? AND entity_id=? AND state='REJECTED'",arrayOf(scope,id))
         val body=JSONObject(row.body.toString()).put("owner_version",parentVersion)
@@ -317,7 +317,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         putQueued(scope,saved,"create",payload,blobId)
     }
     fun cacheAudit(scope:String,id:String,gh:String,body:JSONObject,kind:String="activity_audit")=transaction {
-        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit","sale_audit","asset_audit","depreciation_allocation_audit","activity_attachment_audit","harvest_attachment_audit","expense_attachment_audit","investment_scenario_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit","sale_audit","asset_audit","depreciation_allocation_audit","activity_attachment_audit","harvest_attachment_audit","expense_attachment_audit","investment_scenario_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
         db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to 1L,
             "tombstone" to 0,"body" to encrypt(scope,body)),SQLiteDatabase.CONFLICT_REPLACE)
     }
@@ -390,11 +390,11 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         require(known) {"Greenhouse belum pernah tersedia untuk akun ini."}
         require(old==null || old.greenhouseId==gh) { "Greenhouse catatan tidak dapat dipindah." }
         require(old==null || old.kind==kind) {"Jenis catatan tidak dapat diganti."}
-        require(if(old == null) expectedRevision == null else expectedRevision == old.revision) { "Draf berubah. Muat ulang sebelum menyimpan." }
+        require(if(old == null) expectedRevision == null else expectedRevision == old.revision) { "Draf berubah. Perbarui sebelum menyimpan." }
         val revision = (old?.revision ?: 0) + 1
         val base = if(old?.syncState == SyncState.ACCEPTED) editingBaseVersion ?: old.serverVersion else old?.baseVersion
         val held=old?.syncState?.takeIf {it==SyncState.EPOCH_REVIEW} ?: if(!visible) SyncState.SCOPE_REVOKED else old?.syncState?.takeIf {it==SyncState.SCOPE_REVOKED}
-        val heldError=if(!visible) JSONObject().put("message","Penugasan tidak lagi berlaku. Draf tersimpan lokal dan pengiriman ditahan.") else old?.error
+        val heldError=if(!visible) JSONObject().put("message","Anda tidak lagi bertugas di greenhouse ini. Draf tersimpan di perangkat dan belum dikirim.") else old?.error
         val data = values("scope" to scope,"entity_id" to id,"kind" to kind,"greenhouse_id" to gh,"revision" to revision,
             "base_version" to base,"server_version" to old?.serverVersion,"body" to encrypt(scope,body),"server_body" to encrypt(scope,old?.serverBody),
             "latest_operation_id" to old?.latestOperationId,"sync_state" to (held?.name ?: "LOCAL"),"error" to if(held != null) encrypt(scope,heldError) else null,"updated_at" to System.currentTimeMillis())
@@ -407,32 +407,32 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         persistDraft(scope,id,gh,body,expectedRevision,editingBaseVersion,kind)
     }
     fun saveAndQueue(scope: String, id: String, gh: String, body: JSONObject, expectedRevision: Long? = null, editingBaseVersion:Long?=null,replaceValidationRejected:Boolean=false,kind:String="activity",queuePayload:JSONObject?=null,blobId:String?=null): LocalRecord = transaction {
-        require(record(scope,id)?.syncState !in setOf(SyncState.EPOCH_REVIEW,SyncState.SCOPE_REVOKED)) { "Catatan ditahan untuk rekonsiliasi atau penugasan. Draf tetap disimpan." }
+        require(record(scope,id)?.syncState !in setOf(SyncState.EPOCH_REVIEW,SyncState.SCOPE_REVOKED)) { "Catatan ditahan karena data dipulihkan atau akses berubah. Draf tetap tersimpan." }
         val pending=pending(scope,id)
         if(replaceValidationRejected) {
             require(pending.isNotEmpty() && pending.all {it.state=="REJECTED" && ReviewableRejections.mayReplace(kind,it.error?.optString("code"))}) {"Penolakan ini tidak dapat diganti tanpa rekonsiliasi."}
             record(scope,id)?.let {archive(scope,it,"replace_reviewed_rejection")}
             db.update("outbox",values("state" to "SUPERSEDED"),"scope=? AND entity_id=? AND state='REJECTED'",arrayOf(scope,id))
-        } else require(pending.isEmpty()) { "Operasi sebelumnya masih menunggu atau perlu ditinjau. Simpan draf dulu." }
+        } else require(pending.isEmpty()) { "Catatan sebelumnya masih menunggu atau perlu dicek. Simpan draf dulu." }
         val saved = persistDraft(scope,id,gh,body,expectedRevision,editingBaseVersion,kind)
         afterRecordWrite()
         putQueued(scope,saved,if(saved.baseVersion==null) "create" else "update",queuePayload ?: body,blobId)
     }
     private fun putQueued(scope:String,saved:LocalRecord,action:String,payload:JSONObject,blobId:String?=null):LocalRecord {
         requireMutationKind(scope,saved.kind)
-        require(saved.greenhouseId in visibleGreenhouses(scope) && saved.syncState !in setOf(SyncState.SCOPE_REVOKED,SyncState.EPOCH_REVIEW)) {"Draf tersimpan lokal; penugasan atau epoch perlu ditinjau sebelum pengiriman."}
-        require((action=="create" && saved.baseVersion==null) || (action!="create" && (saved.baseVersion ?: 0)>0)) {"Versi dasar operasi tidak sesuai."}
+        require(saved.greenhouseId in visibleGreenhouses(scope) && saved.syncState !in setOf(SyncState.SCOPE_REVOKED,SyncState.EPOCH_REVIEW)) {"Draf tersimpan di perangkat. Akses atau data pemulihan perlu dicek sebelum dikirim."}
+        require((action=="create" && saved.baseVersion==null) || (action!="create" && (saved.baseVersion ?: 0)>0)) {"Versi catatan tidak sesuai. Perbarui lalu coba lagi."}
         if(saved.kind in AttachmentContract.kinds) {
-            require(action in setOf("create","cancel")) {"Berkas immutable; penggantian memerlukan lampiran baru."}
+            require(action in setOf("create","cancel")) {"Berkas tidak bisa diganti. Tambahkan lampiran baru."}
             if(action=="create") {
-                val blob=blobId?.let {blob(scope,it)} ?: error("Salinan berkas belum terikat pada pengajuan.")
+                val blob=blobId?.let {blob(scope,it)} ?: error("Salinan berkas belum terikat pada catatan.")
                 require(blob.entityId==saved.id && blob.kind==saved.kind && blob.greenhouseId==saved.greenhouseId && blob.state=="READY") {"Salinan berkas belum siap atau milik catatan lain."}
                 val metadata=AttachmentBytes.parse(blob.body)
-                require(metadata==AttachmentBytes.parse(payload)) {"Metadata pengajuan tidak cocok dengan salinan yang ditinjau."}
+                require(metadata==AttachmentBytes.parse(payload)) {"Data lampiran tidak cocok dengan salinan berkas."}
             } else require(db.rawQuery("SELECT role FROM scope_metadata WHERE scope=?",arrayOf(scope)).use {it.moveToFirst() && it.getString(0)=="manager"}) {"Pembatalan lampiran hanya untuk pengelola."}
         } else require(blobId==null)
         val operationId=UUID.randomUUID().toString()
-        val operation=JSONObject().put("schema_version","2").put("sync_epoch",epoch(scope) ?: error("Epoch server belum dikenal."))
+        val operation=JSONObject().put("schema_version","2").put("sync_epoch",epoch(scope) ?: error("Data server belum dikenal. Perbarui lalu coba lagi."))
             .put("operation_id",operationId).put("entity_id",saved.id).put("entity_type",saved.kind).put("action",action)
             .put("base_version",saved.baseVersion ?: JSONObject.NULL).put("payload",JSONObject(payload.toString()))
         db.insertOrThrow("outbox",null,values("scope" to scope,"operation_id" to operationId,"entity_id" to saved.id,"local_revision" to saved.revision,
@@ -448,7 +448,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     private fun pending(scope:String,id:String):List<QueuedOperation> = db.rawQuery("SELECT * FROM outbox WHERE scope=? AND entity_id=? AND state NOT IN ('ACCEPTED','SUPERSEDED')",arrayOf(scope,id)).use {rows -> buildList {while(rows.moveToNext()) add(rows.operation(scope))}}
     fun pendingFor(scope:String,id:String):List<QueuedOperation> {
         val record=record(scope,id) ?: return emptyList()
-        require(record.greenhouseId in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        require(record.greenhouseId in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
         return pending(scope,id)
     }
     fun detail(scope:String,id:String):LocalDetail?=transaction {
@@ -462,10 +462,10 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             require(kind=="investment_scenario" && action=="cancel" && outstanding.isNotEmpty() && outstanding.all {it.state=="REJECTED" && it.envelope.getString("action")==action && ReviewableRejections.mayReplace(kind,it.error?.optString("code"))}) {"Penolakan ini perlu rekonsiliasi lain."}
             old?.let {archive(scope,it,"replace_reviewed_rejection")}
             db.update("outbox",values("state" to "SUPERSEDED"),"scope=? AND entity_id=? AND state='REJECTED'",arrayOf(scope,id))
-        } else require(outstanding.isEmpty()) {"Operasi sebelumnya masih menunggu atau perlu ditinjau."}
+        } else require(outstanding.isEmpty()) {"Catatan sebelumnya masih menunggu atau perlu dicek."}
         val savedCancel=old!=null && kind=="investment_scenario" && action=="cancel" && old.body.has("_local_cancel") && old.serverBody!=null &&
             old.syncState in setOf(SyncState.LOCAL,SyncState.REJECTED) && WireContract.hash(JSONObject(old.body.toString()).apply {remove("_local_cancel")})==WireContract.hash(old.serverBody)
-        require(old==null || old.syncState==SyncState.ACCEPTED || savedCancel) {"Selesaikan draf atau konflik sebelum tindakan ini."}
+        require(old==null || old.syncState==SyncState.ACCEPTED || savedCancel) {"Selesaikan draf atau perubahan yang bentrok sebelum tindakan ini."}
         if(old!=null && !replaceValidationRejected) archive(scope,old,action)
         val saved=persistDraft(scope,id,gh,body,expectedRevision,baseVersion,kind)
         if(saved.baseVersion==null) db.update("local_records",values("base_version" to baseVersion,"server_version" to baseVersion,"server_body" to encrypt(scope,body)),"scope=? AND entity_id=?",arrayOf(scope,id))
@@ -483,11 +483,11 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     fun resolveConflict(scope:String,id:String,reviewedVersion:Long,expectedRevision:Long,keepLocalPayload:JSONObject?):LocalRecord = transaction {
         val current=record(scope,id) ?: error("Catatan tidak ditemukan.")
         requireMutationKind(scope,current.kind)
-        require(current.revision==expectedRevision) {"Draf berubah. Tinjau perbandingan kembali."}
-        require(current.greenhouseId in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        require(current.revision==expectedRevision) {"Draf berubah. Buka perbandingan lagi."}
+        require(current.greenhouseId in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
         val pending=pending(scope,id)
-        require(pending.isNotEmpty() && pending.all {it.state=="CONFLICT"}) {"Tidak ada konflik yang dapat diselesaikan."}
-        require(current.serverVersion==reviewedVersion && current.serverBody?.optLong("version")==reviewedVersion) {"Versi server berubah lagi. Muat ulang dan tinjau kembali."}
+        require(pending.isNotEmpty() && pending.all {it.state=="CONFLICT"}) {"Tidak ada perubahan bentrok yang bisa diselesaikan."}
+        require(current.serverVersion==reviewedVersion && current.serverBody?.optLong("version")==reviewedVersion) {"Data ini baru diubah di perangkat lain. Perbarui lalu coba lagi."}
         archive(scope,current,if(keepLocalPayload==null) "use_server" else "keep_local")
         db.update("outbox",values("state" to "SUPERSEDED"),"scope=? AND entity_id=? AND state='CONFLICT'",arrayOf(scope,id))
         val body=keepLocalPayload ?: current.serverBody!!
@@ -498,16 +498,16 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         if(keepLocalPayload==null) result else putQueued(scope,result,"update",keepLocalPayload)
     }
     fun retryClosedSeason(scope:String,operationId:String) = transaction {
-        val op=db.rawQuery("SELECT * FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,operationId)).use {if(it.moveToFirst()) it.operation(scope) else null} ?: error("Operasi tidak ditemukan.")
-        require(op.state=="REJECTED" && op.error?.optString("code")=="season_closed") {"Operasi ini memerlukan perbaikan lain."}
-        require(op.envelope.getString("sync_epoch")==epoch(scope)) {"Epoch lama perlu rekonsiliasi."}
-        val row=record(scope,op.entityId)!!;require(row.greenhouseId in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        val op=db.rawQuery("SELECT * FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,operationId)).use {if(it.moveToFirst()) it.operation(scope) else null} ?: error("Catatan kiriman tidak ditemukan.")
+        require(op.state=="REJECTED" && op.error?.optString("code")=="season_closed") {"Catatan ini perlu diperbaiki dengan cara lain."}
+        require(op.envelope.getString("sync_epoch")==epoch(scope)) {"Data di server dipulihkan. Beberapa catatan perlu dicek."}
+        val row=record(scope,op.entityId)!!;require(row.greenhouseId in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
         db.update("outbox",values("state" to "QUEUED","next_attempt_at" to 0L,"error" to null),"scope=? AND operation_id=?",arrayOf(scope,operationId))
         if(row.revision==op.revision) db.update("local_records",values("sync_state" to "QUEUED","error" to null),"scope=? AND entity_id=?",arrayOf(scope,row.id))
     }
     fun archived(scope:String,id:String):List<JSONObject> {
         val current=record(scope,id) ?: return emptyList();requireKind(scope,current.kind)
-        require(current.greenhouseId in visibleGreenhouses(scope)) {"Penugasan tidak lagi berlaku."}
+        require(current.greenhouseId in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
         return db.rawQuery("SELECT body FROM local_record_revisions WHERE scope=? AND entity_id=? ORDER BY revision DESC LIMIT 100",arrayOf(scope,id)).use {rows -> buildList {while(rows.moveToNext()) add(decode(scope,rows.getString(0))!!)}}
     }
     fun next(scope: String, now: Long = System.currentTimeMillis()): QueuedOperation? = db.rawQuery("SELECT * FROM outbox WHERE scope=? AND state='QUEUED' AND next_attempt_at<=? ORDER BY created_at,operation_id",arrayOf(scope,now.toString())).use { rows ->
@@ -516,19 +516,19 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         result
     }
     fun acknowledge(scope: String, id: String, receipt: JSONObject, historicalReview:JSONObject?=null) = transaction {
-        val op = db.rawQuery("SELECT * FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,id)).use { if(it.moveToFirst()) it.operation(scope) else null } ?: error("Operasi ACK tidak ditemukan.")
-        if(historicalReview==null) require(op.envelope.getString("sync_epoch") == epoch(scope)) { "ACK berasal dari epoch lama; rekonsiliasi diperlukan." }
+        val op = db.rawQuery("SELECT * FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,id)).use { if(it.moveToFirst()) it.operation(scope) else null } ?: error("Konfirmasi kiriman tidak ditemukan.")
+        if(historicalReview==null) require(op.envelope.getString("sync_epoch") == epoch(scope)) { "Konfirmasi berasal dari data sebelum pemulihan. Perlu dicek." }
         else {
             require(op.state in setOf("EPOCH_REVIEW","ACCEPTED") && record(scope,op.entityId)?.syncState==SyncState.EPOCH_REVIEW && op.envelope.getString("sync_epoch")!=epoch(scope))
             require(historicalReview.getString("sync_epoch")==epoch(scope) && historicalReview.getString("state")=="receipt_found")
             require(historicalReview.getString("operation_id")==id && historicalReview.getString("entity_id")==op.entityId && historicalReview.getString("request_hash")==op.hash && WireContract.hash(op.envelope)==op.hash)
             require(WireContract.hash(historicalReview.getJSONObject("receipt"))==WireContract.hash(receipt))
         }
-        require(receipt.getString("operation_id") == id && receipt.getString("entity_id") == op.entityId && receipt.getLong("version") > 0) { "Identitas ACK tidak cocok." }
+        require(receipt.getString("operation_id") == id && receipt.getString("entity_id") == op.entityId && receipt.getLong("version") > 0) { "Konfirmasi kiriman tidak cocok dengan catatan." }
         val authoritative = receipt.getJSONObject("data"); require(authoritative.getString("id") == op.entityId)
         val version = receipt.getLong("version")
-        require(authoritative.getLong("version")==version) {"Versi ACK dan data tidak cocok."}
-        val current = record(scope,op.entityId) ?: error("Catatan ACK tidak ditemukan.")
+        require(authoritative.getLong("version")==version) {"Versi konfirmasi dan data tidak cocok."}
+        val current = record(scope,op.entityId) ?: error("Catatan untuk konfirmasi tidak ditemukan.")
         db.update("outbox",values("state" to "ACCEPTED","error" to null),"scope=? AND operation_id=?",arrayOf(scope,id))
         val patch = values()
         if(version >= (current.serverVersion ?: 0)) { patch.put("server_version",version);patch.put("server_body",encrypt(scope,authoritative)) }
@@ -553,7 +553,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             if(record.revision==op.revision || state in setOf(SyncState.AUTH_REQUIRED,SyncState.SCOPE_REVOKED,SyncState.EPOCH_REVIEW)) patch.put("sync_state",state.name)
             if(error.has("current_data") && !error.isNull("current_data") && error.optLong("current_version")>=(record.serverVersion ?: 0)) {
                 val remote=error.getJSONObject("current_data")
-                require(remote.getString("id")==op.entityId && remote.getLong("version")==error.getLong("current_version")) {"Identitas konflik tidak cocok."}
+                require(remote.getString("id")==op.entityId && remote.getLong("version")==error.getLong("current_version")) {"Data yang bentrok tidak cocok dengan catatan."}
                 patch.put("server_body",encrypt(scope,remote));patch.put("server_version",error.getLong("current_version"))
             }
             db.update("local_records",patch,"scope=? AND entity_id=?",arrayOf(scope,op.entityId))
@@ -570,7 +570,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         db.update("local_records",values("sync_state" to state.name,"error" to encrypt(scope,error)),"scope=? AND latest_operation_id IN (SELECT operation_id FROM outbox WHERE scope=? AND state=?)",arrayOf(scope,scope,state.name))
     }
     fun applyPull(scope: String, page: JSONObject) = transaction {
-        require(page.getString("sync_epoch") == epoch(scope)) { "Epoch berubah; antrean harus ditinjau." }
+        require(page.getString("sync_epoch") == epoch(scope)) { "Data di server dipulihkan. Beberapa catatan perlu dicek." }
         val scopes=page.getJSONArray("scope");val visible=(0 until scopes.length()).map { scopes.getJSONObject(it).getString("id") }.toSet()
         if (visible != visibleGreenhouses(scope)) {
             db.delete("manager_home_cache", "scope=?", arrayOf(scope))
@@ -582,10 +582,10 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         val rows=page.getJSONArray("data")
         for(i in 0 until rows.length()) {
             val row=rows.getJSONObject(i);val kind=row.getString("entity_type");val id=row.getString("entity_id");val version=row.getLong("version");val gh=row.getString("greenhouse_id")
-            require(gh in visible) { "Respons pull di luar scope." }
+            require(gh in visible) { "Data yang diterima di luar akses Anda. Perbarui lalu coba lagi." }
             requireKind(scope,kind)
             val existing=record(scope,id)
-            require(existing==null || existing.kind==kind) {"Identitas catatan bertabrakan dengan jenis data lain. Sinkronisasi ditahan untuk rekonsiliasi."}
+            require(existing==null || existing.kind==kind) {"ID catatan bentrok dengan jenis data lain. Pembaruan ditahan sampai dicek."}
             val old=db.rawQuery("SELECT version FROM cached_records WHERE scope=? AND kind=? AND entity_id=?",arrayOf(scope,kind,id)).use { if(it.moveToFirst()) it.getLong(0) else 0L }
             if(version > old) {
                 db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to version,
@@ -605,7 +605,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
                 }
             }
         }
-        val heldError=encrypt(scope,JSONObject().put("message","Penugasan greenhouse telah dicabut. Draf tetap disimpan untuk ditinjau."))
+        val heldError=encrypt(scope,JSONObject().put("message","Anda tidak lagi bertugas di greenhouse ini. Draf tetap tersimpan."))
         db.execSQL("""UPDATE outbox SET state='SCOPE_REVOKED',error=? WHERE scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW')
             AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=? AND greenhouse_id NOT IN (SELECT greenhouse_id FROM scope_access WHERE scope=?))""",arrayOf(heldError,scope,scope,scope))
         db.execSQL("""UPDATE local_records SET sync_state='SCOPE_REVOKED',error=? WHERE scope=? AND sync_state!='EPOCH_REVIEW'

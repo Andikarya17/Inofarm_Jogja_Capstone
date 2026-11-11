@@ -95,12 +95,12 @@ class InvestmentViewModel(private val repository:InvestmentRepository):ViewModel
         mutable.value=state.value.copy(selected=null,scenarioDraft=draft,errors=emptyMap(),saved=true,message=null,audit=null,sources=null)
     }
     fun beginCancel() {val row=state.value.selected ?: return;require(row.kind==InvestmentContract.SCENARIO && row.syncState==SyncState.ACCEPTED);mutable.value=state.value.copy(cancelReason="");pauseAutosave();autosave=viewModelScope.launch {persistCurrent(false)}}
-    fun queueScenario() {val draft=state.value.scenarioDraft ?: return;val errors=draft.validation(reasonRequired);if(errors.isNotEmpty()) {mutable.value=state.value.copy(errors=errors);return};action {s,t->repository.queueScenario(s,t,draft);completed("Skenario tersimpan lokal dan menunggu penerimaan server.")}}
+    fun queueScenario() {val draft=state.value.scenarioDraft ?: return;val errors=draft.validation(reasonRequired);if(errors.isNotEmpty()) {mutable.value=state.value.copy(errors=errors);return};action {s,t->repository.queueScenario(s,t,draft);completed("Tersimpan. Terkirim otomatis saat ada internet.")}}
     fun preview() {val draft=state.value.reportDraft ?: return;action {s,t->val preview=repository.preview(s,t,draft);if(state.value.reportDraft==draft) mutable.value=state.value.copy(reportDraft=preview,saved=true)}}
-    fun queueReport() {val draft=state.value.reportDraft ?: return;action {s,t->repository.queueReport(s,t,draft);completed("Permintaan laporan diantrekan; hasil belum menjadi snapshot diterima.")}}
-    fun cancel() {val row=state.value.selected ?: return;val reason=state.value.cancelReason ?: return;action {s,t->repository.cancel(s,t,row,reason);completed("Pembatalan diantrekan; status server belum berubah.")}}
-    fun discardCancel() {val row=state.value.selected ?: return;action {s,t->repository.discardCancel(s,t,row);completed("Draf pembatalan diarsipkan. Catatan server dipertahankan.")}}
-    fun resolve(local:Boolean) {val row=state.value.selected ?: return;action {s,t->repository.resolve(s,t,row,local);completed(if(local) "Koreksi baru diantrekan berdasarkan versi yang ditinjau." else "Salinan server dipilih; operasi lama tetap diarsipkan.")}}
+    fun queueReport() {val draft=state.value.reportDraft ?: return;action {s,t->repository.queueReport(s,t,draft);completed("Tersimpan. Terkirim otomatis saat ada internet.")}}
+    fun cancel() {val row=state.value.selected ?: return;val reason=state.value.cancelReason ?: return;action {s,t->repository.cancel(s,t,row,reason);completed("Tersimpan. Pembatalan terkirim otomatis saat ada internet.")}}
+    fun discardCancel() {val row=state.value.selected ?: return;action {s,t->repository.discardCancel(s,t,row);completed("Pembatalan dibuang. Skenario tetap tercatat.")}}
+    fun resolve(local:Boolean) {val row=state.value.selected ?: return;action {s,t->repository.resolve(s,t,row,local);completed(if(local) "Tersimpan. Terkirim otomatis saat ada internet." else "Data terbaru dipakai.")}}
     fun sources() {val row=state.value.selected?.takeIf {it.kind==InvestmentContract.REPORT && it.serverVersion!=null} ?: return;action {s,t->
         val previous=state.value.sources ?: repository.cachedSources(s,row)
         if(previous!=null) mutable.value=state.value.copy(sources=previous)

@@ -19,7 +19,7 @@ Status 11 November 2026. Rencana: [master prompt](MASTER_PROMPT_MANAGER_SUPERADM
 | Pemeriksaan | Sebelum | Sesudah |
 |---|---|---|
 | Guard database uji | 4 tes/12 assertion | 4 tes/12 assertion |
-| Backend PHPUnit | 146 tes/3.824 assertion | **156 tes/3.960 assertion, 0 gagal** |
+| Backend PHPUnit | 146 tes/3.824 assertion | **157 tes/3.972 assertion, 0 gagal** |
 | Contract checker | lulus | lulus (exit 0) |
 | `check-finance-context.py` | lulus | lulus (`errors: []`) |
 | Android JVM | 75 tes | **89 tes, 0 gagal** |
@@ -53,13 +53,15 @@ Tes backend hanya memakai `inofarm_test`.
 
 Kontrak: 18 skema payload di `openapi.json` dan 6 skema keuangan tidak lagi mewajibkan `reason`; `HarvestCompletionPublic.reason` boleh null; parameter `all_accounts`. Skema `activity` dan `harvest` tetap mewajibkan `reason` karena dipakai bersama pekerja.
 
-Tidak terbukti oleh tes: penjaga "Harus ada minimal satu pengelola aktif" (tidak bisa dipicu lewat API).
+Penjaga "Harus ada minimal satu pengelola aktif": `test_the_last_active_manager_cannot_be_removed_through_the_api` membuktikan pengelola terakhir tidak bisa dinonaktifkan atau diturunkan lewat API (jumlah pengelola aktif tetap 1). Penjaga eksplisit di `UserController` praktis tidak terjangkau lewat sesi normal karena pelaku selalu pengelola aktif lain; yang menahan adalah larangan mengubah akun sendiri.
 
-## Fase 2: teks dan dialog (sebagian)
+Pesan galat kolom: label bahasa Indonesia ditambahkan untuk sekitar 90 kunci payload di `lang/id/validation.php` (tes backend lulus; tidak ada tes khusus per label).
+
+## Fase 2: teks dan dialog
 
 **Selesai dan terkompilasi:** layar Kelola (`AdminScreen`, `AdminForm`, ViewModel, repository): dialog "Ajukan perubahan?" dihapus; konfirmasi satu kalimat dengan tombol kata kerja hanya untuk tutup musim, nonaktifkan, ubah peran dan reset password; catatan opsional. Lembar tanam saat ini, tombol simpan bersama ("Simpan"), pesan sesudah simpan ("Tersimpan. Terkirim otomatis saat ada internet."), Cek catatan (Sesuai / Perlu diperbaiki, satu ketukan), Riwayat, Beranda, rekap panen, label status sinkron. Alasan koreksi di enam kelas Draft sadar peran (`CorrectionReasonRoleTest`).
 
-**Belum selesai:** label pengiriman di kartu pengukuran Beranda ("Belum tersinkron", "Diterima server") masih memakai kata lama; label cek sudah "Belum dicek"/"Sudah dicek". Tes instrumentasi lama dengan teks lama: `FinanceAdminUiTest.kt:68`, `FinanceEntryUiTest.kt` (Ajukan perubahan?, Antrean). sekitar **295 string unik** di kode Android masih memuat server, antrean, sinkron, tinjau, pengajuan, epoch, snapshot, cakupan atau penugasan. Terbesar: `SeasonReport*`, `Investment*`, `Attachment*`, `Recovery*`, `MeasurementDashboard`, pesan repositori keuangan (`SaleRepository`, `AssetRepository`, `FinancialEntryRepository`, `ReportExportRepository`), `FinanceSyncCoordinator`, `HomeContextCard` (pekerja). Definisi selesai "tidak ada kata server dll. di layar pengelola" **belum terpenuhi**.
+**Sapuan lanjutan (11 November):** string yang tampil ke pengguna di `SeasonReport*`, `Investment*`, `Attachment*`, `Recovery*`, repositori keuangan, `ReportExport*`, `FinanceSyncCoordinator`, `LocalFinanceStore` (pesan yang sampai ke layar), `HomeContextCard`, `WorkerDayAgenda`, kartu pengukuran Beranda dan `FinanceApi` diganti mengikuti glosarium; kode HTTP tidak lagi tampil. Sisa kecocokan kata lama (sekitar 110 literal) adalah kunci kawat, nama variabel atau pengecualian internal, ditambah tab pekerja "Antrean". Teks komponen bersama ikut berubah di layar pekerja (hanya teks). Teks di tes instrumentasi (`FinanceEntryUiTest`, `FinanceAdminUiTest`, `WorkerContextUiTest`, `FinanceRecoveryTest`, `FinanceRecoveryUiBackendDeviceTest`) diselaraskan dan dikompilasi (`compileDebugAndroidTestKotlin` lulus), **tidak dijalankan**; dua tes alur pengelola yang bergantung pada dialog lama dipangkas sampai editor.
 
 Layar masuk dan pesan galat bersama (`AuthViewModel.userMessage`, `FinanceLogin`) sudah diganti ke bahasa sehari-hari; pesan kolom galat tidak lagi memuat nama kunci wire. Pesan ini juga dipakai pekerja (hanya teks, bukan perilaku).
 
@@ -80,7 +82,7 @@ Deviasi dari glosarium: pesan pemulihan data memakai "Data dipulihkan dari cadan
 ## Yang tidak terverifikasi
 
 - **Tampilan di emulator atau perangkat**, termasuk screenshot sebelum/sesudah, font 200%, mode gelap, TalkBack, jarak FAB ke baris terakhir, apakah lima chip muat di 360 dp.
-- **Instrumentasi Android.** Tes lama yang memakai tab Antrean atau teks lama pengelola belum diperbarui dan belum dijalankan; kemungkinan gagal.
+- **Instrumentasi Android.** Teks sudah diselaraskan dan dikompilasi, tetapi tidak dijalankan (butuh emulator); tes yang memakai tab Antrean pengelola masih bisa gagal.
 - Alur wizard dari UI ke API nyata (hanya urutan permintaan dan aturan kolom yang diuji).
 - Apakah `GET /users` dan daftar greenhouse menanggapi parameter filter seperti yang diasumsikan layar Kelola terfilter.
 

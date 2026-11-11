@@ -90,7 +90,7 @@ class FinanceRecoveryTest {
     }
     @Test fun unconfiguredOperatorUiAtNarrowWidthAndLargeFontDoesNotOfferBackup() {
         rule.setContent {val density=LocalDensity.current;CompositionLocalProvider(LocalDensity provides Density(density.density,2f)){RecoveryHost(session,repository,{}){androidx.compose.foundation.layout.Column(Modifier.width(320.dp)){RecoveryBackupButton()}}}}
-        rule.onNodeWithTag("recovery-open").performClick();rule.waitUntil(10000){rule.onAllNodesWithText("Kewenangan operator pencadangan belum ditetapkan untuk akun ini.").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("recovery-open").performClick();rule.waitUntil(10000){rule.onAllNodesWithText("Akun ini belum bisa membuat cadangan. Hubungi operator sistem.").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("recovery-create").assertDoesNotExist();rule.onNodeWithText("Tutup").performClick();rule.onNodeWithTag("recovery-open").assertExists()
     }
     @Test fun operatorBackupRequiresReasonAndConfirmationAndShowsBackupNotRestoreSuccess() {
@@ -106,7 +106,7 @@ class FinanceRecoveryTest {
         }
         rule.onNodeWithTag("recovery-create").performScrollTo().performClick();assertNull(created)
         rule.onNodeWithText("Cadangkan sekarang").performClick()
-        rule.waitUntil(10000){rule.onAllNodesWithText("Cadangan dibuat. Keberhasilan restore belum dibuktikan.").fetchSemanticsNodes().isNotEmpty()}
+        rule.waitUntil(10000){rule.onAllNodesWithText("Cadangan dibuat.").fetchSemanticsNodes().isNotEmpty()}
         assertEquals("Latihan cadangan UI",created!!.getString("reason"));WireContract.uuid(created!!.getString("id"))
     }
 

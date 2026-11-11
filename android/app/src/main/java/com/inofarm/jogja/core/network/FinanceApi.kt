@@ -21,15 +21,15 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class FinanceApiFailure(val status: Int, val detail: JSONObject, val retryAfterSeconds: Long? = null) : Exception(detail.optString("message", "Permintaan gagal ($status).")) {
+class FinanceApiFailure(val status: Int, val detail: JSONObject, val retryAfterSeconds: Long? = null) : Exception(detail.optString("message", "Permintaan belum berhasil. Coba lagi.")) {
     val code: String get() = detail.optString("code")
 }
 interface FinanceApi {
     fun validateBase(base: String): String
     suspend fun request(base: String, token: String?, path: String, method: String = "GET", body: JSONObject? = null, query: Map<String,String> = emptyMap()): JSONObject
-    suspend fun upload(base:String,token:String,envelope:JSONObject,source:()->InputStream):JSONObject = error("Transport lampiran belum tersedia.")
-    suspend fun download(base:String,token:String,id:String,bytes:Long,consume:(InputStream)->Unit):Unit = error("Transport berkas belum tersedia.")
-    suspend fun exportReport(base:String,token:String,id:String,format:String,snapshotHash:String):ReportFile = error("Transport ekspor laporan belum tersedia.")
+    suspend fun upload(base:String,token:String,envelope:JSONObject,source:()->InputStream):JSONObject = error("Pengiriman berkas belum tersedia.")
+    suspend fun download(base:String,token:String,id:String,bytes:Long,consume:(InputStream)->Unit):Unit = error("Pengunduhan berkas belum tersedia.")
+    suspend fun exportReport(base:String,token:String,id:String,format:String,snapshotHash:String):ReportFile = error("Ekspor laporan belum tersedia.")
 }
 
 class FinanceHttpApi(private val allowHttp: Boolean, private val client: OkHttpClient = OkHttpClient.Builder()
@@ -37,7 +37,7 @@ class FinanceHttpApi(private val allowHttp: Boolean, private val client: OkHttpC
     override suspend fun exportReport(base:String,token:String,id:String,format:String,snapshotHash:String)=ReportExportTransport(client).fetch(validateBase(base),token,id,format,snapshotHash)
     override fun validateBase(base: String): String {
         val normalized=ApiBaseUrl.validate(base,allowHttp)
-        require(normalized.toHttpUrl().encodedPath.endsWith("/v2/")) { "Gunakan URL API operasional yang berakhir /v2/." }
+        require(normalized.toHttpUrl().encodedPath.endsWith("/v2/")) { "Alamat layanan harus berakhir dengan /v2/." }
         return normalized
     }
     override suspend fun request(base: String, token: String?, path: String, method: String, body: JSONObject?, query: Map<String,String>): JSONObject {
@@ -56,8 +56,8 @@ class FinanceHttpApi(private val allowHttp: Boolean, private val client: OkHttpC
             override fun contentLength()=size
             override fun writeTo(sink:BufferedSink) {
                 source().use {input -> val buffer=ByteArray(32768);var sent=0L;while(true) {
-                    val count=input.read(buffer);if(count<0) break;sent+=count;if(sent>size) throw IOException("Ukuran salinan berubah.");sink.write(buffer,0,count)
-                };if(sent!=size) throw IOException("Salinan berkas belum lengkap.")}
+                    val count=input.read(buffer);if(count<0) break;sent+=count;if(sent>size) throw IOException("Ukuran berkas berubah saat dikirim.");sink.write(buffer,0,count)
+                };if(sent!=size) throw IOException("Berkas belum lengkap saat dikirim.")}
             }
         }
         val multipart=MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("operation",envelope.toString()).addFormDataPart("file","evidence.bin",file).build()
@@ -73,14 +73,14 @@ class FinanceHttpApi(private val allowHttp: Boolean, private val client: OkHttpC
                 try {response.use {
                     if(!response.isSuccessful) throw FinanceApiFailure(response.code,readJson(response),response.header("Retry-After")?.toLongOrNull())
                     val body=response.body ?: throw IOException("Berkas belum tersedia.")
-                    if(body.contentLength()>=0 && body.contentLength()!=bytes) throw IOException("Ukuran unduhan tidak sesuai metadata.")
+                    if(body.contentLength()>=0 && body.contentLength()!=bytes) throw IOException("Ukuran berkas yang diunduh tidak sesuai.")
                     val bounded=object:FilterInputStream(body.byteStream()) {
                         var count=0L
-                        private fun checked(size:Int):Int {if(size>0) {count+=size;if(count>bytes) throw IOException("Unduhan melebihi metadata.")};return size}
+                        private fun checked(size:Int):Int {if(size>0) {count+=size;if(count>bytes) throw IOException("Ukuran berkas yang diunduh tidak sesuai.")};return size}
                         override fun read():Int=super.read().also {if(it>=0) checked(1)}
                         override fun read(buffer:ByteArray,offset:Int,length:Int)=checked(`in`.read(buffer,offset,length))
                     }
-                    bounded.use {consume(it);if(it.count!=bytes) throw IOException("Unduhan belum diterima utuh.")}
+                    bounded.use {consume(it);if(it.count!=bytes) throw IOException("Unduhan belum lengkap.")}
                     if(continuation.isActive) continuation.resume(Unit)
                 }} catch(error:Exception) {if(continuation.isActive) continuation.resumeWithException(error)}
             }
@@ -88,9 +88,9 @@ class FinanceHttpApi(private val allowHttp: Boolean, private val client: OkHttpC
     }
     private fun readJson(response:Response):JSONObject {
         val source=response.body?.source()
-        if(source?.request(2L*1024*1024+1)==true) throw IOException("Respons terlalu besar; kurangi ukuran halaman.")
+        if(source?.request(2L*1024*1024+1)==true) throw IOException("Data terlalu besar untuk dimuat. Coba lagi nanti.")
         val text=source?.readUtf8().orEmpty()
-        return if(text.isBlank()) JSONObject() else runCatching {JSONObject(text)}.getOrElse {throw IOException("Respons server tidak dapat dibaca.")}
+        return if(text.isBlank()) JSONObject() else runCatching {JSONObject(text)}.getOrElse {throw IOException("Data yang diterima tidak bisa dibaca. Coba lagi nanti.")}
     }
     private suspend fun json(request:Request):JSONObject = suspendCancellableCoroutine {continuation ->
         val call=client.newCall(request)

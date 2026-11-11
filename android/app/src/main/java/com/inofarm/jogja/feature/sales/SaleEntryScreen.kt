@@ -49,7 +49,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
         val options=sources(context,draft)
         draft.items.forEachIndexed {index,line -> key(line.id) { FarmSection(title = "Rincian panen ${index+1}") {
             fun edit(updated:SaleLine) {vm.edit {it.copy(items=it.items.toMutableList().apply {set(index,updated)})}}
-            if(line.id in draft.lockedSources) Text(options.find {it.optString("id")==line.sourceId}?.optString("name") ?: "Sumber terakhir tersimpan · sinkronkan untuk saldo terbaru")
+            if(line.id in draft.lockedSources) Text(options.find {it.optString("id")==line.sourceId}?.optString("name") ?: "Sumber terakhir tersimpan · perbarui untuk saldo terbaru")
             else Choice("Sumber panen ${index+1}",line.sourceId,options,"sale-source-$index") {edit(line.copy(sourceId=it))}
             FinanceField("Bobot ${index+1} (kg)",line.quantity,{edit(line.copy(quantity=it))},"sale-quantity-$index",state.errors["items.$index.quantity"],KeyboardType.Decimal,hint="Lebih dari nol, maksimal6 desimal; tanpa pemisah ribuan.")
             FinanceField("Harga ${index+1} (IDR/kg)",line.price,{edit(line.copy(price=it))},"sale-price-$index",state.errors["items.$index.price"],KeyboardType.Decimal,hint="Harga manual, maksimal6 desimal. Kosong bukan nol.")
@@ -60,10 +60,10 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
             { value -> vm.edit { it.copy(paid = value) } }, Modifier.testTag("sale-paid"))
         FinanceField("Keterangan penjualan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"sale-notes",state.errors["notes"],singleLine=false)
         if(draft.baseVersion!=null) FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"sale-reason",state.errors["reason"],singleLine=false)
-        Notice("Saldo adalah data terakhir tersimpan dan dapat berubah. Penerimaan transaksi dipastikan server; draf/offline belum menjadi penjualan diterima.")
+        Notice("Saldo bisa berubah. Penjualan baru tercatat setelah terkirim.")
         runCatching { draft.preview() }.getOrNull()?.let {
             FarmPanel {
-                FarmFact("Pratinjau total penjualan", moneyLabel(it.total.toPlainString()), prominent = true)
+                FarmFact("Perkiraan total penjualan", moneyLabel(it.total.toPlainString()), prominent = true)
                 FarmFact("Bobot dari rincian", "${it.weightKg.toPlainString()} kg")
             }
         }
@@ -85,9 +85,9 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
 }
 @Composable private fun SaleDraftFacts(draft:SaleDraft,context:CultivationUiState,acceptedTotal:String?=null) {
     val preview=runCatching { draft.preview() }.getOrNull()
-    if(acceptedTotal!=null) FarmFact("Total diterima server", moneyLabel(acceptedTotal),
+    if(acceptedTotal!=null) FarmFact("Total tercatat", moneyLabel(acceptedTotal),
         Modifier.testTag("sale-accepted-total").semantics(mergeDescendants=true) {}, prominent=true)
-    else if(preview!=null) FarmFact("Pratinjau total penjualan",moneyLabel(preview.total.toPlainString()),
+    else if(preview!=null) FarmFact("Perkiraan total penjualan",moneyLabel(preview.total.toPlainString()),
         Modifier.testTag("sale-total-fact").semantics(mergeDescendants=true) {},prominent=true)
     else Notice("Total belum dapat dihitung dari isian ini.",true)
     preview?.let { FarmFact("Bobot dari rincian", "${it.weightKg.toPlainString()} kg") }
@@ -107,7 +107,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
 }
 @Composable fun SaleFacts(record:LocalRecord,context:CultivationUiState) {
     val draft=runCatching {SaleDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion)}.getOrNull()
-    if(draft==null) {Notice("Rincian penjualan belum lengkap. Data tetap disimpan untuk ditinjau.",true);return}
+    if(draft==null) {Notice("Rincian penjualan belum lengkap. Data tetap tersimpan.",true);return}
     SaleDraftFacts(draft,context,record.body.optString("total_amount").takeUnless {
         record.body.isNull("total_amount") || it.isBlank()
     })

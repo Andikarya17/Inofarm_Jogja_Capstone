@@ -61,7 +61,7 @@ internal fun QueueScreen(
     focusOperation: String? = null,
     onVerification: (() -> Unit)? = null,
     onSendNow: (() -> Unit)? = null,
-    title: String = "Pengiriman saya",
+    title: String = "Belum terkirim",
 ) {
     val queue = activity.queue
     val displayOrder = remember(queue, focusOperation) {
@@ -193,7 +193,7 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
         }
         if (expanded) {
             HorizontalDivider()
-            FarmFact("ID operasi", operation.id)
+            FarmFact("ID kiriman", operation.id)
             FarmFact("ID catatan", operation.entityId)
             FarmFact("Percobaan kirim", operation.attempts.toString())
             if (kind in setOf("activity_review", "harvest_review") && payload != null) {

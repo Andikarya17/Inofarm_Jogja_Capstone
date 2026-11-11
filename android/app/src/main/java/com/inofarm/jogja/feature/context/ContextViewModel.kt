@@ -51,7 +51,7 @@ class ContextViewModel(private val repository:ContextRepository):ViewModel() {
     }
     private suspend fun synchronize(loadCache: Boolean = false) {
         val session=vault.current ?: return;val ticket=vault.generation
-        mutable.value=state.value.copy(loading=true,message="Memeriksa server…")
+        mutable.value=state.value.copy(loading=true,message="Memeriksa data terbaru…")
         try {
             if (loadCache) loadLocal(session)
             val result=repository.synchronize()

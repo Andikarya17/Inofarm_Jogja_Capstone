@@ -27,21 +27,21 @@ class SeasonReportRepository(val vault:FinanceSessionVault,private val store:Loc
     suspend fun flush(session:FinanceSession,ticket:Long,draft:SeasonReportDraft)=withContext(Dispatchers.IO) {writes.withLock {saveRaw(session,ticket,draft)}}
     private fun saveRaw(session:FinanceSession,ticket:Long,draft:SeasonReportDraft):LocalRecord {
         check(session,ticket);val old=store.record(session.scope.key,draft.id)
-        require(old==null || old.kind==SeasonReportContract.KIND && old.serverVersion==null) {"Snapshot telah diterima server dan tidak dapat diedit. Buat evaluasi baru."}
+        require(old==null || old.kind==SeasonReportContract.KIND && old.serverVersion==null) {"Laporan ini sudah terbit dan tidak bisa diubah. Buat evaluasi baru."}
         val previous=old?.body?.optJSONObject("_local_form");val body=draft.localJson()
         if(previous!=null && WireContract.hash(previous)==WireContract.hash(body.getJSONObject("_local_form"))) return old
         return store.saveDraft(session.scope.key,draft.id,draft.greenhouseId,body,old?.revision,kind=SeasonReportContract.KIND)
     }
     private fun pendingReview(session:FinanceSession,draft:SeasonReportDraft) {
         val known=store.pendingForSeasonReport(session.scope.key,draft.greenhouseId,draft.seasonId)
-        require(draft.pending.isBlank() || draft.pending.toInt()>=known) {"Ada $known catatan terkait musim ini yang belum diterima server pada perangkat. Tinjau jumlah antrean; kosong berarti belum diketahui."}
-        require(draft.requestedState!="reviewed_final" || known==0) {"Masih ada catatan terkait musim ini di antrean perangkat. Selesaikan sebelum laporan akhir."}
+        require(draft.pending.isBlank() || draft.pending.toInt()>=known) {"Ada $known catatan musim ini yang belum terkirim dari perangkat ini. Isi jumlah belum terkirim minimal $known, atau kosongkan."}
+        require(draft.requestedState!="reviewed_final" || known==0) {"Masih ada catatan musim ini yang belum terkirim. Kirim dulu sebelum membuat laporan akhir."}
     }
     suspend fun preview(session:FinanceSession,ticket:Long,draft:SeasonReportDraft)=withContext(Dispatchers.IO) {writes.withLock {
         saveRaw(session,ticket,draft)
-        val input=draft.input();pendingReview(session,draft);val season=store.cachedOne(session.scope.key,"seasons",draft.seasonId) ?: error("Musim belum tersimpan. Sinkronkan dahulu.")
+        val input=draft.input();pendingReview(session,draft);val season=store.cachedOne(session.scope.key,"seasons",draft.seasonId) ?: error("Musim belum ada di perangkat. Perbarui dulu.")
         require(season.getString("greenhouse_id")==draft.greenhouseId)
-        require(draft.requestedState!="reviewed_final" || season.getString("status")=="closed") {"Musim harus ditutup sebelum laporan akhir. Sinkronkan dan tinjau status musim."}
+        require(draft.requestedState!="reviewed_final" || season.getString("status")=="closed") {"Tutup musim dulu sebelum membuat laporan akhir."}
         val body=SeasonReportContract.validate(api.request(session.scope.server,session.token,"season-reports/preview","POST",input),false)
         check(session,ticket);require(body.getString("greenhouse_id")==draft.greenhouseId && body.getString("season_id")==draft.seasonId)
         draft.copy(previewText=body.toString(),previewFetchedAt=System.currentTimeMillis()).also {saveRaw(session,ticket,it)}
@@ -61,7 +61,7 @@ class SeasonReportRepository(val vault:FinanceSessionVault,private val store:Loc
     suspend fun verify(session:FinanceSession,ticket:Long,row:LocalRecord)=withContext(Dispatchers.IO) {
         check(session,ticket);val local=SeasonReportContract.validate(row.serverBody ?: row.body,true)
         val response=SeasonReportContract.validate(api.request(session.scope.server,session.token,"reports/${row.id}"),true)
-        check(session,ticket);require(WireContract.hash(local)==WireContract.hash(response)) {"Snapshot server berbeda dari salinan tersimpan. Hentikan dan periksa integritas; laporan tidak dihitung ulang."}
+        check(session,ticket);require(WireContract.hash(local)==WireContract.hash(response)) {"Isi laporan di server berbeda dari salinan di perangkat. Laporan tidak dihitung ulang."}
     }
     suspend fun cachedSources(session:FinanceSession,id:String,hash:String,snapshotHash:String?):ReportSourcePage?=withContext(Dispatchers.IO) {
         val body=store.cachedOne(session.scope.key,"season_report_sources",id) ?: return@withContext null

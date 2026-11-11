@@ -52,7 +52,7 @@ import java.math.BigDecimal
             FarmFact("Varietas", varietyName(context, group) ?: "Belum tersedia")
             group?.optJSONObject("harvest_target")?.let { FarmFact("Target buah", "${it.getInt("fruit_count")} buah") }
         }
-        if(grades.isEmpty() && !context.loading) Notice("Grade aktif belum tersedia di perangkat untuk greenhouse ini. Sinkronkan atau minta pengelola menyiapkan grade.")
+        if(grades.isEmpty() && !context.loading) Notice("Grade aktif belum tersedia di perangkat untuk greenhouse ini. Perbarui atau minta pengelola menambahkan grade.")
         draft.items.forEachIndexed {index,line -> key(line.id) { FarmPanel(title = "Rincian grade ${index+1}") {
             if(line.id in draft.lockedItems) {
                 Text("Grade: ${line.gradeName.ifBlank {context.grades.find {it.optString("id")==line.gradeId}?.optString("name") ?: "belum tersedia"}}")
@@ -141,9 +141,9 @@ import java.math.BigDecimal
             }
         }
         if(draft.notes.isNotBlank()) Text(draft.notes)
-    } else Notice("Isian panen belum dapat dibaca lengkap. Catatan tetap disimpan untuk ditinjau.",true)
+    } else Notice("Isian panen belum dapat dibaca lengkap. Catatan tetap tersimpan.",true)
     val name=record.body.optString("recorded_by_name").ifBlank {record.serverBody?.optString("recorded_by_name").orEmpty()}.ifBlank {if(record.serverVersion==null || record.recorderId()==session.scope.accountId) session.name else "Nama pencatat belum tersedia"}
-    Text("Pencatat: $name");Text("Versi server: ${record.serverVersion ?: "belum diterima"}")
+    Text("Pencatat: $name");Text("Versi: ${record.serverVersion ?: "belum diterima"}")
     record.body.optJSONObject("reference_snapshot")?.optJSONObject("age")?.let {age ->
         Text("HSS ${if(age.isNull("hss")) "belum tersedia" else age.optString("hss")} · HST ${if(age.isNull("hst")) "belum berlaku" else age.optString("hst")}")
         age.optJSONArray("reasons")?.let {reasons -> repeat(reasons.length()) {Text(reasons.getString(it),style=MaterialTheme.typography.bodySmall)}}

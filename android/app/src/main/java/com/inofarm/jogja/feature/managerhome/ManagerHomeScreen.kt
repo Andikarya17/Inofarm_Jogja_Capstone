@@ -210,7 +210,7 @@ internal fun ManagerHomeScreen(
             if (section == "activity") item("work") {
                 FarmPanel(title = "Kegiatan dan jadwal") {
                     val schedules = snapshot.detail?.rows("schedules").orEmpty()
-                    if (period != null && schedules.isEmpty()) Caption("Belum ada jadwal aktif mulai tanggal ringkasan.")
+                    if (period != null && schedules.isEmpty()) Caption("Belum ada jadwal aktif.")
                     schedules.forEachIndexed { index, schedule ->
                         if (index > 0) HorizontalDivider()
                         val type = ActivityType.entries.find { it.wire == schedule.text("activity_type") }

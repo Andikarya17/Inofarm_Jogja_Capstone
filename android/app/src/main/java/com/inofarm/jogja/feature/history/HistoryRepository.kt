@@ -95,7 +95,7 @@ class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFin
             val seasons=if(kind in setOf(OperationalKind.COST_ALLOCATION,OperationalKind.SALE,OperationalKind.DEPRECIATION)) setOf(form.getString("season_id")) else store.allocationSeasons(session.scope.key,record.id)
             require(seasons.isNotEmpty()) {"Data musim belum lengkap. Perbarui lalu coba lagi."}
             seasons.forEach {id -> require(store.cachedOne(session.scope.key,"seasons",id)?.optString("status")=="open") {"Musim masih ditutup. Buka musim dulu, lalu perbarui."}}
-            val op=store.pendingFor(session.scope.key,record.id).singleOrNull {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"} ?: error("Operasi tertahan tidak ditemukan.")
+            val op=store.pendingFor(session.scope.key,record.id).singleOrNull {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"} ?: error("Catatan tertahan tidak ditemukan.")
             store.retryClosedSeason(session.scope.key,op.id)
             return@withContext
         }
@@ -103,7 +103,7 @@ class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFin
         val group=store.cachedOne(session.scope.key,"planting_groups",groupId) ?: error("Kelompok tanam belum tersedia. Perbarui dulu.")
         val season=store.cachedOne(session.scope.key,"seasons",group.getString("season_id")) ?: error("Musim belum tersedia. Perbarui dulu.")
         require(season.getString("status")=="open") {"Musim masih ditutup. Minta pengelola membukanya, lalu perbarui."}
-        val op=store.pendingFor(session.scope.key,record.id).singleOrNull {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"} ?: error("Operasi tertahan tidak ditemukan.")
+        val op=store.pendingFor(session.scope.key,record.id).singleOrNull {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"} ?: error("Catatan tertahan tidak ditemukan.")
         store.retryClosedSeason(session.scope.key,op.id)
     }
 }

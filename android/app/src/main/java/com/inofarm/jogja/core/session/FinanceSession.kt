@@ -78,7 +78,7 @@ class FinanceSessionVault(context: Context, private val cipher: PayloadCipher, p
         return snapshot
     }
     @Synchronized fun beginLogin(): Long {
-        check(preferences.edit().remove("session").commit()) { "Sesi lama gagal dilepas dari perangkat." }
+        check(preferences.edit().remove("session").commit()) { "Sesi lama belum bisa dihapus dari perangkat. Coba lagi." }
         snapshot = null; loaded = true
         mutable.value=null
         return counter.incrementAndGet()
@@ -86,13 +86,13 @@ class FinanceSessionVault(context: Context, private val cipher: PayloadCipher, p
     @Synchronized fun save(ticket: Long, session: FinanceSession): Boolean {
         if(ticket != generation) return false
         val accepted = if (snapshot?.token == session.token && snapshot?.rejected == true) session.copy(rejected = true) else session
-        check(preferences.edit().putString("session", cipher.encode("session-v2", accepted.json().toString())).commit()) { "Sesi gagal disimpan." }
+        check(preferences.edit().putString("session", cipher.encode("session-v2", accepted.json().toString())).commit()) { "Sesi belum bisa disimpan. Coba lagi." }
         snapshot = accepted; loaded = true
         mutable.value=accepted
         return true
     }
     @Synchronized fun logout(): FinanceSession? {
-        check(preferences.edit().remove("session").commit()) { "Sesi gagal dihapus dari perangkat." }
+        check(preferences.edit().remove("session").commit()) { "Sesi belum bisa dihapus dari perangkat. Coba lagi." }
         val old = snapshot; counter.incrementAndGet(); snapshot = null; loaded = true
         mutable.value=null
         return old

@@ -42,10 +42,10 @@ class RecoveryViewModel(private val repository:RecoveryRepository):ViewModel() {
     fun refresh(more:Boolean=false)=work {load(more)}
     private suspend fun loadRestores(more:Boolean) {val response=repository.restores(if(more) state.value.restoreCursor else null);val rows=response.getJSONArray("data");mutable.value=state.value.copy(restores=(if(more) state.value.restores else emptyList())+(0 until rows.length()).map(rows::getJSONObject),restoreCursor=response.optString("next_cursor").takeIf {it.isNotBlank() && it!="null"})}
     fun moreRestores()=work {loadRestores(true)}
-    fun create(id:String,reason:String)=work {val result=repository.create(id,reason);load(false);mutable.value=state.value.copy(message=if(result.getString("state")=="completed") "Cadangan dibuat. Keberhasilan restore belum dibuktikan." else "Tinjau status permintaan cadangan ini.")}
+    fun create(id:String,reason:String)=work {val result=repository.create(id,reason);load(false);mutable.value=state.value.copy(message=if(result.getString("state")=="completed") "Cadangan dibuat." else "Permintaan cadangan tercatat. Cek lagi sebentar lagi.")}
     fun validate(row:JSONObject)=work {val result=repository.validate(row);mutable.value=state.value.copy(message=result.getString("message"))}
     fun review(op:QueuedOperation) {mutable.value=RecoveryState(active=true,operation=op);work {mutable.value=state.value.copy(review=repository.inspect(op))}}
-    fun acknowledge(changed:()->Unit)=work {val op=state.value.operation!!;repository.acknowledge(op,state.value.review!!);mutable.value=state.value.copy(review=null,message="Tanda terima historis diakui. Isian lokal yang lebih baru tetap disimpan; tidak ada pengiriman ulang.");changed()}
+    fun acknowledge(changed:()->Unit)=work {val op=state.value.operation!!;repository.acknowledge(op,state.value.review!!);mutable.value=state.value.copy(review=null,message="Selesai dicek. Catatan tidak dikirim ulang.");changed()}
 }
 
 @Composable fun RecoveryHost(session:FinanceSession,repository:RecoveryRepository,onChanged:()->Unit,content: @Composable () -> Unit) {
@@ -55,74 +55,74 @@ class RecoveryViewModel(private val repository:RecoveryRepository):ViewModel() {
     CompositionLocalProvider(LocalRecoveryActions provides RecoveryActions(vm::open,vm::review,repository::canReview)){content()}
     BackHandler(state.active){vm.close()}
     if(state.active) AlertDialog(onDismissRequest=vm::close,containerColor=MaterialTheme.colorScheme.surface,
-        title={Text(if(state.operation==null) "Cadangan sistem" else "Rekonsiliasi setelah pemulihan")},text={LazyColumn(Modifier.fillMaxWidth().heightIn(max=520.dp),verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium)) {
-        if(state.busy)item {Text("Memeriksa status di server…"); LinearProgressIndicator(Modifier.fillMaxWidth())}
+        title={Text(if(state.operation==null) "Cadangan sistem" else "Cek setelah pemulihan")},text={LazyColumn(Modifier.fillMaxWidth().heightIn(max=520.dp),verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium)) {
+        if(state.busy)item {Text("Memeriksa…"); LinearProgressIndicator(Modifier.fillMaxWidth())}
         state.message?.let {item {Text(it,Modifier.testTag("recovery-message"))}}
         if(state.operation!=null) {
-            item {Text("Isi dan ID operasi lama tetap tersimpan. Pemeriksaan ini tidak mengirim ulang transaksi.")}
-            state.review?.let {review->item {FarmSection("Hasil pemeriksaan") {
+            item {Text("Pengecekan ini tidak mengirim ulang catatan.")}
+            state.review?.let {review->item {FarmSection("Hasil cek") {
                 Text(review.getString("message"))
-                FarmFact("ID operasi", state.operation!!.id)
-                FarmFact("Identitas server", review.getString("sync_epoch"))
+                FarmFact("Kode catatan", state.operation!!.id)
+                FarmFact("Kode pemulihan data", review.getString("sync_epoch"))
             }}
-                if(review.getString("state")=="receipt_found")item {Button(onClick={vm.acknowledge(onChanged)},enabled=!state.busy,modifier=Modifier.testTag("recovery-ack")){Text("Akui tanda terima historis")}}
+                if(review.getString("state")=="receipt_found")item {Button(onClick={vm.acknowledge(onChanged)},enabled=!state.busy,modifier=Modifier.testTag("recovery-ack")){Text("Tandai sudah dicek")}}
             }
         } else {
-            item {FarmSection(title = "Cakupan cadangan") {
-                Text("Cadangan mencakup seluruh sistem dan lampiran server. Isian yang belum tersinkron di perangkat tetap terpisah. Restore produksi dilakukan melalui operator server dengan prosedur tersendiri.")
+            item {FarmSection(title = "Isi cadangan") {
+                Text("Cadangan berisi seluruh data dan lampiran. Catatan yang belum terkirim tidak ikut. Pemulihan dilakukan oleh operator sistem.")
             }}
             state.policy?.let {policy->
-                if(!policy.getBoolean("available"))item {Text("Kewenangan operator pencadangan belum ditetapkan untuk akun ini.")}
+                if(!policy.getBoolean("available"))item {Text("Akun ini belum bisa membuat cadangan. Hubungi operator sistem.")}
                 else {
-                    item {OutlinedTextField(reason,{reason=it},label={Text("Alasan pencadangan (wajib)")},isError=reason.length>1000,supportingText={Text("${reason.length}/1000 karakter")},enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("recovery-reason"));Text("Jadwal, retensi dan target pemulihan produksi belum ditetapkan.")}
-                    item {Button(onClick={confirm=true},enabled=!state.busy && reason.isNotBlank() && reason.length<=1000,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("recovery-create")){Text("Buat cadangan sistem")}}
-                    item {TextButton(onClick={requestId=UUID.randomUUID().toString();reason=""},enabled=!state.busy){Text("Mulai permintaan baru")};TextButton(onClick={vm.refresh()},enabled=!state.busy){Text("Periksa status terbaru")}}
-                    if(state.rows.isEmpty() && !state.busy)item {Text("Belum ada cadangan tercatat.")}
+                    item {OutlinedTextField(reason,{reason=it},label={Text("Alasan cadangan")},isError=reason.length>1000,supportingText={Text("${reason.length}/1000 karakter")},enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("recovery-reason"));Text("Jadwal cadangan otomatis belum diatur.")}
+                    item {Button(onClick={confirm=true},enabled=!state.busy && reason.isNotBlank() && reason.length<=1000,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("recovery-create")){Text("Buat cadangan")}}
+                    item {TextButton(onClick={requestId=UUID.randomUUID().toString();reason=""},enabled=!state.busy){Text("Mulai ulang")};TextButton(onClick={vm.refresh()},enabled=!state.busy){Text("Perbarui")}}
+                    if(state.rows.isEmpty() && !state.busy)item {Text("Belum ada cadangan.")}
                     items(state.rows,key={it.getString("id")}) { row ->
                         val completed = row.getString("state") == "completed"
                         var details by rememberSaveable(row.getString("id")) { mutableStateOf(false) }
                         FarmPanel(title = when(row.getString("state")) {
-                            "completed" -> "Cadangan dibuat; restore belum dibuktikan"
-                            "requested" -> "Permintaan tercatat; periksa kembali"
-                            "interrupted_by_restore" -> "Terhenti pada titik pemulihan"
-                            else -> "Cadangan gagal; paket tidak boleh digunakan"
+                            "completed" -> "Cadangan dibuat"
+                            "requested" -> "Permintaan tercatat. Cek lagi nanti."
+                            "interrupted_by_restore" -> "Terhenti karena data dipulihkan"
+                            else -> "Cadangan gagal. Jangan dipakai."
                         }) {
                             FarmFact("Alasan", row.getString("reason"))
                             FarmFact("Dibuat (UTC)", row.optString("created_at").ifBlank { "Belum tersedia" })
                             TextButton(onClick={details=!details}, modifier=Modifier.heightIn(min=FarmSpace.Touch)) {
-                                Text(if (details) "Tutup rincian paket" else "Rincian paket")
+                                Text(if (details) "Tutup rincian" else "Rincian")
                             }
                             if (details) {
                                 FarmFact("ID cadangan", row.getString("id"))
-                                if (completed) FarmFact("SHA256", row.getString("manifest_hash"))
+                                if (completed) FarmFact("Kode pemeriksa (SHA256)", row.getString("manifest_hash"))
                             }
                             if (completed) OutlinedButton(onClick={vm.validate(row)},enabled=!state.busy,
-                                modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Periksa integritas paket") }
+                                modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Cek cadangan") }
                         }
                     }
-                    item { FarmSectionHeading("Riwayat pemulihan terisolasi terverifikasi") }
-                    if(state.restores.isEmpty() && !state.busy)item {Text("Belum ada bukti restore terverifikasi pada server ini.")}
-                    items(state.restores,key={"restore-"+it.getString("id")}){row->Column {Text(if(row.optString("state")=="verified_isolated") "Drill terisolasi terverifikasi: ${row.getString("id")}" else "Pemulihan belum terverifikasi: ${row.getString("id")}");Text("Identitas baru: ${row.optString("new_epoch")}");Text("Checksum manifest: ${row.getString("manifest_hash")}");Text("Ini bukan bukti pemulihan produksi.")}}
-                    if(state.restoreCursor!=null)item {TextButton(onClick=vm::moreRestores,enabled=!state.busy){Text("Muat riwayat pemulihan berikutnya")}}
-                    if(state.cursor!=null)item {TextButton(onClick={vm.refresh(true)},enabled=!state.busy){Text("Muat berikutnya")}}
+                    item { FarmSectionHeading("Uji pemulihan") }
+                    if(state.restores.isEmpty() && !state.busy)item {Text("Belum ada uji pemulihan.")}
+                    items(state.restores,key={"restore-"+it.getString("id")}){row->Column {Text(if(row.optString("state")=="verified_isolated") "Uji pemulihan berhasil: ${row.getString("id")}" else "Uji pemulihan belum berhasil: ${row.getString("id")}");Text("Kode data baru: ${row.optString("new_epoch")}");Text("Kode pemeriksa: ${row.getString("manifest_hash")}");Text("Ini hanya uji coba, bukan pemulihan data asli.")}}
+                    if(state.restoreCursor!=null)item {TextButton(onClick=vm::moreRestores,enabled=!state.busy){Text("Tampilkan lagi")}}
+                    if(state.cursor!=null)item {TextButton(onClick={vm.refresh(true)},enabled=!state.busy){Text("Tampilkan lagi")}}
                 }
             }
         }
     }},confirmButton={TextButton(onClick=vm::close){Text("Tutup")}})
     if(confirm)AlertDialog(onDismissRequest={confirm=false},containerColor=MaterialTheme.colorScheme.surface,
-        title={Text("Cadangkan seluruh sistem?")},text={Column(Modifier.verticalScroll(rememberScrollState()),
+        title={Text("Buat cadangan?")},text={Column(Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium)) {
-            Text("Cadangan privat mencakup seluruh basis data dan lampiran server. Permintaan dengan ID yang sama menghasilkan satu cadangan.")
-            FarmFact("Alasan pencadangan", reason)
-            Text("Keberhasilan pemulihan diperiksa terpisah.")
-        }},confirmButton={Button(onClick={confirm=false;vm.create(requestId,reason)}){Text("Cadangkan sekarang")}},dismissButton={TextButton(onClick={confirm=false}){Text("Kembali")}})
+            Text("Cadangan berisi seluruh data dan lampiran.")
+            FarmFact("Alasan cadangan", reason)
+            Text("Pemulihan data dicek terpisah.")
+        }},confirmButton={Button(onClick={confirm=false;vm.create(requestId,reason)}){Text("Buat cadangan")}},dismissButton={TextButton(onClick={confirm=false}){Text("Kembali")}})
 }
 
 @Composable fun RecoveryBackupButton(onOpen: () -> Unit = {}) {
     val actions = LocalRecoveryActions.current ?: return
     com.inofarm.jogja.core.design.FarmActionRow(
-        label = "Cadangan dan pemeriksaan pemulihan",
-        detail = "Periksa status cadangan dan riwayat pemulihan",
+        label = "Cadangan data",
+        detail = "Buat dan cek cadangan",
         icon = com.inofarm.jogja.core.design.FarmIcon.Backup,
         onClick = { onOpen(); actions.backups() },
         modifier = Modifier.testTag("recovery-open")

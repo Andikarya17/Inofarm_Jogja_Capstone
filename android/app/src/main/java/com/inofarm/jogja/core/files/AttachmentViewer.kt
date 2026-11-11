@@ -17,14 +17,14 @@ import java.io.File
 class AttachmentViewer(private val context:Context,private val vault:FinanceSessionVault,private val store:LocalFinanceStore,private val files:EncryptedAttachmentStore) {
     private val root=File(context.cacheDir,"finance-attachment-views")
     @Synchronized fun prepare(session:FinanceSession,record:LocalRecord,blob:LocalBlob):Intent {
-        check(vault.current?.scope==session.scope && vault.current?.role==session.role && !session.expired()) {"Masuk kembali sebelum membuka berkas di aplikasi lain."}
+        check(vault.current?.scope==session.scope && vault.current?.role==session.role && !session.expired()) {"Masuk lagi untuk membuka berkas."}
         require(record.kind in AttachmentContract.kinds && record.greenhouseId in store.visibleGreenhouses(session.scope.key))
-        require(record.syncState !in setOf(SyncState.SCOPE_REVOKED,SyncState.EPOCH_REVIEW,SyncState.AUTH_REQUIRED)) {"Lampiran ditahan untuk tinjauan akses atau rekonsiliasi."}
+        require(record.syncState !in setOf(SyncState.SCOPE_REVOKED,SyncState.EPOCH_REVIEW,SyncState.AUTH_REQUIRED)) {"Lampiran ditahan sampai data dicek. Perbarui lalu coba lagi."}
         require(record.kind!="expense_attachment" || session.role==UserRole.MANAGER)
         val metadata=AttachmentBytes.parse(record.serverBody ?: record.body)
         require(blob.entityId==record.id && blob.state=="READY" && AttachmentBytes.parse(blob.body)==metadata)
         files.verify(session.scope.key,blob.id,metadata)
-        val extension=when(metadata.mime) {"image/png" -> "png";"image/jpeg" -> "jpg";"application/pdf" -> "pdf";else -> error("Jenis berkas belum didukung.")}
+        val extension=when(metadata.mime) {"image/png" -> "png";"image/jpeg" -> "jpg";"application/pdf" -> "pdf";else -> error("Jenis berkas tidak didukung.")}
         val directory=File(root,"${session.scope.key}/${record.kind}/${record.greenhouseId}")
         require(directory.canonicalPath.startsWith(root.canonicalPath+File.separator));check(directory.isDirectory || directory.mkdirs())
         val path=File(directory,"${blob.id}.$extension");val atomic=AtomicFile(path);val output=atomic.startWrite()

@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-class InvestmentAccessDenied:IllegalStateException("Akses greenhouse perlu diperiksa kembali. Data lokal dipertahankan.")
+class InvestmentAccessDenied:IllegalStateException("Akses ke greenhouse ini berubah. Data di perangkat tetap tersimpan.")
 
 class InvestmentRepository(val vault:FinanceSessionVault,private val store:LocalFinanceStore,private val api:FinanceApi) {
     private val writes=Mutex()
@@ -44,12 +44,12 @@ class InvestmentRepository(val vault:FinanceSessionVault,private val store:Local
     suspend fun flushCancel(session:FinanceSession,ticket:Long,row:LocalRecord,reason:String)=withContext(Dispatchers.IO) {writes.withLock {
         check(session,ticket);val old=store.record(session.scope.key,row.id) ?: error("Skenario belum tersimpan.")
         require(old.kind==InvestmentContract.SCENARIO && old.serverVersion==row.serverVersion)
-        val body=JSONObject((old.serverBody ?: error("Belum diterima server.")).toString()).put("_local_cancel",reason)
+        val body=JSONObject((old.serverBody ?: error("Belum terkirim.")).toString()).put("_local_cancel",reason)
         if(old.body.optString("_local_cancel")==reason && old.body.has("_local_cancel")) old else store.saveDraft(session.scope.key,row.id,row.greenhouseId,body,old.revision,row.serverVersion,InvestmentContract.SCENARIO)
     }}
     suspend fun cancel(session:FinanceSession,ticket:Long,row:LocalRecord,reason:String)=withContext(Dispatchers.IO) {writes.withLock {
         check(session,ticket,row.greenhouseId);require(reason.isNotBlank() && reason.length<=2000) {"Alasan pembatalan wajib, maksimal 2.000 karakter."}
-        val old=store.record(session.scope.key,row.id) ?: error("Skenario belum tersimpan.");val body=InvestmentContract.scenario(old.serverBody ?: error("Belum diterima server."))
+        val old=store.record(session.scope.key,row.id) ?: error("Skenario belum tersimpan.");val body=InvestmentContract.scenario(old.serverBody ?: error("Belum terkirim."))
         require(body.getString("record_state")=="active" && old.serverVersion==row.serverVersion)
         store.queueAction(session.scope.key,row.id,row.greenhouseId,InvestmentContract.SCENARIO,JSONObject(old.body.toString()).put("_local_cancel",reason),JSONObject().put("reason",reason.trim()),"cancel",row.serverVersion!!,old.revision,replaceValidationRejected=old.syncState==SyncState.REJECTED)
     }}
@@ -59,38 +59,38 @@ class InvestmentRepository(val vault:FinanceSessionVault,private val store:Local
     }}
     suspend fun resolve(session:FinanceSession,ticket:Long,row:LocalRecord,local:Boolean)=withContext(Dispatchers.IO) {writes.withLock {
         check(session,ticket,row.greenhouseId);require(row.kind==InvestmentContract.SCENARIO)
-        val payload=if(local) {require(!row.body.has("_local_cancel")) {"Tinjau server lalu ajukan pembatalan baru."};InvestmentScenarioDraft.from(row.id,row.greenhouseId,row.body,row.serverVersion).payload()} else null
-        store.resolveConflict(session.scope.key,row.id,row.serverVersion ?: error("Versi server belum tersedia."),row.revision,payload)
+        val payload=if(local) {require(!row.body.has("_local_cancel")) {"Data ini baru diubah di perangkat lain. Buat pembatalan baru."};InvestmentScenarioDraft.from(row.id,row.greenhouseId,row.body,row.serverVersion).payload()} else null
+        store.resolveConflict(session.scope.key,row.id,row.serverVersion ?: error("Data terbaru belum tersedia. Perbarui dulu."),row.revision,payload)
     }}
     suspend fun verify(session:FinanceSession,ticket:Long,row:LocalRecord)=withContext(Dispatchers.IO) {
         check(session,ticket,row.greenhouseId);val local=row.serverBody ?: row.body
         val path=if(row.kind==InvestmentContract.REPORT) "investment-reports" else "investment-scenarios"
         val response=api.request(session.scope.server,session.token,"$path/${row.id}");check(session,ticket,row.greenhouseId)
-        if(row.kind==InvestmentContract.REPORT) {InvestmentContract.report(response,true);require(WireContract.hash(local)==WireContract.hash(response)) {"Snapshot server berbeda. Periksa integritas; laporan tidak dihitung ulang."}}
-        else {InvestmentContract.scenario(response);require(response.getString("id")==row.id && response.getString("greenhouse_id")==row.greenhouseId);require(WireContract.hash(local)==WireContract.hash(response)) {"Skenario server berubah. Sinkronkan dan tinjau versi terbaru."}}
+        if(row.kind==InvestmentContract.REPORT) {InvestmentContract.report(response,true);require(WireContract.hash(local)==WireContract.hash(response)) {"Isi laporan di server berbeda dari salinan di perangkat. Laporan tidak dihitung ulang."}}
+        else {InvestmentContract.scenario(response);require(response.getString("id")==row.id && response.getString("greenhouse_id")==row.greenhouseId);require(WireContract.hash(local)==WireContract.hash(response)) {"Skenario ini baru diubah di perangkat lain. Perbarui untuk melihat versi terbaru."}}
     }
     private fun saveReport(session:FinanceSession,ticket:Long,draft:InvestmentReportDraft):LocalRecord {
         check(session,ticket);val old=store.record(session.scope.key,draft.id)
-        require(old==null || old.kind==InvestmentContract.REPORT && old.serverVersion==null) {"Laporan immutable. Buat evaluasi baru."}
+        require(old==null || old.kind==InvestmentContract.REPORT && old.serverVersion==null) {"Laporan ini sudah terbit dan tidak bisa diubah. Buat evaluasi baru."}
         val body=draft.localJson();if(old?.body?.optJSONObject("_local_form")?.let {WireContract.hash(it)}==WireContract.hash(body.getJSONObject("_local_form"))) return old!!
         return store.saveDraft(session.scope.key,draft.id,draft.greenhouseId,body,old?.revision,kind=InvestmentContract.REPORT)
     }
     suspend fun flushReport(session:FinanceSession,ticket:Long,draft:InvestmentReportDraft)=withContext(Dispatchers.IO) {writes.withLock {saveReport(session,ticket,draft)}}
     private fun acceptedScenario(session:FinanceSession,draft:InvestmentReportDraft):JSONObject {
         check(session,vault.generation,draft.greenhouseId);store.hydrateReportCache(session.scope.key,InvestmentContract.SCENARIO)
-        val row=store.record(session.scope.key,draft.scenarioId) ?: error("Skenario belum tersinkron.")
-        require(row.kind==InvestmentContract.SCENARIO && row.greenhouseId==draft.greenhouseId && row.syncState==SyncState.ACCEPTED) {"Sinkronkan perubahan skenario sebelum evaluasi."}
+        val row=store.record(session.scope.key,draft.scenarioId) ?: error("Skenario belum terkirim.")
+        require(row.kind==InvestmentContract.SCENARIO && row.greenhouseId==draft.greenhouseId && row.syncState==SyncState.ACCEPTED) {"Kirim dulu perubahan skenario sebelum evaluasi."}
         return InvestmentContract.scenario(row.serverBody ?: row.body).also {require(it.getString("record_state")=="active") {"Skenario telah dibatalkan."}}
     }
     suspend fun preview(session:FinanceSession,ticket:Long,draft:InvestmentReportDraft)=withContext(Dispatchers.IO) {writes.withLock {
         saveReport(session,ticket,draft);val scenario=acceptedScenario(session,draft)
         val body=InvestmentContract.report(api.request(session.scope.server,session.token,"investment-reports/preview","POST",draft.input()),false)
-        check(session,ticket,draft.greenhouseId);require(body.getString("scenario_id")==draft.scenarioId && body.getString("greenhouse_id")==draft.greenhouseId && body.getInt("scenario_version")==scenario.getInt("version")) {"Versi skenario berubah. Sinkronkan dan tinjau kembali."}
+        check(session,ticket,draft.greenhouseId);require(body.getString("scenario_id")==draft.scenarioId && body.getString("greenhouse_id")==draft.greenhouseId && body.getInt("scenario_version")==scenario.getInt("version")) {"Skenario baru diubah. Perbarui lalu lihat laporan lagi."}
         draft.copy(previewText=body.toString(),previewFetchedAt=System.currentTimeMillis()).also {saveReport(session,ticket,it)}
     }}
     suspend fun queueReport(session:FinanceSession,ticket:Long,draft:InvestmentReportDraft)=withContext(Dispatchers.IO) {writes.withLock {
         val saved=saveReport(session,ticket,draft);val scenario=acceptedScenario(session,draft);val payload=draft.payload()
-        require(scenario.getInt("version")==payload.getInt("expected_scenario_version")) {"Versi skenario berubah. Tinjau pratinjau kembali."}
+        require(scenario.getInt("version")==payload.getInt("expected_scenario_version")) {"Skenario baru diubah. Lihat laporan lagi sebelum menyimpan."}
         store.saveAndQueue(session.scope.key,draft.id,draft.greenhouseId,draft.localJson(),saved.revision,replaceValidationRejected=draft.replaceRejected,kind=InvestmentContract.REPORT,queuePayload=payload)
     }}
     suspend fun cachedSources(session:FinanceSession,row:LocalRecord):ReportSourcePage?=withContext(Dispatchers.IO) {
