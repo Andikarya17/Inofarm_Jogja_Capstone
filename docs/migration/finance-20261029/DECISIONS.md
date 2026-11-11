@@ -1,5 +1,25 @@
 # Decision register target baru
 
+## Pengelola sebagai super admin, 11 November 2026
+
+**Keputusan pengguna**, berdasarkan masukan dosen pembimbing (navigasi pengelola terlalu panjang, terlalu banyak kalimat, kata teknis, peran tidak jelas, alur tambah greenhouse tidak jelas, pengelola terkesan butuh validasi):
+
+- Pengelola menjadi **super admin**: semua greenhouse (aktif dan nonaktif), semua akun, semua data master dan acuan, tanpa penugasan. Simpan langsung tanpa dialog "ajukan". Alasan perubahan opsional kecuali "Perlu diperbaiki", recovery dan pembatalan lampiran.
+- UI pengelola mengikuti **Versi B** (berpusat pada greenhouse): empat tab Beranda, Riwayat, Keuangan, Kelola; tombol Catat; indikator belum terkirim; halaman detail greenhouse; wizard tiga langkah.
+- Perilaku, izin dan UI pekerja **tidak berubah**, kecuali kosakata komponen bersama yang mengikuti glosarium.
+- Aturan lama di `CLAUDE.md` ("Pengelola bukan superadmin global", "Jangan menambah hak global") **digantikan** oleh keputusan ini.
+
+**Batas yang tetap (integritas data, bukan izin):** tidak ada hard delete histori, ledger, audit atau snapshot; laporan terbit tidak bisa diedit; panen yang terjual tidak bisa dikurangi di bawah jumlah terjual; alokasi biaya dan penyusutan tidak boleh melebihi saldo; musim tertutup harus dibuka dulu; pengelola tidak boleh menonaktifkan atau menurunkan peran dirinya sendiri dan harus ada minimal satu pengelola aktif; perubahan akun mencabut sesi akun itu; backup/restore tetap kapabilitas operator di konfigurasi server; konflik versi tetap ditangani.
+
+**Keputusan teknis yang diambil, bukan diminta pengguna:**
+
+- Penugasan baru hanya untuk akun pekerja. Penugasan pengelola yang sudah ada tetap sah sebagai data.
+- Pembatalan lampiran tetap mewajibkan alasan (tidak termasuk daftar alasan opsional; memilih sisi yang menjaga data).
+- Wizard memakai pengiriman berurutan yang butuh koneksi dengan progres per langkah dan operasi yang dipakai ulang saat coba lagi (opsi b di master prompt 5.3). Alasan: seluruh tulis administrasi sudah online-only lewat jurnal admin, bukan outbox offline, sehingga opsi ini tidak menurunkan kemampuan; endpoint komposit (opsi a) tidak dipilih karena akan mengubah kontrak tanpa kebutuhan offline. Greenhouse hanya punya field `name` di API, jadi langkah 1 hanya nama. Varietas milik satu greenhouse, sehingga greenhouse baru hanya menambah varietas baru.
+- Tombol Catat untuk biaya dan penjualan tanpa greenhouse terpilih membuka pemilih greenhouse dulu.
+
+**Dampak pada proposal:** PDF proposal tidak dibaca ulang pada pekerjaan ini dan tidak diubah. Butir KF/KNF/U yang menyebut pembatasan peran atau akses per greenhouse bagi pengelola kemungkinan terdampak dan **perlu pengecekan formal**; tidak ditemukan butir yang jelas bertentangan di dokumen konteks yang dibaca. Lihat [bukti](../../context/MANAGER_SUPERADMIN_EVIDENCE_20261111.md).
+
 ## Scope audit dan handoff, 10 November 2026
 
 Pengguna meminta audit proposal/database/frontend/backend/API/context, mengizinkan inspeksi database lokal read-only, memilih **audit dan update context dulu**, lalu meminta `CLAUDE.md` berisi konteks, role/kewenangan, API, stack dan database. Hasil ada di [audit sistem](../../context/SYSTEM_AUDIT_20261110.md) dan [CLAUDE.md](../../../CLAUDE.md). Tidak ada izin baru untuk migrate database pengguna, perbaikan runtime atau deploy dalam task audit ini. Temuan schema lokal tertinggal dan OpenAPI belum lengkap dicatat sebagai pekerjaan lanjut.

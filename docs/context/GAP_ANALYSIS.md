@@ -1,5 +1,14 @@
 # Gap analysis aktif, 11 November 2026
 
+## Gap setelah pengelola menjadi super admin
+
+1. **Verifikasi perangkat:** semua perubahan UI pengelola (empat tab, Catat, indikator belum terkirim, detail greenhouse, wizard) belum dilihat di emulator atau perangkat. Mesin pengembangan kekurangan memori sehingga instalasi emulator macet.
+2. **Sapuan teks:** sekitar 295 string unik di kode Android masih memuat server, antrean, sinkron, tinjau, pengajuan, epoch, snapshot, cakupan atau penugasan, terutama di layar laporan, investasi, lampiran, pemulihan, pesan repositori keuangan dan `FinanceSyncCoordinator`. Layar Kelola, Beranda, Cek catatan, Riwayat, dan tombol simpan sudah mengikuti glosarium.
+3. **Instrumentasi Android** untuk alur pengelola perlu diperbarui (tab dan teks lama) dan dijalankan.
+4. **Penjaga "minimal satu pengelola aktif"** belum bisa diuji lewat API.
+5. **Proposal:** butir KF/KNF/U tentang peran dan akses per greenhouse perlu pengecekan formal terhadap keputusan super admin.
+6. Wizard belum menyediakan lokasi greenhouse (field tidak ada di API) dan pemilihan varietas yang sudah ada (varietas per greenhouse).
+
 ## Penyelarasan pekerja
 
 Empat temuan audit pekerja, review panen per revisi dan progres target sudah tersedia di source. Checkpoint memisahkan tes backend, perangkat dengan Laravel/MySQL uji, tes HTTP sintetis, dan bukti visual. Rollout migration 20, uji fisik, UAT, pentest dan penerimaan produksi tetap gate terpisah. [Matriks penerimaan dan batas bukti](WORKER_ALIGNMENT_EVIDENCE_20261110.md).

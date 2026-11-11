@@ -112,11 +112,17 @@ fun GreenhouseWizardHost(
     var newEmail by rememberSaveable { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var addedWorkers by rememberSaveable { mutableIntStateOf(0) }
+    var showPassword by remember { mutableStateOf(false) }
+    val scroll = rememberScrollState()
+    LaunchedEffect(error) { if (error != null) scroll.animateScrollTo(0) }
+    LaunchedEffect(step) { fieldErrors = emptyMap() }
 
     val operations = remember { mutableMapOf<String, JSONObject>() }
 
-    suspend fun send(form: AdminForm): JSONObject? {
-        val operation = operations.getOrPut(form.id) { repository.buildOperation(session, ticket, form) }
+    // An operation is reused only while its payload is identical (a lost-response retry); edited fields get a fresh one.
+    suspend fun send(form: AdminForm, password: String = ""): JSONObject? {
+        val key = form.id + "|" + form.payload(password).toString()
+        val operation = operations.getOrPut(key) { repository.buildOperation(session, ticket, form, password) }
         return try {
             repository.sendOperation(session, ticket, form, operation)
         } catch (failure: FinanceApiFailure) {
@@ -128,10 +134,12 @@ fun GreenhouseWizardHost(
         if (busy) return
         busy = true; error = null; progress = label
         scope.launch {
-            try { work(); onChanged() }
+            try { work() }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { error = userMessage(failure) }
-            finally { busy = false; progress = null }
+            catch (failure: Exception) {
+                error = if (failure is java.io.IOException) "Tidak ada koneksi. Isian tetap di layar; coba lagi." else userMessage(failure)
+            }
+            finally { onChanged(); busy = false; progress = null }
         }
     }
 
@@ -170,8 +178,9 @@ fun GreenhouseWizardHost(
             }
             if (!periodDone) {
                 progress = "Menetapkan tanam saat ini…"
-                val version = repository.options(session, ticket, "greenhouses", null).first { it.getString("id") == ghId }.getLong("version")
-                val operation = operations.getOrPut("period") { repository.designateOperation(session, ticket, ghId, version, groupId) }
+                val version = repository.options(session, ticket, "greenhouses", null).firstOrNull { it.getString("id") == ghId }
+                    ?.getLong("version") ?: error("Greenhouse belum muncul di daftar. Perbarui lalu coba lagi.")
+                val operation = operations.getOrPut("period|$version|$groupId") { repository.designateOperation(session, ticket, ghId, version, groupId) }
                 repository.sendDesignation(session, ticket, ghId, operation)
                 periodDone = true
             }
@@ -198,15 +207,16 @@ fun GreenhouseWizardHost(
         if (problems.isNotEmpty()) return
         run("Menyimpan pekerja…") {
             val from = OffsetDateTime.now(ActivityDraft.WIB).withNano(0).toString()
-            picked.forEach { userId ->
+            picked.toList().forEach { userId ->
                 send(AdminForm(AdminResource.ASSIGNMENT, id = UUID.nameUUIDFromBytes("wizard:$ghId:$userId".toByteArray()).toString(),
                     values = mapOf("greenhouse_id" to ghId, "user_id" to userId, "effective_from" to from)))
+                addedWorkers++
+                picked = picked - userId
             }
             if (creating) {
                 val form = AdminForm(AdminResource.USER, id = UUID.nameUUIDFromBytes("wizard-user:$ghId:${newEmail.trim().lowercase()}".toByteArray()).toString(),
                     values = mapOf("greenhouse_id" to ghId, "name" to newName.trim(), "email" to newEmail.trim(), "role" to "worker"))
-                val operation = operations.getOrPut(form.id) { repository.buildOperation(session, ticket, form, newPassword) }
-                repository.sendOperation(session, ticket, form, operation)
+                send(form, newPassword)
                 addedWorkers++
                 newName = ""; newEmail = ""; newPassword = ""
             }
@@ -214,29 +224,30 @@ fun GreenhouseWizardHost(
         }
     }
 
-    val close: () -> Unit = { if (!busy) onClose() }
+    // Once the greenhouse is saved, leaving goes to the finish screen so the manager sees it already exists.
+    val close: () -> Unit = { if (!busy) { if (ghDone && !finished) finished = true else onClose() } }
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false)) {
-        BackHandler { if (!busy) { if (finished) onClose() else if (step > 1) step-- else onClose() } }
+        BackHandler { if (!busy) { if (finished) onClose() else if (step > 1) step-- else close() } }
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(horizontal = FarmSpace.Page)) {
                 FarmSheetHeading("Tambah greenhouse", close, !busy)
                 HorizontalDivider()
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = FarmSpace.Medium),
+                Column(Modifier.weight(1f).verticalScroll(scroll).padding(vertical = FarmSpace.Medium),
                     verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                     if (finished) {
                         Text("Greenhouse siap dicatat", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
                         Text(name.trim(), style = MaterialTheme.typography.titleMedium)
                         val facts = listOfNotNull(
                             if (periodDone) "Tanam saat ini sudah ditetapkan." else "Belum ada tanam saat ini.",
-                            if (picked.isNotEmpty() || addedWorkers > 0) "Pekerja sudah ditambahkan." else null)
+                            if (addedWorkers > 0) "$addedWorkers pekerja sudah ditambahkan." else null)
                         facts.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
                         if (periodDone) Button(onClick = { onRecord(ghId) }, shape = FarmShape.Control,
                             modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-record")) { Text("Catat kegiatan") }
                         OutlinedButton(onClick = { onOpenGreenhouse(ghId) }, shape = FarmShape.Control,
                             modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-open")) { Text("Ke greenhouse") }
                     } else {
-                        Text("Langkah $step dari 3", Modifier.testTag("wizard-step"), style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Langkah $step dari 3", Modifier.testTag("wizard-step").semantics { liveRegion = LiveRegionMode.Polite },
+                            style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         progress?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                         error?.let { Notice(it, true) }
                         when (step) {
@@ -273,14 +284,20 @@ fun GreenhouseWizardHost(
                                     FinanceField("Nama", newName, { newName = it }, "wizard-user-name", fieldErrors["name"])
                                     FinanceField("Email", newEmail, { newEmail = it }, "wizard-user-email", fieldErrors["email"], KeyboardType.Email)
                                     OutlinedTextField(newPassword, { newPassword = it }, label = { Text("Password (minimal 12 karakter)") },
-                                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Password),
+                                        visualTransformation = if (showPassword) androidx.compose.ui.text.input.VisualTransformation.None
+                                            else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Password,
+                                            imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                                        singleLine = true,
                                         isError = fieldErrors["password"] != null, supportingText = fieldErrors["password"]?.let { m -> { Text(m) } },
                                         modifier = Modifier.fillMaxWidth().testTag("wizard-user-password"), enabled = !busy)
+                                    FarmCheckbox("Tampilkan password", showPassword, { showPassword = it }, Modifier.testTag("wizard-show-password"))
                                 }
                                 Button(onClick = ::saveWorkers, enabled = !busy, shape = FarmShape.Control,
                                     modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-next")) { Text("Selesai") }
-                                OutlinedButton(onClick = { finished = true }, enabled = !busy, shape = FarmShape.Control,
+                                OutlinedButton(onClick = { finished = true },
+                                    enabled = !busy && picked.isEmpty() && newName.isBlank() && newEmail.isBlank() && newPassword.isEmpty(),
+                                    shape = FarmShape.Control,
                                     modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-skip")) { Text("Lewati") }
                             }
                         }

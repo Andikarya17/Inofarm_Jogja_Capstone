@@ -1,5 +1,7 @@
 # Inofarm: konteks untuk Claude Code
 
+**Keputusan 11 November 2026 (masukan dosen pembimbing): pengelola adalah super admin.** Pengelola mengakses semua greenhouse dan semua akun tanpa penugasan, alasan perubahan opsional, dan UI pengelola dirombak menjadi empat tab. Batas integritas data tetap berlaku di server. Backend terbukti oleh tes (backend 156 tes); UI Android terkompilasi dan lulus tes JVM, tetapi **belum diverifikasi di emulator atau perangkat**. [Bukti, batas dan sisa pekerjaan](docs/context/MANAGER_SUPERADMIN_EVIDENCE_20261111.md), [keputusan](docs/migration/finance-20261029/DECISIONS.md).
+
 Penyelarasan pekerja 10–11 November 2026 menambah pilihan greenhouse langsung, agenda WIB, picker lapangan, verifikasi panen per revisi dan progres pekerja. Source backend memakai migration 20, dengan verifikasi hanya pada `inofarm_test`. Database aplikasi lokal berada pada checkpoint schema 19. [Status, bukti dan gate PK0–PK7](docs/context/WORKER_ALIGNMENT_EVIDENCE_20261110.md).
 
 Baseline diperbarui **10 November 2026 setelah remediasi**, source engineering `a67577d`. Baca `AGENTS.md` root dan `backend/AGENTS.md` sebelum bekerja. Instruksi pengguna terbaru mengatasi histori. [Bukti penyelesaian audit](docs/context/AUDIT_REMEDIATION_20261110.md) menjadi rujukan status terbaru.
@@ -41,28 +43,28 @@ Versi dependency pasti ada di `backend/composer.lock` dan Gradle; jangan mengang
 
 ## Peran dan kewenangan
 
-Role wire hanya **`worker`** (pekerja) dan **`manager`** (pengelola). Kedua peran perlu penugasan greenhouse yang efektif. Pengelola bukan superadmin global. Actor diambil dari sesi server, bukan field buatan client.
+Role wire hanya **`worker`** (pekerja) dan **`manager`** (pengelola). Pekerja memerlukan penugasan greenhouse yang efektif. **Pengelola adalah super admin**: `GreenhouseAccess` mengembalikan semua greenhouse (aktif dan nonaktif) dan semua akun untuk role `manager`, tanpa penugasan. Penugasan kini hanya berarti pekerja mana yang bekerja di greenhouse itu, dan hanya akun pekerja yang bisa ditugaskan. Actor diambil dari sesi server, bukan field buatan client.
 
 | Kemampuan | Pekerja | Pengelola |
 |---|---|---|
 | Login/logout/sesi | Akun sendiri | Akun sendiri |
-| Baca konteks, jadwal, target, kegiatan dan panen | Greenhouse penugasan | Greenhouse penugasan |
-| Membuat kegiatan/panen | Parent sah, musim terbuka, GH aktif | Sama, sesuai cakupan |
-| Koreksi kegiatan/panen | Milik sendiri, versi cocok, musim terbuka | Dalam cakupan, alasan dan audit |
-| Pembatalan kegiatan/panen | Tidak | Ya, tetap dibatasi saldo/referensi dan musim |
-| Verifikasi kegiatan | Baca keputusan/alasan pada catatan sendiri | Inbox catatan asal pekerja; valid/tidak valid per revisi |
-| Master, jadwal, target, penugasan | Baca yang diizinkan | Membuat/mengubah/menonaktifkan dalam cakupan; tanpa hard delete histori |
-| Akun | Tidak mengelola akun lain | Buat akun, edit nama/email/peran/status, reset password dalam cakupan |
-| Periode berjalan GH | Baca | Tetapkan kelompok berjalan secara eksplisit dan diaudit |
-| Target/selesai panen | Mencatat hasil dan kondisi rincian | Atur target, tandai selesai/buka kembali dengan alasan |
-| Tutup/buka musim | Tidak | Tindakan terpisah dengan alasan dan validasi |
-| Biaya, alokasi, aset, penyusutan, penjualan | Tidak, termasuk API/sync/file | Dalam cakupan penugasan |
-| Evaluasi, investasi, laporan, ekspor | Tidak | Preview, review, publikasi snapshot dan unduh PDF/CSV |
+| Baca konteks, jadwal, target, kegiatan dan panen | Greenhouse penugasan | Semua greenhouse |
+| Membuat kegiatan/panen | Parent sah, musim terbuka, GH aktif | Sama, di greenhouse mana pun |
+| Koreksi kegiatan/panen | Milik sendiri, versi cocok, musim terbuka, **alasan wajib** | Semua, catatan opsional, audit |
+| Pembatalan kegiatan/panen | Tidak | Ya, catatan opsional; tetap dibatasi saldo/referensi dan musim |
+| Cek catatan pekerja | Baca keputusan/alasan pada catatan sendiri | Inbox catatan asal pekerja; Sesuai / Perlu diperbaiki per revisi (**alasan wajib hanya untuk Perlu diperbaiki**) |
+| Master, jadwal, target, penugasan | Baca yang diizinkan | Membuat/mengubah/menonaktifkan di greenhouse mana pun; tanpa hard delete histori |
+| Akun | Tidak mengelola akun lain | Buat akun, edit nama/email/peran/status, reset password untuk semua akun (`GET /users?all_accounts=1`) |
+| Tanam saat ini GH (periode berjalan) | Baca | Tetapkan kelompok secara eksplisit dan diaudit, catatan opsional |
+| Target/selesai panen | Mencatat hasil dan kondisi rincian | Atur target, tandai selesai/buka kembali, catatan opsional |
+| Tutup/buka musim | Tidak | Tindakan terpisah dengan validasi, catatan opsional |
+| Biaya, alokasi, aset, penyusutan, penjualan | Tidak, termasuk API/sync/file | Semua greenhouse |
+| Evaluasi, investasi, laporan, ekspor | Tidak | Preview, review, publikasi laporan terbit dan unduh PDF/CSV |
 | Backup/recovery | Tidak | Membutuhkan kapabilitas operator sistem eksplisit di konfigurasi, bukan otomatis dari role |
 
-Administrasi akun menolak pengelolaan user dengan penugasan di luar cakupan manager. Manager tidak boleh menonaktifkan atau menurunkan peran dirinya sendiri. Perubahan akun mencabut token akun yang diubah. Tidak ada self-registration/reset password publik; reset dilakukan pengelola. Manager tanpa assignment dapat menyiapkan greenhouse melalui jalur create yang memang diimplementasikan. Jangan menambah hak global untuk mengatasi setup yang belum lengkap.
+Batas integritas yang tetap ditolak server: tidak ada hard delete histori/ledger/audit/laporan; laporan terbit tidak bisa diedit; saldo panen terjual, alokasi biaya dan anggaran penyusutan dijaga transaksi; musim tertutup harus dibuka dulu; pengelola tidak boleh menonaktifkan atau menurunkan peran dirinya sendiri, dan harus selalu ada minimal satu pengelola aktif (penjaga ini belum teruji lewat API); perubahan akun mencabut token akun yang diubah; password hanya bisa direset. Tidak ada self-registration/reset password publik. Alasan tetap wajib untuk keputusan "Perlu diperbaiki", recovery dan pembatalan lampiran.
 
-Verifikasi manusia berbeda dari sinkronisasi: `ACCEPTED` berarti server menerima catatan. Kegiatan pekerja yang belum diperiksa boleh tampil di Beranda dengan label **Belum diverifikasi**. Revisi invalid dikecualikan dari kartu pengukuran pengelola, tetapi tetap ada di riwayat. Koreksi menghasilkan revisi baru yang perlu keputusan baru. Catatan pengelola sendiri bukan otomatis keputusan verifikasi pekerja.
+Cek catatan berbeda dari pengiriman: `ACCEPTED` berarti server menerima catatan. Kegiatan pekerja yang belum dicek boleh tampil di Beranda dengan label **Belum dicek**. Revisi invalid dikecualikan dari kartu pengukuran pengelola, tetapi tetap ada di riwayat. Koreksi menghasilkan revisi baru yang perlu keputusan baru. Catatan pengelola sendiri bukan otomatis keputusan verifikasi pekerja.
 
 ## Struktur source dan navigasi
 
@@ -79,7 +81,7 @@ Verifikasi manusia berbeda dari sinkronisasi: `ACCEPTED` berarti server menerima
 | `backend/database/migrations/` | Skema additive, termasuk legacy yang tidak dihapus |
 | `backend/tests/` | Guard database dan tes unit/fitur |
 
-Pekerja: login → konteks GH/musim/kelompok → kegiatan/panen → review → draf/antrekan → detail/riwayat/koreksi. Pengelola memiliki lima tab Beranda, Antrean, Kegiatan, Panen, Keuangan. Beranda mulai dari semua greenhouse dalam penugasan; satu GH membuka periode berjalan. Antrean memisahkan verifikasi server dan **Pengiriman saya**. Menu akun membuka Kelola greenhouse/Kelola akun. Keuangan mengarahkan biaya/alokasi, aset/penyusutan, penjualan, evaluasi dan investasi.
+Pekerja: login → konteks GH/musim/kelompok → kegiatan/panen → review → draf/antrekan → detail/riwayat/koreksi. Pengelola memiliki empat tab selalu terlihat: **Beranda, Riwayat, Keuangan, Kelola** (`ManagerTab`, `FinanceNavigation.kt`), tombol **Catat** (kegiatan, pengukuran, panen, biaya, penjualan) dan indikator **"N belum terkirim"** di top bar yang membuka sheet dengan "Kirim sekarang". Beranda menampilkan semua greenhouse, kartu "N catatan pekerja perlu dicek" dan "Tambah greenhouse" (wizard tiga langkah, `GreenhouseWizard.kt`, butuh koneksi seperti tulis admin lain). Satu greenhouse membuka halaman detail dengan bagian Ringkasan, Kegiatan, Panen, Keuangan, Pengaturan. Riwayat menggabungkan kegiatan, pengukuran dan panen dengan chip; biaya, penjualan dan aset membuka tab Keuangan. Kelola memuat greenhouse, pekerja dan akun, data master, jadwal dan target, serta akun saya. Navigasi pekerja tidak berubah (Beranda, Antrean, Kegiatan, Panen). Status ini terkompilasi dan lulus tes JVM, **belum diverifikasi di emulator atau perangkat**.
 
 Draf tidak dipindahkan parent-nya ketika pengguna mengganti GH untuk browsing. Riwayat dan pemilih banyak membaca cache hasil `sync/changes`, bukan selalu GET list resource saat layar dibuka. Karena itu salah tampilan dapat berasal dari cache/scope/epoch, bukan selalu route HTTP.
 

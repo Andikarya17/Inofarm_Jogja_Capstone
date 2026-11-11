@@ -154,12 +154,12 @@ internal fun FinanceLogin(
                     )
                     Column(Modifier.fillMaxWidth().animateContentSize(tween(FarmMotion.State)),
                         verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                        if (endpoint == null) Notice("Alamat server belum dikonfigurasi untuk aplikasi ini. Hubungi pengelola.", true)
+                        if (endpoint == null) Notice("Alamat aplikasi belum diatur. Hubungi pengelola.", true)
                         state.error?.let { Notice(it, true) }
                         when (state.logoutStatus) {
-                            LogoutStatus.Confirmed -> Notice("Keluar. Draf dan antrean akun ini tetap tersimpan.")
+                            LogoutStatus.Confirmed -> Notice("Sudah keluar. Draf dan catatan yang belum terkirim tetap tersimpan.")
                             LogoutStatus.RevocationUnconfirmed ->
-                                FarmAttention("Keluar dari perangkat. Draf tetap tersimpan. Pencabutan sesi server belum terkonfirmasi.")
+                                FarmAttention("Sudah keluar dari perangkat ini. Draf tetap tersimpan. Akses akun belum dipastikan tercabut karena tidak ada koneksi.")
                             null -> Unit
                         }
                         permissionMessage?.let { Notice(it, true) }
