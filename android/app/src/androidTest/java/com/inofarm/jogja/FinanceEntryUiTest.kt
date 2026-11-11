@@ -1019,7 +1019,7 @@ class FinanceEntryUiTest {
         readyNode("manager-picker-$gh").performScrollTo().performClick()
         home.performScrollToNode(hasTestTag("measurement-card-ec"))
         readyNode("measurement-card-ppm").assertExists()
-        readyText("Belum diverifikasi").assertExists()
+        readyText("Belum dicek").assertExists()
         captureWindow("single-greenhouse")
         home.performScrollToNode(hasTestTag("measurement-source"))
         readyNode("measurement-source").performClick()

@@ -159,7 +159,7 @@ internal fun FinanceLogin(
                         when (state.logoutStatus) {
                             LogoutStatus.Confirmed -> Notice("Sudah keluar. Draf dan catatan yang belum terkirim tetap tersimpan.")
                             LogoutStatus.RevocationUnconfirmed ->
-                                FarmAttention("Sudah keluar dari perangkat ini. Draf tetap tersimpan. Akses akun belum dipastikan tercabut karena tidak ada koneksi.")
+                                FarmAttention("Sudah keluar dari perangkat ini. Draf tetap tersimpan. Akses akun belum dipastikan tercabut.")
                             null -> Unit
                         }
                         permissionMessage?.let { Notice(it, true) }

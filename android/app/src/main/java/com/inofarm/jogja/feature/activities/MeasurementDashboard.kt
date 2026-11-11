@@ -124,10 +124,10 @@ internal fun MeasurementSource(
                             style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                         if (!snapshotSource) {
                             val label = when (pair.verification) {
-                                "valid" -> "Terverifikasi pengelola"
-                                "pending" -> "Belum diverifikasi"
+                                "valid" -> "Sudah dicek"
+                                "pending" -> "Belum dicek"
                                 "manager" -> "Dicatat pengelola"
-                                "legacy" -> "Historis · belum diverifikasi"
+                                "legacy" -> "Data lama · belum dicek"
                                 else -> null
                             }
                             label?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }

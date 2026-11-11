@@ -12,7 +12,7 @@ Status 11 November 2026. Rencana: [master prompt](MASTER_PROMPT_MANAGER_SUPERADM
 | 3 Navigasi empat tab | `codex/manager-navigation-b` | `cb95f6b` | Diimplementasikan, tidak diverifikasi di perangkat |
 | 4 Detail greenhouse | `codex/manager-greenhouse-hub` | `3c9fc79` | Diimplementasikan, tidak diverifikasi di perangkat |
 | 5 Wizard | `codex/manager-greenhouse-wizard` | `d7dc1e1` | Diimplementasikan; urutan permintaan terbukti di backend |
-| 6 Dokumen | `codex/manager-superadmin-docs` | lihat git log | Dokumen diperbarui |
+| 6 Dokumen | `codex/manager-superadmin-docs` | `37582ec` | Dokumen diperbarui |
 
 ## Hasil pemeriksaan (output sesi ini)
 
@@ -59,7 +59,7 @@ Tidak terbukti oleh tes: penjaga "Harus ada minimal satu pengelola aktif" (tidak
 
 **Selesai dan terkompilasi:** layar Kelola (`AdminScreen`, `AdminForm`, ViewModel, repository): dialog "Ajukan perubahan?" dihapus; konfirmasi satu kalimat dengan tombol kata kerja hanya untuk tutup musim, nonaktifkan, ubah peran dan reset password; catatan opsional. Lembar tanam saat ini, tombol simpan bersama ("Simpan"), pesan sesudah simpan ("Tersimpan. Terkirim otomatis saat ada internet."), Cek catatan (Sesuai / Perlu diperbaiki, satu ketukan), Riwayat, Beranda, rekap panen, label status sinkron. Alasan koreksi di enam kelas Draft sadar peran (`CorrectionReasonRoleTest`).
 
-**Belum selesai:** sekitar **295 string unik** di kode Android masih memuat server, antrean, sinkron, tinjau, pengajuan, epoch, snapshot, cakupan atau penugasan. Terbesar: `SeasonReport*`, `Investment*`, `Attachment*`, `Recovery*`, `MeasurementDashboard`, pesan repositori keuangan (`SaleRepository`, `AssetRepository`, `FinancialEntryRepository`, `ReportExportRepository`), `FinanceSyncCoordinator`, `HomeContextCard` (pekerja). Definisi selesai "tidak ada kata server dll. di layar pengelola" **belum terpenuhi**.
+**Belum selesai:** label pengiriman di kartu pengukuran Beranda ("Belum tersinkron", "Diterima server") masih memakai kata lama; label cek sudah "Belum dicek"/"Sudah dicek". Tes instrumentasi lama dengan teks lama: `FinanceAdminUiTest.kt:68`, `FinanceEntryUiTest.kt` (Ajukan perubahan?, Antrean). sekitar **295 string unik** di kode Android masih memuat server, antrean, sinkron, tinjau, pengajuan, epoch, snapshot, cakupan atau penugasan. Terbesar: `SeasonReport*`, `Investment*`, `Attachment*`, `Recovery*`, `MeasurementDashboard`, pesan repositori keuangan (`SaleRepository`, `AssetRepository`, `FinancialEntryRepository`, `ReportExportRepository`), `FinanceSyncCoordinator`, `HomeContextCard` (pekerja). Definisi selesai "tidak ada kata server dll. di layar pengelola" **belum terpenuhi**.
 
 Layar masuk dan pesan galat bersama (`AuthViewModel.userMessage`, `FinanceLogin`) sudah diganti ke bahasa sehari-hari; pesan kolom galat tidak lagi memuat nama kunci wire. Pesan ini juga dipakai pekerja (hanya teks, bukan perilaku).
 
@@ -87,5 +87,5 @@ Deviasi dari glosarium: pesan pemulihan data memakai "Data dipulihkan dari cadan
 ## Lingkungan
 
 - `JAVA_HOME` pengguna menunjuk ke `java.exe`; nilainya tidak diubah. Build memakai nilai yang benar hanya di dalam proses perintah.
-- Layar "sebelum" tidak diambil: emulator dinyalakan tetapi memori bebas sekitar 450 MB dari 16 GB sehingga instalasi APK macet. Percobaan menghentikan proses emulator ditolak pembatas izin dan tidak diulang; emulator `Inofarm_Manager_Polish_API30` mungkin masih berjalan.
-- Backend uji (`--env=testing`) berjalan di port 8001 dan hanya memakai `inofarm_test`. Port 8000 milik pengguna tidak disentuh. Fixture manager-home dibuat di `inofarm_test`; manifest lama diganti nama menjadi `tmp/manager-home-device-fixture.stale-20261111.json`.
+- Layar "sebelum" dan "sesudah" tidak diambil: instalasi APK ke emulator macet karena memori.
+- Backend uji (`--env=testing`) berjalan di port 8001 dan hanya memakai `inofarm_test`. Port 8000 milik pengguna tidak disentuh.
