@@ -169,8 +169,7 @@
         "paid_at",
         "amount",
         "payment_kind",
-        "notes",
-        "reason"
+        "notes"
       ],
       "properties": {
         "greenhouse_id": {
@@ -211,9 +210,7 @@
     "cancel": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "reason"
-      ],
+      "required": [],
       "properties": {
         "reason": {
           "type": "string",

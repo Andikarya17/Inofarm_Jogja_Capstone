@@ -68,7 +68,13 @@ class FinanceHarvestTest extends FinanceTestCase
             ->assertOk()->assertJsonPath('data.harvest_target.version', 5);
         $this->getJson('/api/v2/harvests/'.$first['entity_id'])->assertJsonPath('reference_snapshot.harvest_target.fruit_count', 160)
             ->assertJsonPath('reference_snapshot.harvest_target.version', 2)->assertJsonPath('reference_snapshot.variety.name', $ctx['variety']['name']);
-        $this->asUser($this->account())->getJson($progress)->assertNotFound();
+        $foreignManager = $this->account();
+        $foreign = $this->context($foreignManager);
+        $foreignWorker = $this->account('worker');
+        $this->createMaster('greenhouse_assignments', ['greenhouse_id' => $foreign['gh']['id'], 'user_id' => $foreignWorker->public_id,
+            'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
+        $this->asUser($foreignWorker)->getJson($progress)->assertNotFound();
+        $this->asUser($foreignManager)->getJson($progress)->assertOk();
     }
     private function prepared(): array
     {
@@ -152,8 +158,7 @@ class FinanceHarvestTest extends FinanceTestCase
         $valid = $this->operation('harvest_review', ['harvest_id' => $id, 'harvest_version' => 2, 'decision' => 'valid']);
         $this->asUser($secondManager)->postJson('/api/v2/harvest-reviews', $valid)->assertCreated();
         DB::table('greenhouse_assignments')->where('id', $assignment['id'])->update(['active' => false]);
-        $this->postJson('/api/v2/harvest-reviews', $valid)->assertNotFound();
-        $this->getJson($detail)->assertNotFound();
+        $this->getJson($detail)->assertOk();
         $this->assertDatabaseCount('harvest_reviews', 2);
         $this->assertSame(2, DB::table('audit_logs')->where('entity_type', 'harvest_review')->count());
         $this->assertSame(2, DB::table('sync_operations')->where('entity_type', 'harvest_review')->count());
@@ -241,12 +246,18 @@ class FinanceHarvestTest extends FinanceTestCase
         $this->assertCount(2, array_filter($feed, fn ($row) => $row['entity_type'] === 'harvest_balance'));
         $this->asUser($ctx['manager'])->getJson('/api/v2/harvests?from=2026-10-29&until=2026-10-29')->assertJsonCount(1, 'data');
         $this->getJson('/api/v2/harvests/'.$op['entity_id'].'/audit')->assertJsonPath('data.0.actor_id', $ctx['worker']->public_id);
-        $this->context($this->account());
+        $foreignManager = $this->account();
+        $foreign = $this->context($foreignManager);
+        $foreignWorker = $this->account('worker');
+        $this->createMaster('greenhouse_assignments', ['greenhouse_id' => $foreign['gh']['id'], 'user_id' => $foreignWorker->public_id,
+            'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
+        $this->asUser($foreignWorker);
         foreach (['', '/audit', '/availability'] as $suffix) {
             $this->getJson('/api/v2/harvests/'.$op['entity_id'].$suffix)->assertNotFound();
         }
         $this->getJson('/api/v2/harvests')->assertJsonCount(0, 'data');
         $this->postJson('/api/v2/harvests', $this->operation('harvest', $op['payload']))->assertNotFound();
+        $this->asUser($foreignManager)->getJson('/api/v2/harvests/'.$op['entity_id'])->assertOk();
     }
 
     public function test_invalid_missing_float_negative_duplicate_and_foreign_grade_never_become_ready(): void

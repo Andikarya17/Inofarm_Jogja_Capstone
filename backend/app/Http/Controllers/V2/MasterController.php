@@ -101,9 +101,9 @@ final class MasterController extends Controller
     {
         $operation = OperationInput::read($request, 'greenhouses', 'designate_period', [
             'planting_group_id' => ['present', 'nullable', OperationInput::UUID],
-            'reason' => 'required|string|min:1|max:1000',
+            'reason' => OperationInput::reasonRule($request, 'required|string|min:1|max:1000'),
         ], $id);
-        abort_if(trim($operation['payload']['reason']) === '', 422, 'Alasan penetapan diperlukan.');
+        abort_if($request->user()->role !== 'manager' && trim($operation['payload']['reason']) === '', 422, 'Alasan penetapan diperlukan.');
         $result = $service->mutate($request->user(), 'greenhouses', $operation);
 
         return response()->json($result['body'], $result['status']);
@@ -141,7 +141,7 @@ final class MasterController extends Controller
             $rules['active'] = 'required|boolean';
         }
         if ($action !== 'create') {
-            $rules['reason'] = 'required|string|min:1|max:1000';
+            $rules['reason'] = OperationInput::reasonRule($request, 'required|string|min:1|max:1000');
         }
         $op = OperationInput::read($request, $table, $action, $rules, $id);
         if (isset($op['payload']['active'])) {

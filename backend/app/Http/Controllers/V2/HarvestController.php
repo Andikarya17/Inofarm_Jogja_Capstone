@@ -33,8 +33,8 @@ final class HarvestController extends Controller
     {
         $action = $request->input('action');
         abort_unless(in_array($action, ['complete_harvest', 'reopen_harvest'], true), 422, 'Tindakan panen belum dikenal.');
-        $operation = OperationInput::read($request, 'planting_groups', $action, ['reason' => 'required|string|max:1000'], $id);
-        abort_if(trim($operation['payload']['reason']) === '', 422, 'Isi alasan perubahan status panen.');
+        $operation = OperationInput::read($request, 'planting_groups', $action, ['reason' => OperationInput::reasonRule($request, 'required|string|max:1000')], $id);
+        abort_if($request->user()->role !== 'manager' && trim($operation['payload']['reason']) === '', 422, 'Isi alasan perubahan status panen.');
         $result = $masters->mutate($request->user(), 'planting_groups', $operation);
 
         return response()->json($result['body'], $result['status']);
@@ -130,7 +130,7 @@ final class HarvestController extends Controller
             'items.*.id' => ['required', OperationInput::UUID, 'distinct'], 'items.*.grade_id' => ['required', OperationInput::UUID, 'distinct'],
             'items.*.fruit_count' => 'required|integer|min:0|max:2147483647', 'items.*.weight_kg' => 'required|string|max:30', 'notes' => 'present|string|max:2000'];
         if ($action !== 'create') {
-            $rules['reason'] = 'required|string|min:1|max:1000';
+            $rules['reason'] = OperationInput::reasonRule($request, 'required|string|min:1|max:1000');
         } else {
             $rules['running_period_version'] = 'sometimes|integer:strict|min:1|max:2147483647';
         }

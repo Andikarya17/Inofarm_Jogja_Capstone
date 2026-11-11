@@ -63,7 +63,7 @@ final class ReferenceController extends Controller
         if ($action === 'create') {
             $rules['planting_group_id'] = ['required', OperationInput::UUID];
         } else {
-            $rules += ['active' => 'required|boolean', 'reason' => 'required|string|max:1000'];
+            $rules += ['active' => 'required|boolean', 'reason' => OperationInput::reasonRule($request, 'required|string|max:1000')];
         }
         $op = OperationInput::read($request, $table, $action, $rules, $id);
         abort_if(isset($op['payload']['active']) && ! is_bool($op['payload']['active']), 422, 'active harus boolean.');

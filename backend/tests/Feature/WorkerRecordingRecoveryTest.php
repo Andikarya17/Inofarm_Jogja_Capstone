@@ -21,10 +21,11 @@ class WorkerRecordingRecoveryTest extends FinanceTestCase
         $cursor = $this->getJson('/api/v2/sync/changes')->assertOk()->assertJsonCount(0, 'scope')->assertJsonCount(0, 'data')->json('next_cursor');
         $this->postJson('/api/v2/users/assignment-candidate', ['greenhouse_id' => $gh, 'email' => $worker->email])->assertForbidden();
 
-        $this->asUser($manager)->getJson('/api/v2/users?for_assignment=1&greenhouse_id='.$gh)->assertJsonCount(0, 'data');
+        $this->asUser($manager)->getJson('/api/v2/users?for_assignment=1&greenhouse_id='.$gh)->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $worker->public_id);
         $this->postJson('/api/v2/users/assignment-candidate', ['greenhouse_id' => $gh, 'email' => strtoupper($worker->email)])
             ->assertOk()->assertJsonPath('data.id', $worker->public_id);
-        $this->postJson('/api/v2/users/assignment-candidate', ['greenhouse_id' => $foreign['gh']['id'], 'email' => $worker->email])->assertNotFound();
+        $this->postJson('/api/v2/users/assignment-candidate', ['greenhouse_id' => $foreign['gh']['id'], 'email' => $worker->email])->assertOk();
         $from = now()->subMinute()->format('Y-m-d\TH:i:sP');
         $assign = $this->operation('greenhouse_assignments', ['greenhouse_id' => $gh, 'user_id' => $worker->public_id,
             'effective_from' => $from, 'effective_until' => null]);

@@ -43,9 +43,12 @@ class FinanceActivitySyncTest extends FinanceTestCase
         $op['payload']['recorded_by'] = $manager->public_id;
         $this->postJson('/api/v2/sync/operations', $op)->assertUnprocessable();
         $this->asUser($manager)->getJson('/api/v2/activities')->assertJsonCount(1, 'data');
-        $other = $this->context($this->account());
-        $this->getJson('/api/v2/activities/'.$first['entity_id'])->assertNotFound();
+        $foreignManager = $this->account();
+        $other = $this->context($foreignManager);
+        $foreignWorker = $this->assignedWorker($other);
+        $this->asUser($foreignWorker)->getJson('/api/v2/activities/'.$first['entity_id'])->assertNotFound();
         $this->postJson('/api/v2/sync/operations', $this->operation('activity', $this->payload($ctx['group']['id'])))->assertNotFound();
+        $this->asUser($foreignManager)->getJson('/api/v2/activities/'.$first['entity_id'])->assertOk();
     }
 
     public function test_structural_validation_multimaterial_zero_missing_and_skipped_are_distinct(): void
@@ -106,9 +109,13 @@ class FinanceActivitySyncTest extends FinanceTestCase
         $audit = $this->getJson('/api/v2/activities/'.$first['entity_id'].'/audit?limit=1')->assertJsonCount(1, 'data')->assertJsonPath('data.0.actor_id', $worker->public_id)->json();
         $this->assertNotNull($audit['next_cursor']);
         $this->getJson('/api/v2/activities/'.$first['entity_id'].'/audit?limit=1&cursor='.$audit['next_cursor'])->assertJsonCount(1, 'data')->assertJsonPath('data.0.action', 'cancel')->assertJsonPath('next_cursor', null);
-        $foreign = $this->context($this->account());
-        $this->getJson('/api/v2/activities?season_id='.$ctx['season']['id'])->assertJsonCount(0, 'data');
+        $foreignManager = $this->account();
+        $foreign = $this->context($foreignManager);
+        $foreignWorker = $this->assignedWorker($foreign);
+        $this->asUser($foreignWorker)->getJson('/api/v2/activities?season_id='.$ctx['season']['id'])->assertJsonCount(0, 'data');
         $this->getJson('/api/v2/activities/'.$first['entity_id'].'/audit')->assertNotFound();
+        $this->asUser($foreignManager)->getJson('/api/v2/activities?season_id='.$ctx['season']['id'])->assertJsonCount(2, 'data');
+        $this->getJson('/api/v2/activities/'.$first['entity_id'].'/audit')->assertOk();
     }
 
     public function test_activity_snapshot_is_immutable_after_group_dates_change_and_explicit_refresh_is_required(): void

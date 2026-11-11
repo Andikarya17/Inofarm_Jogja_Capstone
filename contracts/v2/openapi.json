@@ -727,8 +727,7 @@
                     },
                     "required": [
                       "name",
-                      "active",
-                      "reason"
+                      "active"
                     ]
                   }
                 },
@@ -3005,8 +3004,7 @@
                     },
                     "required": [
                       "name",
-                      "active",
-                      "reason"
+                      "active"
                     ]
                   }
                 },
@@ -3519,8 +3517,7 @@
                     },
                     "required": [
                       "name",
-                      "active",
-                      "reason"
+                      "active"
                     ]
                   }
                 },
@@ -4049,8 +4046,7 @@
                     "required": [
                       "name",
                       "dimension",
-                      "active",
-                      "reason"
+                      "active"
                     ]
                   }
                 },
@@ -4579,8 +4575,7 @@
                     "required": [
                       "name",
                       "dimension",
-                      "active",
-                      "reason"
+                      "active"
                     ]
                   }
                 },
@@ -5093,8 +5088,7 @@
                     },
                     "required": [
                       "name",
-                      "active",
-                      "reason"
+                      "active"
                     ]
                   }
                 },
@@ -5353,8 +5347,7 @@
                     "required": [
                       "name",
                       "start_date",
-                      "end_date",
-                      "reason"
+                      "end_date"
                     ]
                   }
                 },
@@ -5926,9 +5919,7 @@
                   },
                   "payload": {
                     "type": "object",
-                    "required": [
-                      "reason"
-                    ],
+                    "required": [],
                     "additionalProperties": false,
                     "properties": {
                       "reason": {
@@ -6068,8 +6059,7 @@
                       "population",
                       "sowing_date",
                       "transplant_date",
-                      "active",
-                      "reason"
+                      "active"
                     ]
                   }
                 },
@@ -6611,8 +6601,7 @@
                     "required": [
                       "effective_from",
                       "effective_until",
-                      "active",
-                      "reason"
+                      "active"
                     ]
                   }
                 },
@@ -6849,9 +6838,7 @@
                         "maxLength": 1000
                       }
                     },
-                    "required": [
-                      "reason"
-                    ]
+                    "required": []
                   }
                 },
                 "required": [
@@ -7000,9 +6987,7 @@
                         "maxLength": 1000
                       }
                     },
-                    "required": [
-                      "reason"
-                    ]
+                    "required": []
                   }
                 },
                 "required": [
@@ -7448,8 +7433,7 @@
                       "activity_type",
                       "planned_at",
                       "notes",
-                      "active",
-                      "reason"
+                      "active"
                     ]
                   }
                 },
@@ -8125,8 +8109,7 @@
                       "minimum",
                       "maximum",
                       "tolerance",
-                      "active",
-                      "reason"
+                      "active"
                     ]
                   }
                 },
@@ -17861,6 +17844,15 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "all_accounts",
+            "in": "query",
+            "required": false,
+            "description": "Pengelola: daftar semua akun, tidak hanya yang bertugas di greenhouse ini.",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -22510,8 +22502,7 @@
                     "discount_rate",
                     "payback_convention",
                     "cash_flows",
-                    "notes",
-                    "reason"
+                    "notes"
                   ],
                   "properties": {
                     "greenhouse_id": {
@@ -22668,9 +22659,7 @@
                 "payload": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": [
-                    "reason"
-                  ],
+                  "required": [],
                   "properties": {
                     "reason": {
                       "type": "string",
@@ -24607,8 +24596,7 @@
               }
             },
             "required": [
-              "planting_group_id",
-              "reason"
+              "planting_group_id"
             ],
             "additionalProperties": false
           }
@@ -25252,7 +25240,10 @@
         "additionalProperties": false,
         "properties": {
           "reason": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "at": {
             "type": "string",
@@ -27933,8 +27924,7 @@
               "greenhouse_id",
               "name",
               "role",
-              "active",
-              "reason"
+              "active"
             ]
           }
         },

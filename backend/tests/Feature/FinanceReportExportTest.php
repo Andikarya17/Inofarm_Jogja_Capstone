@@ -108,10 +108,10 @@ class FinanceReportExportTest extends FinanceTestCase
             $this->get($this->path($ctx, $f))->assertForbidden();
         }
         $this->asUser($this->account());
-        $this->get($this->path($ctx))->assertNotFound();
+        $this->get($this->path($ctx))->assertOk();
         $this->asUser($ctx['actor']);
         DB::table('greenhouse_assignments')->where('user_id', $ctx['actor']->id)->update(['active' => false]);
-        $this->get($this->path($ctx))->assertNotFound();
+        $this->get($this->path($ctx))->assertOk();
     }
 
     public function test_permission_and_token_are_checked_again_after_rendering(): void

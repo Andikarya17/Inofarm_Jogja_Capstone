@@ -187,8 +187,7 @@
         "period_start",
         "period_end",
         "amount",
-        "allocation_basis",
-        "reason"
+        "allocation_basis"
       ],
       "properties": {
         "asset_id": {
@@ -242,9 +241,7 @@
     "cancel": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "reason"
-      ],
+      "required": [],
       "properties": {
         "reason": {
           "type": "string",

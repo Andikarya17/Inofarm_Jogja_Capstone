@@ -243,8 +243,7 @@
               "discount_rate",
               "payback_convention",
               "cash_flows",
-              "notes",
-              "reason"
+              "notes"
             ],
             "properties": {
               "greenhouse_id": {
@@ -401,9 +400,7 @@
           "payload": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "reason"
-            ],
+            "required": [],
             "properties": {
               "reason": {
                 "type": "string",

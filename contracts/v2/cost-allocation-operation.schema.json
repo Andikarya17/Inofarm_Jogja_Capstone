@@ -164,8 +164,7 @@
         "season_id",
         "amount",
         "cost_class",
-        "allocation_basis",
-        "reason"
+        "allocation_basis"
       ],
       "properties": {
         "expense_id": {
@@ -203,9 +202,7 @@
     "cancel": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "reason"
-      ],
+      "required": [],
       "properties": {
         "reason": {
           "type": "string",

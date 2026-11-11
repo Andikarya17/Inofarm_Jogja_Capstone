@@ -81,9 +81,9 @@ class FinanceAssetTest extends FinanceTestCase
         $this->getJson('/api/v2/assets')->assertForbidden();
         $this->postJson('/api/v2/assets', $ctx['asset'])->assertForbidden();
         $this->getJson('/api/v2/assets/'.$ctx['asset']['entity_id'].'/audit')->assertForbidden();
+        // A manager without an assignment still reaches every greenhouse.
         $this->asUser($this->account());
-        $this->getJson('/api/v2/assets/'.$ctx['asset']['entity_id'])->assertNotFound();
-        $this->postJson('/api/v2/assets', $ctx['asset'])->assertNotFound();
+        $this->getJson('/api/v2/assets/'.$ctx['asset']['entity_id'])->assertOk();
     }
 
     public function test_rounding_anniversaries_and_zero_depreciable_base(): void

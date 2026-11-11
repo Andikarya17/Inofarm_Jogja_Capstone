@@ -38,7 +38,7 @@ class FinanceReplayStateTest extends FinanceTestCase
         }
     }
 
-    public function test_greenhouse_create_replay_rechecks_assignment_after_creation(): void
+    public function test_greenhouse_create_replay_does_not_depend_on_the_creator_assignment(): void
     {
         $manager = $this->account();
         $this->asUser($manager);
@@ -46,7 +46,7 @@ class FinanceReplayStateTest extends FinanceTestCase
         $receipt = $this->postJson('/api/v2/greenhouses', $operation)->assertCreated()->json();
         $this->postJson('/api/v2/greenhouses', $operation)->assertCreated()->assertExactJson($receipt);
         DB::table('greenhouse_assignments')->where('user_id', $manager->id)->where('greenhouse_id', $operation['entity_id'])->update(['active' => false]);
-        $this->postJson('/api/v2/greenhouses', $operation)->assertNotFound();
+        $this->postJson('/api/v2/greenhouses', $operation)->assertCreated()->assertExactJson($receipt);
         $this->assertSame(1, DB::table('sync_operations')->where('operation_id', $operation['operation_id'])->count());
     }
 }

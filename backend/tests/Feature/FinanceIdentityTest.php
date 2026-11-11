@@ -55,7 +55,9 @@ class FinanceIdentityTest extends FinanceTestCase
         $this->postJson('/api/v2/activities', $activity)->assertCreated()->assertExactJson($receipt);
         $this->assertDatabaseCount('harvests', 0);
         $foreign = $this->context($this->account());
-        $this->postJson('/api/v2/harvests', $this->operation('harvest', $this->harvest($ctx, $grade['id']), id: $activity['entity_id']))->assertNotFound();
+        $foreignWorker = $this->account('worker');
+        $this->createMaster('greenhouse_assignments', ['greenhouse_id' => $foreign['gh']['id'], 'user_id' => $foreignWorker->public_id, 'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
+        $this->asUser($foreignWorker)->postJson('/api/v2/harvests', $this->operation('harvest', $this->harvest($ctx, $grade['id']), id: $activity['entity_id']))->assertNotFound();
     }
 
     public function test_inline_children_cannot_reuse_root_or_balance_ids_and_cancel_retains_reservation(): void

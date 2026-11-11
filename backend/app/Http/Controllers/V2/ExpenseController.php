@@ -127,7 +127,7 @@ final class ExpenseController extends Controller
         ] : ['expense_id' => ['required', OperationInput::UUID], 'season_id' => ['required', OperationInput::UUID],
             'amount' => 'required|string|max:30', 'cost_class' => 'required|in:FC,VC', 'allocation_basis' => ['required', 'string', 'max:2000', 'regex:/\S/u']]);
         if ($action !== 'create') {
-            $rules['reason'] = ['required', 'string', 'max:1000', 'regex:/\S/u'];
+            $rules['reason'] = OperationInput::reasonRule($request, ['required', 'string', 'max:1000', 'regex:/\S/u']);
         }
         $result = $this->service($financeResource)->mutate($request->user(), OperationInput::read($request, $this->kind($financeResource), $action, $rules, $id));
 

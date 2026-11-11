@@ -69,7 +69,9 @@ class FinanceMasterTest extends FinanceTestCase
         $op = $this->operation('varieties', ['greenhouse_id' => $ctx['gh']['id'], 'name' => 'Replay scope']);
         $this->postJson('/api/v2/varieties', $op)->assertCreated();
         DB::table('greenhouse_assignments')->where('user_id', $manager->id)->update(['active' => false]);
-        $this->postJson('/api/v2/varieties', $op)->assertNotFound();
+        $this->postJson('/api/v2/varieties', $op)->assertCreated();
+        DB::table('greenhouse_assignments')->where('id', $assignment['id'])->update(['active' => false]);
+        $this->asUser($worker)->getJson('/api/v2/planting-groups')->assertJsonCount(0, 'data');
     }
 
     public function test_close_reopen_is_versioned_reasoned_and_closed_group_writes_are_held(): void
@@ -125,7 +127,8 @@ class FinanceMasterTest extends FinanceTestCase
         $this->asUser($user)->getJson('/api/v2/users?greenhouse_id='.$ctx['gh']['id'])->assertForbidden();
         $foreignManager = $this->account();
         $foreign = $this->context($foreignManager);
-        $this->getJson('/api/v2/users?greenhouse_id='.$ctx['gh']['id'])->assertNotFound();
-        $this->patchJson('/api/v2/users/'.$user->public_id, $edit)->assertNotFound();
+        $this->getJson('/api/v2/users?greenhouse_id='.$ctx['gh']['id'])->assertOk();
+        // Another manager reaches the account but cannot replay someone else's operation id.
+        $this->patchJson('/api/v2/users/'.$user->public_id, $edit)->assertConflict();
     }
 }

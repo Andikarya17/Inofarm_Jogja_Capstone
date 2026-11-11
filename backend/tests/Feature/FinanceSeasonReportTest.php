@@ -132,10 +132,10 @@ class FinanceSeasonReportTest extends FinanceTestCase
         $this->getJson('/api/v2/reports/'.$op['entity_id'])->assertForbidden();
         $this->postJson('/api/v2/season-reports', $op)->assertForbidden();
         $this->assertEmpty(array_filter($this->getJson('/api/v2/sync/changes')->assertOk()->json('data'), fn ($r) => $r['entity_type'] === 'season_report'));
-        $this->asUser($this->account())->getJson('/api/v2/reports/'.$op['entity_id'])->assertNotFound();
+        $this->asUser($this->account())->getJson('/api/v2/reports/'.$op['entity_id'])->assertOk();
         $this->asUser($ctx['actor']);
         DB::table('greenhouse_assignments')->where('user_id', $ctx['actor']->id)->update(['active' => false]);
-        $this->postJson('/api/v2/season-reports', $op)->assertNotFound();
+        $this->postJson('/api/v2/season-reports', $op)->assertCreated();
         DB::table('greenhouse_assignments')->where('user_id', $ctx['actor']->id)->update(['active' => true]);
         DB::table('report_snapshots')->where('id', $op['entity_id'])->update(['content' => '{}']);
         $this->getJson('/api/v2/reports/'.$op['entity_id'])->assertStatus(500)->assertJsonPath('code', 'report_snapshot_integrity');
