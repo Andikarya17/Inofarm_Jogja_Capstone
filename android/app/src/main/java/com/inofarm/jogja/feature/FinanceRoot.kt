@@ -516,7 +516,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 queueReviewOperation = op.id
                 val kind = op.envelope.optString("entity_type")
                 val destination = queueHistory[kind]
-                if (manager) showOutbox = false
+                showOutbox = false
                 when {
                     destination != null -> {
                         queueOpening = true
@@ -548,12 +548,17 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 val kind = op.envelope.optString("entity_type")
                 kind in queueHistory || manager && (kind in investmentQueueKinds || kind in setOf("season_report", "activity_review", "harvest_review", "planting_groups"))
             }, focusOperation = queueFocus,
-            onSendNow = if (manager) onSync else null,
-            title = "Belum terkirim")
+            onSendNow = onSync,
+            title = "Belum terkirim", worker = !manager)
     }
     val unsent = activity.queue.count { it.state != "ACCEPTED" && it.state != "SUPERSEDED" }
     fun startRecord(choice: RecordChoice) {
         recordSheet = false
+        if (!manager) return recordWorker(when (choice) {
+            RecordChoice.HARVEST -> "harvest"
+            RecordChoice.MEASUREMENT -> "measurement"
+            else -> "activity"
+        })
         val target = gh ?: lastGreenhouse ?: context.greenhouses.singleOrNull()?.optString("id")
         when (choice) {
             RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST ->
@@ -589,11 +594,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             sheet = true
         )
     }
-    val recordButton = manager && showNavigation && !writing && (tab == 0 || tab == 5)
-    if (manager && recordSheet) RecordSheet(::startRecord,
-        if (gh != null && runningGroup == null && !managerHome.loading) ({ recordSheet = false; onAdmin(AdminResource.GROUP) }) else null,
-        { recordSheet = false })
-    if (manager && showOutbox) ModalBottomSheet(
+    val recordButton = showNavigation && !writing && (tab == 0 || tab == 5)
+    if (recordSheet) RecordSheet(::startRecord,
+        if (manager && gh != null && runningGroup == null && !managerHome.loading) ({ recordSheet = false; onAdmin(AdminResource.GROUP) }) else null,
+        { recordSheet = false }, if (manager) RecordChoice.entries else WorkerRecordChoices)
+    if (showOutbox) ModalBottomSheet(
         onDismissRequest = { showOutbox = false; queueFocus = null },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
@@ -619,14 +624,13 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             onClick = { recordSheet = true },
             icon = { FarmControlIcon(FarmIcon.Add, null) },
             text = { Text("Catat") },
-            modifier = Modifier.testTag("manager-record-fab")
+            modifier = Modifier.testTag("finance-record-fab")
         )
     },bottomBar={
         if (showNavigation) {
-            val internalTabs = if (manager) ManagerScreenIds else intArrayOf(0, 1, 2, 3)
-            val selectedIndex = if (manager) managerNavIndex(tab) else tab
-            FinanceNavigation(selectedIndex, if (manager) ManagerDestinations else WorkerDestinations,
-                translucentNavigation, allowMenu = !manager) { index ->
+            val internalTabs = if (manager) ManagerScreenIds else WorkerScreenIds
+            FinanceNavigation(navIndex(tab), if (manager) ManagerDestinations else WorkerDestinations,
+                translucentNavigation) { index ->
                 if (!queueOpening) {
                     queueFocus = null
                     val target = internalTabs[index]
@@ -701,7 +705,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium),
                     contentPadding=PaddingValues(
                         top = 12.dp,
-                        bottom = FarmSpace.Large + if (translucentNavigation) {
+                        bottom = FarmSpace.Large + LocalFarmListBottomInset.current + if (translucentNavigation) {
                             (padding.calculateBottomPadding() - systemBottom).coerceAtLeast(0.dp)
                         } else 0.dp
                     )
@@ -758,7 +762,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 onRecord = { row ->
                                     if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
                                 },
-                                onQueue = { tab = 1 })
+                                onQueue = { queueFocus = null; showOutbox = true })
                         }
                     }
                     if (selectedGroup == null) item("sync") {
@@ -789,16 +793,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     ActivityVerificationScreen(session, ticket, context, verification, syncUpdates, reviewActivity,
                         { reviewActivity = it }, { showOutbox = true }, onSync, reviewKind, { reviewKind = it })
                 }
-                tab==1 && !manager -> tabState.SaveableStateProvider(queueFocus?.let { "queue-$it" } ?: 1) { queueScreen() }
                 tab==4 && manager -> tabState.SaveableStateProvider(4) {
                     FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync,financeKind,financeLink)
                 }
                 tab==6 && manager -> tabState.SaveableStateProvider(6) {
                     ManageScreen(session.name, onAdmin, onLogout, enabled = !writing, onAddGreenhouse = onAddGreenhouse)
                 }
-                tab==2 || tab==3 || tab==5 && manager -> tabState.SaveableStateProvider(if (tab == 5) "history-$historyChip" else tab) {
+                tab==2 || tab==3 || tab==5 -> tabState.SaveableStateProvider(if (tab == 5) "history-$historyChip" else tab) {
                     val isActivity = tab == 2 || tab == 5 && historyChip != "harvest"
-                    val canRecord = if (manager) canRecordFromHome else workerReady
                     HistoryScreen(session,context,if (isActivity) history else harvestHistory,
                         if (isActivity) historyVm else harvestHistoryVm,activity.queue,
                         onEdit={record,replace ->
@@ -806,29 +808,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             else { harvestVm.open(record,replace);harvestHistoryVm.close() }
                         },
                         kind=if (isActivity) OperationalKind.ACTIVITY else OperationalKind.HARVEST,
-                        onRecord=if (manager) null else ({
-                            if (!manager) recordWorker(if (isActivity) "activity" else "harvest")
-                            else if (!canRecord) {
-                                entryGreenhouse = gh
-                                entrySeason = null
-                                entryGroup = null
-                                managerRecording = if (isActivity) "activity" else "harvest"
-                            }
-                            else {
-                                if (isActivity) vm.new(gh!!, runningGroup!!, runningPeriodVersion = runningVersion)
-                                else harvestVm.new(gh!!, runningGroup!!, runningVersion)
-                            }
-                        }),
-                        recordLabel=when {
-                            isActivity -> "Catat kegiatan"
-                            else -> "Catat panen"
-                        },
-                        recordScope=if (canRecord && manager) listOfNotNull(homeSnapshot?.selected?.text("name"),homeSnapshot?.period?.text("season_name")).joinToString(" · ")
-                        else if (canRecord) listOf(selectedGreenhouse,selectedSeason,selectedGroup)
-                            .joinToString(" · ") { it!!.getString("name") } else null,
+                        recordScope=if (manager && canRecordFromHome) listOfNotNull(homeSnapshot?.selected?.text("name"),homeSnapshot?.period?.text("season_name")).joinToString(" · ")
+                        else null,
                         onSync=onSync,
                         historyKindPicker = if (tab == 5) ({
-                            RecordTypeChips(historyChip) { id ->
+                            RecordTypeChips(historyChip, manager) { id ->
                                 when (id) {
                                     "activity", "measurement" -> {
                                         historyChip = id
@@ -883,24 +867,17 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text("Inofarm", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-        if (manager) {
-            if (unsent > 0) TextButton(onClick = onUnsent, shape = FarmShape.Control,
-                modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-unsent")
-                    .semantics { liveRegion = LiveRegionMode.Polite }) {
-                FarmControlIcon(FarmIcon.Sync, null)
-                Spacer(Modifier.width(FarmSpace.Small))
-                Text("$unsent belum terkirim", style = MaterialTheme.typography.labelLarge)
-            } else if (syncing) Text("Memperbarui", Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                style = MaterialTheme.typography.labelMedium)
-        } else {
-            if (syncing && LocalDensity.current.fontScale <= 1.3f) Text(
-                "Memperbarui",
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
-            )
-            IconButton(onClick = onSync, enabled = !syncing, modifier = Modifier.testTag("finance-sync")) {
-                FarmControlIcon(FarmIcon.Sync, if (syncing) "Memperbarui" else "Perbarui")
-            }
+        if (unsent > 0) TextButton(onClick = onUnsent, shape = FarmShape.Control,
+            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-unsent")
+                .semantics { liveRegion = LiveRegionMode.Polite }) {
+            FarmControlIcon(FarmIcon.Sync, null)
+            Spacer(Modifier.width(FarmSpace.Small))
+            Text("$unsent belum terkirim", style = MaterialTheme.typography.labelLarge)
+        } else if (syncing && (manager || LocalDensity.current.fontScale <= 1.3f)) Text("Memperbarui",
+            Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.labelMedium)
+        // The worker has no manual refresh on Beranda, so the toolbar keeps its button.
+        if (!manager) IconButton(onClick = onSync, enabled = !syncing, modifier = Modifier.testTag("finance-sync")) {
+            FarmControlIcon(FarmIcon.Sync, if (syncing) "Memperbarui" else "Perbarui")
         }
         Box {
             IconButton(onClick = { accountOpen = true }, modifier = Modifier.testTag("finance-account")) {

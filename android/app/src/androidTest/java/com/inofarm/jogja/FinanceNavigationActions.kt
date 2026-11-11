@@ -18,35 +18,22 @@ internal fun FinanceTestRule.waitForFinanceMasterPull() {
     }
 }
 
-internal fun FinanceTestRule.openCompactNavigationIfPresent(): Boolean {
-    val compact = onAllNodesWithTag("finance-navigation-menu").fetchSemanticsNodes().isNotEmpty()
-    if (compact) {
-        onNodeWithTag("finance-navigation-menu").performClick()
-    }
-    return compact
-}
-
 internal fun FinanceTestRule.selectFinanceTab(index: Int) {
-    waitUntil(10_000) {
-        onAllNodesWithTag("finance-navigation-menu").fetchSemanticsNodes().isNotEmpty() ||
-            onAllNodesWithTag("finance-tab-$index").fetchSemanticsNodes().isNotEmpty()
-    }
-    val compact = openCompactNavigationIfPresent()
-    val destination = onNodeWithTag("finance-tab-$index")
-    if (compact) destination.performScrollTo()
-    destination.performClick()
+    waitUntil(10_000) { onAllNodesWithTag("finance-tab-$index").fetchSemanticsNodes().isNotEmpty() }
+    onNodeWithTag("finance-tab-$index").performClick()
 }
 
-internal fun FinanceTestRule.openFinanceOutbox() {
+/** Worker Riwayat holds activity, measurement and harvest behind chips; this opens the harvest list. */
+internal fun FinanceTestRule.openWorkerHarvestHistory() {
     selectFinanceTab(1)
-    val verification = onAllNodesWithTag("activity-verification-list")
-    waitUntil(10_000) {
-        verification.fetchSemanticsNodes().isNotEmpty() || onAllNodesWithTag("finance-queue-list").fetchSemanticsNodes().isNotEmpty()
-    }
-    if (verification.fetchSemanticsNodes().isNotEmpty()) {
-        onNodeWithTag("activity-verification-list").performScrollToNode(hasTestTag("verification-outbox"))
-        onNodeWithTag("verification-outbox").performClick()
-    }
+    onNodeWithTag("history-chip-harvest").performClick()
+}
+
+/** The "N belum terkirim" button in the top bar opens the outbox sheet; it only exists while something is unsent. */
+internal fun FinanceTestRule.openFinanceOutbox() {
+    waitUntil(10_000) { onAllNodesWithTag("finance-unsent").fetchSemanticsNodes().isNotEmpty() }
+    onNodeWithTag("finance-unsent").performClick()
+    waitUntil(10_000) { onAllNodesWithTag("finance-queue-list").fetchSemanticsNodes().isNotEmpty() }
 }
 
 internal fun FinanceTestRule.logoutFromAccount() {

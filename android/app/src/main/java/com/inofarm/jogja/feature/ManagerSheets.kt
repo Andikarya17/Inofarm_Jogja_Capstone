@@ -24,9 +24,16 @@ internal enum class RecordChoice(val label: String, val detail: String, val icon
     SALE("Penjualan", "Penjualan yang sudah lunas", FarmIcon.Allocate),
 }
 
+internal val WorkerRecordChoices = listOf(RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun RecordSheet(onPick: (RecordChoice) -> Unit, onStartPlanting: (() -> Unit)?, onDismiss: () -> Unit) {
+internal fun RecordSheet(
+    onPick: (RecordChoice) -> Unit,
+    onStartPlanting: (() -> Unit)?,
+    onDismiss: () -> Unit,
+    choices: List<RecordChoice> = RecordChoice.entries,
+) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -41,10 +48,10 @@ internal fun RecordSheet(onPick: (RecordChoice) -> Unit, onStartPlanting: (() ->
                         Modifier.testTag("record-start-planting"), onClick = onStartPlanting)
                     FarmRowDivider()
                 }
-                RecordChoice.entries.forEachIndexed { index, choice ->
+                choices.forEachIndexed { index, choice ->
                     FarmActionRow(choice.label, choice.detail, choice.icon,
                         Modifier.testTag("record-${choice.name.lowercase()}")) { onPick(choice) }
-                    if (index < RecordChoice.entries.lastIndex) FarmRowDivider()
+                    if (index < choices.lastIndex) FarmRowDivider()
                 }
             }
         }
@@ -69,13 +76,13 @@ private fun TextActionRow(label: String, detail: String, modifier: Modifier, ena
 /** Filter chips for the Riwayat tab. Activity, measurement and harvest stay here; money records open Keuangan. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun RecordTypeChips(selected: String, onSelect: (String) -> Unit) {
+internal fun RecordTypeChips(selected: String, manager: Boolean = true, onSelect: (String) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
         listOf("activity" to "Semua kegiatan", "measurement" to "Pengukuran", "harvest" to "Panen").forEach { (id, label) ->
             FilterChip(selected == id, { onSelect(id) }, label = { Text(label) }, modifier = Modifier.testTag("history-chip-$id"))
         }
         // Money records live in Keuangan, so these open that tab instead of filtering this list.
-        listOf("expense" to "Biaya", "sale" to "Penjualan", "asset" to "Aset").forEach { (id, label) ->
+        if (manager) listOf("expense" to "Biaya", "sale" to "Penjualan", "asset" to "Aset").forEach { (id, label) ->
             AssistChip({ onSelect(id) }, label = { Text(label) }, trailingIcon = { FarmControlIcon(FarmIcon.ChevronRight, null) },
                 modifier = Modifier.testTag("history-chip-$id"))
         }

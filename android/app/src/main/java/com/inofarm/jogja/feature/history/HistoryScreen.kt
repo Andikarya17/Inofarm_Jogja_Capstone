@@ -50,7 +50,7 @@ import java.time.Instant
 import java.time.LocalDate
 
 @Composable fun HistoryScreen(session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind=OperationalKind.ACTIVITY,
-    returnToQueue:Boolean=false, onRecord:(()->Unit)?=null, recordLabel:String="", recordScope:String?=null, onSync:(()->Unit)?=null,
+    returnToQueue:Boolean=false, recordScope:String?=null, onSync:(()->Unit)?=null,
     historyKindPicker:(@Composable ()->Unit)?=null, header:LazyListScope.()->Unit={}) {
     when {
         state.comparison!=null -> ConflictReview(state.comparison,session,context,state.busy,state.message,vm::resolve,vm::closeComparison,kind)
@@ -70,8 +70,6 @@ import java.time.LocalDate
                     FlowRow(horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small),
                         verticalArrangement=Arrangement.spacedBy(FarmSpace.Small)) {
                         HistoryFilters(context,state.filter,state.filterSeason,vm::filter,kind)
-                        if (onRecord != null) FilledTonalButton(onClick=onRecord,shape=FarmShape.Control,
-                            modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("history-new")) { Text(recordLabel) }
                     }
                     recordScope?.let {
                         Text("Catatan baru · $it",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)

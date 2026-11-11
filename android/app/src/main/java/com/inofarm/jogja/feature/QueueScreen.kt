@@ -62,8 +62,13 @@ internal fun QueueScreen(
     onVerification: (() -> Unit)? = null,
     onSendNow: (() -> Unit)? = null,
     title: String = "Belum terkirim",
+    worker: Boolean = false,
 ) {
-    val queue = activity.queue
+    val recovery = LocalRecoveryActions.current
+    // Workers only see what still needs sending or checking; sent records are in Riwayat.
+    val queue = if (worker) activity.queue.filter {
+        it.state != SyncState.ACCEPTED.name && it.state != "SUPERSEDED" || recovery?.canReview?.invoke(it) == true
+    } else activity.queue
     val displayOrder = remember(queue, focusOperation) {
         queue.sortedWith(compareBy({ it.id != focusOperation }, { it.syncState()?.needsReview != true }))
     }
@@ -79,7 +84,7 @@ internal fun QueueScreen(
                     val counts = listOf(
                         queue.count { it.syncState()?.needsReview == true } to "Perlu dicek",
                         queue.count { it.state == SyncState.QUEUED.name } to "Menunggu",
-                        queue.count { it.state == SyncState.ACCEPTED.name } to "Terkirim"
+                        (if (worker) 0 else queue.count { it.state == SyncState.ACCEPTED.name }) to "Terkirim"
                     ).filter { it.first > 0 }
                     if (counts.isNotEmpty()) {
                         FarmPanel {
@@ -133,13 +138,13 @@ internal fun QueueScreen(
         }
         items(displayOrder, key = { it.id }) { operation ->
             QueueRecord(operation, opening, reviewError.takeIf { reviewOperation == operation.id },
-                if (canReview(operation)) ({ onReview(operation) }) else null, operation.id == focusOperation)
+                if (canReview(operation)) ({ onReview(operation) }) else null, operation.id == focusOperation, worker)
         }
     }
 }
 
 @Composable
-private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewError: String?, onReview: (() -> Unit)?, initiallyExpanded: Boolean) {
+private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewError: String?, onReview: (() -> Unit)?, initiallyExpanded: Boolean, worker: Boolean) {
     val kind = operation.envelope.optString("entity_type")
     val state = operation.syncState()
     val label = OperationalKind.entries.find { it.wire == kind }?.label ?: when (kind) {
@@ -186,12 +191,12 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
                 onClick = onReview, enabled = !opening, shape = FarmShape.Control,
                 modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-review-${operation.id}")
             ) { Text("Buka catatan") }
-            TextButton(
+            if (!worker) TextButton(
                 onClick = { expanded = !expanded }, shape = FarmShape.Control,
                 modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("queue-operation-${operation.id}")
             ) { Text(if (expanded) "Tutup rincian" else "Rincian") }
         }
-        if (expanded) {
+        if (expanded && !worker) {
             HorizontalDivider()
             FarmFact("ID kiriman", operation.id)
             FarmFact("ID catatan", operation.entityId)
