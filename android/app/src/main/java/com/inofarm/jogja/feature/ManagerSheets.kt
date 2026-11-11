@@ -89,11 +89,15 @@ internal fun ManageScreen(
     onOpen: (Admin) -> Unit,
     onLogout: () -> Unit,
     enabled: Boolean,
+    onAddGreenhouse: () -> Unit,
 ) {
     FarmMenuList(Modifier.testTag("manage-list")) {
         item("manage-title") { FarmMenuHeader("Kelola", "") }
         item("manage-main") {
             FarmRecordCard {
+                FarmActionRow("Tambah greenhouse", "Greenhouse baru, tanam pertama dan pekerja", FarmIcon.Add,
+                    Modifier.testTag("manage-add-greenhouse"), enabled, onClick = onAddGreenhouse)
+                FarmRowDivider()
                 FarmActionRow("Greenhouse", "Tambah dan atur greenhouse", FarmIcon.Greenhouse,
                     Modifier.testTag("manage-greenhouse"), enabled) { onOpen(Admin.GREENHOUSE) }
                 FarmRowDivider()

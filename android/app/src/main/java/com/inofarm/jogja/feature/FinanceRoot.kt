@@ -194,7 +194,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var adminEntry by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<AdminResource?>(null) }
     var adminPeriodRequest by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<String?>(null) }
     var adminGreenhouse by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<String?>(null) }
-    val openAdmin: (AdminResource) -> Unit = { adminEntry = it }
+    var wizardOpen by rememberSaveable(authState.session?.scope?.key) { mutableStateOf(false) }
+    var wizardTarget by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    var adminEdit by rememberSaveable(authState.session?.scope?.key) { mutableStateOf(false) }
+    val openAdmin: (AdminResource) -> Unit = { adminGreenhouse = null; adminEdit = false; adminEntry = it }
     BackHandler(authState.loading && authState.session!=null) { /* Wait for the bounded local persistence boundary. */ }
     Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
         if(authState.session==null) {
@@ -216,7 +219,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                     allocationHistory, attachmentState, attachments, runtime.vault.generation, saleState,
                                     sales, saleHistoryState, saleHistory, assetWorkspace, reportWorkspace,
                                     investmentWorkspace, openAdmin, { adminEntry = null },
-                                    adminPeriodRequest, { adminPeriodRequest = null }, { adminGreenhouse = it })
+                                    adminPeriodRequest, { adminPeriodRequest = null }, { id, edit -> adminGreenhouse = id; adminEdit = edit },
+                                    { wizardOpen = true }, wizardTarget, { wizardTarget = null })
                             }
                         }
                     }
@@ -228,8 +232,15 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val adminSession = authState.session
     if (admin != null && adminSession?.role == UserRole.MANAGER && !adminSession.rejected) {
         AdminHost(adminSession, runtime.admin, context::refresh, admin,
-            onReviewPeriod = { greenhouse -> adminPeriodRequest = greenhouse; adminEntry = null },
-            onClose = { adminEntry = null; adminGreenhouse = null }, initialGreenhouse = adminGreenhouse)
+            onReviewPeriod = { greenhouse -> adminPeriodRequest = greenhouse; adminEntry = null; adminGreenhouse = null; adminEdit = false },
+            onClose = { adminEntry = null; adminGreenhouse = null; adminEdit = false },
+            initialGreenhouse = adminGreenhouse, initialEdit = adminEdit)
+    }
+    if (wizardOpen && adminSession?.role == UserRole.MANAGER && !adminSession.rejected) {
+        com.inofarm.jogja.feature.admin.GreenhouseWizardHost(adminSession, runtime.admin, context::refresh,
+            onOpenGreenhouse = { id -> wizardTarget = id to false; wizardOpen = false },
+            onRecord = { id -> wizardTarget = id to true; wizardOpen = false },
+            onClose = { wizardOpen = false })
     }
     if(authState.session!=null && !authState.loading && authState.error!=null) AlertDialog(onDismissRequest=auth::clearError,title={Text("Belum keluar")},text={Text(authState.error!!)},confirmButton={TextButton(onClick=auth::clearError) {Text("Kembali ke isian")}})
 }
@@ -238,7 +249,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
 @Composable private fun FinanceHome(session:FinanceSession,context:CultivationUiState,activity:ActivityUiState,onSync:()->Unit,onLogout:()->Unit,vm:ActivityViewModel,history:HistoryUiState,historyVm:HistoryViewModel,
     harvest:HarvestUiState,harvestVm:HarvestViewModel,harvestHistory:HistoryUiState,harvestHistoryVm:HistoryViewModel,financial:FinancialEntryState,financialVm:FinancialEntryViewModel,
     expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:AssetWorkspace,reports:SeasonReportWorkspace,investments:InvestmentWorkspace,onAdmin:(AdminResource)->Unit,onAccessDenied:()->Unit,
-    adminPeriodRequest: String?, onAdminPeriodOpened: () -> Unit, onAdminGreenhouse: (String?) -> Unit) {
+    adminPeriodRequest: String?, onAdminPeriodOpened: () -> Unit, onAdminGreenhouse: (String?, Boolean) -> Unit,
+    onAddGreenhouse: () -> Unit, wizardTarget: Pair<String, Boolean>?, onWizardTargetUsed: () -> Unit) {
     val runtime:FinanceRuntime=viewModel()
     val tabState = rememberSaveableStateHolder()
     var tab by rememberSaveable { mutableStateOf(0) };var gh by rememberSaveable { mutableStateOf<String?>(null) };var season by rememberSaveable { mutableStateOf<String?>(null) };var group by rememberSaveable { mutableStateOf<String?>(null) }
@@ -272,6 +284,16 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             tab = 0
             periodReview = true
             onAdminPeriodOpened()
+        }
+    }
+    LaunchedEffect(wizardTarget, manager) {
+        val target = wizardTarget
+        if (manager && target != null) {
+            gh = target.first
+            tab = 0
+            periodReview = false
+            if (target.second) recordSheet = true
+            onWizardTargetUsed()
         }
     }
     var financeKind by rememberSaveable { mutableStateOf(OperationalKind.EXPENSE.wire) }
@@ -659,7 +681,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             if (canRecordFromHome) vm.new(gh!!, runningGroup!!, type, schedule, runningVersion)
                         },
                         onHarvest = { if (canRecordFromHome) harvestVm.new(gh!!, runningGroup!!, runningVersion) },
-                        onAdmin = { onAdminGreenhouse(gh); onAdmin(AdminResource.SEASON) },
+                        onAdmin = { onAdmin(AdminResource.GREENHOUSE); onAdminGreenhouse(gh, false) },
                         seasonActions = { row -> SeasonActions(row, history.busy, history.message, historyVm::season) },
                         onDesignate = { groupId, reason ->
                             try {
@@ -671,8 +693,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         },
                         reviewCount = reviewCount,
                         onReviewInbox = { reviewActivity = null; tab = 1 },
-                        onAddGreenhouse = { onAdmin(AdminResource.GREENHOUSE) },
-                        onAdminFor = { resource -> onAdminGreenhouse(gh); onAdmin(resource) })
+                        onAddGreenhouse = onAddGreenhouse,
+                        onAdminFor = { resource, edit -> onAdmin(resource); onAdminGreenhouse(gh, edit) })
                 }
                 tab==0 && !harvestProgressOpen -> tabState.SaveableStateProvider("worker-home-${selectedGreenhouse?.optString("id").orEmpty()}") { LazyColumn(
                     modifier=Modifier.fillMaxSize().testTag("finance-home-list"),
@@ -772,7 +794,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync,financeKind,financeLink)
                 }
                 tab==6 && manager -> tabState.SaveableStateProvider(6) {
-                    ManageScreen(session.name, onAdmin, onLogout, enabled = !writing)
+                    ManageScreen(session.name, onAdmin, onLogout, enabled = !writing, onAddGreenhouse = onAddGreenhouse)
                 }
                 tab==2 || tab==3 || tab==5 && manager -> tabState.SaveableStateProvider(if (tab == 5) "history-$historyChip" else tab) {
                     val isActivity = tab == 2 || tab == 5 && historyChip != "harvest"

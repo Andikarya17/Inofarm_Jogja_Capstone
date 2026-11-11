@@ -44,6 +44,7 @@ import com.inofarm.jogja.feature.Notice
     onReviewPeriod: ((String) -> Unit)? = null,
     onClose: () -> Unit,
     initialGreenhouse: String? = null,
+    initialEdit: Boolean = false,
 ) {
     if(session.role!=UserRole.MANAGER) {LaunchedEffect(Unit) {onClose()};return}
     val vm:AdminViewModel=viewModel(key="admin-${session.scope.key}-${repository.vault.generation}",factory=object:ViewModelProvider.Factory {
@@ -55,14 +56,14 @@ import com.inofarm.jogja.feature.Notice
         if (!entered && !state.busy) {
             entered = true
             if (state.resource != initialResource || state.detail != null || initialGreenhouse != null && state.greenhouse != initialGreenhouse)
-                vm.choose(initialResource, initialGreenhouse ?: state.greenhouse)
+                vm.choose(initialResource, initialGreenhouse ?: if (initialResource == AdminResource.GREENHOUSE) null else state.greenhouse)
         }
     }
     var focused by rememberSaveable(initialResource, initialGreenhouse) { mutableStateOf(false) }
     LaunchedEffect(state.rows, state.busy, state.listChecked) {
         if (!focused && initialGreenhouse != null && initialResource == AdminResource.GREENHOUSE &&
             state.resource == AdminResource.GREENHOUSE && !state.busy && state.listChecked) {
-            state.rows.find { it.optString("id") == initialGreenhouse }?.let { focused = true; vm.detail(it) }
+            state.rows.find { it.optString("id") == initialGreenhouse }?.let { focused = true; if (initialEdit) vm.open(it) else vm.detail(it) }
         }
     }
     var search by rememberSaveable(state.resource,state.greenhouse) { mutableStateOf("") }

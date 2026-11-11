@@ -84,6 +84,39 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
         val hash=WireContract.hash(operation);val secret=payload.has("password");payload.remove("password")
         JSONObject(journal.toString()).put("pending",operation).put("hash",hash).put("needs_password",secret).also {write(session,ticket,it)}
     }
+    /** Builds one admin operation for the setup wizard without touching the shared admin journal. Reuse the result on retry. */
+    suspend fun buildOperation(session:FinanceSession,ticket:Long,form:AdminForm,password:String=""):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val status=api.request(session.scope.server,session.token,"sync/status")
+        current(session,ticket)
+        val epoch=status.getString("sync_epoch");WireContract.uuid(epoch)
+        require(store.epoch(session.scope.key)==epoch) {"Data dipulihkan dari cadangan. Beberapa catatan perlu dicek sebelum dikirim."}
+        JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("operation_id",UUID.randomUUID().toString())
+            .put("entity_id",form.id).put("entity_type",form.resource.kind).put("action",form.action)
+            .put("base_version",form.version ?: JSONObject.NULL).put("payload",form.payload(password))
+    }
+    suspend fun sendOperation(session:FinanceSession,ticket:Long,form:AdminForm,operation:JSONObject):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val result=api.request(session.scope.server,session.token,form.resource.path,"POST",operation)
+        current(session,ticket)
+        require(result.getString("operation_id")==operation.getString("operation_id") && result.getString("entity_id")==form.id)
+        result
+    }
+    /** Sets the running planting group of a greenhouse. [version] is the greenhouse version the manager just saw. */
+    suspend fun designateOperation(session:FinanceSession,ticket:Long,greenhouse:String,version:Long,group:String?):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val epoch=api.request(session.scope.server,session.token,"sync/status").getString("sync_epoch");WireContract.uuid(epoch)
+        JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("operation_id",UUID.randomUUID().toString())
+            .put("entity_id",greenhouse).put("entity_type","greenhouses").put("action","designate_period").put("base_version",version)
+            .put("payload",JSONObject().put("planting_group_id",group ?: JSONObject.NULL))
+    }
+    suspend fun sendDesignation(session:FinanceSession,ticket:Long,greenhouse:String,operation:JSONObject):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val result=api.request(session.scope.server,session.token,"greenhouses/$greenhouse/running-period","POST",operation)
+        current(session,ticket)
+        require(result.getString("operation_id")==operation.getString("operation_id"))
+        result
+    }
     suspend fun send(session:FinanceSession,ticket:Long,journal:JSONObject,password:String):JSONObject=withContext(Dispatchers.IO) {
         current(session,ticket)
         val operation=JSONObject(journal.getJSONObject("pending").toString())

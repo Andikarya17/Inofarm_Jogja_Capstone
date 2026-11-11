@@ -20,6 +20,7 @@ import com.inofarm.jogja.core.database.LocalHistoryFilter
 import com.inofarm.jogja.core.database.QueuedOperation
 import com.inofarm.jogja.core.design.*
 import com.inofarm.jogja.feature.Notice
+import com.inofarm.jogja.feature.admin.AdminResource
 import com.inofarm.jogja.feature.activities.MeasurementCards
 import com.inofarm.jogja.feature.activities.MeasurementSource
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
@@ -62,7 +63,7 @@ internal fun ManagerHomeScreen(
     reviewCount: Int? = null,
     onReviewInbox: () -> Unit = {},
     onAddGreenhouse: () -> Unit = {},
-    onAdminFor: (com.inofarm.jogja.feature.admin.AdminResource) -> Unit = {},
+    onAdminFor: (AdminResource, Boolean) -> Unit = { _, _ -> },
 ) {
     val snapshot = state.snapshot
     val selected = snapshot?.selected
@@ -110,8 +111,13 @@ internal fun ManagerHomeScreen(
                 )
                 if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (selection != null && selected != null) {
-                    Caption(if (selected.optBoolean("active", true)) "Aktif" else "Nonaktif")
+                    val active = selected.optBoolean("active", true)
+                    if (active) Caption("Aktif")
                     PeriodFacts(selected.getJSONObject("period"), expanded = false)
+                    if (active) TextButton(onClick = { onPeriodReview(true) },
+                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-period-history")) {
+                        Text(if (period == null) "Pilih tanam saat ini" else "Ganti tanam saat ini")
+                    }
                 }
             }
         }
@@ -158,14 +164,6 @@ internal fun ManagerHomeScreen(
             }
         } else if (selected != null) {
             item("hub-sections") { HubSections(section) { section = it } }
-            if (section == "settings") item("period") {
-                FarmPanel(title = "Tanam saat ini") {
-                    PeriodFacts(selected.getJSONObject("period"), expanded = true)
-                    TextButton(onClick = { onPeriodReview(true) }, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-period-history")) {
-                        Text("Ganti tanam saat ini")
-                    }
-                }
-            }
             if (section == "summary") item("measurement") {
                 Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                     val server = snapshot.detail?.optJSONObject("measurement")
@@ -235,21 +233,26 @@ internal fun ManagerHomeScreen(
                             Caption("${harvest.getInt("records")} catatan panen")
                         }
                     }
+                    if (period != null) Button(onClick = onHarvest, shape = FarmShape.Control,
+                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("harvest-new")) { Text("Catat panen") }
                     TextButton(onClick = { onOpen(HomeDestination(OperationalKind.HARVEST, activities, seasonLabelId = periodId)) },
                         modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat panen") }
                 }
             }
             if (section == "settings") item("settings") {
-                FarmPanel(title = "Pengaturan greenhouse") {
-                    val active = selected.optBoolean("active", true)
-                    TextButton(onClick = { onAdminFor(com.inofarm.jogja.feature.admin.AdminResource.SEASON) }, enabled = active,
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("hub-seasons")) { Text("Musim dan kelompok tanam") }
-                    TextButton(onClick = { onAdminFor(com.inofarm.jogja.feature.admin.AdminResource.ASSIGNMENT) }, enabled = active,
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("hub-workers")) { Text("Pekerja di greenhouse ini") }
-                    TextButton(onClick = { onAdminFor(com.inofarm.jogja.feature.admin.AdminResource.GREENHOUSE) },
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("hub-edit")) {
-                        Text(if (active) "Ubah atau nonaktifkan greenhouse" else "Ubah greenhouse")
+                val active = selected.optBoolean("active", true)
+                FarmRecordCard {
+                    if (!active) Text("Greenhouse nonaktif. Ubah greenhouse untuk mengaktifkannya lagi.", style = MaterialTheme.typography.bodyMedium)
+                    if (active) {
+                        FarmActionRow("Musim dan kelompok tanam", "Tambah musim, kelompok tanam dan varietas", FarmIcon.Schedule,
+                            Modifier.testTag("hub-seasons")) { onAdminFor(AdminResource.GREENHOUSE, false) }
+                        FarmRowDivider()
+                        FarmActionRow("Pekerja di greenhouse ini", "Tambah atau lepas pekerja", FarmIcon.Account,
+                            Modifier.testTag("hub-workers")) { onAdminFor(AdminResource.ASSIGNMENT, false) }
+                        FarmRowDivider()
                     }
+                    FarmActionRow(if (active) "Ubah atau nonaktifkan" else "Ubah greenhouse", "Nama dan status greenhouse", FarmIcon.Greenhouse,
+                        Modifier.testTag("hub-edit")) { onAdminFor(AdminResource.GREENHOUSE, true) }
                 }
             }
         }
@@ -301,7 +304,9 @@ internal fun ManagerHomeScreen(
         if (snapshot != null) {
             if (selection == null || section in setOf("activity", "harvest")) item("recent") {
                 FarmPanel(title = "Catatan terbaru") {
-                    val recent = snapshot.json.rows("recent")
+                    val recent = snapshot.json.rows("recent").filter {
+                        selection == null || (section == "harvest") == (it.text("kind") == "harvest")
+                    }
                     if (snapshot.json.isNull("recent")) Caption("Catatan terbaru belum dapat dibaca lengkap.")
                     else if (recent.isEmpty()) Caption("Belum ada catatan.")
                     recent.forEach { record ->
@@ -327,7 +332,7 @@ internal fun ManagerHomeScreen(
                         }
                         HorizontalDivider()
                     }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                    if (selection == null) FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                         TextButton(onClick = { onOpen(HomeDestination(OperationalKind.ACTIVITY, activities, seasonLabelId = periodId)) },
                             modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat semua kegiatan") }
                         TextButton(onClick = { onOpen(HomeDestination(OperationalKind.HARVEST, activities, seasonLabelId = periodId)) },
@@ -356,7 +361,7 @@ internal fun ManagerHomeScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HubSections(selected: String, onSelect: (String) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
         listOf("summary" to "Ringkasan", "activity" to "Kegiatan", "harvest" to "Panen",
             "finance" to "Keuangan", "settings" to "Pengaturan").forEach { (id, label) ->
             FilterChip(selected == id, { onSelect(id) }, label = { Text(label) }, modifier = Modifier.testTag("hub-section-$id"))
@@ -369,6 +374,7 @@ private fun PeriodFacts(period: JSONObject, expanded: Boolean) {
     when (period.text("state")) {
         "ready" -> {
             Text(period.getString("variety"), style = MaterialTheme.typography.titleMedium)
+            period.text("group_name")?.let { Caption("Kelompok $it") }
             val age = period.getJSONObject("age")
             val days = listOfNotNull(age.text("hss")?.let { "$it hari sejak semai (HSS)" },
                 age.text("hst")?.let { "$it hari sejak pindah tanam (HST)" })
