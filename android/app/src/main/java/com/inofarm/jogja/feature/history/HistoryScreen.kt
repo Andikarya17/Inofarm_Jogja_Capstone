@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature.history
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -11,7 +12,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -40,6 +43,7 @@ import com.inofarm.jogja.core.design.FarmSheetHeading
 import com.inofarm.jogja.core.design.LocalFarmDialogPicker
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.*
+import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.assets.AssetDraft
 import com.inofarm.jogja.feature.context.CultivationUiState
@@ -48,6 +52,8 @@ import com.inofarm.jogja.feature.expenses.moneyLabel
 import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable fun HistoryScreen(session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind=OperationalKind.ACTIVITY,
     returnToQueue:Boolean=false, recordScope:String?=null, onSync:(()->Unit)?=null,
@@ -69,7 +75,7 @@ import java.time.LocalDate
                         color=MaterialTheme.colorScheme.onSurfaceVariant)
                     FlowRow(horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small),
                         verticalArrangement=Arrangement.spacedBy(FarmSpace.Small)) {
-                        HistoryFilters(context,state.filter,state.filterSeason,vm::filter,kind)
+                        HistoryFilters(context,state.filter,state.filterSeason,vm::filter,kind,pickDates=session.role==UserRole.WORKER)
                     }
                     recordScope?.let {
                         Text("Catatan baru · $it",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -111,7 +117,7 @@ import java.time.LocalDate
                 }
             }
             items(state.records, key = { it.id }) { record ->
-                HistoryRecordRow(record, kind, context) { vm.select(record.id) }
+                HistoryRecordRow(record, kind, context, session.scope.accountId.takeIf { session.role == UserRole.WORKER }, state.checks) { vm.select(record.id) }
             }
             if(state.hasMore) item {
                 Button(onClick=vm::more,enabled=!state.loading,shape=FarmShape.Control,
@@ -122,7 +128,9 @@ import java.time.LocalDate
 }
 
 @Composable
-private fun HistoryRecordRow(record: LocalRecord, kind: OperationalKind, context: CultivationUiState, onOpen: () -> Unit) {
+private fun HistoryRecordRow(
+    record: LocalRecord, kind: OperationalKind, context: CultivationUiState, workerAccount: String?, checks: Map<String, String>, onOpen: () -> Unit,
+) {
     val data = record.body
     val local = data.optJSONObject("_local_form")
     val facts = local ?: data
@@ -177,11 +185,27 @@ private fun HistoryRecordRow(record: LocalRecord, kind: OperationalKind, context
         if (notes != null) Text(notes, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(listOfNotNull(group, greenhouse, time ?: "Waktu belum tersedia").joinToString(" · "),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        RecordStatus(record.syncState)
+        if (workerAccount != null) WorkerRecordStatus(record, workerAccount, checks) else RecordStatus(record.syncState)
         if (data.optString("record_state") == "cancelled") Text("Dibatalkan", color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.labelMedium)
         if (kind == OperationalKind.ACTIVITY && (local?.optBoolean("skipped") ?: (data.optString("work_state") == "skipped")))
             Text("Kegiatan dilewati", style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+/** A worker reads drafts as "Draf" and sent records with the manager's check, not the transport state. */
+@Composable
+private fun WorkerRecordStatus(record: LocalRecord, account: String, checks: Map<String, String>) {
+    val colors = MaterialTheme.colorScheme
+    when {
+        record.syncState == SyncState.LOCAL ->
+            Text("Draf · tersimpan di perangkat", style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+        record.syncState == SyncState.ACCEPTED && record.recorderId() == account -> {
+            val decision = record.serverVersion?.let { checks["${record.id}#$it"] }
+            Text("Terkirim · " + when (decision) { "valid" -> "Sesuai"; "invalid" -> "Perlu diperbaiki"; else -> "Belum dicek" },
+                style = MaterialTheme.typography.labelLarge, color = if (decision == "invalid") colors.error else colors.onSurfaceVariant)
+        }
+        else -> RecordStatus(record.syncState)
     }
 }
 
@@ -206,7 +230,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun HistoryFilters(context:CultivationUiState,filter:LocalHistoryFilter,filterSeason:String?,onApply:(LocalHistoryFilter,String?)->Unit,kind:OperationalKind) {
+@Composable private fun HistoryFilters(context:CultivationUiState,filter:LocalHistoryFilter,filterSeason:String?,onApply:(LocalHistoryFilter,String?)->Unit,kind:OperationalKind,pickDates:Boolean) {
     var expanded by rememberSaveable {mutableStateOf(false)}
     var gh by rememberSaveable {mutableStateOf(filter.greenhouseId.orEmpty())};var season by rememberSaveable {mutableStateOf(filter.seasonId.orEmpty())};var group by rememberSaveable {mutableStateOf(filter.groupId.orEmpty())}
     var type by rememberSaveable {mutableStateOf(filter.type.orEmpty())};var status by rememberSaveable {mutableStateOf(filter.recordState.orEmpty())}
@@ -236,8 +260,13 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
             Choice("Status catatan",status,choices(listOf(JSONObject().put("id","active").put("name","Aktif"),JSONObject().put("id","cancelled").put("name","Dibatalkan"))),"history-state") {status=it}
         }
         FarmSection("Periode WIB") {
-            FinanceField("Dari tanggal WIB",from,{from=it},"history-from",hint="YYYY-MM-DD; kosong untuk semua")
-            FinanceField("Sampai tanggal WIB",until,{until=it},"history-until",hint="YYYY-MM-DD; termasuk tanggal ini")
+            if(pickDates) {
+                DateFilterButton("Dari",from,"history-from") {from=it}
+                DateFilterButton("Sampai",until,"history-until") {until=it}
+            } else {
+                FinanceField("Dari tanggal WIB",from,{from=it},"history-from",hint="YYYY-MM-DD; kosong untuk semua")
+                FinanceField("Sampai tanggal WIB",until,{until=it},"history-until",hint="YYYY-MM-DD; termasuk tanggal ini")
+            }
         }
         error?.let {Notice(it,true)}
         Button(onClick={
@@ -263,6 +292,26 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
         }
         }
     } }
+}
+
+@Composable private fun DateFilterButton(label:String,value:String,tag:String,onValue:(String)->Unit) {
+    val android=LocalContext.current
+    var open by remember {mutableStateOf(false)}
+    val day=remember(value) {runCatching {LocalDate.parse(value)}.getOrNull()}
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small),verticalAlignment=Alignment.CenterVertically) {
+        OutlinedButton(onClick={open=true},shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag(tag)) {
+            Text(day?.let {"$label ${it.format(DateTimeFormatter.ofPattern("d MMM yyyy",Locale.forLanguageTag("id-ID")))}"} ?: "$label: pilih tanggal")
+        }
+        if(day!=null) TextButton(onClick={onValue("")},modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("$tag-clear")) {Text("Hapus")}
+    }
+    val update by rememberUpdatedState(onValue)
+    DisposableEffect(open,android) {
+        val initial=day ?: LocalDate.now(ActivityDraft.WIB)
+        val dialog=if(open) DatePickerDialog(android,{_,year,month,dayOfMonth -> update(LocalDate.of(year,month+1,dayOfMonth).toString())},initial.year,initial.monthValue-1,initial.dayOfMonth) else null
+        dialog?.setOnDismissListener {open=false}
+        dialog?.show()
+        onDispose {dialog?.setOnDismissListener(null);dialog?.dismiss()}
+    }
 }
 
 @Composable private fun HistoryDetail(record:LocalRecord,session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind,returnToQueue:Boolean) {

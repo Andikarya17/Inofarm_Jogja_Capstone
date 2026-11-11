@@ -817,8 +817,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         else null,
                         onSync=onSync,
                         historyKindPicker = if (tab == 5) ({
-                            RecordTypeChips(historyChip, manager) { id ->
+                            RecordTypeChips(historyChip, manager, history.mine) { id ->
                                 when (id) {
+                                    "mine" -> { historyVm.mine(!history.mine); harvestHistoryVm.mine(!history.mine) }
                                     "activity", "measurement" -> {
                                         historyChip = id
                                         historyVm.filter(history.filter.copy(type = if (id == "measurement") ActivityType.MEASUREMENT.wire else null), history.filterSeason)

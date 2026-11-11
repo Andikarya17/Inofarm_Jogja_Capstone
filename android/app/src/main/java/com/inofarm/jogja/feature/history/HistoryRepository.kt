@@ -12,6 +12,7 @@ import com.inofarm.jogja.core.session.FinanceSessionVault
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.harvest.domain.HarvestDraft
 import com.inofarm.jogja.feature.expenses.FinancialDraft
+import com.inofarm.jogja.feature.recorderId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -27,12 +28,19 @@ data class AuditPage(val entries:List<AuditEntry>,val cursor:String?,val fetched
 
 class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFinanceStore,private val api:FinanceApi,private val kind:OperationalKind=OperationalKind.ACTIVITY) {
     private fun check(session:FinanceSession,ticket:Long) {check(vault.matches(ticket,session.scope)) {"Sesi berubah."}}
-    suspend fun records(session:FinanceSession,filter:LocalHistoryFilter,count:Int)=withContext(Dispatchers.IO) {
+    /** [ownOnly] keeps this account's records and unsent drafts; the recorder is inside the encrypted body, so it filters after the query. */
+    suspend fun records(session:FinanceSession,filter:LocalHistoryFilter,count:Int,ownOnly:Boolean=false)=withContext(Dispatchers.IO) {
         buildList {var offset=0;while(size<count) {
             val requested=minOf(1000,count-size)
             val page=store.records(session.scope.key,requested,kind=kind.wire,filter=filter,offset=offset)
-            addAll(page);offset+=page.size;if(page.size<requested) break
+            addAll(if(ownOnly) page.filter {row -> row.recorderId().let {it.isBlank() || it==session.scope.accountId}} else page)
+            offset+=page.size;if(page.size<requested) break
         }}
+    }
+    /** Latest manager decision per record revision, keyed "id#version", for the check label in the worker's list. */
+    suspend fun checks(session:FinanceSession):Map<String,String> = withContext(Dispatchers.IO) {
+        val review=when(kind) {OperationalKind.ACTIVITY -> "activity";OperationalKind.HARVEST -> "harvest";else -> return@withContext emptyMap()}
+        store.cachedAll(session.scope.key,"${review}_review").associate {"${it.optString("${review}_id")}#${it.optLong("${review}_version")}" to it.optString("decision")}
     }
     suspend fun detail(session:FinanceSession,id:String)=withContext(Dispatchers.IO) {store.detail(session.scope.key,id)?.takeIf {it.record.kind==kind.wire}}
     suspend fun cachedAudit(session:FinanceSession,id:String)=withContext(Dispatchers.IO) {

@@ -226,6 +226,9 @@ class FinanceEntryUiTest {
                     .put("work_state", if (index == 2) "skipped" else "completed").put("notes", "Catatan agenda sintetis")
                     .put("recorded_by", worker).put("recorded_by_role", "worker").put("materials", JSONArray()))
             }
+            row("activity", UUID.randomUUID().toString(), JSONObject().put("planting_group_id", group)
+                .put("activity_type", "general").put("occurred_at", at).put("record_state", "active").put("work_state", "completed")
+                .put("notes", "Catatan orang lain sintetis").put("recorded_by", "someone-else").put("recorded_by_role", "worker").put("materials", JSONArray()))
             row("activity_review", UUID.randomUUID().toString(), JSONObject().put("activity_id", agendaNotes[2]).put("activity_version", 1)
                 .put("decision", "invalid").put("reason", "Foto belum jelas"))
         }
@@ -363,6 +366,9 @@ class FinanceEntryUiTest {
         readyNode("finance-ec").performScrollTo().assertTextContains("1,25")
         readyNode("finance-save-draft").performScrollTo().assertIsEnabled().performClick()
         rule.onNodeWithTag("finance-unsent").assertDoesNotExist()
+        rule.selectFinanceTab(1)
+        readyText("Draf · tersimpan di perangkat").assertExists()
+        rule.selectFinanceTab(0)
         home.performScrollToNode(hasTestTag("worker-greenhouse-overview"))
         readyNode("worker-greenhouse-overview").performClick()
         home.performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
@@ -434,6 +440,32 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
         rule.waitUntil(10_000) { rule.onAllNodesWithText("EC 1,25 mS/cm, PPM 625,5 ppm", substring = true).fetchSemanticsNodes().isNotEmpty() }
         captureSecondary("worker-home-after-record")
+    }
+
+    @Test fun workerHistoryShowsCheckStatusFiltersToOwnRecordsAndPicksDates() {
+        agenda.set(true)
+        readyNode("finance-sync").performClick()
+        rule.selectFinanceTab(1)
+        rule.waitUntil(15_000) {
+            rule.onAllNodesWithText("Terkirim · Belum dicek").fetchSemanticsNodes().isNotEmpty() &&
+                rule.onAllNodesWithText("Terkirim · Perlu diperbaiki").fetchSemanticsNodes().isNotEmpty()
+        }
+        captureSecondary("worker-history-rows")
+        val list = rule.onNodeWithTag("finance-history-list")
+        fun listed() = runCatching { list.performScrollToNode(hasText("Catatan orang lain sintetis")) }.isSuccess
+        assertFalse(listed())
+        list.performScrollToIndex(0)
+        readyNode("history-chip-mine").performClick()
+        rule.waitUntil(10_000) { listed() }
+        list.performScrollToIndex(0)
+        readyNode("history-chip-mine").performClick()
+        rule.waitUntil(10_000) { !listed() }
+        readyNode("finance-history-filters").performClick()
+        readyNode("history-from").performScrollTo().performClick()
+        Espresso.onView(isAssignableFrom(android.widget.DatePicker::class.java)).check(matches(isDisplayed()))
+        captureSecondary("worker-history-date-picker")
+        Espresso.pressBack()
+        rule.onNodeWithTag("history-from-clear").assertDoesNotExist()
     }
 
     @Test fun workerAgendaDistinguishesRealizationsAndSkippedRecords() {
@@ -876,7 +908,7 @@ class FinanceEntryUiTest {
         rule.selectFinanceTab(1)
         val id=receipts.values.single().getString("entity_id")
         awaitRecord("finance-record-$id")
-        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-edit").fetchSemanticsNodes().isNotEmpty()}
         return id
     }
@@ -973,7 +1005,7 @@ class FinanceEntryUiTest {
         rule.waitUntil(10000) {receipts.size==2}
         val id=receipts.values.first().getString("entity_id")
         awaitRecord("finance-record-$id")
-        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         rule.waitUntil(10000) {rule.onAllNodesWithTag("history-compare").fetchSemanticsNodes().isNotEmpty()}
         readyNode("history-compare").performScrollTo().performClick()
         try {rule.waitUntil(10000) {rule.onAllNodesWithText("Server · versi 2").fetchSemanticsNodes().isNotEmpty()}}
@@ -1028,7 +1060,7 @@ class FinanceEntryUiTest {
         val latest=receipts.values.maxBy {it.getInt("version")};assertEquals(3,latest.getInt("version"));assertEquals("Koreksi lokal sintetis",latest.getJSONObject("data").getString("notes"))
         rule.logoutFromAccount();login("manager@example.invalid")
         rule.onNodeWithTag("finance-tab-1").performClick();awaitRecord("finance-record-$id")
-        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
         offline.set(true);readyNode("history-audit").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Audit terbaru belum tersedia.",substring=true).fetchSemanticsNodes().isNotEmpty()}
@@ -1388,11 +1420,11 @@ class FinanceEntryUiTest {
         val id=harvestReceipts.values.single().getString("entity_id");val data=harvestReceipts.values.single().getJSONObject("data")
         assertEquals(2,data.getJSONArray("items").length());assertEquals("15.250000",data.getJSONArray("items").getJSONObject(0).getString("weight_kg"))
         rule.onNodeWithTag("finance-tab-1").performClick();rule.onNodeWithTag("history-chip-activity").performClick();rule.onNodeWithText("Panen offline UI sintetis").assertDoesNotExist();rule.openWorkerHarvestHistory()
-        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         rule.onNodeWithTag("history-cancel").assertDoesNotExist();readyText("Pencatat: Pekerja sintetis").performScrollTo().assertExists()
         captureSecondary("harvest-detail")
         rule.logoutFromAccount();login("manager@example.invalid");rule.openWorkerHarvestHistory()
-        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit panen sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
         readyNode("history-cancel").performScrollTo().performClick();rule.onNodeWithTag("history-action-reason").performTextReplacement("Pembatalan panen UI");hideKeyboard();rule.onNodeWithTag("history-action-confirm").performClick()
         rule.waitUntil(10000) {harvestPosts.get()==2};rule.waitUntil(10000) {rule.onAllNodesWithText("Dibatalkan").fetchSemanticsNodes().isNotEmpty()}
@@ -1401,11 +1433,11 @@ class FinanceEntryUiTest {
     @Test fun harvestOwnCorrectionConflictUsesNewVersionAndRetainsLocalArchive() {
         fillHarvest("Panen awal konflik");queueHarvest();rule.waitUntil(10000) {harvestPosts.get()==1}
         val id=harvestReceipts.values.single().getString("entity_id")
-        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("finance-edit").performScrollTo().performClick();rule.onNodeWithTag("harvest-grade-0").assertDoesNotExist()
         rule.onNodeWithTag("harvest-weight-0").performScrollTo().performTextReplacement("16,5");hideKeyboard();rule.onNodeWithTag("harvest-reason").performScrollTo().performTextReplacement("Timbang ulang UI");hideKeyboard()
         harvestConflictNext.set(true);queueHarvest();rule.waitUntil(10000) {harvestReceipts.size==2}
-        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithTag("history-compare").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick);rule.waitUntil(10000) {rule.onAllNodesWithTag("history-compare").fetchSemanticsNodes().isNotEmpty()}
         readyNode("history-compare").performScrollTo().performClick();rule.onNodeWithTag("conflict-reason").performScrollTo().performTextReplacement("Bobot lokal sudah diperiksa");hideKeyboard();choose("conflict-policy","preserve")
         rule.onNodeWithTag("conflict-keep-local").performScrollTo().performClick();rule.waitUntil(10000) {harvestPosts.get()==2}
         val latest=harvestReceipts.values.maxBy {it.getInt("version")};assertEquals(3,latest.getInt("version"));assertEquals("16.500000",latest.getJSONObject("data").getJSONArray("items").getJSONObject(0).getString("weight_kg"))
@@ -1414,10 +1446,10 @@ class FinanceEntryUiTest {
     @Test fun harvestBalanceRejectionCanBeCorrectedAfterExplicitReview() {
         fillHarvest("Panen perbaikan saldo UI");queueHarvest();rule.waitUntil(10000) {harvestPosts.get()==1}
         val id=harvestReceipts.values.single().getString("entity_id")
-        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("finance-edit").performScrollTo().performClick();rule.onNodeWithTag("harvest-weight-0").performScrollTo().performTextReplacement("1");hideKeyboard()
         rule.onNodeWithTag("harvest-reason").performScrollTo().performTextReplacement("Koreksi saldo UI");hideKeyboard();harvestUseNext.set(true);queueHarvest()
-        rule.waitUntil(10000) {rule.onAllNodesWithText("Perlu diperbaiki").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Perlu diperbaiki").fetchSemanticsNodes().isNotEmpty()};rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("history-fix-rejected").performScrollTo().performClick();rule.onNodeWithTag("harvest-weight-0").performScrollTo().performTextReplacement("17,25");hideKeyboard();queueHarvest()
         rule.waitUntil(10000) {harvestPosts.get()==2};assertEquals("17.250000",harvestReceipts.values.maxBy {it.getInt("version")}.getJSONObject("data").getJSONArray("items").getJSONObject(0).getString("weight_kg"))
         lateinit var runtime:FinanceRuntime;rule.runOnIdle {runtime=ViewModelProvider(rule.activity)[FinanceRuntime::class.java]}
@@ -1465,7 +1497,7 @@ class FinanceEntryUiTest {
         assertEquals(latest,runtime.store.record(session.scope.key,id)!!.body.getString("notes"));assertTrue(runtime.store.outbox(session.scope.key).isEmpty())
         login("worker@example.invalid");rule.onNodeWithTag("finance-tab-1").performClick()
         if(harvest) rule.onNodeWithTag("history-chip-harvest").performClick()
-        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("finance-edit").performScrollTo().performClick();rule.onNodeWithTag(if(harvest) "harvest-notes" else "finance-notes").performScrollTo().assertTextContains(latest)
         if(harvest) rule.onNodeWithTag("harvest-weight-0").performScrollTo().assertTextContains("belum")
         assertEquals(record.id,id)
@@ -1476,7 +1508,7 @@ class FinanceEntryUiTest {
         val id=if(harvest) {
             fillHarvest("Panen diterima tanpa edit");queueHarvest();rule.waitUntil(10000) {harvestPosts.get()==1}
             val id=harvestReceipts.values.single().getString("entity_id")
-            awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick();id
+            awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick);id
         } else createAccepted("Kegiatan diterima tanpa edit")
         lateinit var runtime:FinanceRuntime;rule.runOnIdle {runtime=ViewModelProvider(rule.activity)[FinanceRuntime::class.java]}
         val session=runtime.vault.current!!;val before=runtime.store.record(session.scope.key,id)!!
@@ -1531,7 +1563,7 @@ class FinanceEntryUiTest {
         offline.set(false);rule.onNodeWithTag("finance-sync").performClick();val id=acceptedFinancial("sale")
         assertEquals("0.01",runtime().store.record(session.scope.key,id)!!.body.getString("total_amount"));assertEquals(op.hash,runtime().store.outbox(session.scope.key).single {it.id==op.id}.hash)
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","sale")
-        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("sale-accepted-total").performScrollTo().assertTextContains("0,01",substring=true)
         captureSecondary("sale-detail")
         readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
@@ -1591,7 +1623,7 @@ class FinanceEntryUiTest {
         val source=acceptedFinancial("expense");assertEquals("100.01",runtime().store.record(session.scope.key,source)!!.body.getString("amount"))
         rule.onNodeWithTag("finance-tab-4").performClick();awaitRecord("finance-record-$source")
         captureSecondary("finance-records")
-        rule.onNodeWithTag("finance-record-$source").performScrollTo().performClick();readyNode("history-audit").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-record-$source").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick);readyNode("history-audit").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()};Espresso.pressBack()
         financialForm(true);fillAllocation(source)
         captureSecondary("allocation-form")
@@ -1600,7 +1632,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("expense-queue").performScrollTo().performClick()
         val allocationId=acceptedFinancial("cost_allocation")
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","cost_allocation")
-        awaitRecord("finance-record-$allocationId");rule.onNodeWithTag("finance-record-$allocationId").performScrollTo().performClick()
+        awaitRecord("finance-record-$allocationId");rule.onNodeWithTag("finance-record-$allocationId").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("expense-remaining-fact").performScrollTo().assertTextContains("40,00",substring=true)
         captureSecondary("allocation-detail")
         assertEquals(2,financePosts.get());assertEquals(original.id,runtime().store.outbox(session.scope.key).first {it.entityId==source}.id)
@@ -1729,7 +1761,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
         rule.waitUntil(15000) {financeKinds.values.count {it=="asset"}==1};val id=financeKinds.entries.single {it.value=="asset"}.key
         choose("expense-history-kind","asset")
-        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("asset-cost-fact").performScrollTo().assertExists()
         rule.onNode(hasAnyAncestor(hasTestTag("asset-cost-fact")) and hasText("100,00", substring=true)).assertExists()
         captureSecondary("asset-detail")
@@ -1749,7 +1781,7 @@ class FinanceEntryUiTest {
         choose("expense-history-kind","depreciation_allocation")
         val id=receipt.getString("entity_id")
         awaitRecord("finance-record-$id")
-        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("finance-edit").assertExists()
         captureSecondary("depreciation-detail")
     }
@@ -1780,7 +1812,7 @@ class FinanceEntryUiTest {
         val id=assetSources(true);rule.logoutFromAccount();login("manager@example.invalid")
         val model=runtime();val session=model.vault.current!!
         rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","asset")
-        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
+        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("finance-edit").performScrollTo().performClick();rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Nama aset lokal diperiksa")
         rule.onNodeWithTag("asset-reason").performScrollTo().performTextReplacement("Koreksi nama aset");hideKeyboard();assetConflictNext.set(true)
         rule.onNodeWithTag("asset-review").performScrollTo().performClick();rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
@@ -1788,7 +1820,7 @@ class FinanceEntryUiTest {
         val original=model.store.outbox(session.scope.key).single {it.entityId==id}
         choose("expense-history-kind","asset")
         awaitRecord("finance-record-$id")
-        rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick();readyNode("history-compare").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick);readyNode("history-compare").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Server · versi 2").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("conflict-keep-local").performScrollTo().assertIsNotEnabled()
         rule.onNodeWithTag("conflict-reason").performScrollTo().performTextReplacement("Nama lokal dipertahankan setelah peninjauan");hideKeyboard()

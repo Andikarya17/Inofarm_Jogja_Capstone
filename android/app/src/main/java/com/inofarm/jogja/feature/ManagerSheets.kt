@@ -76,11 +76,12 @@ private fun TextActionRow(label: String, detail: String, modifier: Modifier, ena
 /** Filter chips for the Riwayat tab. Activity, measurement and harvest stay here; money records open Keuangan. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun RecordTypeChips(selected: String, manager: Boolean = true, onSelect: (String) -> Unit) {
+internal fun RecordTypeChips(selected: String, manager: Boolean = true, mine: Boolean = false, onSelect: (String) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
         listOf("activity" to "Semua kegiatan", "measurement" to "Pengukuran", "harvest" to "Panen").forEach { (id, label) ->
             FilterChip(selected == id, { onSelect(id) }, label = { Text(label) }, modifier = Modifier.testTag("history-chip-$id"))
         }
+        if (!manager) FilterChip(mine, { onSelect("mine") }, label = { Text("Catatan saya") }, modifier = Modifier.testTag("history-chip-mine"))
         // Money records live in Keuangan, so these open that tab instead of filtering this list.
         if (manager) listOf("expense" to "Biaya", "sale" to "Penjualan", "asset" to "Aset").forEach { (id, label) ->
             AssistChip({ onSelect(id) }, label = { Text(label) }, trailingIcon = { FarmControlIcon(FarmIcon.ChevronRight, null) },
