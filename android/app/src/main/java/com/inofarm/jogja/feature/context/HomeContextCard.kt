@@ -174,8 +174,10 @@ internal fun WorkerContextSheet(
     val allSeasons = data.seasons.filter { it.optString("greenhouse_id") == selected.greenhouse }
     val allGroups = data.groups.filter { it.optString("season_id") == selected.season && it.optBoolean("active", true) }
     LaunchedEffect(startableOnly, selected, season, groups) {
-        if (startableOnly && selected.season != null && season == null) onSelect(selected.copy(season = null, group = null))
-        else if (startableOnly && selected.group != null && groups.none { it.optString("id") == selected.group })
+        // Only after the cache has loaded: an empty list during start-up must not clear the saved choice.
+        if (!startableOnly || data.check != ContextCheck.CHECKED) Unit
+        else if (selected.season != null && season == null) onSelect(selected.copy(season = null, group = null))
+        else if (selected.group != null && groups.none { it.optString("id") == selected.group })
             onSelect(selected.copy(group = null))
     }
     val singleSeason = seasons.singleOrNull { it.optString("status") == "open" }

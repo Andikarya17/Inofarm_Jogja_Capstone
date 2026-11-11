@@ -397,8 +397,13 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
         rule.openFinanceOutbox()
         readyNode("queue-send-now").assertIsDisplayed()
+        captureSecondary("worker-unsent-sheet")
         rule.onNodeWithText("ID kiriman").assertDoesNotExist()
         rule.onNodeWithText("Rincian").assertDoesNotExist()
+        val reviewButton = androidx.compose.ui.test.SemanticsMatcher("Buka catatan") { it.config.contains(androidx.compose.ui.semantics.SemanticsProperties.TestTag) && it.config[androidx.compose.ui.semantics.SemanticsProperties.TestTag].startsWith("finance-review-") }
+        rule.onAllNodes(reviewButton).onFirst().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        readyText("Kembali ke belum terkirim").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        readyNode("queue-send-now").assertIsDisplayed()
         offline.set(false)
         readyNode("queue-send-now").performClick()
         rule.waitUntil(15_000) { posts.get() == 1 }
@@ -436,7 +441,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
         readyText("Tersimpan. Terkirim otomatis saat ada internet.").assertIsDisplayed()
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-overview"))
-        readyNode("worker-greenhouse-overview").performClick()
+        readyNode("worker-greenhouse-overview").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
         rule.waitUntil(10_000) { rule.onAllNodesWithText("EC 1,25 mS/cm, PPM 625,5 ppm", substring = true).fetchSemanticsNodes().isNotEmpty() }
         captureSecondary("worker-home-after-record")
@@ -446,13 +451,12 @@ class FinanceEntryUiTest {
         agenda.set(true)
         readyNode("finance-sync").performClick()
         rule.selectFinanceTab(1)
-        rule.waitUntil(15_000) {
-            rule.onAllNodesWithText("Terkirim · Belum dicek").fetchSemanticsNodes().isNotEmpty() &&
-                rule.onAllNodesWithText("Terkirim · Perlu diperbaiki").fetchSemanticsNodes().isNotEmpty()
-        }
-        captureSecondary("worker-history-rows")
         val list = rule.onNodeWithTag("finance-history-list")
-        fun listed() = runCatching { list.performScrollToNode(hasText("Catatan orang lain sintetis")) }.isSuccess
+        fun listed(text: String) = runCatching { list.performScrollToNode(hasText(text)) }.isSuccess
+        rule.waitUntil(15_000) { listed("Terkirim · Belum dicek") && listed("Terkirim · Perlu diperbaiki") }
+        list.performScrollToIndex(0)
+        captureSecondary("worker-history-rows")
+        fun listed() = listed("Catatan orang lain sintetis")
         assertFalse(listed())
         list.performScrollToIndex(0)
         readyNode("history-chip-mine").performClick()
@@ -460,7 +464,9 @@ class FinanceEntryUiTest {
         list.performScrollToIndex(0)
         readyNode("history-chip-mine").performClick()
         rule.waitUntil(10_000) { !listed() }
-        readyNode("finance-history-filters").performClick()
+        list.performScrollToNode(hasTestTag("finance-history-filters"))
+        readyNode("finance-history-filters").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        captureSecondary("worker-history-filter-sheet")
         readyNode("history-from").performScrollTo().performClick()
         Espresso.onView(isAssignableFrom(android.widget.DatePicker::class.java)).check(matches(isDisplayed()))
         captureSecondary("worker-history-date-picker")
@@ -470,6 +476,7 @@ class FinanceEntryUiTest {
 
     @Test fun workerActivityFormNeverOffersMeasurementAndScheduleLocksTheType() {
         chooseContext()
+        captureSecondary("worker-form-activity")
         readyNode("finance-type").performClick()
         rule.onAllNodesWithText("Pengukuran manual").assertCountEquals(0)
         Espresso.pressBack()
@@ -492,7 +499,10 @@ class FinanceEntryUiTest {
 
     @Test fun workerCorrectionHasNoReferenceChoiceAndUsesPlainButtons() {
         createAccepted("Catatan yang akan dikoreksi")
+        // The save message sits over the bottom of the detail for a few seconds and would take the tap.
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Tersimpan. Terkirim otomatis saat ada internet.").fetchSemanticsNodes().isEmpty() }
         readyNode("finance-edit").performScrollTo().performClick()
+        captureSecondary("worker-form-correction")
         rule.onNodeWithTag("finance-reference-policy").assertDoesNotExist()
         rule.onNodeWithTag("finance-type").assertDoesNotExist()
         readyNode("finance-save-draft").performScrollTo().assertTextContains("Simpan sebagai draf")

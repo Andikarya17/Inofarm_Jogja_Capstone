@@ -329,7 +329,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             }
         }
     }
-    val workerCorrections = if (manager || tab != 0) emptyList() else
+    val workerCorrections = if (manager) emptyList() else
         rememberWorkerCorrections(runtime, session, Triple(activity.records, harvest.records, activity.queue), syncUpdates)
     val managerHome = if (manager) rememberManagerHome(homeRepository, session, ticket, gh, syncUpdates, activity.records, managerRefresh)
         else ManagerHomeState()
@@ -403,6 +403,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var managerRecording by rememberSaveable { mutableStateOf<String?>(null) }
     var harvestProgressOpen by rememberSaveable { mutableStateOf(false) }
     var correctionsOpen by rememberSaveable { mutableStateOf(false) }
+    var detailFromOutbox by rememberSaveable { mutableStateOf(false) }
     var harvestProgressGroup by rememberSaveable { mutableStateOf<String?>(null) }
     var harvestProgressGreenhouse by rememberSaveable { mutableStateOf<String?>(null) }
     var workerProgressSourceError by remember { mutableStateOf<String?>(null) }
@@ -490,8 +491,17 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     }
     val showNavigation = !harvestProgressOpen && !(tab == 1 && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
     val sessionExpired = session.expired()
+    val detailOpen = history.selected != null || harvestHistory.selected != null
+    val formOpen = activity.draft != null || harvest.draft != null
+    LaunchedEffect(detailOpen, formOpen) {
+        if (formOpen) detailFromOutbox = false
+        else if (!manager && detailFromOutbox && !detailOpen) { showOutbox = true; detailFromOutbox = false }
+    }
+    // A saved tab id from before the worker had two tabs would show a blank body.
+    LaunchedEffect(manager, tab) { if (!manager && tab !in WorkerScreenIds.toList()) tab = 0 }
     val workerReady = selectedGreenhouse != null && selectedGroup != null &&
-        selectedSeason?.optString("status") == "open" && context.check != ContextCheck.ACCESS_CHANGED
+        selectedSeason?.optString("status") == "open" && context.check != ContextCheck.ACCESS_CHANGED &&
+        runCatching { LocalDate.parse(selectedGroup.getString("sowing_date")) <= workerToday }.getOrDefault(false)
     fun setWorkerContext(value: HomeContext) {
         gh = value.greenhouse
         season = value.season
@@ -528,13 +538,15 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 queueReviewOperation = op.id
                 val kind = op.envelope.optString("entity_type")
                 val destination = queueHistory[kind]
-                showOutbox = false
+                if (manager) showOutbox = false
                 when {
                     destination != null -> {
                         queueOpening = true
                         destination.select(op.entityId) { error ->
                             queueOpening = false
                             queueReviewError = error
+                            // A worker's sheet stays open on failure so the reason is visible, and returns after the detail closes.
+                            if (!manager && error == null) { showOutbox = false; detailFromOutbox = true }
                         }
                     }
                     manager && kind in investmentQueueKinds -> investments.vm.select(op.entityId,fromQueue=true)
@@ -677,7 +689,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             alpha = .74f + .26f * tabEntrance.value
             translationY = 5.dp.toPx() * (1f - tabEntrance.value)
         } else Modifier
-        CompositionLocalProvider(LocalFarmListBottomInset provides if (recordButton) 80.dp else 0.dp) {
+        // The Catat button grows with the font, so a worker's list keeps more room behind it at large sizes.
+        val recordInset = if (!recordButton) 0.dp else if (manager) 80.dp else 80.dp + 24.dp * (LocalDensity.current.fontScale - 1f).coerceAtLeast(0f)
+        CompositionLocalProvider(LocalFarmListBottomInset provides recordInset) {
         Box(Modifier.widthIn(max = 900.dp).fillMaxSize().then(workerTabMotion)) {
             when {
                 session.role==UserRole.MANAGER && investments.state.active -> InvestmentScreen(investments,context,returnToQueue=tab==1)
@@ -694,8 +708,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 session.role==UserRole.MANAGER && financial.draft!=null -> if(financial.reviewing) FarmReviewEntrance { FinancialReview(financial.draft,context,financial.busy,financialVm::backToForm,financialVm::queue) } else FinancialForm(financial,context,financialVm)
                 session.role==UserRole.MANAGER && expenseHistory.selected!=null -> HistoryScreen(session,context,expenseHistory,expenseHistoryVm,activity.queue,onEdit={record,replace -> financialVm.open(record,replace);expenseHistoryVm.close()},kind=OperationalKind.EXPENSE,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && allocationHistory.selected!=null -> HistoryScreen(session,context,allocationHistory,allocationHistoryVm,activity.queue,onEdit={record,replace -> financialVm.open(record,replace);allocationHistoryVm.close()},kind=OperationalKind.COST_ALLOCATION,returnToQueue=tab==1)
-                history.selected!=null -> HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()},returnToQueue=tab==1)
-                harvestHistory.selected!=null -> HistoryScreen(session,context,harvestHistory,harvestHistoryVm,activity.queue,onEdit={record,replace -> harvestVm.open(record,replace);harvestHistoryVm.close()},kind=OperationalKind.HARVEST,returnToQueue=tab==1)
+                history.selected!=null -> HistoryScreen(session,context,history,historyVm,activity.queue,onEdit={record,replace -> vm.open(record,replace);historyVm.close()},returnToQueue=tab==1 || detailFromOutbox)
+                harvestHistory.selected!=null -> HistoryScreen(session,context,harvestHistory,harvestHistoryVm,activity.queue,onEdit={record,replace -> harvestVm.open(record,replace);harvestHistoryVm.close()},kind=OperationalKind.HARVEST,returnToQueue=tab==1 || detailFromOutbox)
                 tab == 0 && manager -> tabState.SaveableStateProvider("manager-home-${gh.orEmpty()}") {
                     ManagerHomeScreen(gh, managerHome, activity.queue, PaddingValues(
                         top = FarmSpace.Medium,
@@ -806,8 +820,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 tab==6 && manager -> tabState.SaveableStateProvider(6) {
                     ManageScreen(session.name, onAdmin, onLogout, enabled = !writing, onAddGreenhouse = onAddGreenhouse)
                 }
-                tab==2 || tab==3 || tab==5 -> tabState.SaveableStateProvider(if (tab == 5) "history-$historyChip" else tab) {
-                    val isActivity = tab == 2 || tab == 5 && historyChip != "harvest"
+                tab==5 -> tabState.SaveableStateProvider("history-$historyChip") {
+                    val isActivity = historyChip != "harvest"
                     HistoryScreen(session,context,if (isActivity) history else harvestHistory,
                         if (isActivity) historyVm else harvestHistoryVm,activity.queue,
                         onEdit={record,replace ->
@@ -870,18 +884,26 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
 ) {
     var accountOpen by rememberSaveable { mutableStateOf(false) }
     val manager = session.role == UserRole.MANAGER
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text("Inofarm", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-        if (unsent > 0) TextButton(onClick = onUnsent, shape = FarmShape.Control,
+    val largeFont = LocalDensity.current.fontScale > 1.3f
+    // At large fonts the worker's toolbar already holds two icons, so the unsent button moves to its own row.
+    val stackUnsent = !manager && largeFont && unsent > 0
+    val unsentButton: @Composable () -> Unit = {
+        TextButton(onClick = onUnsent, shape = FarmShape.Control,
             modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-unsent")
                 .semantics { liveRegion = LiveRegionMode.Polite }) {
             FarmControlIcon(if (manager) FarmIcon.Sync else FarmIcon.Schedule, null)
             Spacer(Modifier.width(FarmSpace.Small))
             Text("$unsent belum terkirim", style = MaterialTheme.typography.labelLarge)
-        } else if (syncing && (manager || LocalDensity.current.fontScale <= 1.3f)) Text("Memperbarui",
+        }
+    }
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Inofarm", Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.titleLarge)
+        if (unsent > 0) { if (!stackUnsent) unsentButton() }
+        else if (syncing && (manager || !largeFont)) Text("Memperbarui",
             Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.labelMedium)
         // The worker has no manual refresh on Beranda, so the toolbar keeps its button.
         if (!manager) IconButton(onClick = onSync, enabled = !syncing, modifier = Modifier.testTag("finance-sync")) {
@@ -909,6 +931,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             }
         }
     }
+    if (stackUnsent) unsentButton()
     if (sessionExpired) Text(
         "Sesi berakhir",
         Modifier.padding(bottom = FarmSpace.Tiny).semantics { liveRegion = LiveRegionMode.Polite },

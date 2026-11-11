@@ -9,6 +9,10 @@
 5. **Proposal:** butir KF/KNF/U tentang peran dan akses per greenhouse perlu pengecekan formal terhadap keputusan super admin.
 6. Wizard belum menyediakan lokasi greenhouse (field tidak ada di API) dan pemilihan varietas yang sudah ada (varietas per greenhouse).
 
+## Gap setelah alur pekerja dirapikan
+
+Empat belas temuan audit alur pekerja (struktur, alur, kecil) selesai di source Android. Gap yang tersisa: `FinanceBackendDeviceTest` terhadap Laravel/MySQL uji belum dijalankan ulang dengan selektor baru, tes Android pengelola lama masih usang sejak perombakan pengelola, uji perangkat fisik dan TalkBack nyata, serta varian pesan "Terkirim" saat online. Filter Catatan saya bekerja setelah kueri; kolom indeks pencatat memerlukan migration SQLite lokal bila ukuran data menuntutnya. [Bukti dan matriks](WORKER_FLOW_EVIDENCE_20261111.md).
+
 ## Penyelarasan pekerja
 
 Empat temuan audit pekerja, review panen per revisi dan progres target sudah tersedia di source. Checkpoint memisahkan tes backend, perangkat dengan Laravel/MySQL uji, tes HTTP sintetis, dan bukti visual. Rollout migration 20, uji fisik, UAT, pentest dan penerimaan produksi tetap gate terpisah. [Matriks penerimaan dan batas bukti](WORKER_ALIGNMENT_EVIDENCE_20261110.md).
