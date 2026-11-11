@@ -1,5 +1,19 @@
 # Data contracts target v2
 
+## Status setelah remediasi10 November2026
+
+[Bukti remediasi](AUDIT_REMEDIATION_20261110.md) mengatasi status terbuka pada audit sebelumnya. DB-01 selesai pada database lokal inofarm_finance_local, kini finance19/54 tabel/75 FK dan Beranda terbaca. API-01/API-02 selesai dengan152 operasi OpenAPI yang setara153 route runtime setelah ekspansi, schema respons dan tes parity. API-03 selesai dengan filter review invalid versi aktif. FE-01 selesai dengan pembacaan seluruh halaman cache scoped. Backend144 tes, JVM74 dan instrumentasi32 tes API30 lulus. QA-01, benchmark produksi dan keputusan bisnis tetap terbuka. Gunakan [CLAUDE.md](../../CLAUDE.md) sebagai pintu masuk terkini.
+
+Bagian audit sebelum remediasi di bawah mencatat kondisi saat diperiksa. Ketertinggalan schema dan daftar gap API pada bagian itu telah ditangani oleh perubahan terbaru.
+
+## Kontrak aktif dan skema fisik, 10 November 2026
+
+Gunakan [kontrak executable](../../contracts/v2/README.md), controller/service dan schema JSON untuk wire; [kamus fisik database](DATABASE_INVENTORY_20261110.md) untuk nama tabel/kolom. Tabel konseptual pada bagian2 di bawah adalah rancangan awal, bukan dump schema. Contoh: attachments menjadi **record_attachments**, cash_flows menjadi **investment_cash_flow_versions**; users memakai bigint internal dan public_id UUID. UUID domain/ledger tetap global melalui entity_identities.
+
+Source memakai finance migration 19/SQLite 10/wire 2. Tambahan terbaru: activity_reviews + recorded_by_role (17), observations JSON (18), harvest_target/harvest_completion/quality (19). Review append-only per revisi, snapshot/ledger dan antrean lama tidak ditulis ulang. Rincian panen baru Android meminta saleable/defective, tetapi envelope historis tanpa field tetap didukung. Target buah tidak disamakan dengan populasi tanaman; completion panen bukan penutupan musim.
+
+[Audit API/database](SYSTEM_AUDIT_20261110.md) menemukan database aplikasi lokal baru migration16,25 operasi belum didokumentasikan OpenAPI, dan34 operasi dengan respons sukses tanpa content/schema. Karena itu "executable" tidak berarti seluruh DTO OpenAPI sudah ketat/lengkap. Rancangan API_V2 lama tidak dipakai membangun endpoint fiktif. Semua checkpoint FIN di bawah dibaca menurut tanggalnya, bukan larangan pelaksanaan terbaru.
+
 Snapshot Beranda pengelola dan penetapan periode berjalan memiliki [kontrak executable](../../contracts/v2/MANAGER_HOME.md). Migration 16 menambah penunjukan kelompok berjalan per greenhouse. Pembacaan kas bulanan memakai nominal desimal dan cakupan penugasan efektif.
 
 Perubahan2 November2026: [kontrak EC/PPM manual](../../contracts/v2/MEASUREMENTS.md), nullable EC schema15, tipe activity measurement dan read latest scoped, tanpa mengubah envelope wire2/hash antrean lama atau SQLite9. EC mS/cm dan PPM ppm tidak dikonversi.

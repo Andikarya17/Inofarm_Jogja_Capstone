@@ -7,6 +7,38 @@ use Tests\FinanceTestCase;
 
 class FinanceMeasurementTest extends FinanceTestCase
 {
+    public function test_latest_excludes_invalid_current_revision_and_accepts_pending_correction(): void
+    {
+        $manager = $this->account();
+        $ctx = $this->context($manager);
+        $worker = $this->account('worker');
+        $this->createMaster('greenhouse_assignments', ['greenhouse_id' => $ctx['gh']['id'], 'user_id' => $worker->public_id,
+            'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
+        $this->asUser($worker);
+        $old = $this->operation('activity', $this->payload($ctx['group']['id']));
+        $latest = $this->operation('activity', $this->payload($ctx['group']['id'], ['occurred_at' => '2026-11-02T09:00:00+07:00']));
+        $this->postJson('/api/v2/activities', $old)->assertCreated();
+        $this->postJson('/api/v2/activities', $latest)->assertCreated();
+        $url = '/api/v2/measurements/latest?planting_group_id='.$ctx['group']['id'];
+        $this->getJson($url)->assertOk()->assertJsonPath('data.id', $latest['entity_id']);
+        $this->asUser($manager);
+        foreach ([$latest, $old] as $index => $record) {
+            $this->postJson('/api/v2/activity-reviews', $this->operation('activity_review', [
+                'activity_id' => $record['entity_id'], 'activity_version' => 1, 'decision' => 'invalid', 'reason' => 'Periksa ulang alat ukur.',
+            ]))->assertCreated();
+            if ($index === 0) {
+                $this->getJson($url)->assertOk()->assertJsonPath('data.id', $old['entity_id']);
+            } else {
+                $this->getJson($url)->assertOk()->assertJsonPath('data', null);
+            }
+        }
+        $this->asUser($worker);
+        $this->getJson($url)->assertOk()->assertJsonPath('data', null);
+        $correction = $this->operation('activity', [...$latest['payload'], 'reason' => 'Pengukuran ulang', 'reference_policy' => 'preserve'], 'update', $latest['entity_id'], 1);
+        $this->patchJson('/api/v2/activities/'.$latest['entity_id'], $correction)->assertOk();
+        $this->getJson($url)->assertOk()->assertJsonPath('data.id', $latest['entity_id'])->assertJsonPath('data.version', 2);
+    }
+
     private function payload(string $group, array $extra = []): array
     {
         return [...['planting_group_id' => $group, 'activity_type' => 'measurement', 'occurred_at' => '2026-11-02T08:00:00+07:00',

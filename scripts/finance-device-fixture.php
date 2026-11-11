@@ -1,6 +1,8 @@
 <?php
 
 use App\Domain\Cultivation\MasterService;
+use App\Domain\Finance\SaleService;
+use App\Domain\Harvest\HarvestService;
 use App\Domain\Identity\EntityIdentity;
 use App\Models\User;
 use App\Support\TestDatabaseGuard;
@@ -18,6 +20,7 @@ $app->make(Kernel::class)->bootstrap();
 $fixtureName = match ($argv[2] ?? '') {
     '' => 'finance-device-fixture.json',
     'manager-home' => 'manager-home-device-fixture.json',
+    'worker-alignment' => 'worker-alignment-device-fixture.json',
     default => throw new InvalidArgumentException('Unknown synthetic device fixture name.'),
 };
 $path = dirname(__DIR__).'/tmp/'.$fixtureName;
@@ -30,7 +33,7 @@ if ($mode === 'create') {
     if (! in_array($baseUrl, ['http://10.0.2.2:8001/api/v2/', 'http://127.0.0.1:8001/api/v2/'], true)) {
         throw new RuntimeException('Device fixture URL must use the isolated localhost test API.');
     }
-    $fixture = DB::transaction(function () use ($baseUrl) {
+    $fixture = DB::transaction(function () use ($baseUrl, $fixtureName) {
         DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();
         $id = (string) Str::uuid();
         $password = 'device-fixture-only-password';
@@ -48,7 +51,12 @@ if ($mode === 'create') {
             $gh = $create('greenhouses', ['name' => 'GH '.$name.' perangkat sintetis']);
             $variety = $create('varieties', ['greenhouse_id' => $gh['id'], 'name' => 'Varietas perangkat sintetis']);
             $season = $create('seasons', ['greenhouse_id' => $gh['id'], 'name' => 'Musim '.$name.' sintetis', 'start_date' => '2026-10-01', 'end_date' => null]);
-            $group = $create('planting_groups', ['season_id' => $season['id'], 'variety_id' => $variety['id'], 'name' => 'Kelompok '.$name.' sintetis', 'population' => 10, 'sowing_date' => '2026-10-01', 'transplant_date' => null]);
+            $groupInput = ['season_id' => $season['id'], 'variety_id' => $variety['id'], 'name' => 'Kelompok '.$name.' sintetis',
+                'population' => 10, 'sowing_date' => '2026-10-01', 'transplant_date' => null];
+            if ($fixtureName === 'worker-alignment-device-fixture.json' && $name === 'A') {
+                $groupInput['harvest_target'] = ['fruit_count' => 5, 'weight_kg' => '8', 'basis' => 'Target sintetis untuk uji perangkat'];
+            }
+            $group = $create('planting_groups', $groupInput);
             $grades = [];
             foreach (['A', 'B'] as $gradeName) {
                 $grades[] = $create('grades', ['greenhouse_id' => $gh['id'], 'name' => 'Grade '.$gradeName.' perangkat sintetis'])['id'];
@@ -70,9 +78,10 @@ $fixture = json_decode(file_get_contents($path), true, flags: JSON_THROW_ON_ERRO
 if ($fixture['database'] !== 'inofarm_test' || ! Str::isUuid($fixture['fixture_id'])) {
     throw new RuntimeException('Invalid synthetic provenance.');
 }
-$actors = User::whereIn('public_id', [$fixture['manager_id'], $fixture['worker_id']])->get();
-if ($actors->count() !== 2) {
-    throw new RuntimeException('Both synthetic fixture accounts must still exist before verification/cleanup.');
+$actorIds = array_filter([$fixture['manager_id'], $fixture['worker_id'], $fixture['rival_id'] ?? null]);
+$actors = User::whereIn('public_id', $actorIds)->get();
+if ($actors->count() !== count($actorIds)) {
+    throw new RuntimeException('All synthetic fixture accounts must still exist before verification/cleanup.');
 }
 foreach ($actors as $actor) {
     if (! str_ends_with($actor->email, $fixture['fixture_id'].'@example.invalid')) {
@@ -104,6 +113,153 @@ if ($mode === 'verify-manager-home' && $fixtureName === 'manager-home-device-fix
         throw new RuntimeException('Manager Home SQL reconciliation failed.');
     }
     echo 'PASS: guarded inofarm_test reconciled Android designation/audit, worker pair and exact asset payment.'.PHP_EOL;
+    exit(0);
+}
+if ($mode === 'verify-worker-harvest' && $fixtureName === 'worker-alignment-device-fixture.json') {
+    $worker = $actors->firstWhere('public_id', $fixture['worker_id']);
+    $harvest = DB::table('harvests')->where('planting_group_id', $groups[0])
+        ->where('recorded_by', $worker->id)->where('notes', 'Panen uji perangkat '.$fixture['fixture_id'])->sole();
+    $decisions = DB::table('harvest_reviews')->where('harvest_id', $harvest->id)->where('reviewer_id', $manager->id)
+        ->orderBy('harvest_version')->get();
+    $items = DB::table('harvest_items')->where('harvest_id', $harvest->id)->where('active', true)->get()->keyBy('quality');
+    if ($harvest->version !== 2 || $harvest->recorded_by_role !== 'worker' ||
+        $decisions->pluck('harvest_version')->all() !== [1, 2] ||
+        $decisions->pluck('decision')->all() !== ['invalid', 'valid'] ||
+        $items->count() !== 2 || $items['saleable']->weight_kg !== '9.250000' || $items['defective']->weight_kg !== '3.250000' ||
+        $items->pluck('sold_weight_kg')->unique()->values()->all() !== ['0.000000']) {
+        throw new RuntimeException('Worker harvest SQL reconciliation failed.');
+    }
+    foreach (['audit_logs', 'sync_operations', 'change_feed'] as $table) {
+        if (DB::table($table)->where('entity_type', 'harvest_review')->whereIn('entity_id', $decisions->pluck('id'))->count() !== 2) {
+            throw new RuntimeException('Review ledger reconciliation failed.');
+        }
+    }
+    echo 'PASS: guarded MySQL reconciled two grades, two revisions, two decisions, audit, receipts, feed and sold weight.'.PHP_EOL;
+    exit(0);
+}
+if ($mode === 'update-worker-motion-target' && $fixtureName === 'worker-alignment-device-fixture.json') {
+    $group = DB::table('planting_groups')->where('id', $groups[0])->sole();
+    $operation = ['schema_version' => '2', 'sync_epoch' => DB::table('sync_state')->where('id', 1)->value('epoch'),
+        'operation_id' => (string) Str::uuid(), 'entity_id' => $group->id, 'entity_type' => 'planting_groups',
+        'action' => 'update', 'base_version' => $group->version, 'payload' => [
+            'name' => $group->name, 'variety_id' => $group->variety_id, 'population' => $group->population,
+            'sowing_date' => $group->sowing_date, 'transplant_date' => $group->transplant_date, 'active' => (bool) $group->active,
+            'reason' => 'Uji transisi target pada emulator',
+            'harvest_target' => ['fruit_count' => 30, 'weight_kg' => '30', 'basis' => 'Target sintetis untuk uji transisi'],
+        ]];
+    app(MasterService::class)->mutate($manager, 'planting_groups', $operation);
+    echo 'PASS: target synthetic worker-motion fixture updated through the ledger.'.PHP_EOL;
+    exit(0);
+}
+if ($mode === 'race-worker-review' && $fixtureName === 'worker-alignment-device-fixture.json') {
+    $context = $fixture['contexts'][0];
+    $worker = $actors->firstWhere('public_id', $fixture['worker_id']);
+    $raceNote = 'Race worker review '.$fixture['fixture_id'];
+    if (DB::table('harvests')->where('planting_group_id', $groups[0])->where('notes', $raceNote)->exists()) {
+        throw new RuntimeException('Race already initialized for this synthetic fixture.');
+    }
+    $epoch = DB::table('sync_state')->where('id', 1)->value('epoch');
+    $op = fn ($kind, $payload) => ['schema_version' => '2', 'sync_epoch' => $epoch, 'operation_id' => (string) Str::uuid(),
+        'entity_id' => (string) Str::uuid(), 'entity_type' => $kind, 'action' => 'create', 'base_version' => null, 'payload' => $payload];
+    $rival = $actors->firstWhere('public_id', $fixture['rival_id'] ?? null);
+    if ($rival === null) {
+        $rival = DB::transaction(function () use ($fixture) {
+            DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();
+            $id = (string) Str::uuid();
+            app(EntityIdentity::class)->claim('users', $id);
+
+            return User::create(['public_id' => $id, 'name' => 'Pengelola kedua sintetis', 'role' => 'worker',
+                'email' => 'device-rival-'.$fixture['fixture_id'].'@example.invalid', 'password' => Str::random(40)]);
+        });
+        $fixture['rival_id'] = $rival->public_id;
+        file_put_contents($path, json_encode($fixture, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    }
+    if (! DB::table('greenhouse_assignments')->where('user_id', $rival->id)->where('greenhouse_id', $context['greenhouse_id'])->exists()) {
+        $rival->update(['role' => 'worker']);
+        $assignment = $op('greenhouse_assignments', ['greenhouse_id' => $context['greenhouse_id'], 'user_id' => $rival->public_id,
+            'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
+        app(MasterService::class)->mutate($manager, 'greenhouse_assignments', $assignment);
+    }
+    $rival->update(['role' => 'manager']);
+    $line = (string) Str::uuid();
+    $harvest = $op('harvest', ['planting_group_id' => $groups[0], 'occurred_at' => '2026-11-10T08:00:00+07:00',
+        'notes' => $raceNote,
+        'items' => [['id' => $line, 'grade_id' => $context['grade_ids'][0], 'fruit_count' => 3, 'weight_kg' => '5', 'quality' => 'saleable']]]);
+    app(HarvestService::class)->mutate($worker, $harvest);
+    $sale = fn () => $op('sale', ['season_id' => $context['season_id'], 'paid_at' => '2026-11-10T09:00:00+07:00',
+        'payment_status' => 'paid', 'customer_name' => '', 'notes' => 'Penjualan sintetis untuk regresi review',
+        'items' => [['id' => (string) Str::uuid(), 'harvest_item_id' => $line, 'quantity_kg' => '1', 'price_per_kg' => '10000']]]);
+    $initial = app(SaleService::class)->mutate($manager, $sale());
+    $dir = dirname(__DIR__).'/tmp/worker-review-race-'.Str::uuid();
+    mkdir($dir, 0700);
+    $files = [$dir.'/go'];
+    $processes = [];
+    $operations = [];
+    try {
+        foreach ([$manager, $rival] as $i => $reviewer) {
+            $operations[] = $decision = $op('harvest_review', ['harvest_id' => $harvest['entity_id'], 'harvest_version' => 1,
+                'decision' => 'invalid', 'reason' => 'Koreksi hasil uji simultan.']);
+            $input = "$dir/input-$i.json";
+            $ready = "$dir/ready-$i";
+            $result = "$dir/result-$i.json";
+            $error = "$dir/error-$i.txt";
+            array_push($files, $input, $ready, $result, $error);
+            file_put_contents($input, json_encode(['actor_id' => $reviewer->id, 'operation' => $decision], JSON_THROW_ON_ERROR));
+            $process = proc_open([PHP_BINARY, dirname(__DIR__).'/backend/tests/Support/finance-race-worker.php', $input, $ready, "$dir/go", $result],
+                [['pipe', 'r'], ['file', $error, 'a'], ['file', $error, 'a']], $pipes, dirname(__DIR__).'/backend');
+            if (! is_resource($process)) {
+                throw new RuntimeException('Could not start guarded review worker.');
+            }
+            fclose($pipes[0]);
+            $processes[] = $process;
+        }
+        $wait = static function (array $paths) {
+            $deadline = microtime(true) + 20;
+            do {
+                clearstatcache();
+                if (count(array_filter($paths, is_file(...))) === count($paths)) {
+                    return;
+                }
+                usleep(20000);
+            } while (microtime(true) < $deadline);
+            throw new RuntimeException('Worker review race timed out.');
+        };
+        $wait(["$dir/ready-0", "$dir/ready-1"]);
+        file_put_contents("$dir/go", 'go');
+        $wait(["$dir/result-0.json", "$dir/result-1.json"]);
+        $results = array_map(fn ($i) => json_decode(file_get_contents("$dir/result-$i.json"), true, flags: JSON_THROW_ON_ERROR), [0, 1]);
+        $statuses = array_column($results, 'status');
+        sort($statuses);
+        if ($statuses !== ['accepted', 'harvest_already_reviewed'] ||
+            count(array_unique(array_column($results, 'pid'))) !== 2 || count(array_unique(array_column($results, 'connection_id'))) !== 2 ||
+            DB::table('harvest_items')->where('id', $line)->value('sold_weight_kg') !== '1.000000' ||
+            DB::table('sales')->where('id', $initial['body']['entity_id'])->value('total_amount') !== '10000.00') {
+            throw new RuntimeException('Review race or preserved sale balance check failed: '.json_encode($results));
+        }
+        foreach (['audit_logs', 'sync_operations', 'change_feed'] as $table) {
+            if (DB::table($table)->where('entity_type', 'harvest_review')->whereIn('entity_id', array_column($operations, 'entity_id'))->count() !== 1) {
+                throw new RuntimeException('Competing review ledger did not reconcile.');
+            }
+        }
+        app(SaleService::class)->mutate($manager, $sale());
+        if (DB::table('harvest_items')->where('id', $line)->value('sold_weight_kg') !== '2.000000') {
+            throw new RuntimeException('Review changed sale eligibility.');
+        }
+        echo 'PASS: two managers on separate MySQL connections, one review accepted, one stale; pending and invalid harvest sale eligibility unchanged.'.PHP_EOL;
+    } finally {
+        foreach ($processes as $process) {
+            if (proc_get_status($process)['running']) {
+                proc_terminate($process);
+            }
+            proc_close($process);
+        }
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
+        rmdir($dir);
+    }
     exit(0);
 }
 if (in_array($mode, ['verify', 'verify-measurements'], true)) {
@@ -218,6 +374,7 @@ DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
     DB::table('cost_allocations')->whereIn('expense_id', $expenses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
     DB::table('expenses')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
     $harvests = DB::table('harvests')->whereIn('planting_group_id', $groups)->select('id');
+    DB::table('harvest_reviews')->whereIn('harvest_id', $harvests)->whereIn('reviewer_id', $actors->pluck('id'))->delete();
     foreach (['harvest_reference_snapshots', 'harvest_items'] as $table) {
         DB::table($table)->whereIn('harvest_id', $harvests)->delete();
     }

@@ -6,6 +6,7 @@ import com.inofarm.jogja.core.database.QueuedOperation
 import com.inofarm.jogja.core.contracts.SyncState
 import com.inofarm.jogja.core.contracts.UserRole
 import com.inofarm.jogja.core.network.FinanceApi
+import com.inofarm.jogja.core.network.FinanceApiFailure
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.core.session.FinanceSessionVault
 import com.inofarm.jogja.feature.harvest.domain.HarvestDraft
@@ -31,6 +32,41 @@ class HarvestRepository(val vault:FinanceSessionVault,private val store:LocalFin
         api.request(session.scope.server, session.token, "planting-groups/$group/harvest-progress")
             .also { checkSession(session, ticket); require(it.getString("group_id") == group) }
     }
+
+    suspend fun cachedWorkerProgress(session: FinanceSession, ticket: Long, greenhouse: String, group: String): JSONObject? =
+        withContext(Dispatchers.IO) {
+            checkSession(session, ticket)
+            store.cachedOne(session.scope.key, "worker_harvest_progress", group)
+                ?.takeIf { it.optString("greenhouse_id") == greenhouse }
+        }
+
+    suspend fun workerProgress(session: FinanceSession, ticket: Long, greenhouse: String, group: String): JSONObject =
+        withContext(Dispatchers.IO) {
+            checkSession(session, ticket)
+            require(session.role == UserRole.WORKER)
+            val epoch = store.epoch(session.scope.key)
+            try {
+                progress(session, ticket, group).also {
+                    require(it.getString("greenhouse_id") == greenhouse && it.has("verification"))
+                    store.cacheWorkerHarvestProgress(session.scope.key, greenhouse, group, it, epoch)
+                }
+            } catch (error: FinanceApiFailure) {
+                checkSession(session, ticket)
+                if (error.status in setOf(401, 403, 404)) store.forgetWorkerHarvestProgress(session.scope.key, group)
+                throw error
+            }
+        }
+
+    suspend fun progressSources(session: FinanceSession, ticket: Long, group: String, status: String?, cursor: String?) =
+        withContext(Dispatchers.IO) {
+            checkSession(session, ticket)
+            val query = buildMap {
+                status?.let { put("status", it) }
+                cursor?.let { put("cursor", it) }
+            }
+            api.request(session.scope.server, session.token, "planting-groups/$group/harvest-progress/sources", query = query)
+                .also { checkSession(session, ticket) }
+        }
 
     suspend fun transitionState(session: FinanceSession, ticket: Long, group: String): LocalRecord? = withContext(Dispatchers.IO) {
         checkSession(session, ticket)

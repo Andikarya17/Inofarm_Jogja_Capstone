@@ -1,0 +1,18 @@
+{
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "10000000-0000-0000-0000-000000000001",
+    "operation_id": "10e63fcb-d7f9-4e16-a6f8-90003f54655d",
+    "entity_id": "1ac9c785-dbd5-4305-b92e-0513980719cc",
+    "entity_type": "harvest_review",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "harvest_id": "30000000-0000-0000-0000-000000000001",
+      "harvest_version": 1,
+      "decision": "invalid",
+      "reason": "Periksa bobot Grade B."
+    }
+  },
+  "canonical_sha256": "fe93964f56cdeb09109c60aea6a7507a96c9c15e497d54c8f6d64e382b8d878a"
+}

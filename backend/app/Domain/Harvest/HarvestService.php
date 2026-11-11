@@ -131,7 +131,8 @@ final class HarvestService
             $data['version'] = ($before['version'] ?? 0) + 1;
             $data['updated_at'] = now();
             if ($before === null) {
-                DB::table('harvests')->insert([...$data, 'id' => $op['entity_id'], 'recorded_by' => $current->id, 'created_at' => now()]);
+                DB::table('harvests')->insert([...$data, 'id' => $op['entity_id'], 'recorded_by' => $current->id,
+                    'recorded_by_role' => $current->role, 'created_at' => now()]);
             } else {
                 DB::table('harvests')->where('id', $op['entity_id'])->update($data);
             }

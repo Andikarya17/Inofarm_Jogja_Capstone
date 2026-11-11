@@ -37,6 +37,18 @@ internal fun FinanceTestRule.selectFinanceTab(index: Int) {
     destination.performClick()
 }
 
+internal fun FinanceTestRule.openFinanceOutbox() {
+    selectFinanceTab(1)
+    val verification = onAllNodesWithTag("activity-verification-list")
+    waitUntil(10_000) {
+        verification.fetchSemanticsNodes().isNotEmpty() || onAllNodesWithTag("finance-queue-list").fetchSemanticsNodes().isNotEmpty()
+    }
+    if (verification.fetchSemanticsNodes().isNotEmpty()) {
+        onNodeWithTag("activity-verification-list").performScrollToNode(hasTestTag("verification-outbox"))
+        onNodeWithTag("verification-outbox").performClick()
+    }
+}
+
 internal fun FinanceTestRule.logoutFromAccount() {
     val rejected = onAllNodesWithTag("manager-home-relogin")
     waitUntil(10_000) {

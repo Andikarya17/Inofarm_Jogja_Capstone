@@ -1,5 +1,7 @@
 # Instruksi agen Inofarm: baseline aktif29 Oktober 2026
 
+Baseline setelah remediasi10 November2026 mengikuti [bukti penyelesaian](docs/context/AUDIT_REMEDIATION_20261110.md). Database aplikasi lokal sudah migration19, parity route OpenAPI lengkap, filter latest mengikuti review dan cache konteks membaca seluruh halaman. Status audit lama di bawah harus dibaca sebagai checkpoint sebelum perbaikan. QA/keputusan produksi tetap mengikuti gate yang tercatat.
+
 ## Prioritas dan scope terbaru
 
 Pengguna meminta rombak ke **Aplikasi Mobile Pencatatan Operasional dan Evaluasi Keuangan Greenhouse Melon Hidroponik**, proposal `D:/Semester 7/Capstone 2/Proposal/Proposal Aplikasi Pencatatan Keuangan .pdf`. Stack tetap Android native **Kotlin + Jetpack Compose**, **Laravel REST API**, **MySQL**. Context aktif di `docs/context/`; instruksi sebelumnya di `docs/archive/pre-finance-20261029/AGENTS.md` bukan larangan yang mengatasi keputusan baru.
@@ -9,6 +11,8 @@ Dua peran pekerja/pengelola, input manual Android, multi-greenhouse/musim/kelomp
 FIN00 pada29 Oktober menyusun proposal/audit/context/master prompt tanpa mengganti runtime. Pengguna kemudian meminta pelaksanaan MASTER_PROMPT.md; implementasi bertahap aktif, status aktual di docs/context/IMPLEMENTATION_STATUS.md dan kontrak executable di contracts/v2/. Jangan memakai status audit FIN00 sebagai klaim source terbaru belum berubah. Jangan meminta approval ulang untuk tindakan reversible dalam scope terotorisasi.
 
 ## Urutan konteks
+
+Pintu masuk handoff10 November2026: `CLAUDE.md`, `docs/context/SYSTEM_AUDIT_20261110.md`, inventaris database dan peta API pada direktori context. Audit menemukan source migration19 tetapi database aplikasi efektif `inofarm_finance_local` masih16; gap runtime ini belum diperbaiki. Context bertanggal lama tidak mengatasi hasil audit terbaru. Perlindungan database pengguna berlaku untuk nama ini maupun `inofarm_local`.
 
 1. AGENTS root dan lokal.
 2. SOP GitLab/Pengumpulan di Aturan Main sesuai pekerjaan.

@@ -1,5 +1,17 @@
 # Implementation plan migrasi proposal terbaru
 
+## Status setelah remediasi10 November2026
+
+[Bukti remediasi](AUDIT_REMEDIATION_20261110.md) mengatasi status terbuka pada audit sebelumnya. DB-01 selesai pada database lokal inofarm_finance_local, kini finance19/54 tabel/75 FK dan Beranda terbaca. API-01/API-02 selesai dengan152 operasi OpenAPI yang setara153 route runtime setelah ekspansi, schema respons dan tes parity. API-03 selesai dengan filter review invalid versi aktif. FE-01 selesai dengan pembacaan seluruh halaman cache scoped. Backend144 tes, JVM74 dan instrumentasi32 tes API30 lulus. QA-01, benchmark produksi dan keputusan bisnis tetap terbuka. Gunakan [CLAUDE.md](../../CLAUDE.md) sebagai pintu masuk terkini.
+
+Bagian audit sebelum remediasi di bawah mencatat kondisi saat diperiksa. Ketertinggalan schema dan daftar gap API pada bagian itu telah ditangani oleh perubahan terbaru.
+
+## Titik lanjut aktif, 10 November 2026
+
+FIN01–17 dan penyelarasan PG0–PG7 sudah memiliki implementasi/evidence sesuai status masing-masing. Jangan mengulang rencana FIN00 dari nol. [Audit sistem terbaru](SYSTEM_AUDIT_20261110.md) menetapkan urutan tindak lanjut: DB-01 (schema aplikasi tertinggal17–19), API-01/API-02 (kelengkapan OpenAPI/DTO), API-03 (semantik pengukuran latest), lalu risiko selector dan gate acceptance. [CLAUDE.md](../../CLAUDE.md) menjadi pintu masuk agent baru.
+
+Task audit 10 November hanya mengubah dokumentasi/context. Rollout migration pengguna, perbaikan runtime dan kontrak executable belum dilakukan. Test lulus pada inofarm_test tidak menutup kegagalan schema inofarm_finance_local. Semua rencana/titik lanjut bertanggal di bawah adalah histori yang harus dibaca bersama status terbaru.
+
 ## Titik lanjut 8 November 2026
 
 Jangan menjalankan ulang FIN01–17 atau prompt frontend sebagai pekerjaan baru. FIN01–15 core, FIN16 engineering, FIN17 dokumentasi/tooling, frontend botani dan menu sekunder sudah tersedia. Beranda pengelola juga telah diimplementasikan pada `d6774fc`; main baru sampai `0ea7f66` saat audit. [Handoff sesi baru](HANDOFF_20261108.md).

@@ -66,7 +66,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         }
         if(role == UserRole.WORKER) {
             connection.delete("manager_home_cache","scope=?",arrayOf(scope))
-            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','harvest','activity_audit','harvest_audit','harvest_balance','activity_attachment','harvest_attachment','activity_attachment_policy','harvest_attachment_policy','activity_attachment_audit','harvest_attachment_audit')",arrayOf(scope))
+            connection.delete("cached_records","scope=? AND kind NOT IN ('greenhouses','varieties','units','materials','grades','seasons','planting_groups','schedules','targets','activity','activity_review','harvest','harvest_review','activity_audit','harvest_audit','harvest_balance','activity_attachment','harvest_attachment','activity_attachment_policy','harvest_attachment_policy','activity_attachment_audit','harvest_attachment_audit','worker_harvest_progress')",arrayOf(scope))
             val reason=encrypt(scope,JSONObject().put("message","Peran saat ini tidak mengizinkan perubahan pengelola. Antrean tetap disimpan untuk ditinjau."))
             connection.execSQL("UPDATE outbox SET state='SCOPE_REVOKED',error=? WHERE scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW') AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=? AND kind NOT IN ('activity','harvest','activity_attachment','harvest_attachment'))",arrayOf(reason,scope,scope))
         }
@@ -92,6 +92,16 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     fun invalidateManagerHome(scope: String) = transaction {
         db.delete("manager_home_cache", "scope=?", arrayOf(scope))
+    }
+    fun cacheWorkerHarvestProgress(scope: String, gh: String, group: String, body: JSONObject, expectedEpoch: String?) = transaction {
+        requireKind(scope, "worker_harvest_progress")
+        require(epoch(scope) == expectedEpoch && gh in visibleGreenhouses(scope)) { "Cakupan rekap berubah. Sinkronkan kembali." }
+        db.insertWithOnConflict("cached_records", null,
+            values("scope" to scope, "kind" to "worker_harvest_progress", "entity_id" to group, "greenhouse_id" to gh,
+                "version" to 1, "tombstone" to 0, "body" to encrypt(scope, body)), SQLiteDatabase.CONFLICT_REPLACE)
+    }
+    fun forgetWorkerHarvestProgress(scope: String, group: String) = transaction {
+        db.delete("cached_records", "scope=? AND kind='worker_harvest_progress' AND entity_id=?", arrayOf(scope, group))
     }
     fun runningPeriodRequest(scope: String, gh: String): JSONObject? = transaction {
         requireMutationKind(scope, "greenhouses")
@@ -122,13 +132,27 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
                 ORDER BY occurred_millis DESC,entity_id DESC LIMIT 100 OFFSET ?""",arrayOf(scope,gh,group,scope,today.toString(),offset.toString())).use {cursor -> buildList {while(cursor.moveToNext()) add(cursor.record(scope))}}
             for(row in rows) {
                 val cancel=row.syncState==SyncState.QUEUED && row.latestOperationId?.let {id -> db.rawQuery("SELECT envelope FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,id)).use {c -> c.moveToFirst() && decode(scope,c.getString(0))?.optString("action")=="cancel"}}==true
-                if(!cancel) com.inofarm.jogja.feature.activities.domain.ManualMeasurement.from(row,today)?.let {return@transaction it}
+                if (cancel) continue
+                val pair = com.inofarm.jogja.feature.activities.domain.ManualMeasurement.from(row,today) ?: continue
+                val decision = if (pair.queued) null else measurementDecision(scope, gh, row.id, row.serverVersion)
+                if (decision != "invalid") return@transaction pair.copy(verification = decision ?: pair.verification)
             }
             if(rows.size<100) return@transaction null
             offset+=rows.size
         }
         @Suppress("UNREACHABLE_CODE") null
     }
+    private fun measurementDecision(scope: String, greenhouse: String, activity: String, version: Long?): String? =
+        db.rawQuery("""SELECT c.body FROM local_records r JOIN cached_records c
+            ON c.scope=r.scope AND c.kind=r.kind AND c.entity_id=r.entity_id
+            WHERE r.scope=? AND r.kind='activity_review' AND r.owner_id=? AND c.greenhouse_id=? AND c.tombstone=0""",
+            arrayOf(scope, activity, greenhouse)).use { rows ->
+            while (rows.moveToNext()) {
+                val review = decode(scope, rows.getString(0)) ?: continue
+                if (review.optLong("activity_version") == version) return@use review.optString("decision")
+            }
+            null
+        }
     private fun indexValues(body:JSONObject):ContentValues {
         val form=body.optJSONObject("_local_form")
         val timestamp=listOf("occurred_at","paid_at","created_at").firstNotNullOfOrNull {key -> body.optString(key).takeUnless {it.isBlank() || it=="null"}}
@@ -137,7 +161,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             "group_id" to (form?.optString("group_id") ?: body.optString("planting_group_id")).takeIf {it.isNotBlank()},
             "record_state" to body.optString("record_state","active"),"occurred_millis" to runCatching {OffsetDateTime.parse(timestamp).toInstant().toEpochMilli()}.getOrNull(),
             "season_id" to (form?.optString("season_id") ?: body.optString("season_id")).takeIf {it.isNotBlank()},
-            "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"asset_id" to (form?.optString("asset_id") ?: body.optString("asset_id")).takeIf {it.isNotBlank()},"scenario_id" to (form?.optString("scenario_id") ?: body.optString("scenario_id")).takeUnless {it.isBlank() || it=="null"},"owner_id" to body.optString("owner_id").ifBlank { body.optString("activity_id") }.takeIf {it.isNotBlank()},"indexed" to 1)
+            "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"asset_id" to (form?.optString("asset_id") ?: body.optString("asset_id")).takeIf {it.isNotBlank()},"scenario_id" to (form?.optString("scenario_id") ?: body.optString("scenario_id")).takeUnless {it.isBlank() || it=="null"},"owner_id" to body.optString("owner_id").ifBlank { body.optString("activity_id") }.ifBlank { body.optString("harvest_id") }.takeIf {it.isNotBlank()},"indexed" to 1)
     }
     private fun ensureIndexed(scope:String)=transaction {
         while(true) {
@@ -172,7 +196,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     private fun requireKind(scope:String,kind:String) {
         val role=db.rawQuery("SELECT role FROM scope_metadata WHERE scope=?",arrayOf(scope)).use {if(it.moveToFirst()) it.getString(0) else null}
-        require(role=="manager" || kind in setOf("activity","activity_review","harvest","activity_audit","harvest_audit","harvest_balance","greenhouses","varieties","units","materials","grades","seasons","planting_groups","schedules","targets","activity_attachment","harvest_attachment","activity_attachment_policy","harvest_attachment_policy","activity_attachment_audit","harvest_attachment_audit")) {"Data ini hanya untuk pengelola."}
+        require(role=="manager" || kind in setOf("activity","activity_review","harvest","harvest_review","activity_audit","harvest_audit","harvest_balance","greenhouses","varieties","units","materials","grades","seasons","planting_groups","schedules","targets","activity_attachment","harvest_attachment","activity_attachment_policy","harvest_attachment_policy","activity_attachment_audit","harvest_attachment_audit","worker_harvest_progress")) {"Data ini hanya untuk pengelola."}
     }
     private fun requireMutationKind(scope:String,kind:String) {
         requireKind(scope,kind)
@@ -185,13 +209,24 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         requireKind(scope,"cost_allocation");ensureIndexed(scope)
         return db.rawQuery("SELECT DISTINCT season_id FROM local_records WHERE scope=? AND kind='cost_allocation' AND expense_id=? AND record_state='active' AND season_id IS NOT NULL AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)",arrayOf(scope,expenseId,scope)).use {rows -> buildSet {while(rows.moveToNext()) add(rows.getString(0))}}
     }
-    fun cached(scope: String, kind: String, greenhouse: String? = null, limit: Int = 100): List<JSONObject> {
+    fun cached(scope: String, kind: String, greenhouse: String? = null, limit: Int = 100, offset: Int = 0): List<JSONObject> {
         require(limit in 1..1000)
+        require(offset >= 0)
         requireKind(scope,kind)
         val args = mutableListOf(scope,kind,scope)
         val filter = if(greenhouse != null) { args.add(greenhouse); " AND greenhouse_id=?" } else ""
         args.add(limit.toString())
-        return db.rawQuery("SELECT body FROM cached_records WHERE scope=? AND kind=? AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)$filter ORDER BY entity_id LIMIT ?",args.toTypedArray()).use { rows -> buildList { while(rows.moveToNext()) add(decode(scope,rows.getString(0))!!) } }
+        args.add(offset.toString())
+        return db.rawQuery("SELECT body FROM cached_records WHERE scope=? AND kind=? AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)$filter ORDER BY entity_id LIMIT ? OFFSET ?",args.toTypedArray()).use { rows -> buildList { while(rows.moveToNext()) add(decode(scope,rows.getString(0))!!) } }
+    }
+
+    fun cachedAll(scope: String, kind: String, greenhouse: String? = null): List<JSONObject> = transaction {
+        buildList {
+            do {
+                val page = cached(scope, kind, greenhouse, limit = 1000, offset = size)
+                addAll(page)
+            } while (page.size == 1000)
+        }
     }
     fun cachedOne(scope:String,kind:String,id:String):JSONObject? {
         requireKind(scope,kind)
@@ -537,7 +572,10 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     fun applyPull(scope: String, page: JSONObject) = transaction {
         require(page.getString("sync_epoch") == epoch(scope)) { "Epoch berubah; antrean harus ditinjau." }
         val scopes=page.getJSONArray("scope");val visible=(0 until scopes.length()).map { scopes.getJSONObject(it).getString("id") }.toSet()
-        if (visible != visibleGreenhouses(scope)) db.delete("manager_home_cache", "scope=?", arrayOf(scope))
+        if (visible != visibleGreenhouses(scope)) {
+            db.delete("manager_home_cache", "scope=?", arrayOf(scope))
+            db.delete("cached_records", "scope=? AND kind='worker_harvest_progress'", arrayOf(scope))
+        }
         db.delete("scope_access","scope=?",arrayOf(scope))
         visible.forEach { db.insertOrThrow("scope_access",null,values("scope" to scope,"greenhouse_id" to it)) }
         db.update("scope_metadata",values("visible_greenhouses" to JSONArray(visible.toList()).toString(),"pull_cursor" to page.getString("next_cursor"),"last_synced_at" to System.currentTimeMillis()),"scope=?",arrayOf(scope))
@@ -552,7 +590,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             if(version > old) {
                 db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to version,
                     "tombstone" to if(row.getBoolean("tombstone")) 1 else 0,"body" to encrypt(scope,row.getJSONObject("data"))),SQLiteDatabase.CONFLICT_REPLACE)
-                if(kind in setOf("activity","activity_review","harvest","expense","cost_allocation","sale","asset","depreciation_allocation") || kind in AttachmentContract.kinds || existing!=null) {
+                if(kind in setOf("activity","activity_review","harvest","harvest_review","expense","cost_allocation","sale","asset","depreciation_allocation") || kind in AttachmentContract.kinds || existing!=null) {
                     val local=existing;val body=row.getJSONObject("data")
                     if(local == null) {
                         val data=values("scope" to scope,"entity_id" to id,"kind" to kind,"greenhouse_id" to gh,"revision" to 1L,

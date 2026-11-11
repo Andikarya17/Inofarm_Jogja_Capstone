@@ -2,6 +2,8 @@ package com.inofarm.jogja.feature.harvest
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
@@ -65,7 +67,9 @@ internal fun HarvestProgressScreen(
         val groupId = group
         val gh = greenhouse
         if (groupId != null && gh != null) item("progress-$groupId") {
-            HarvestProgressDetail(session, ticket, repository, groupId, gh, syncRevision, onSync, onOutbox)
+            Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Large)) {
+                HarvestProgressDetail(session, ticket, repository, groupId, gh, syncRevision, onSync, onOutbox)
+            }
         }
     }
 }

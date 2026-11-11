@@ -56,11 +56,16 @@ final class ActivityReviewTest extends FinanceTestCase
         $this->asUser($otherWorker)->getJson($path)->assertNotFound();
         $otherFeed = $this->getJson('/api/v2/sync/changes?activity_reviews=1&limit=100')->assertOk()->json('data');
         $this->assertNotContains('activity_review', array_column($otherFeed, 'entity_type'));
+        $statusFeed = $this->getJson('/api/v2/sync/changes?activity_reviews=1&measurement_review_status=1&limit=100')->assertOk()->json('data');
+        $this->assertEquals([
+            'id' => $review['entity_id'], 'version' => 1, 'activity_id' => $id, 'activity_version' => 1, 'decision' => 'invalid',
+        ], collect($statusFeed)->firstWhere('entity_type', 'activity_review')['data']);
         $this->asUser($worker)->getJson($path)->assertOk()->assertJsonPath('decision.reason', $review['payload']['reason']);
         $oldFeed = $this->getJson('/api/v2/sync/changes?limit=100')->assertOk()->json();
         $this->assertNotContains('activity_review', array_column($oldFeed['data'], 'entity_type'));
-        $newFeed = $this->getJson('/api/v2/sync/changes?activity_reviews=1&limit=100&cursor='.$oldFeed['next_cursor'])->assertOk()->json('data');
+        $newFeed = $this->getJson('/api/v2/sync/changes?activity_reviews=1&measurement_review_status=1&limit=100&cursor='.$oldFeed['next_cursor'])->assertOk()->json('data');
         $this->assertContains('activity_review', array_column($newFeed, 'entity_type'));
+        $this->assertSame($review['payload']['reason'], collect($newFeed)->firstWhere('entity_type', 'activity_review')['data']['reason']);
 
         $correction = $this->operation('activity', [...$payload, 'manual_ppm' => '610', 'reason' => 'Uji koreksi', 'reference_policy' => 'preserve'], 'update', $id, 1);
         $this->patchJson('/api/v2/activities/'.$id, $correction)->assertOk()->assertJsonPath('version', 2);

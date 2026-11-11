@@ -10,6 +10,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import com.inofarm.jogja.core.contracts.OperationalKind
 import com.inofarm.jogja.core.contracts.SyncState
 import com.inofarm.jogja.core.database.QueuedOperation
@@ -36,6 +39,7 @@ internal fun RecordStatus(state: SyncState) {
     }, tween(FarmMotion.State), label = "Status catatan")
     Text(
         state.label(),
+        Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         style = MaterialTheme.typography.labelLarge,
         color = color
     )
@@ -63,8 +67,7 @@ internal fun QueueScreen(
     }
     FarmMenuList(Modifier.testTag("finance-queue-list")) {
         item("queue-header") {
-            FarmMenuHeader(if (onVerification == null) "Antrean" else "Pengiriman saya",
-                "Pengajuan lokal dan tanggapan server untuk akun ini.") {
+            FarmMenuHeader("Pengiriman saya", "Pengajuan dari perangkat ini dan tanggapan server.") {
                 if (onVerification != null) TextButton(onClick = onVerification, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
                     Text("Kembali ke verifikasi")
                 }
@@ -137,6 +140,7 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
     val state = operation.syncState()
     val label = OperationalKind.entries.find { it.wire == kind }?.label ?: when (kind) {
         "activity_review" -> "keputusan verifikasi"
+        "harvest_review" -> "verifikasi panen"
         "season_report" -> "evaluasi musim"
         "investment_scenario" -> "skenario investasi"
         "investment_report" -> "evaluasi investasi"
@@ -188,8 +192,9 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
             FarmFact("ID operasi", operation.id)
             FarmFact("ID catatan", operation.entityId)
             FarmFact("Percobaan pengiriman", operation.attempts.toString())
-            if (kind == "activity_review" && payload != null) {
-                FarmFact("Revisi kegiatan", payload.optLong("activity_version").toString())
+            if (kind in setOf("activity_review", "harvest_review") && payload != null) {
+                val parent = if (kind == "harvest_review") "panen" else "kegiatan"
+                FarmFact("Revisi $parent", payload.optLong("${kind.removeSuffix("_review")}_version").toString())
                 FarmFact("Keputusan", if (payload.optString("decision") == "valid") "Valid" else "Tidak valid")
                 payload.optString("reason").takeUnless { payload.isNull("reason") || it.isBlank() }?.let { FarmFact("Alasan", it) }
             } else if (state == SyncState.ACCEPTED) Text("Server telah menerima pengajuan. Periksa detail catatan untuk hasil pembandingan dengan acuan.")

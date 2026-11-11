@@ -1,27 +1,95 @@
 package com.inofarm.jogja.feature.context
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.inofarm.jogja.R
 import com.inofarm.jogja.core.cultivation.PlantAge
 import com.inofarm.jogja.core.design.ForestScheme
 import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.design.FarmSpace
 import com.inofarm.jogja.core.design.FarmSheetHeading
+import com.inofarm.jogja.core.design.FarmActionRow
+import com.inofarm.jogja.core.design.FarmIcon
+import com.inofarm.jogja.core.design.FarmPanel
+import com.inofarm.jogja.core.design.FarmRowDivider
 import com.inofarm.jogja.core.design.LocalFarmDialogPicker
 import com.inofarm.jogja.core.sync.ContextCheck
 import com.inofarm.jogja.feature.Choice
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
-import java.time.OffsetDateTime
+import org.json.JSONObject
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 internal data class HomeContext(val greenhouse: String? = null, val season: String? = null, val group: String? = null)
+
+internal fun CultivationUiState.workerDefault(greenhouse: JSONObject, today: LocalDate = LocalDate.now(ActivityDraft.WIB)): HomeContext {
+    val id = greenhouse.getString("id")
+    val openSeasons = seasons.filter { it.optString("greenhouse_id") == id && it.optString("status") == "open" }
+    val openIds = openSeasons.map { it.getString("id") }.toSet()
+    val candidates = groups.filter {
+        it.optString("season_id") in openIds && it.optBoolean("active", true) &&
+            runCatching { LocalDate.parse(it.getString("sowing_date")) <= today }.getOrDefault(false)
+    }
+    val preferred = candidates.find { it.optString("id") == greenhouse.optString("running_group_id") }
+        ?: candidates.singleOrNull()
+    return HomeContext(id, preferred?.getString("season_id") ?: openSeasons.singleOrNull()?.getString("id"),
+        preferred?.getString("id"))
+}
+
+@Composable
+internal fun WorkerGreenhouseList(data: CultivationUiState, today: LocalDate, onSelect: (JSONObject) -> Unit) {
+    val greenhouses = data.greenhouses
+    if (greenhouses.isEmpty() || data.check == ContextCheck.ACCESS_CHANGED) return
+    FarmPanel(title = "Greenhouse penugasan") {
+        greenhouses.forEachIndexed { index, greenhouse ->
+            if (index > 0) FarmRowDivider()
+            val preferred = data.workerDefault(greenhouse, today)
+            val season = data.seasons.find { it.optString("id") == preferred.season }
+            val group = data.groups.find { it.optString("id") == preferred.group }
+            val active = greenhouse.optBoolean("active", true)
+            val detail = when {
+                !active -> "Greenhouse nonaktif"
+                group != null -> listOfNotNull(season?.optString("name"), group.optString("name"),
+                    workerAge(group, today)).joinToString(" · ")
+                season != null -> "${season.optString("name")} · Pilih kelompok tanam"
+                data.seasons.any { it.optString("greenhouse_id") == preferred.greenhouse && it.optString("status") == "open" } ->
+                    "Pilih musim dan kelompok tanam"
+                else -> "Belum ada musim terbuka"
+            }
+            FarmActionRow(greenhouse.getString("name"), detail, FarmIcon.Greenhouse,
+                Modifier.testTag("worker-greenhouse-${preferred.greenhouse}"), enabled = active) { onSelect(greenhouse) }
+        }
+    }
+}
+
+private fun workerAge(group: JSONObject, today: LocalDate): String {
+    val age = runCatching {
+        PlantAge.calculate(group.getString("sowing_date"),
+            if (group.isNull("transplant_date")) null else group.getString("transplant_date"),
+            today.atStartOfDay(ActivityDraft.WIB).toOffsetDateTime().toString())
+    }.getOrNull()
+    return "HSS ${age?.hss ?: "belum tersedia"} · HST ${age?.hst ?: "belum berlaku"}"
+}
 
 internal fun CultivationUiState.greenhouseAvailability(): String? = when {
     loading -> "Memeriksa penugasan dan konteks budidaya…"
@@ -39,6 +107,8 @@ internal fun CultivationUiState.greenhouseAvailability(): String? = when {
 internal fun HomeContextCard(
     data: CultivationUiState,
     selected: HomeContext,
+    today: LocalDate,
+    onOverview: () -> Unit,
     onOpen: () -> Unit
 ) {
     val greenhouses = data.greenhouses.filter { it.optBoolean("active", true) }
@@ -47,47 +117,58 @@ internal fun HomeContextCard(
     val greenhouse = greenhouses.find { it.optString("id") == selected.greenhouse }
     val season = seasons.find { it.optString("id") == selected.season }
     val group = groups.find { it.optString("id") == selected.group }
-    val age = remember(group, java.time.LocalDate.now(ActivityDraft.WIB)) {
-        group?.let {
-            runCatching {
-                PlantAge.calculate(
-                    it.getString("sowing_date"),
-                    if (it.isNull("transplant_date")) null else it.getString("transplant_date"),
-                    OffsetDateTime.now(ActivityDraft.WIB).toString()
-                )
-            }.getOrNull()
-        }
-    }
+    val date = today.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.forLanguageTag("id-ID")))
+    var entered by remember(greenhouse?.optString("id")) { mutableStateOf(greenhouse == null) }
+    LaunchedEffect(greenhouse?.optString("id")) { entered = true }
+    val alpha by animateFloatAsState(if (entered) 1f else .38f, tween(230), label = "Panel greenhouse")
     MaterialTheme(colorScheme = ForestScheme) {
         Surface(
-            Modifier.fillMaxWidth(), shape = FarmShape.Card,
+            Modifier.fillMaxWidth().graphicsLayer { this.alpha = alpha }, shape = FarmShape.Card,
             color = ForestScheme.background, contentColor = ForestScheme.onBackground
         ) {
-            Column(
-                Modifier.padding(horizontal = FarmSpace.Large).padding(top = FarmSpace.Large, bottom = FarmSpace.Small),
-                verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)
-            ) {
-                Text(greenhouse?.optString("name") ?: "Pilih greenhouse",
-                    Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
-                if (season != null || group != null) {
-                    Text(listOfNotNull(season?.optString("name"), group?.optString("name")).joinToString(" · "),
-                        style = MaterialTheme.typography.bodyMedium)
+            BoxWithConstraints {
+                val artwork = maxWidth >= 320.dp && LocalDensity.current.fontScale <= 1.3f
+                if (artwork) Box(Modifier.align(Alignment.TopEnd).width(104.dp).height(110.dp)) {
+                    Image(painterResource(R.drawable.background_dashboard), contentDescription = null,
+                        modifier = Modifier.matchParentSize(), contentScale = ContentScale.Crop,
+                        alignment = Alignment.TopEnd, alpha = .8f)
+                    Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
+                        0f to ForestScheme.background, .34f to Color.Transparent)))
+                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(
+                        .58f to Color.Transparent, 1f to ForestScheme.background)))
                 }
-                if (group != null) {
-                    Text("HSS ${age?.hss ?: "belum tersedia"} · HST ${age?.hst ?: "belum berlaku"}",
-                        style = MaterialTheme.typography.bodySmall, color = ForestScheme.onSurfaceVariant)
-                } else {
-                    Text(when {
-                        greenhouse == null -> "Lanjutkan dengan memilih musim dan kelompok tanam."
-                        season == null -> "Pilih musim untuk melihat kelompok tanam."
-                        else -> "Pilih kelompok tanam untuk membuka pengukuran dan pencatatan."
-                    }, style = MaterialTheme.typography.bodyMedium, color = ForestScheme.onSurfaceVariant)
+                Column(
+                    Modifier.padding(start = FarmSpace.Large, end = if (artwork) 116.dp else FarmSpace.Large,
+                        top = FarmSpace.Large, bottom = FarmSpace.Small),
+                    verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)
+                ) {
+                    Text(greenhouse?.optString("name") ?: "Di greenhouse mana hari ini?",
+                        Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
+                    Text("$date WIB", style = MaterialTheme.typography.bodySmall, color = ForestScheme.onSurfaceVariant)
+                    if (season != null || group != null) {
+                        Text(listOfNotNull(season?.optString("name"), group?.optString("name")).joinToString(" · "),
+                            style = MaterialTheme.typography.bodyMedium)
+                    }
+                    val summary = when {
+                        group != null -> workerAge(group, today)
+                        greenhouse == null -> "Pilih dari penugasan Anda."
+                        season == null -> "Pilih musim terbuka untuk mulai mencatat."
+                        else -> "Pilih kelompok tanam untuk mulai mencatat."
+                    }
+                    Text(summary, style = MaterialTheme.typography.bodyMedium, color = ForestScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                        TextButton(
+                            onClick = onOpen, shape = FarmShape.Control,
+                            contentPadding = PaddingValues(end = FarmSpace.Large),
+                            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-context-open")
+                        ) { Text(if (greenhouse == null) "Pilihan konteks" else "Ubah musim atau kelompok") }
+                        if (greenhouse != null) TextButton(
+                            onClick = onOverview, shape = FarmShape.Control,
+                            contentPadding = PaddingValues(end = FarmSpace.Large),
+                            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("worker-greenhouse-overview")
+                        ) { Text("Daftar greenhouse") }
+                    }
                 }
-                TextButton(
-                    onClick = onOpen, shape = FarmShape.Control,
-                    contentPadding = PaddingValues(end = FarmSpace.Large),
-                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-context-open")
-                ) { Text(if (greenhouse == null) "Pilih konteks" else "Ubah konteks") }
             }
         }
     }
@@ -105,6 +186,7 @@ internal fun WorkerContextSheet(
     onSync: () -> Unit,
     onSetup: (() -> Unit)? = null,
     chooseSingleGroup: Boolean = false,
+    preferRunningPeriod: Boolean = false,
 ) {
     val greenhouses = data.greenhouses.filter { it.optBoolean("active", true) }
     val greenhouse = greenhouses.find { it.optString("id") == selected.greenhouse }
@@ -134,7 +216,10 @@ internal fun WorkerContextSheet(
                     verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                     data.greenhouseAvailability()?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                     Choice("Greenhouse", selected.greenhouse, greenhouses, "finance-gh", loading = data.loading) {
-                        if (it != selected.greenhouse) onSelect(HomeContext(greenhouse = it))
+                        if (it != selected.greenhouse) {
+                            val next = greenhouses.find { row -> row.optString("id") == it }
+                            onSelect(if (preferRunningPeriod && next != null) data.workerDefault(next) else HomeContext(greenhouse = it))
+                        }
                     }
                     if (greenhouse != null) {
                         Choice("Musim", selected.season, seasons, "finance-season", loading = data.loading) {

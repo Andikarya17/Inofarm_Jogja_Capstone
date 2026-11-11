@@ -15,6 +15,9 @@ import com.inofarm.jogja.feature.FinanceRoot
 import com.inofarm.jogja.core.design.InofarmTheme
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.espresso.Espresso
+import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.platform.app.InstrumentationRegistry
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -44,6 +47,9 @@ class FinanceEntryUiTest {
     private val conflictNext=AtomicBoolean(false)
     private val harvestReceipts=ConcurrentHashMap<String,JSONObject>();private val harvestPosts=AtomicInteger();private val harvestConflictNext=AtomicBoolean(false);private val harvestUseNext=AtomicBoolean(false)
     private val gradeA=UUID.randomUUID().toString();private val gradeB=UUID.randomUUID().toString()
+    private val agenda = AtomicBoolean(false)
+    private val agendaSchedule = UUID.randomUUID().toString()
+    private val agendaNotes = List(3) { UUID.randomUUID().toString() }
     private val seasonState=java.util.concurrent.atomic.AtomicReference("open");private val seasonVersion=AtomicInteger(1)
     private val longNames = AtomicBoolean(false)
     private val expiredLogin = AtomicBoolean(false)
@@ -135,7 +141,11 @@ class FinanceEntryUiTest {
                     }
                     else -> if (managerWalkthroughFixture.get() && request.method == "GET" &&
                         com.inofarm.jogja.feature.admin.AdminResource.entries.any { it.path == path }) {
-                        val rows = if (path == "greenhouses") JSONArray(managerGreenhouses().map { it.put("version", 1) }) else JSONArray()
+                        val rows = when (path) {
+                            "greenhouses" -> JSONArray(managerGreenhouses().map { it.put("version", 1) })
+                            "planting-groups" -> JSONArray().put(JSONObject().put("id", group).put("name", "Kelompok uji"))
+                            else -> JSONArray()
+                        }
                         response.setBody(JSONObject().put("data", rows).put("next_cursor", JSONObject.NULL).toString())
                     } else if(path.endsWith("/audit")) {
                         val id=path.substringAfter("activities/").substringBefore("/audit");val rows=JSONArray()
@@ -184,7 +194,8 @@ class FinanceEntryUiTest {
             .put("seasons", if (selection == gh) JSONArray().put(JSONObject().put("id", season).put("greenhouse_id", gh)
                 .put("name", "Musim UI sintetis").put("start_date", "2026-10-01").put("status", seasonState.get()).put("version", seasonVersion.get())) else JSONArray())
             .put("measurement", if (ready && selection == gh) JSONObject().put("id", group).put("work_state", "completed")
-                .put("manual_ec", "1.45").put("manual_ppm", "725").put("occurred_at", at).put("recorded_by_name", "Pekerja sintetis") else JSONObject.NULL)
+                .put("manual_ec", "1.45").put("manual_ppm", "725").put("occurred_at", at)
+                .put("recorded_by_name", "Pekerja sintetis").put("verification_status", "pending") else JSONObject.NULL)
             .put("harvest", if (ready && selection == gh) JSONObject().put("records", 2).put("weight_kg", "12.50").put("fruit_count", 8) else JSONObject.NULL)
             .put("schedules", if (managerWalkthroughFixture.get() && selection == gh && ready) {
                 JSONArray().put(JSONObject().put("id", group).put("activity_type", "general")
@@ -205,6 +216,17 @@ class FinanceEntryUiTest {
         row("greenhouses",gh,JSONObject().put("name",if (longNames.get()) longGreenhouseName else "GH UI sintetis").put("active",true))
         row("seasons",season,JSONObject().put("greenhouse_id",gh).put("name","Musim UI sintetis").put("status",seasonState.get()).put("version",seasonVersion.get()))
         row("planting_groups",group,JSONObject().put("season_id",season).put("name","Kelompok UI sintetis").put("active",true).put("sowing_date","2026-10-01").put("transplant_date",JSONObject.NULL))
+        if (agenda.get()) {
+            val at = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Jakarta")).toString() + "T08:00:00+07:00"
+            row("schedules", agendaSchedule, JSONObject().put("planting_group_id", group).put("activity_type", "general")
+                .put("planned_at", at).put("notes", "Cek kebun hari ini").put("active", true))
+            agendaNotes.forEachIndexed { index, id ->
+                row("activity", id, JSONObject().put("planting_group_id", group).put("schedule_id", agendaSchedule)
+                    .put("activity_type", "general").put("occurred_at", at).put("record_state", "active")
+                    .put("work_state", if (index == 2) "skipped" else "completed").put("notes", "Catatan agenda sintetis")
+                    .put("recorded_by", worker).put("recorded_by_role", "worker").put("materials", JSONArray()))
+            }
+        }
         for((id,name) in listOf(gradeA to "Grade A sintetis",gradeB to "Grade B sintetis")) row("grades",id,JSONObject().put("greenhouse_id",gh).put("name",name).put("active",true))
         row("units",unit,JSONObject().put("greenhouse_id",gh).put("name","gram uji").put("active",true).put("dimension","mass"))
         for((id,name) in listOf(materialA to "Bahan A sintetis",materialB to "Bahan B sintetis")) row("materials",id,JSONObject().put("greenhouse_id",gh).put("name",name).put("active",true).put("dimension","mass"))
@@ -303,6 +325,68 @@ class FinanceEntryUiTest {
             .put("action",if(receipt.getInt("version")==1) "create" else "update").put("reason","Audit panen sintetis").put("server_at","2026-10-29T09:00:00+07:00").put("changes",JSONObject().put("before",JSONObject.NULL).put("after",receipt.getJSONObject("data"))))}
         return response.setBody(JSONObject().put("data",rows).put("next_cursor",JSONObject.NULL).toString())
     }
+    @Test fun workerSelectsGreenhouseDirectlyAndOpensReadyRecordingContext() {
+        capture("worker-alignment-picker")
+        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
+        readyNode("worker-greenhouse-$gh").performClick()
+        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("finance-measurement-new"))
+        capture("worker-alignment-selected")
+        readyNode("finance-measurement-new").assertIsEnabled().performClick()
+        readyNode("finance-ec").assertExists()
+    }
+
+    @Test fun workerNativePickersAndImeKeepDraftOnNavigation() {
+        val home = rule.onNodeWithTag("finance-home-list")
+        home.performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
+        readyNode("worker-greenhouse-$gh").performClick()
+        home.performScrollToNode(hasTestTag("finance-measurement-new"))
+        captureWindow("worker-home-ready")
+        readyNode("finance-measurement-new").performClick()
+        readyNode("finance-pick-date").performScrollTo().assertIsDisplayed().performClick()
+        Espresso.onView(isAssignableFrom(android.widget.DatePicker::class.java)).check(matches(isDisplayed()))
+        captureWindow("worker-native-date")
+        Espresso.pressBack()
+        readyNode("finance-pick-time").performScrollTo().assertIsDisplayed().performClick()
+        Espresso.onView(isAssignableFrom(android.widget.TimePicker::class.java)).check(matches(isDisplayed()))
+        captureWindow("worker-native-time")
+        Espresso.pressBack()
+        readyNode("finance-manual-time").performScrollTo().performClick()
+        readyNode("finance-time").performScrollTo().performTextReplacement("07:26:41")
+        readyNode("finance-ec").performScrollTo().performTextReplacement("1,25")
+        captureWindow("worker-measurement-ime")
+        hideKeyboard()
+        rule.activityRule.scenario.recreate()
+        if (rule.onAllNodesWithTag("finance-time").fetchSemanticsNodes().isEmpty()) {
+            readyNode("finance-manual-time").performScrollTo().performClick()
+        }
+        readyNode("finance-time").performScrollTo().assertTextContains("07:26:41")
+        readyNode("finance-ec").performScrollTo().assertTextContains("1,25")
+        readyNode("finance-save-draft").performScrollTo().assertIsEnabled().performClick()
+        rule.selectFinanceTab(1)
+        readyText("Pengiriman saya").assertExists()
+        rule.selectFinanceTab(0)
+        home.performScrollToNode(hasTestTag("worker-greenhouse-overview"))
+        readyNode("worker-greenhouse-overview").performClick()
+        home.performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
+        readyNode("worker-greenhouse-$gh").assertIsDisplayed()
+    }
+
+    @Test fun workerAgendaDistinguishesRealizationsAndSkippedRecords() {
+        agenda.set(true)
+        readyNode("finance-sync").performClick()
+        val home = rule.onNodeWithTag("finance-home-list")
+        home.performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
+        readyNode("worker-greenhouse-$gh").performClick()
+        home.performScrollToNode(hasText("Pekerjaan hari ini"))
+        rule.waitUntil(15_000) {
+            rule.onAllNodesWithText("Ada 2 realisasi tersinkron · 1 dilewati dengan alasan", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        captureWindow("worker-agenda-filled")
+        readyNode("worker-schedule-$agendaSchedule").performScrollTo().performClick()
+        readyNode("finance-pick-date").assertExists()
+    }
+
     private fun login(email:String, waitForSync: Boolean = true) {
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
         rule.configureFinanceEndpoint(server.url("/api/v2/").toString())
@@ -499,7 +583,7 @@ class FinanceEntryUiTest {
         val expiredMessage = "Sesi berakhir. Masuk kembali untuk melihat ringkasan."
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasText(expiredMessage))
         readyText(expiredMessage).assertIsDisplayed()
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
         readyNode("finance-queue-list").assertIsDisplayed()
         capture("manager-expired-session")
         if (rule.activity.resources.configuration.fontScale > 1.5f) {
@@ -529,10 +613,9 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-group").assertDoesNotExist()
         choose("finance-gh", gh)
         rule.openHomeContext()
-        rule.onNodeWithTag("finance-season").assertExists()
-        rule.onNodeWithTag("finance-group").assertDoesNotExist()
-        choose("finance-season", season)
-        choose("finance-group", group)
+        rule.onNodeWithTag("finance-season").assertTextContains("Musim UI sintetis", substring = true)
+        rule.onNodeWithTag("finance-group").assertTextContains("Kelompok UI sintetis", substring = true)
+        rule.onNodeWithTag("finance-context-close").performScrollTo().performClick()
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("measurement-card-ec"))
         if (rule.activity.resources.configuration.fontScale > 1.3f) {
             rule.onNodeWithTag("finance-home-list").performTouchInput {
@@ -557,7 +640,8 @@ class FinanceEntryUiTest {
         Espresso.pressBack()
         rule.selectFinanceTab(4);choose("expense-gh",gh);capture("manager-finance")
         rule.openFinanceTools()
-        readyText("Transaksi").assertIsDisplayed()
+        readyText("Penjualan dan penerimaan").assertExists()
+        readyNode("sale-new").performScrollTo().assertIsEnabled().assertIsDisplayed()
         captureWindow("manager-finance-tools")
         rule.onNodeWithTag("finance-tools-close").performScrollTo().performClick()
         readyNode("expense-new").performScrollTo().performClick()
@@ -604,7 +688,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-0").assertIsSelected()
         rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
         Espresso.pressBack()
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
         readyNode("finance-queue-list").assertIsDisplayed()
         rule.selectFinanceTab(2)
         readyText("Riwayat dalam penugasan akun ini.").assertIsDisplayed()
@@ -662,7 +746,7 @@ class FinanceEntryUiTest {
         choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("measurement-card-ec"))
         rule.onNodeWithTag("measurement-card-ec").performScrollTo().assertExists()
-        rule.onNodeWithText("1.25").assertExists();rule.onNodeWithText("625.5").assertExists()
+        rule.onNodeWithText("1,25").assertExists();rule.onNodeWithText("625,5").assertExists()
         capture("worker-measurement-pair-queued")
         rule.onNodeWithTag("measurement-source").performScrollTo().performClick()
         readyText("Belum tersinkron · pencatat:",true).performScrollTo().assertExists()
@@ -678,7 +762,7 @@ class FinanceEntryUiTest {
     }
 
     @Test fun offlineQueueRecreationReconnectAndManagerHistoryKeepHonestStatus() {
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
         captureSecondary("queue-empty")
         rule.selectFinanceTab(0)
         chooseContext();offline.set(true)
@@ -689,7 +773,7 @@ class FinanceEntryUiTest {
         captureSecondary("activity-review")
         rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
         rule.waitUntil(10000) { rule.onAllNodesWithText("Menunggu pengiriman").fetchSemanticsNodes().isNotEmpty() }
         captureSecondary("queue-waiting")
         rule.onNodeWithTag("finance-tab-2").performClick()
@@ -862,7 +946,7 @@ class FinanceEntryUiTest {
         makeConflict()
         Espresso.pressBack()
         Espresso.pressBack()
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
 
         val session = runtime().vault.current!!
         val operation = runtime().store.outbox(session.scope.key).single { it.state == "CONFLICT" }
@@ -935,6 +1019,7 @@ class FinanceEntryUiTest {
         readyNode("manager-picker-$gh").performScrollTo().performClick()
         home.performScrollToNode(hasTestTag("measurement-card-ec"))
         readyNode("measurement-card-ppm").assertExists()
+        readyText("Belum diverifikasi").assertExists()
         captureWindow("single-greenhouse")
         home.performScrollToNode(hasTestTag("measurement-source"))
         readyNode("measurement-source").performClick()
@@ -960,10 +1045,11 @@ class FinanceEntryUiTest {
         offline.set(true)
         readyNode("finance-sync").performClick()
         rule.waitUntil(15_000) {
-            runCatching { home.performScrollToNode(hasText("Belum dapat memeriksa catatan hari ini.")) }.isSuccess
+            runCatching { home.performScrollToNode(hasTestTag("manager-measurement-day-status")) }.isSuccess &&
+                rule.onAllNodesWithText("Belum dapat memeriksa pencatatan hari ini").fetchSemanticsNodes().isNotEmpty()
         }
-        readyText("Belum dapat memeriksa catatan hari ini.").assertIsDisplayed()
-        rule.onNodeWithText("Belum ada pengukuran tercatat hari ini").assertDoesNotExist()
+        readyText("Belum dapat memeriksa pencatatan hari ini").assertIsDisplayed()
+        rule.onNodeWithText("Belum ada pencatatan hari ini").assertDoesNotExist()
         captureWindow("offline")
         offline.set(false)
         rule.logoutFromAccount()
@@ -1049,7 +1135,7 @@ class FinanceEntryUiTest {
 
     @Test fun secondaryMenusReflowAndKeepSheetActionsReachable() {
         val historyList = rule.onNodeWithTag("finance-history-list")
-        rule.selectFinanceTab(1)
+        rule.openFinanceOutbox()
         readyNode("finance-queue-list").assertIsDisplayed()
         captureSecondary("queue-responsive")
         rule.selectFinanceTab(2)
@@ -1068,7 +1154,7 @@ class FinanceEntryUiTest {
         historyList.assertIsDisplayed()
         captureSecondary("finance-responsive")
         rule.openFinanceTools()
-        readyText("Transaksi").assertExists()
+        readyText("Penjualan dan penerimaan").assertExists()
         captureSecondary("tools-responsive")
         readyNode("investment-open").performScrollTo().assertIsDisplayed()
         Espresso.pressBack()
@@ -1181,6 +1267,51 @@ class FinanceEntryUiTest {
         readyNode("finance-history-list").assertIsDisplayed()
         rule.waitUntil(10_000) { receipts.isNotEmpty() }
         assertEquals("skipped", receipts.values.single().getJSONObject("data").getString("work_state"))
+    }
+
+    @Test fun managerRecordsObservationsAndEditsMeasurementTarget() {
+        managerWalkthroughFixture.set(true)
+        overviewFixture.set(true)
+        managerLogin()
+        selectManagerGreenhouse()
+        val home = readyNode("finance-home-list")
+        home.performScrollToNode(hasText("Catat realisasi"))
+        readyText("Catat realisasi").performClick()
+        readyNode("activity-observations").performScrollTo().performClick()
+        readyNode("activity-dissolved_oxygen_mg_l").performScrollTo().performTextReplacement("6,5")
+        readyNode("activity-leaf_count").performScrollTo().performTextReplacement("0")
+        readyNode("finance-notes").performScrollTo().performTextReplacement("Pengamatan tanaman sampel")
+        hideKeyboard()
+        captureWindow("manager-observations")
+        readyNode("finance-review").performScrollTo().performClick()
+        readyNode("finance-queue").performScrollTo().performClick()
+        rule.waitUntil(10_000) { receipts.isNotEmpty() }
+        val observations = receipts.values.single().getJSONObject("data").getJSONObject("observations")
+        assertEquals("6.5", observations.getString("dissolved_oxygen_mg_l"))
+        assertEquals(0, observations.getInt("leaf_count"))
+        assertFalse(observations.has("plant_height_cm"))
+
+        readyNode("finance-account").performClick()
+        readyNode("finance-admin").performClick()
+        readyNode("admin-resource").performScrollTo().performClick()
+        readyNode("farm-picker-options").performScrollToNode(hasTestTag("admin-resource-option-TARGET"))
+        readyNode("admin-resource-option-TARGET").performClick()
+        choose("admin-greenhouse", gh)
+        readyNode("admin-new").performScrollTo().performClick()
+        choose("admin-planting_group_id", group)
+        choose("admin-activity_type", "measurement")
+        choose("admin-parameter", "manual_ec")
+        choose("admin-unit", "mS/cm")
+        readyNode("admin-effective_from").performScrollTo().performTextReplacement("2026-10-30T08:00:00+07:00")
+        readyNode("admin-target_value").performScrollTo().performTextReplacement("1,3")
+        hideKeyboard()
+        readyNode("admin-submit").performScrollTo().performClick()
+        readyText("Ajukan perubahan?").assertIsDisplayed()
+        val confirmationValue = hasAnyAncestor(isDialog()) and !hasClickAction()
+        rule.onNode(confirmationValue and hasText("EC manual")).performScrollTo().assertIsDisplayed()
+        rule.onNode(confirmationValue and hasText("mS/cm")).performScrollTo().assertIsDisplayed()
+        captureWindow("manager-ec-target-review")
+        Espresso.pressBack()
     }
     private fun fillHarvest(note:String,twoGrades:Boolean=false) {
         chooseContext(true)

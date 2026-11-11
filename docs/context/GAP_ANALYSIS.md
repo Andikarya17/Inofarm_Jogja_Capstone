@@ -1,4 +1,26 @@
-# Gap analysis baseline 29 Oktober 2026
+# Gap analysis aktif, 11 November 2026
+
+## Penyelarasan pekerja
+
+Empat temuan audit pekerja, review panen per revisi dan progres target sudah tersedia di source. Checkpoint memisahkan tes backend, perangkat dengan Laravel/MySQL uji, tes HTTP sintetis, dan bukti visual. Rollout migration 20, uji fisik, UAT, pentest dan penerimaan produksi tetap gate terpisah. [Matriks penerimaan dan batas bukti](WORKER_ALIGNMENT_EVIDENCE_20261110.md).
+
+## Status setelah remediasi10 November2026
+
+[Bukti remediasi](AUDIT_REMEDIATION_20261110.md) mengatasi status terbuka pada audit sebelumnya. DB-01 selesai pada database lokal inofarm_finance_local, kini finance19/54 tabel/75 FK dan Beranda terbaca. API-01/API-02 selesai dengan152 operasi OpenAPI yang setara153 route runtime setelah ekspansi, schema respons dan tes parity. API-03 selesai dengan filter review invalid versi aktif. FE-01 selesai dengan pembacaan seluruh halaman cache scoped. Backend144 tes, JVM74 dan instrumentasi32 tes API30 lulus. QA-01, benchmark produksi dan keputusan bisnis tetap terbuka. Gunakan [CLAUDE.md](../../CLAUDE.md) sebagai pintu masuk terkini.
+
+Bagian audit sebelum remediasi di bawah mencatat kondisi saat diperiksa. Ketertinggalan schema dan daftar gap API pada bagian itu telah ditangani oleh perubahan terbaru.
+
+## Prioritas hasil audit sistem
+
+1. **DB-01/P1:** database aplikasi efektif `inofarm_finance_local` tertinggal migration17–19. Tabel review dan lima kolom belum ada; pembacaan Beranda gagal. Audit read-only tidak menerapkan migration.
+2. **API-01/API-02/P2:**25 operasi runtime belum ada di OpenAPI;34 operasi memiliki respons sukses tanpa content/schema. Tidak ditemukan path OpenAPI yang hilang di router. Lengkapi kontrak, bukan mengganti route yang sudah benar.
+3. **API-03/P2:** endpoint measurements/latest belum mengecualikan keputusan invalid seperti manager-home; perlu penyelarasan semantik/regresi.
+4. **FE-01/P2:** selector operasional memakai cache maksimum 1.000 per jenis; pagination/search skala besar belum ditutup.
+5. Gate perangkat fisik/TalkBack/Doze/latency, UAT/pentest, Q07/Q08, asumsi bisnis dan SOP tetap terbuka. Audit tidak mengulang device acceptance PG7.
+
+[Audit lengkap dan batas bukti](SYSTEM_AUDIT_20261110.md), [peta API](API_ROUTE_MAP_20261110.md), [database](DATABASE_INVENTORY_20261110.md). Context pack diperbarui; runtime tidak diubah. Source terbaru sudah memiliki verifikasi pekerja, pengamatan terstruktur, target/capaian/selesai panen dan administrasi PG0–PG7. Gap "belum ada" untuk fitur tersebut pada checkpoint9 November di bawah telah digantikan implementasi10 November; ketertinggalan database lokal tetap masalah terpisah.
+
+## Riwayat gap sebelum audit terbaru
 
 ## Gap pencatatan pekerja dan administrasi — 9 November 2026
 

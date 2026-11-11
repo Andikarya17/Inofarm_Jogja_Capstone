@@ -54,15 +54,21 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
             finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(loading=false)}
         }
     }
-    fun select(id:String, onResult: ((String?) -> Unit)? = null) {
+    fun select(id:String, expectedVersion: Long? = null, onResult: ((String?) -> Unit)? = null) {
         val session=vault.current ?: return;val ticket=vault.generation
         selectionVersion++
         auditJob?.cancel();selectJob?.cancel();selectJob=viewModelScope.launch {
             try {
-                val detail=repository.detail(session,id)
+                val local=repository.detail(session,id)
+                val versionMismatch = expectedVersion != null && local != null && local.record.serverVersion != expectedVersion
+                val detail = local.takeUnless { versionMismatch }
                 val record=detail?.record;val archived=detail?.archives ?: emptyList();val pending=detail?.pending ?: emptyList()
                 if(vault.matches(ticket,session.scope)) {
-                    val error = if(record==null) "Catatan tidak tersedia dalam penugasan saat ini." else null
+                    val error = when {
+                        versionMismatch -> "Revisi di perangkat berbeda dari daftar sumber. Sinkronkan untuk membandingkan."
+                        record == null -> "Catatan belum tersedia di perangkat. Periksa penugasan dan sinkronkan."
+                        else -> null
+                    }
                     selectionVersion++
                     mutable.value=state.value.copy(selected=record,comparison=null,audit=null,archives=archived,pending=pending,message=error.takeIf { onResult == null })
                     onResult?.invoke(error)

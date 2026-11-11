@@ -1,8 +1,26 @@
-# Status implementasi nyata, 10 November 2026
+# Status implementasi nyata, 11 November 2026
+
+## Penyelarasan pekerja
+
+Beranda pekerja membuka periode yang sah dari pilihan greenhouse scoped. HSS/HST tetap dibaca dari acuan tanggal, dan pasangan EC/PPM cache mengikuti keputusan revisi. Form memakai picker tanggal dan jam Android. Agenda WIB memisahkan jadwal, catatan saya, koreksi dan kiriman tertahan. Panen pekerja dapat diperiksa pengelola per revisi dan progres memisahkan hasil tercatat dari hasil terverifikasi. [Checkpoint dan bukti PK0–PK7](WORKER_ALIGNMENT_EVIDENCE_20261110.md).
+
+Source backend memakai migration finance 20 dengan tabel review panen. Migration tersebut diuji di `inofarm_test`. Database aplikasi lokal tetap pada checkpoint schema 19 hingga rollout terotorisasi. SQLite 10 dan envelope v2 tetap dipakai. [Kontrak panen](../../contracts/v2/HARVEST_VERIFICATION.md).
+
+## Status setelah remediasi10 November2026
+
+[Bukti remediasi](AUDIT_REMEDIATION_20261110.md) mengatasi status terbuka pada audit sebelumnya. DB-01 selesai pada database lokal inofarm_finance_local, kini finance19/54 tabel/75 FK dan Beranda terbaca. API-01/API-02 selesai dengan152 operasi OpenAPI yang setara153 route runtime setelah ekspansi, schema respons dan tes parity. API-03 selesai dengan filter review invalid versi aktif. FE-01 selesai dengan pembacaan seluruh halaman cache scoped. Backend144 tes, JVM74 dan instrumentasi32 tes API30 lulus. QA-01, benchmark produksi dan keputusan bisnis tetap terbuka. Gunakan [CLAUDE.md](../../CLAUDE.md) sebagai pintu masuk terkini.
+
+Bagian audit sebelum remediasi di bawah mencatat kondisi saat diperiksa. Ketertinggalan schema dan daftar gap API pada bagian itu telah ditangani oleh perubahan terbaru.
+
+## Audit source dan database aktual
+
+Baseline `9a1613e`: source finance sampai migration19, SQLite10, wire2. [Audit terbaru](SYSTEM_AUDIT_20261110.md) menemukan database aplikasi `inofarm_finance_local` baru sampai migration16; pembacaan Beranda gagal SQLSTATE42S02/1146. Tidak ada migration/data aplikasi diubah pada audit. MySQL uji terpisah memakai schema19 dan lulus141 tes/2.827 assertion; Android74 JVM/build/lint lulus (0 error,16 warning,1 hint). Device/UAT/pentest tidak diulang.
+
+Seluruh127 operasi OpenAPI match route, tetapi25 operasi runtime belum masuk OpenAPI dan34 operasi punya respons sukses tanpa content/schema. Detail struktur dan prioritas ada di [inventaris database](DATABASE_INVENTORY_20261110.md), [peta API](API_ROUTE_MAP_20261110.md), serta [CLAUDE.md](../../CLAUDE.md). Bagian berikut adalah checkpoint bertanggal; klaim "belum diimplementasikan pada task ini" di audit9 November tidak menggantikan PG0–PG7.
 
 ## Penyelarasan pengelola
 
-Antrean Android pengelola memisahkan verifikasi kegiatan pekerja dari Pengiriman saya. Keputusan memiliki alasan, histori dan revisi sendiri. Lihat [checkpoint dan bukti PG0–PG7](MANAGER_ALIGNMENT_EVIDENCE_20261110.md).
+Antrean Android pengelola memisahkan verifikasi kegiatan pekerja dari Pengiriman saya. Kegiatan menambah pengamatan opsional dan editor acuan EC. Beranda memberi status hari WIB di dekat pasangan EC/PPM. Rekap panen menghubungkan target, varietas, kondisi buah dan penyelesaian manual. Menu akun menyediakan Kelola greenhouse dan Kelola akun. Backend memakai migrasi additive sampai 19. [Checkpoint dan bukti PG0–PG7](MANAGER_ALIGNMENT_EVIDENCE_20261110.md).
 
 ## Audit visi pengelola dan prompt pelaksanaan
 

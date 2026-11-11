@@ -35,7 +35,9 @@ import com.inofarm.jogja.feature.timeLabel
 import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.attachments.LocalAttachmentAction
 import com.inofarm.jogja.feature.context.CultivationUiState
+import com.inofarm.jogja.feature.harvest.HarvestFacts
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.time.LocalDate
@@ -56,8 +58,9 @@ internal fun verificationLabel(status: String): String = when (status) {
     else -> "Status verifikasi belum tersedia"
 }
 
-private fun activityLabel(row: JSONObject) =
-    ActivityType.entries.firstOrNull { it.wire == row.optString("activity_type") }?.label ?: "Kegiatan"
+private fun recordLabel(kind: ReviewKind, row: JSONObject) =
+    if (kind == ReviewKind.HARVEST) "Panen" else
+        ActivityType.entries.firstOrNull { it.wire == row.optString("activity_type") }?.label ?: "Kegiatan"
 
 private suspend fun <T> attempt(block: suspend () -> T): Result<T> = try {
     Result.success(block())
@@ -78,14 +81,9 @@ internal fun ActivityVerificationScreen(
     onSelect: (String?) -> Unit,
     onOutbox: () -> Unit,
     onSync: () -> Unit,
+    kind: ReviewKind,
+    onKind: (ReviewKind) -> Unit,
 ) {
-    if (selected != null) {
-        BackHandler { onSelect(null) }
-        key(selected) {
-            VerificationDetail(session, ticket, context, repository, syncRevision, selected, { onSelect(null) }, onOutbox, onSync)
-        }
-        return
-    }
     var status by rememberSaveable { mutableStateOf("pending") }
     var greenhouse by rememberSaveable { mutableStateOf("") }
     var worker by rememberSaveable { mutableStateOf("") }
@@ -95,15 +93,23 @@ internal fun ActivityVerificationScreen(
     var appliedFrom by rememberSaveable { mutableStateOf("") }
     var appliedUntil by rememberSaveable { mutableStateOf("") }
     var filters by rememberSaveable { mutableStateOf(false) }
+    if (selected != null) {
+        BackHandler { onSelect(null) }
+        key(selected) {
+            VerificationDetail(session, ticket, context, repository, syncRevision, selected, { onSelect(null) }, onOutbox, onSync, kind)
+        }
+        return
+    }
     var refresh by remember { mutableIntStateOf(0) }
-    val query = mapOf("status" to status, "greenhouse_id" to greenhouse, "worker_id" to worker,
-        "activity_type" to type, "from" to appliedFrom, "until" to appliedUntil).filterValues { it.isNotBlank() }
+    val query = (mapOf("status" to status, "greenhouse_id" to greenhouse) +
+        if (kind == ReviewKind.ACTIVITY) mapOf("worker_id" to worker, "activity_type" to type, "from" to appliedFrom, "until" to appliedUntil)
+        else emptyMap()).filterValues { it.isNotBlank() }
     var workerOptions by remember { mutableStateOf(emptyList<JSONObject>()) }
     var workerMessage by remember { mutableStateOf<String?>(null) }
     var workerPage by remember { mutableIntStateOf(0) }
     var workerCursor by remember(greenhouse) { mutableStateOf<String?>(null) }
     LaunchedEffect(filters, greenhouse, refresh, syncRevision, workerPage) {
-        if (filters) {
+        if (filters && kind == ReviewKind.ACTIVITY) {
             val workerQuery = mapOf("greenhouse_id" to greenhouse, "cursor" to workerCursor.orEmpty()).filterValues { it.isNotBlank() }
             attempt { repository.read(session, ticket, "activity-reviews/recorders", workerQuery) }
                 .onSuccess { body ->
@@ -124,34 +130,37 @@ internal fun ActivityVerificationScreen(
             loading = true
             failure = null
             attempt {
-                repository.read(session, ticket, "activity-reviews", query + (cursor?.let { mapOf("cursor" to it) } ?: emptyMap()))
+                repository.read(session, ticket, kind.inbox, query + (cursor?.let { mapOf("cursor" to it) } ?: emptyMap()))
             }.onSuccess { response ->
-                rows = (rows + response.rows("data")).distinctBy { it.getJSONObject("activity").getString("id") }
+                rows = (rows + response.rows("data")).distinctBy { it.getJSONObject(kind.wire).getString("id") }
                 cursor = response.text("next_cursor")
             }.onFailure { failure = it.message ?: "Server belum dapat dihubungi." }
             loading = false
         }
-        FarmMenuList(Modifier.testTag("activity-verification-list")) {
+        FarmMenuList(Modifier.testTag("${kind.wire}-verification-list")) {
             item {
-                FarmMenuHeader("Verifikasi kegiatan", "Periksa catatan pekerja yang sudah diterima server.") {
+                FarmMenuHeader("Verifikasi ${kind.label}", "Periksa catatan pekerja yang sudah diterima server.") {
                     OutlinedButton(onClick = onOutbox, shape = FarmShape.Control,
                         modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("verification-outbox")) { Text("Pengiriman saya") }
                 }
             }
             item {
+                Choice("Jenis catatan", kind.wire, listOf(option("activity", "Kegiatan"), option("harvest", "Panen")),
+                    "verification-kind") { wire -> onKind(ReviewKind.entries.first { it.wire == wire }) }
                 Choice("Status verifikasi", status, listOf(
                     option("pending", "Menunggu pemeriksaan"), option("decided", "Pernah diputuskan"),
                     option("valid", "Valid"), option("invalid", "Tidak valid"),
                     option("legacy", "Catatan lama")
                 ), "verification-status") { status = it }
                 TextButton(onClick = { filters = !filters }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
-                    Text(if (filters) "Tutup filter" else "Filter greenhouse, pencatat dan tanggal")
+                    Text(if (filters) "Tutup filter" else if (kind == ReviewKind.HARVEST) "Filter greenhouse" else "Filter greenhouse, pencatat dan tanggal")
                 }
             }
             if (filters) item {
-                FarmPanel(title = "Filter kegiatan") {
+                FarmPanel(title = "Filter ${kind.label}") {
                     Choice("Greenhouse", greenhouse, listOf(option("", "Semua greenhouse")) + context.greenhouses,
                         "verification-greenhouse") { greenhouse = it; worker = ""; workerOptions = emptyList() }
+                    if (kind == ReviewKind.ACTIVITY) {
                     Choice("Pencatat", worker, listOf(option("", "Semua pekerja")) + workerOptions,
                         "verification-worker") { worker = it }
                     workerMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
@@ -168,30 +177,31 @@ internal fun ActivityVerificationScreen(
                     if (!validDates) Text("Periksa format dan urutan tanggal.", color = MaterialTheme.colorScheme.error)
                     OutlinedButton(onClick = { appliedFrom = from; appliedUntil = until }, enabled = validDates,
                         modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Terapkan tanggal") }
+                    }
                 }
             }
-            if (loading) item { Text("Memeriksa kegiatan server…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            if (loading) item { Text("Memeriksa ${kind.label} di server…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
             failure?.let { error -> item {
-                FarmPanel(title = "Kegiatan belum dapat diperiksa") {
+                FarmPanel(title = "Catatan belum dapat diperiksa") {
                     Text(error)
                     if (rows.isNotEmpty()) Text("Daftar di bawah adalah hasil pemeriksaan terakhir.")
                     OutlinedButton(onClick = { refresh++ }) { Text("Periksa kembali") }
                 }
             } }
             if (!loading && failure == null && rows.isEmpty()) item {
-                FarmPanel(title = if (status == "pending") "Tidak ada kegiatan yang menunggu pemeriksaan"
-                    else "Tidak ada kegiatan yang cocok") {
+                FarmPanel(title = if (status == "pending") "Tidak ada ${kind.label} yang menunggu pemeriksaan"
+                    else "Tidak ada ${kind.label} yang cocok") {
                     Text("Daftar mengikuti penugasan greenhouse dan filter yang dipilih.")
                     TextButton(onClick = { refresh++ }) { Text("Periksa lagi") }
                 }
             }
-            items(rows, key = { it.getJSONObject("activity").getString("id") }) { entry ->
-                val activity = entry.getJSONObject("activity")
+            items(rows, key = { it.getJSONObject(kind.wire).getString("id") }) { entry ->
+                val activity = entry.getJSONObject(kind.wire)
                 val id = activity.getString("id")
-                FarmRecordCard(Modifier.testTag("verification-activity-$id"), onOpen = { onSelect(id) }) {
-                    Text(activityLabel(activity), style = MaterialTheme.typography.titleMedium)
+                FarmRecordCard(Modifier.testTag("verification-${kind.wire}-$id"), onOpen = { onSelect(id) }) {
+                    Text(recordLabel(kind, activity), style = MaterialTheme.typography.titleMedium)
                     val names = entry.getJSONObject("context")
-                    Text(listOfNotNull(names.text("greenhouse"), names.text("season"), names.text("variety")).joinToString(" · "))
+                    Text(listOfNotNull(names.text("greenhouse"), names.text("season"), names.text("group")).joinToString(" · "))
                     Text(listOfNotNull(activity.text("recorded_by_name"), activity.text("occurred_at")?.let(::timeLabel)).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall)
                     val measures = listOfNotNull(activity.text("manual_ec")?.let { "$it mS/cm" }, activity.text("manual_ppm")?.let { "$it ppm" })
@@ -203,7 +213,7 @@ internal fun ActivityVerificationScreen(
                 }
             }
             if (cursor != null && !loading && failure == null) item {
-                OutlinedButton(onClick = { loadPage++ }) { Text("Muat kegiatan berikutnya") }
+                OutlinedButton(onClick = { loadPage++ }) { Text("Muat ${kind.label} berikutnya") }
             }
         }
     }
@@ -220,6 +230,7 @@ private fun VerificationDetail(
     onBack: () -> Unit,
     onOutbox: () -> Unit,
     onSync: () -> Unit,
+    kind: ReviewKind,
 ) {
     var detail by remember { mutableStateOf<JSONObject?>(null) }
     var history by remember { mutableStateOf(emptyList<JSONObject>()) }
@@ -234,10 +245,10 @@ private fun VerificationDetail(
     LaunchedEffect(reviewedVersion, refresh, syncRevision, context.greenhouses) {
         loading = true
         error = null
-        val query = reviewedVersion?.let { mapOf("activity_version" to it.toString()) }.orEmpty()
-        attempt { repository.read(session, ticket, "activities/$id/verification", query) }
+        val query = reviewedVersion?.let { mapOf(kind.versionKey to it.toString()) }.orEmpty()
+        attempt { repository.read(session, ticket, kind.detail(id), query) }
             .onSuccess {
-                draft = attempt { repository.draft(session, ticket, id, it.getJSONObject("activity").getLong("version")) }.getOrNull()
+                draft = attempt { repository.draft(session, ticket, kind, id, it.getJSONObject(kind.wire).getLong("version")) }.getOrNull()
                 detail = it
                 history = it.rows("history")
                 cursor = it.text("next_cursor")
@@ -252,10 +263,10 @@ private fun VerificationDetail(
             }
         loading = false
     }
-    FarmMenuList(Modifier.testTag("activity-verification-detail")) {
+    FarmMenuList(Modifier.testTag("${kind.wire}-verification-detail")) {
         item {
             TextButton(onClick = onBack, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kembali ke verifikasi") }
-            FarmPageTitle("Periksa kegiatan")
+            FarmPageTitle("Periksa ${kind.label}")
             if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             error?.let {
                 FarmAttention(if (detail != null) "Pemeriksaan terbaru gagal. Menampilkan data terakhir. $it" else it)
@@ -265,37 +276,45 @@ private fun VerificationDetail(
         val entry = detail
         if (entry != null) {
             val names = entry.getJSONObject("context")
-            val activity = entry.getJSONObject("activity")
+            val activity = entry.getJSONObject(kind.wire)
             val version = activity.getLong("version")
             val current = entry.getLong("current_version") == version
-            val record = LocalRecord(id, "activity", names.getString("greenhouse_id"), 0, version, version,
+            val record = LocalRecord(id, kind.wire, names.getString("greenhouse_id"), 0, version, version,
                 activity, activity, null, SyncState.ACCEPTED, null)
             item {
-                FarmPanel(title = activityLabel(activity)) {
+                FarmPanel(title = recordLabel(kind, activity)) {
                     Text(listOfNotNull(names.text("greenhouse"), names.text("season"), names.text("group"), names.text("variety")).joinToString(" · "))
                     Text("Diterima server · revisi $version")
                     Text(verificationLabel(entry.getString("status")), style = MaterialTheme.typography.titleMedium)
                     if (!current) TextButton(onClick = { detail = null; reviewedVersion = null }) { Text("Buka revisi terbaru") }
                     entry.optJSONObject("decision")?.let { DecisionFacts(it) }
+                    if (kind == ReviewKind.HARVEST && entry.optBoolean("used_in_sales")) {
+                        FarmAttention("Sebagian hasil panen sudah digunakan untuk penjualan. Periksa transaksi terkait bila perlu koreksi.")
+                    }
                 }
             }
-            item { FarmPanel(title = "Catatan aktual") { ActivityFacts(record, session, context, showComparison = false) } }
-            item { ReferenceFacts(activity) }
+            item { FarmPanel(title = "Catatan aktual") {
+                if (kind == ReviewKind.HARVEST) HarvestFacts(record, session, context)
+                else ActivityFacts(record, session, context, showComparison = false)
+            } }
+            if (kind == ReviewKind.ACTIVITY) item { ReferenceFacts(activity) }
             if (attachments != null && current) item {
                 OutlinedButton(onClick = { attachments(record) }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
                     Text("Lampiran dan bukti catatan")
                 }
             }
             if (current && entry.getString("status") == "pending" && activity.optString("record_state") == "active") item {
-                DecisionEditor(session, ticket, repository, entry, draft, onOutbox, onSync) { draft = it }
+                if (kind == ReviewKind.ACTIVITY || entry.optBoolean("can_review")) {
+                    DecisionEditor(session, ticket, repository, kind, entry, draft, onOutbox, onSync) { draft = it }
+                } else Text("Panen sendiri perlu diperiksa pengelola lain.")
             }
             if (history.isNotEmpty()) item { FarmSectionHeading("Histori keputusan") }
             items(history, key = { it.getString("id") }) { review ->
                 FarmRecordCard(onOpen = {
-                    val requested = review.getLong("activity_version")
+                    val requested = review.getLong(kind.versionKey)
                     if (requested != version) { detail = null; reviewedVersion = requested }
-                }.takeIf { review.getLong("activity_version") != version }) {
-                    Text("Revisi ${review.getLong("activity_version")} · ${verificationLabel(review.getString("decision"))}",
+                }.takeIf { review.getLong(kind.versionKey) != version }) {
+                    Text("Revisi ${review.getLong(kind.versionKey)} · ${verificationLabel(review.getString("decision"))}",
                         style = MaterialTheme.typography.titleMedium)
                     DecisionFacts(review)
                 }
@@ -305,7 +324,7 @@ private fun VerificationDetail(
                     val next = cursor ?: return@OutlinedButton
                     loading = true
                     scope.launch {
-                        attempt { repository.read(session, ticket, "activities/$id/verification", mapOf("cursor" to next)) }
+                        attempt { repository.read(session, ticket, kind.detail(id), mapOf("cursor" to next)) }
                             .onSuccess {
                                 history = (history + it.rows("history")).distinctBy { row -> row.getString("id") }
                                 cursor = it.text("next_cursor")
@@ -360,13 +379,14 @@ private fun DecisionEditor(
     session: FinanceSession,
     ticket: Long,
     repository: ActivityVerificationRepository,
+    kind: ReviewKind,
     entry: JSONObject,
     draft: LocalRecord?,
     onOutbox: () -> Unit,
     onSync: () -> Unit,
     onSaved: (LocalRecord) -> Unit,
 ) {
-    val activity = entry.getJSONObject("activity")
+    val activity = entry.getJSONObject(kind.wire)
     val version = activity.getLong("version")
     val id = activity.getString("id")
     var decision by rememberSaveable(id, version) { mutableStateOf(draft?.body?.text("decision")) }
@@ -375,11 +395,20 @@ private fun DecisionEditor(
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(decision, reason, busy, draft?.syncState) {
+        val choice = decision ?: return@LaunchedEffect
+        if (!busy && (draft == null || draft.syncState == SyncState.LOCAL) &&
+            (choice != draft?.body?.text("decision") || reason.trim() != draft?.body?.text("reason").orEmpty())) {
+            delay(350)
+            attempt { repository.save(session, ticket, kind, entry, choice, reason, queue = false) }
+                .onSuccess(onSaved).onFailure { error = it.message }
+        }
+    }
     fun save(queue: Boolean) {
         val choice = decision ?: return
         busy = true
         scope.launch {
-            attempt { repository.save(session, ticket, entry, choice, reason, queue) }
+            attempt { repository.save(session, ticket, kind, entry, choice, reason, queue) }
                 .onSuccess { saved -> onSaved(saved); if (queue) onSync(); confirmation = false }
                 .onFailure { error = it.message; confirmation = false }
             busy = false
@@ -401,14 +430,16 @@ private fun DecisionEditor(
                 "verification-decision") { decision = it }
             if (decision != null) {
                 FinanceField(if (decision == "invalid") "Alasan tidak valid (wajib)" else "Catatan (opsional)",
-                    reason, { reason = it }, "verification-reason", singleLine = false)
+                    reason, { reason = it.take(1000) }, "verification-reason", singleLine = false)
                 error?.let { FarmAttention(it) }
                 Button(onClick = { confirmation = true }, enabled = !busy && reason.length <= 1000 &&
                     (decision != "invalid" || reason.isNotBlank()), modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch)
                     .testTag("verification-review")) { Text("Tinjau keputusan") }
                 TextButton(onClick = { save(false) }, enabled = !busy && reason.length <= 1000,
                     modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Simpan draf keputusan") }
-                if (draft != null) Text("Draf tersimpan di perangkat.", style = MaterialTheme.typography.bodySmall)
+                val saved = decision == draft?.body?.text("decision") && reason.trim() == draft?.body?.text("reason").orEmpty()
+                Text(if (saved) "Draf tersimpan di perangkat." else "Perubahan draf belum tersimpan.",
+                    style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -417,7 +448,7 @@ private fun DecisionEditor(
         title = { Text("Kirim keputusan?") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                Text("${activityLabel(activity)} · revisi $version")
+                Text("${recordLabel(kind, activity)} · revisi $version")
                 Text(verificationLabel(decision.orEmpty()))
                 if (reason.isNotBlank()) Text(reason)
                 Text("Pekerja dapat membaca keputusan setelah diterima server.")
@@ -437,7 +468,7 @@ private fun DecisionFacts(decision: JSONObject) {
 }
 
 @Composable
-internal fun ActivityVerificationFeedback(session: FinanceSession, record: LocalRecord) {
+internal fun ActivityVerificationFeedback(session: FinanceSession, record: LocalRecord, kind: ReviewKind = ReviewKind.ACTIVITY) {
     val version = record.serverVersion ?: return
     val body = record.serverBody ?: return
     if (session.role == UserRole.WORKER && body.text("recorded_by") != session.scope.accountId) return
@@ -449,28 +480,34 @@ internal fun ActivityVerificationFeedback(session: FinanceSession, record: Local
     var lastKnown by remember(session.scope, record.id, version) { mutableStateOf(false) }
     LaunchedEffect(session, record.id, version, update) {
         val ticket = runtime.vault.generation
-        reviews = attempt { repository.cachedFeedback(session, ticket, record) }.getOrDefault(emptyList())
+        reviews = attempt { repository.cachedFeedback(session, ticket, kind, record) }.getOrDefault(emptyList())
         lastKnown = reviews.isNotEmpty()
-        attempt { repository.read(session, ticket, "activities/${record.id}/verification", mapOf("activity_version" to version.toString())) }
+        attempt { repository.read(session, ticket, kind.detail(record.id), mapOf(kind.versionKey to version.toString())) }
             .onSuccess { entry ->
                 reviews = (entry.rows("history") + listOfNotNull(entry.optJSONObject("decision")) + reviews).distinctBy { it.getString("id") }
                 status = entry.getString("status")
                 lastKnown = false
             }.onFailure {
-                status = null
+                status = when (body.text("recorded_by_role")) {
+                    "worker" -> "pending"
+                    "manager" -> "manager"
+                    else -> "legacy"
+                }
+                lastKnown = true
                 if (it is FinanceApiFailure && it.status in setOf(401, 403, 404)) {
                     reviews = emptyList()
                     lastKnown = false
+                    status = null
                 }
             }
     }
-    val decision = reviews.firstOrNull { it.optLong("activity_version") == version }
+    val decision = reviews.firstOrNull { it.optLong(kind.versionKey) == version }
     FarmSection(title = "Verifikasi pengelola") {
         Text(verificationLabel(decision?.optString("decision") ?: status.orEmpty()))
-        if (lastKnown) Text("Keputusan terakhir yang tersimpan di perangkat.", style = MaterialTheme.typography.bodySmall)
+        if (lastKnown) Text("Status berdasarkan data tersimpan di perangkat.", style = MaterialTheme.typography.bodySmall)
         decision?.let { DecisionFacts(it) }
-        reviews.filter { it.optLong("activity_version") < version }.forEach {
-            Text("Revisi ${it.optLong("activity_version")} · ${verificationLabel(it.optString("decision"))}")
+        reviews.filter { it.optLong(kind.versionKey) < version }.forEach {
+            Text("Revisi ${it.optLong(kind.versionKey)} · ${verificationLabel(it.optString("decision"))}")
             DecisionFacts(it)
         }
     }

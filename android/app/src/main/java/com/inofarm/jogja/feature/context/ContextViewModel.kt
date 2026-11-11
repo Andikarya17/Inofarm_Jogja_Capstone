@@ -33,6 +33,22 @@ class ContextViewModel(private val repository:ContextRepository):ViewModel() {
         if(vault.matches(ticket,session.scope)) mutable.value=data
     }
     fun refresh() { if(job?.isActive!=true) job=viewModelScope.launch { synchronize() } }
+    fun reloadCache() {
+        if (job?.isActive == true) return
+        val session = vault.current ?: return
+        val ticket = vault.generation
+        job = viewModelScope.launch {
+            try {
+                loadLocal(session)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (vault.matches(ticket, session.scope)) {
+                    mutable.value = state.value.copy(message = userMessage(error), check = ContextCheck.FAILED)
+                }
+            }
+        }
+    }
     private suspend fun synchronize(loadCache: Boolean = false) {
         val session=vault.current ?: return;val ticket=vault.generation
         mutable.value=state.value.copy(loading=true,message="Memeriksa server…")

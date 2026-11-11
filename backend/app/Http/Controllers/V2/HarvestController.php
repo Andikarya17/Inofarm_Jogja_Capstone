@@ -21,6 +21,14 @@ final class HarvestController extends Controller
         return $reads->run($request, fn (User $actor) => $progress->read($actor, $id));
     }
 
+    public function progressSources(Request $request, string $id, HarvestProgress $progress, ScopedRead $reads)
+    {
+        $input = $request->validate(['status' => 'nullable|in:valid,pending,invalid,manager,legacy',
+            'limit' => 'sometimes|integer|min:1|max:50', 'cursor' => 'nullable|string|max:512']);
+
+        return $reads->run($request, fn (User $actor) => $progress->sources($actor, $id, $input));
+    }
+
     public function completion(Request $request, string $id, MasterService $masters)
     {
         $action = $request->input('action');

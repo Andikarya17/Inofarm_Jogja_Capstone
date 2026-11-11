@@ -34,6 +34,177 @@ class FinanceBackendDeviceTest {
         rule.waitForFinanceMasterPull()
     }
 
+    @Test fun workerProgressMotionFixtureSession() {
+        val args = InstrumentationRegistry.getArguments()
+        val phase = args.getString("devicePhase")
+        assumeTrue(phase in setOf("worker-motion", "worker-progress-offline", "worker-motion-logout"))
+        val fixture = JSONObject(android.util.Base64.decode(requireNotNull(args.getString("managerHomeFixture")),
+            android.util.Base64.NO_WRAP).toString(Charsets.UTF_8))
+        assertEquals("inofarm_test", fixture.getString("database"))
+        if (phase == "worker-motion") {
+            login(fixture, "worker")
+            rule.captureBotanicalWindow("worker-picker-after")
+            return
+        }
+        val session = runtime().vault.current
+        assertEquals(fixture.getString("worker_id"), session?.scope?.accountId)
+        if (phase == "worker-motion-logout") {
+            rule.logoutFromAccount()
+            return
+        }
+        val greenhouse = fixture.getJSONArray("contexts").getJSONObject(0).getString("greenhouse_id")
+        rule.waitUntil(15_000) { rule.onAllNodesWithTag("finance-home-list").fetchSemanticsNodes().isNotEmpty() }
+        val home = rule.onNodeWithTag("finance-home-list")
+        home.performScrollToNode(hasTestTag("worker-greenhouse-$greenhouse"))
+        rule.onNodeWithTag("worker-greenhouse-$greenhouse").performClick()
+        home.performScrollToNode(hasTestTag("worker-harvest-progress-open"))
+        rule.onNodeWithTag("worker-harvest-progress-open").performClick()
+        rule.waitUntil(25_000) {
+            rule.onAllNodesWithText("Data tersimpan ·", substring = true).fetchSemanticsNodes().isNotEmpty() &&
+                rule.onAllNodesWithText("Hasil layak tercatat").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.captureBotanicalWindow("worker-harvest-progress-offline")
+    }
+
+    @Test fun workerHarvestReviewRoundTripThroughGuardedBackend() {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("devicePhase") == "worker-harvest-review")
+        val fixture = JSONObject(android.util.Base64.decode(requireNotNull(args.getString("managerHomeFixture")),
+            android.util.Base64.NO_WRAP).toString(Charsets.UTF_8))
+        assertEquals("inofarm_test", fixture.getString("database"))
+        val first = fixture.getJSONArray("contexts").getJSONObject(0)
+        val greenhouse = first.getString("greenhouse_id")
+        val note = "Panen uji perangkat ${fixture.getString("fixture_id")}"
+        val reason = "Periksa bobot grade kedua."
+        val model = runtime()
+        fun waitTag(tag: String) = rule.waitUntil(20_000) { rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+        fun read(path: String): JSONObject {
+            val session = model.vault.current!!
+            return runBlocking { model.api.request(session.scope.server, session.token, path) }
+        }
+        fun submitHarvest() {
+            rule.onNodeWithTag("harvest-review").performScrollTo().performClick()
+            rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+        }
+        login(fixture, "worker")
+        waitTag("worker-greenhouse-$greenhouse")
+        rule.captureBotanicalWindow("worker-harvest-real-picker")
+        rule.onNodeWithTag("worker-greenhouse-$greenhouse").performClick()
+        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("harvest-new"))
+        rule.captureBotanicalWindow("worker-harvest-real-home")
+        rule.onNodeWithTag("harvest-new").performClick()
+        waitTag("harvest-pick-date")
+        rule.captureBotanicalWindow("worker-harvest-real-form")
+        repeat(2) { index ->
+            rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick()
+            choose("harvest-grade-$index", first.getJSONArray("grade_ids").getString(index))
+            choose("harvest-quality-$index", if (index == 0) "saleable" else "defective")
+            rule.onNodeWithTag("harvest-count-$index").performScrollTo().performTextReplacement(if (index == 0) "6" else "2")
+            rule.onNodeWithTag("harvest-weight-$index").performScrollTo().performTextReplacement(if (index == 0) "9,25" else "3")
+            hideKeyboard()
+        }
+        rule.onNodeWithTag("harvest-notes").performScrollTo().performTextReplacement(note)
+        hideKeyboard()
+        submitHarvest()
+        val worker = model.vault.current!!
+        fun originalHarvest() = model.store.outbox(worker.scope.key).firstOrNull {
+            it.envelope.optJSONObject("payload")?.optString("notes") == note && it.envelope.optString("action") == "create"
+        }
+        rule.waitUntil(20_000) { originalHarvest()?.state == "ACCEPTED" }
+        val harvest = originalHarvest()!!.entityId
+        val path = "harvests/$harvest/verification"
+        assertEquals("pending", read(path).getString("status"))
+        assertEquals(403, (runCatching { read("harvest-reviews") }.exceptionOrNull() as FinanceApiFailure).status)
+
+        fun decide(version: Int, decision: String, message: String?) {
+            rule.selectFinanceTab(1)
+            waitTag("activity-verification-list")
+            choose("verification-kind", "harvest")
+            val inbox = rule.onNodeWithTag("harvest-verification-list")
+            val entry = "verification-harvest-$harvest"
+            rule.waitUntil(20_000) { runCatching { inbox.performScrollToNode(hasTestTag(entry)) }.isSuccess }
+            rule.onNodeWithTag(entry).performClick()
+            val detail = rule.onNodeWithTag("harvest-verification-detail")
+            rule.waitUntil(20_000) { runCatching { detail.performScrollToNode(hasTestTag("verification-decision")) }.isSuccess }
+            choose("verification-decision", decision)
+            if (message != null) {
+                detail.performScrollToNode(hasTestTag("verification-reason"))
+                rule.onNodeWithTag("verification-reason").performTextReplacement(message)
+                hideKeyboard()
+            }
+            detail.performScrollToNode(hasTestTag("verification-review"))
+            rule.onNodeWithTag("verification-review").performClick()
+            rule.captureBotanicalWindow("worker-harvest-real-manager-${decision}")
+            rule.onNodeWithTag("verification-submit").performClick()
+            val manager = model.vault.current!!
+            fun operation() = model.store.outbox(manager.scope.key).firstOrNull {
+                val payload = it.envelope.optJSONObject("payload")
+                it.envelope.optString("entity_type") == "harvest_review" &&
+                    payload?.optString("harvest_id") == harvest && payload.optInt("harvest_version") == version
+            }
+            rule.waitUntil(20_000) { operation()?.state == "ACCEPTED" }
+            val sent = operation()!!
+            val replay = runBlocking { model.api.request(manager.scope.server, manager.token, "harvest-reviews", "POST", sent.envelope) }
+            assertEquals(sent.id, replay.getString("operation_id"))
+        }
+
+        login(fixture, "manager")
+        decide(1, "invalid", reason)
+        login(fixture, "worker")
+        rule.selectFinanceTab(3)
+        val row = "finance-record-$harvest"
+        rule.waitUntil(20_000) {
+            runCatching { rule.onNodeWithTag("finance-history-list").performScrollToNode(hasTestTag(row)) }.isSuccess
+        }
+        rule.onNodeWithTag(row).performClick()
+        rule.waitUntil(20_000) { rule.onAllNodesWithText(reason, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText(reason, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        rule.captureBotanicalWindow("worker-harvest-real-feedback")
+        val acceptedItems = read("harvests/$harvest").getJSONArray("items")
+        val correctedGrade = first.getJSONArray("grade_ids").getString(1)
+        val correctedIndex = (0 until acceptedItems.length()).single { acceptedItems.getJSONObject(it).getString("grade_id") == correctedGrade }
+        rule.onNodeWithTag("finance-edit").performScrollTo().performClick()
+        rule.onNodeWithTag("harvest-weight-$correctedIndex").performScrollTo().performTextReplacement("3,25")
+        rule.onNodeWithTag("harvest-reason").performScrollTo().performTextReplacement("Bobot grade kedua ditimbang ulang.")
+        hideKeyboard()
+        submitHarvest()
+        rule.waitUntil(20_000) { model.store.record(worker.scope.key, harvest)?.serverVersion == 2L }
+        assertEquals("pending", read(path).getString("status"))
+        login(fixture, "manager")
+        decide(2, "valid", null)
+        val verified = read(path)
+        assertEquals("valid", verified.getString("status"))
+        assertEquals(2, verified.getJSONArray("history").length())
+        assertEquals(reason, verified.getJSONArray("history").getJSONObject(1).getString("reason"))
+        File(botanicalEvidenceDirectory(context), "worker-harvest-reconciliation.json").writeText(verified.toString(2))
+        if (args.getString("checkWorkerProgress") == "1") {
+            login(fixture, "worker")
+            val group = first.getString("group_id")
+            rule.selectFinanceTab(3)
+            rule.onNodeWithTag("finance-history-list").performScrollToNode(hasTestTag("worker-harvest-progress-open"))
+            rule.onNodeWithTag("worker-harvest-progress-open").performClick()
+            waitTag("worker-harvest-progress")
+            choose("worker-progress-gh", greenhouse)
+            rule.waitUntil(20_000) { rule.onAllNodesWithText("120% target buah · target terlampaui").fetchSemanticsNodes().isNotEmpty() }
+            rule.captureBotanicalWindow("worker-harvest-real-progress")
+            val progress = read("planting-groups/$group/harvest-progress")
+            assertEquals("9.250000", progress.getJSONObject("verification").getJSONObject("valid")
+                .getJSONObject("saleable").getString("weight_kg"))
+            assertEquals("3.250000", progress.getJSONObject("totals").getJSONObject("defective").getString("weight_kg"))
+            assertFalse(progress.has("completion"))
+            rule.onNodeWithTag("worker-harvest-progress").performScrollToNode(hasTestTag("worker-progress-sources"))
+            rule.onNodeWithTag("worker-progress-sources").performClick()
+            val sourceTag = "worker-progress-source-$harvest"
+            rule.waitUntil(20_000) {
+                runCatching { rule.onNodeWithTag("worker-harvest-progress").performScrollToNode(hasTestTag(sourceTag)) }.isSuccess
+            }
+            rule.onNodeWithTag(sourceTag).performClick()
+            rule.waitUntil(20_000) { rule.onAllNodesWithText("Detail panen", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
+            File(botanicalEvidenceDirectory(context), "worker-progress-reconciliation.json").writeText(progress.toString(2))
+        }
+        rule.logoutFromAccount()
+    }
+
     @Test fun managerHomeReadsGuardedMysqlAndDesignatesFromNativeReview() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase") == "manager-home")
         val encoded = requireNotNull(InstrumentationRegistry.getArguments().getString("managerHomeFixture"))
@@ -167,6 +338,7 @@ class FinanceBackendDeviceTest {
 
         login(fixture, "manager")
         openReview()
+        rule.waitUntil(20_000) { rule.onAllNodesWithText("Diterima server · revisi 1").fetchSemanticsNodes().isNotEmpty() }
         rule.captureBotanicalWindow("pg1-manager-review")
         val reason = "Periksa satuan pada versi pertama."
         decide("invalid", reason)
@@ -195,7 +367,9 @@ class FinanceBackendDeviceTest {
         rule.selectFinanceTab(2)
         rule.waitUntil(20_000) { rule.onAllNodesWithText(note).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText(note).performClick()
-        rule.onNodeWithText(reason).performScrollTo().assertIsDisplayed()
+        val workerFeedback = rule.onNodeWithText(reason, useUnmergedTree = true)
+        rule.waitUntil(20_000) { rule.onAllNodesWithText(reason, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        workerFeedback.performScrollTo().assertIsDisplayed()
         rule.captureBotanicalWindow("pg1-worker-feedback")
         val payload = JSONObject(original.envelope.getJSONObject("payload").toString()).put("manual_ppm", "630")
             .put("reason", "Koreksi uji").put("reference_policy", "preserve")
@@ -217,6 +391,28 @@ class FinanceBackendDeviceTest {
         assertEquals("valid", checked.getString("status"))
         assertEquals(2, checked.getJSONArray("history").length())
         assertEquals("invalid", checked.getJSONArray("history").getJSONObject(1).getString("decision"))
+        val greenhouse = first.getString("greenhouse_id")
+        val group = first.getString("group_id")
+        val currentManager = model.vault.current!!
+        val homeSnapshot = runBlocking { model.api.request(currentManager.scope.server, currentManager.token, "manager-home",
+            query = mapOf("greenhouse_id" to greenhouse)) }
+        val greenhouseBody = homeSnapshot.getJSONArray("greenhouses").getJSONObject(0)
+        if (greenhouseBody.getJSONObject("period").optString("group_id") != group) {
+            val designation = JSONObject().put("schema_version", "2").put("sync_epoch", model.store.epoch(currentManager.scope.key))
+                .put("operation_id", UUID.randomUUID().toString()).put("entity_id", greenhouse).put("entity_type", "greenhouses")
+                .put("action", "designate_period").put("base_version", greenhouseBody.getInt("version"))
+                .put("payload", JSONObject().put("planting_group_id", group).put("reason", "Uji sumber Beranda"))
+            runBlocking { model.api.request(currentManager.scope.server, currentManager.token, "greenhouses/$greenhouse/running-period", "POST", designation) }
+        }
+        androidx.test.espresso.Espresso.pressBack()
+        rule.selectFinanceTab(0)
+        val home = rule.onNodeWithTag("finance-home-list")
+        rule.waitUntil(20_000) { runCatching { home.performScrollToNode(hasTestTag("manager-greenhouse-$greenhouse")) }.isSuccess }
+        rule.onNodeWithTag("manager-greenhouse-$greenhouse").performClick()
+        rule.waitUntil(20_000) { runCatching { home.performScrollToNode(hasTestTag("measurement-card-ppm")) }.isSuccess }
+        rule.onNodeWithText("630").assertExists()
+        rule.onNodeWithText("Valid").assertExists()
+        rule.captureBotanicalWindow("pg7-manager-home-reviewed")
         File(botanicalEvidenceDirectory(context), "pg1-reconciliation.json").writeText(checked.toString(2))
         rule.logoutFromAccount()
     }
@@ -445,6 +641,7 @@ class FinanceBackendDeviceTest {
         val f=fixture();login(f,"worker");val ctx=f.getJSONArray("contexts").getJSONObject(0)
         choose("finance-gh",ctx.getString("greenhouse_id"));choose("finance-season",ctx.getString("season_id"));choose("finance-group",ctx.getString("group_id"))
         rule.onNodeWithTag("harvest-new").performScrollTo().performClick()
+        rule.onNodeWithTag("harvest-manual-time").performScrollTo().performClick()
         rule.onNodeWithTag("harvest-date").performScrollTo().performTextReplacement("2026-10-30")
         repeat(2) {index ->
             rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick();choose("harvest-grade-$index",ctx.getJSONArray("grade_ids").getString(index))
