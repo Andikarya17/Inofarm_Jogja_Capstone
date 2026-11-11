@@ -38,7 +38,7 @@ internal fun FarmMenuHeader(
 ) {
     val body: @Composable ColumnScope.() -> Unit = {
         Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
-        Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (description.isNotBlank()) Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         content()
     }
     if (!contextual) {

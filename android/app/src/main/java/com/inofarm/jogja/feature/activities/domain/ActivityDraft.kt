@@ -28,7 +28,7 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
     val ppm: String="",val ph: String="",val stage: String="",val skipped: Boolean=false,val skippedReason: String="",val notes: String="",
     val materials: List<MaterialDraft> = emptyList(),val scheduleId: String?=null,val reason: String="",val referencePolicy: String="preserve",val baseVersion: Long?=null,val replaceValidationRejected:Boolean=false,val ec:String="",val runningPeriodVersion:Long?=null,
     val observations: Map<ObservationField, String> = emptyMap()) {
-    fun validation(): Map<String,String> = buildMap {
+    fun validation(reasonRequired:Boolean=true): Map<String,String> = buildMap {
         if(runCatching { WireContract.uuid(groupId) }.isFailure) put("group","Pilih kelompok tanam.")
         if(runCatching { occurredAt() }.isFailure) put("occurred_at","Gunakan tanggal YYYY-MM-DD dan jam HH:mm (detik opsional) yang sah.")
         for((key,text) in listOf("manual_ec" to ec,"manual_ppm" to ppm,"manual_ph" to ph)) {
@@ -67,12 +67,12 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
         if(notes.length>2000) put("notes","Keterangan maksimal 2.000 karakter.")
         if(skippedReason.length>1000) put("skipped_reason","Alasan maksimal 1.000 karakter.")
         if(stage.length>100) put("actual_stage","Stadia maksimal 100 karakter.")
-        if(baseVersion!=null && reason.isBlank()) put("reason","Koreksi memerlukan alasan.")
-        if(reason.length>1000) put("reason","Alasan koreksi maksimal 1.000 karakter.")
+        if(reasonRequired && baseVersion!=null && reason.isBlank()) put("reason","Isi alasan koreksi.")
+        if(reason.length>1000) put("reason","Catatan maksimal 1.000 karakter.")
     }
     fun occurredAt(): String = ManualTime.encode(date,time)
     fun payload(): JSONObject {
-        require(validation().isEmpty()) { validation().values.joinToString("\n") }
+        require(validation(false).isEmpty()) { validation(false).values.joinToString("\n") }
         return JSONObject().put("planting_group_id",groupId).put("schedule_id",scheduleId ?: JSONObject.NULL).put("activity_type",type.wire).put("occurred_at",occurredAt())
             .put("manual_ec",if(ec.isBlank()) JSONObject.NULL else numeric(ec).toPlainString()).put("manual_ppm",if(ppm.isBlank()) JSONObject.NULL else numeric(ppm).toPlainString()).put("manual_ph",if(ph.isBlank()) JSONObject.NULL else numeric(ph).toPlainString())
             .put("actual_stage",stage.takeIf { it.isNotBlank() } ?: JSONObject.NULL).put("work_state",if(skipped) "skipped" else "completed").put("skipped_reason",skippedReason.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
@@ -91,7 +91,7 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
                     })
                 }
             }
-            .apply { if(baseVersion!=null) { put("reason",reason);put("reference_policy",referencePolicy) } }
+            .apply { if(baseVersion!=null) { if(reason.isNotBlank()) put("reason",reason);put("reference_policy",referencePolicy) } }
             .apply { if(baseVersion==null) runningPeriodVersion?.let { put("running_period_version",it) } }
     }
     fun localJson(): JSONObject = JSONObject().put("activity_type",type.wire).put("notes",notes).put("occurred_at",runCatching {occurredAt()}.getOrNull() ?: JSONObject.NULL).put("completeness","draft").put("_local_form",JSONObject()

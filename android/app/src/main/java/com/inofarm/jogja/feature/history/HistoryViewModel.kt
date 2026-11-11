@@ -65,8 +65,8 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
                 val record=detail?.record;val archived=detail?.archives ?: emptyList();val pending=detail?.pending ?: emptyList()
                 if(vault.matches(ticket,session.scope)) {
                     val error = when {
-                        versionMismatch -> "Revisi di perangkat berbeda dari daftar sumber. Sinkronkan untuk membandingkan."
-                        record == null -> "Catatan belum tersedia di perangkat. Periksa penugasan dan sinkronkan."
+                        versionMismatch -> "Revisi di perangkat berbeda dari daftar. Perbarui untuk membandingkan."
+                        record == null -> "Catatan belum tersedia di perangkat. Perbarui lalu coba lagi."
                         else -> null
                     }
                     selectionVersion++
@@ -97,7 +97,7 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
                 val page=repository.audit(session,ticket,selected,previous?.cursor,previous)
                 if(vault.matches(ticket,session.scope) && state.value.selected?.id==selected.id) mutable.value=state.value.copy(audit=page)
             } catch(cancelled:CancellationException) {throw cancelled}
-            catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message="Audit terbaru belum tersedia. ${userMessage(error)}")}
+            catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message="Riwayat perubahan belum bisa dimuat. ${userMessage(error)}")}
             finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(auditLoading=false)}
         }
     }
@@ -108,7 +108,7 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
             mutable.value=state.value.copy(busy=true,message=null)
             try {
                 action(session,ticket)
-                if(vault.matches(ticket,session.scope)) {mutable.value=state.value.copy(comparison=null,message="Pilihan tersimpan di perangkat. Tinjau status pengiriman pada antrean.",changed=state.value.changed+1);reload()}
+                if(vault.matches(ticket,session.scope)) {mutable.value=state.value.copy(comparison=null,message="Tersimpan. Terkirim otomatis saat ada internet.",changed=state.value.changed+1);reload()}
             } catch(cancelled:CancellationException) {throw cancelled}
             catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error))}
             finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(busy=false)}

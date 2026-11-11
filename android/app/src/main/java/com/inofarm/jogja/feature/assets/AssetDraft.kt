@@ -15,11 +15,11 @@ data class AssetDraft(val id:String=UUID.randomUUID().toString(),val greenhouseI
     val lifeYears:String="",val inServiceDate:String="",val usageYear:String="",val periodStart:String="",val periodEnd:String="",
     val usageReference:String="",val amount:String="",val basis:String="",val reason:String="",val baseVersion:Long?=null,
     val replaceValidationRejected:Boolean=false,val lockedParents:Boolean=false) {
-    fun validation():Map<String,String> = buildMap {
+    fun validation(reasonRequired:Boolean=true):Map<String,String> = buildMap {
         fun uuid(field:String,value:String) { if(runCatching {WireContract.uuid(value)}.isFailure) put(field,"Pilih identitas sumber yang sah.") }
         uuid("greenhouse",greenhouseId)
         if(basis.isBlank() || basis.length>2000) put("basis","Dasar pemakaian/alokasi wajib, maksimal 2.000 karakter.")
-        if(baseVersion!=null && reason.isBlank() || reason.length>2000) put("reason","Koreksi perlu alasan, maksimal 2.000 karakter.")
+        if(reasonRequired && baseVersion!=null && reason.isBlank() || reason.length>2000) put("reason","Isi alasan koreksi, maksimal 2.000 karakter.")
         if(kind==AssetKind.ASSET) {
             uuid("expense",expenseId)
             if(name.isBlank() || name.length>150) put("name","Nama aset wajib, maksimal 150 karakter.")
@@ -33,12 +33,12 @@ data class AssetDraft(val id:String=UUID.randomUUID().toString(),val greenhouseI
         }
     }
     fun payload():JSONObject {
-        require(validation().isEmpty()) {validation().values.joinToString("\n")}
+        require(validation(false).isEmpty()) {validation(false).values.joinToString("\n")}
         return (if(kind==AssetKind.ASSET) JSONObject().put("expense_id",expenseId).put("name",name).put("cost",money(cost).toPlainString())
             .put("residual",money(residual).toPlainString()).put("life_years",year(lifeYears)).put("in_service_date",date(inServiceDate).toString()).put("usage_basis",basis)
         else JSONObject().put("asset_id",assetId).put("season_id",seasonId).put("usage_reference",usageReference).put("usage_year",year(usageYear))
             .put("period_start",date(periodStart).toString()).put("period_end",date(periodEnd).toString()).put("amount",money(amount).toPlainString()).put("allocation_basis",basis))
-            .apply {if(baseVersion!=null) put("reason",reason)}
+            .apply {if(baseVersion!=null && reason.isNotBlank()) put("reason",reason)}
     }
     fun localJson():JSONObject {
         val form=JSONObject().put("expense_id",expenseId).put("asset_id",assetId).put("season_id",seasonId).put("name",name).put("cost",cost).put("residual",residual)

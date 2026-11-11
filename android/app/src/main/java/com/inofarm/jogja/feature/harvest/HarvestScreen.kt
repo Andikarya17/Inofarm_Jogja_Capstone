@@ -76,7 +76,7 @@ import java.math.BigDecimal
             shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("harvest-add-item")) {Text("Tambah grade panen")}
         FinanceField("Keterangan panen",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"harvest-notes",state.errors["notes"],singleLine=false)
         if(draft.baseVersion!=null) {
-            FinanceField("Alasan koreksi panen",draft.reason,{value -> vm.edit {it.copy(reason=value)}},"harvest-reason",state.errors["reason"],singleLine=false)
+            FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"harvest-reason",state.errors["reason"],singleLine=false)
             Choice("Acuan koreksi",draft.referencePolicy,listOf(org.json.JSONObject().put("id","preserve").put("name","Pertahankan tanggal/grade historis"),org.json.JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"harvest-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
         }
         if(!worker && (draft.baseVersion==null || draft.referencePolicy=="refresh")) {

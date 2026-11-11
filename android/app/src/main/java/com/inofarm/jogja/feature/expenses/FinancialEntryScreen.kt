@@ -175,7 +175,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
         if(draft.kind==RecordKind.EXPENSE) FarmSection(title = "Keterangan") {
             FinanceField("Keterangan pembayaran",draft.notes,{v -> vm.edit {it.copy(notes=v)}},"expense-notes",state.errors["notes"],singleLine=false)
         }
-        if(draft.baseVersion!=null) FinanceField("Alasan koreksi",draft.reason,{v -> vm.edit {it.copy(reason=v)}},"expense-reason",state.errors["reason"],singleLine=false)
+        if(draft.baseVersion!=null) FinanceField(vm.reasonLabel,draft.reason,{v -> vm.edit {it.copy(reason=v)}},"expense-reason",state.errors["reason"],singleLine=false)
         state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
         Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("expense-review")) {Text("Periksa catatan keuangan")}
         OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("expense-save-draft")) {Text("Simpan draf dan kembali")}

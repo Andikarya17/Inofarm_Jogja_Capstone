@@ -25,7 +25,7 @@ class AssetRepository(val vault:FinanceSessionVault,private val store:LocalFinan
         if(!queue) return@withLock store.saveDraft(session.scope.key,draft.id,draft.greenhouseId,draft.localJson(),existing?.revision,draft.baseVersion,kind=draft.kind.wire)
         require(existing?.serverBody?.optString("record_state")!="cancelled") {"Catatan telah dibatalkan. Tinjau histori."}
         existing=store.saveDraft(session.scope.key,draft.id,draft.greenhouseId,draft.localJson(),existing?.revision,draft.baseVersion,kind=draft.kind.wire)
-        val errors=effective.validation();if(errors.isNotEmpty()) throw AssetValidationFailure(errors,effective.baseVersion)
+        val errors=effective.validation(session.role!=UserRole.MANAGER);if(errors.isNotEmpty()) throw AssetValidationFailure(errors,effective.baseVersion)
         if(draft.kind==AssetKind.ASSET) {
             val payment=store.cachedOne(session.scope.key,"expense",effective.expenseId) ?: error("Pembayaran sumber belum tersinkron. Simpan draf dahulu.")
             require(payment.getString("greenhouse_id")==draft.greenhouseId && payment.getString("record_state")=="active" && payment.getString("payment_kind")=="asset_acquisition") {"Pilih pembayaran pembelian aset aktif pada greenhouse yang sama."}

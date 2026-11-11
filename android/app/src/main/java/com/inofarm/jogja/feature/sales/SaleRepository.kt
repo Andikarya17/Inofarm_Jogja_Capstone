@@ -22,7 +22,7 @@ class SaleRepository(val vault:FinanceSessionVault,private val store:LocalFinanc
             require(existing?.serverBody?.optString("record_state") != "cancelled") {"Penjualan telah dibatalkan. Tinjau histori sebelum membuat catatan baru."}
             // Preserve the latest raw form even if source validation or queue transaction fails next.
             existing=store.saveDraft(session.scope.key,draft.id,draft.greenhouseId,draft.localJson(),existing?.revision,draft.baseVersion,kind="sale")
-            val errors=effective.validation();if(errors.isNotEmpty()) throw SaleValidationFailure(errors,effective.baseVersion)
+            val errors=effective.validation(session.role!=UserRole.MANAGER);if(errors.isNotEmpty()) throw SaleValidationFailure(errors,effective.baseVersion)
             val season=store.cachedOne(session.scope.key,"seasons",effective.seasonId) ?: error("Musim belum tersimpan. Sinkronkan dahulu.")
             require(season.getString("greenhouse_id")==draft.greenhouseId && season.getString("status")=="open") {"Pilih musim terbuka dari greenhouse yang sama."}
             effective.items.forEach {line ->

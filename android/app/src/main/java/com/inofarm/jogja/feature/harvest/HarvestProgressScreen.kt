@@ -99,7 +99,7 @@ private fun HarvestProgressDetail(
         try {
             transition = repository.transitionState(session, ticket, group)
             val next = repository.progress(session, ticket, group)
-            check(next.getString("greenhouse_id") == greenhouse) { "Cakupan rekap berubah." }
+            check(next.getString("greenhouse_id") == greenhouse) { "Pilihan rekap berubah." }
             data = next
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -115,8 +115,8 @@ private fun HarvestProgressDetail(
     }
     if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
     error?.let {
-        FarmAttention(if (data == null) it else "Menampilkan rekap terakhir. $it")
-        TextButton(onClick = { refreshing++ }) { Text("Periksa lagi") }
+        FarmAttention(if (data == null) it else "Menampilkan rekap tersimpan. $it")
+        TextButton(onClick = { refreshing++ }) { Text("Coba lagi") }
     }
     val progress = data ?: return
     val completion = progress.optJSONObject("completion")
@@ -129,7 +129,7 @@ private fun HarvestProgressDetail(
         FarmFact("Status", if (completion == null) "Panen bertahap" else "Panen selesai")
         completion?.let {
             Text("${it.getString("by_name")} · ${timeLabel(it.getString("at"))}")
-            Text(it.getString("reason"))
+            if (!it.isNull("reason")) Text(it.optString("reason"))
         }
     }
     FarmSection(title = "Target dan hasil layak") {
@@ -141,7 +141,7 @@ private fun HarvestProgressDetail(
             Text("Versi target ${target.getInt("version")} · ${target.getString("set_by_name")} · ${timeLabel(target.getString("set_at"))}")
         }
         val records = progress.getInt("records")
-        if (records == 0) Text("Belum ada panen yang diterima server.")
+        if (records == 0) Text("Belum ada panen tercatat.")
         else {
             Text("$records catatan panen aktif")
             val totals = progress.getJSONObject("totals")
@@ -164,11 +164,11 @@ private fun HarvestProgressDetail(
                 })
             }
         }
-        Text("Diperiksa ${timeLabel(progress.getString("as_of"))}")
+        Text("Diperbarui ${timeLabel(progress.getString("as_of"))}")
     }
     val local = transition?.takeUnless { it.syncState == SyncState.ACCEPTED }
-    if (local != null) FarmSection(title = "Pengiriman status panen") {
-        Text(if (local.syncState == SyncState.QUEUED) "Perubahan belum terkirim." else "Perubahan perlu ditinjau.")
+    if (local != null) FarmSection(title = "Belum terkirim") {
+        Text(if (local.syncState == SyncState.QUEUED) "Perubahan belum terkirim." else "Perubahan perlu dicek.")
         local.error?.optString("message")?.takeIf { it.isNotBlank() }?.let { Text(it) }
         if (local.syncState == SyncState.CONFLICT && error == null && !loading) {
             TextButton(onClick = {
@@ -182,9 +182,9 @@ private fun HarvestProgressDetail(
                         error = failure.message
                     }
                 }
-            }) { Text("Gunakan status server") }
+            }) { Text("Pakai data terbaru") }
         }
-        OutlinedButton(onClick = onOutbox) { Text("Buka Pengiriman saya") }
+        OutlinedButton(onClick = onOutbox) { Text("Lihat belum terkirim") }
     } else if (progress.getString("season_status") == "open" && (completion != null || progress.getInt("records") > 0)) {
         Button(onClick = { decision = completion == null }, enabled = !busy && !loading && error == null,
             modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("harvest-progress-transition")) {
@@ -193,8 +193,9 @@ private fun HarvestProgressDetail(
     }
     decision?.let { complete ->
         ReasonDialog(if (complete) "Tandai panen selesai?" else "Buka kembali panen?",
-            if (complete) "Pencatatan panen baru ditahan setelah server menerima keputusan. Musim tetap terbuka."
-            else "Pekerja dan pengelola dapat kembali mencatat panen untuk kelompok ini.",
+            if (complete) "Catatan panen baru ditahan sampai panen dibuka lagi. Musim tetap terbuka."
+            else "Pekerja dan pengelola bisa mencatat panen lagi untuk kelompok ini.",
+            if (complete) "Tandai selesai" else "Buka panen",
             busy, onDismiss = { decision = null }, onConfirm = { reason ->
                 busy = true
                 scope.launch {

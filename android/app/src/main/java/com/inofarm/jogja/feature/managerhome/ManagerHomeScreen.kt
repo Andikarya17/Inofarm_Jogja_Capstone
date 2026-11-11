@@ -82,7 +82,7 @@ internal fun ManagerHomeScreen(
         contentPadding = padding, verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium),
     ) {
         item("scope") {
-            FarmMenuHeader(if (selection == null) "Ringkasan kebun" else selected?.text("name") ?: "Ringkasan greenhouse",
+            FarmMenuHeader(if (selection == null) "Semua greenhouse" else selected?.text("name") ?: "Greenhouse",
                 dateLabel((snapshot?.day ?: today).toString()) + " WIB", contextual = true) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                     FilledTonalButton(onClick = { picker = true }, enabled = !state.denied, shape = FarmShape.Control,
@@ -93,8 +93,8 @@ internal fun ManagerHomeScreen(
                         modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-home-all")) { Text("Semua greenhouse") }
                 }
                 if (snapshot != null) Text(
-                    if (state.cached) "Data terakhir tersimpan · ${timeLabel(snapshot.asOf.toString())}"
-                    else "Diperiksa ${snapshot.asOf.atZone(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH:mm 'WIB'"))}",
+                    if (state.cached) "Data tersimpan · ${timeLabel(snapshot.asOf.toString())}"
+                    else "Diperbarui ${snapshot.asOf.atZone(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH:mm 'WIB'"))}",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -102,15 +102,15 @@ internal fun ManagerHomeScreen(
         }
         if (state.message != null || state.cached) item("coverage") {
             FarmPanel {
-                Text(if (state.cached) "Belum dapat memeriksa catatan hari ini." else state.message.orEmpty())
-                TextButton(onClick = onRefresh, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Periksa lagi") }
+                Text(if (state.cached) "Belum bisa memperbarui. Data yang tampil adalah data tersimpan." else state.message.orEmpty())
+                TextButton(onClick = onRefresh, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Perbarui") }
             }
         }
         if (snapshot == null) {
             if (state.loading) item("loading") { FarmPanel { Text("Memuat ringkasan greenhouse…") } }
         } else if (selection == null) {
-            item("greenhouse-title") { SectionTitle("Greenhouse dalam penugasan") }
-            if (snapshot.cards.isEmpty()) item("empty") { FarmPanel { Text("Belum ada greenhouse dalam penugasan Anda.") } }
+            item("greenhouse-title") { SectionTitle("Greenhouse") }
+            if (snapshot.cards.isEmpty()) item("empty") { FarmPanel { Text("Belum ada greenhouse. Tambah greenhouse pertama.") } }
             items(snapshot.cards, key = { it.getString("id") }) { card ->
                 FarmRecordCard(Modifier.testTag("manager-greenhouse-${card.getString("id")}"), onOpen = { onSelect(card.getString("id")) }) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
@@ -122,7 +122,7 @@ internal fun ManagerHomeScreen(
                     Caption(card.text("last_operational_at")?.let { "Catatan terakhir ${timeLabel(it)}" } ?: "Belum ada catatan operasional")
                     card.optJSONObject("harvest")?.let { harvest ->
                         val kg = harvest.getString("weight_kg").toBigDecimal().stripTrailingZeros().toPlainString()
-                        Caption("Panen periode berjalan · ${harvest.getLong("fruit_count")} buah · $kg kg")
+                        Caption("Panen tanam saat ini ·${harvest.getLong("fruit_count")} buah · $kg kg")
                     }
                 }
             }
@@ -132,10 +132,10 @@ internal fun ManagerHomeScreen(
             }
         } else if (selected != null) {
             item("period") {
-                FarmPanel(title = "Periode tanam") {
+                FarmPanel(title = "Tanam saat ini") {
                     PeriodFacts(selected.getJSONObject("period"), expanded = true)
                     TextButton(onClick = { onPeriodReview(true) }, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-period-history")) {
-                        Text("Riwayat periode tanam")
+                        Text("Ganti tanam saat ini")
                     }
                 }
             }
@@ -146,17 +146,17 @@ internal fun ManagerHomeScreen(
                     val checked = validToday && period != null && snapshot.detail?.optBoolean("measurement_available", true) != false
                     val serverToday = server?.text("occurred_at")?.let { Instant.parse(it).atZone(ActivityDraft.WIB).toLocalDate() == today } == true
                     val status = when {
-                        period == null -> "Tetapkan periode tanam untuk memeriksa pengukuran."
-                        !checked -> "Belum dapat memeriksa pencatatan hari ini"
-                        dayState == "invalid_only" -> "Pengukuran hari ini ditandai tidak valid. Lihat riwayat kegiatan."
-                        dayState == "unavailable" -> "Belum dapat memeriksa pencatatan hari ini"
+                        period == null -> "Pilih tanam saat ini untuk melihat pengukuran."
+                        !checked -> "Pencatatan hari ini belum bisa dimuat"
+                        dayState == "invalid_only" -> "Pengukuran hari ini perlu diperbaiki. Lihat riwayat kegiatan."
+                        dayState == "unavailable" -> "Pencatatan hari ini belum bisa dimuat"
                         dayState == "missing" || !serverToday -> "Belum ada pencatatan hari ini"
                         else -> "Pengukuran hari ini"
                     }
                     MeasurementCards(state.measurement, loading = state.loading && state.measurement == null, unavailable = !checked)
                     Text(status, Modifier.testTag("manager-measurement-day-status"), style = MaterialTheme.typography.titleSmall)
                     if (state.measurement?.queued == true) {
-                        Caption("Angka pada kartu masih menunggu pengiriman dari perangkat ini.")
+                        Caption("Angka ini belum terkirim.")
                     } else if (state.measurement != null) {
                         if (!serverToday) Caption("Kartu menampilkan pengukuran terakhir.")
                         server?.text("verification_status")?.let { Caption(verificationLabel(it)) }
@@ -192,20 +192,20 @@ internal fun ManagerHomeScreen(
                         FarmFact(timeLabel(schedule.getString("planned_at")), type?.label ?: "Kegiatan")
                         schedule.text("notes")?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                         if (type != null) TextButton(onClick = { onRecord(type, schedule.getString("id")) },
-                            modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Catat realisasi") }
+                            modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Catat hasil") }
                     }
                     TextButton(onClick = { onOpen(HomeDestination(OperationalKind.ACTIVITY, activities, seasonLabelId = periodId)) },
                         modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat kegiatan") }
                 }
             }
             item("harvest") {
-                FarmPanel(title = if (period == null) "Riwayat panen" else "Panen periode berjalan") {
+                FarmPanel(title = if (period == null) "Riwayat panen" else "Panen tanam saat ini") {
                     snapshot.detail?.optJSONObject("harvest")?.let { harvest ->
-                        if (harvest.getInt("records") == 0) Caption("Belum ada panen tercatat pada periode ini.")
+                        if (harvest.getInt("records") == 0) Caption("Belum ada panen tercatat.")
                         else {
                             val weight = BigDecimal(harvest.getString("weight_kg")).stripTrailingZeros().toPlainString().replace('.', ',')
                             Text("$weight kg · ${harvest.getLong("fruit_count")} buah", style = MaterialTheme.typography.titleMedium)
-                            Caption("${harvest.getInt("records")} catatan diterima server")
+                            Caption("${harvest.getInt("records")} catatan panen")
                         }
                     }
                     TextButton(onClick = { onOpen(HomeDestination(OperationalKind.HARVEST, activities, seasonLabelId = periodId)) },
@@ -219,9 +219,9 @@ internal fun ManagerHomeScreen(
         if (findings.isNotEmpty() || queued != null) {
             item("attention") { SectionTitle("Perlu perhatian") }
             if (queued != null) item("local-queue") {
-                FarmPanel(title = "Pengajuan di perangkat ini") {
-                    Caption(queued.error?.text("message") ?: "Ada pengajuan yang perlu ditinjau.")
-                    TextButton(onClick = { onQueue(queued) }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Buka rincian pengajuan") }
+                FarmPanel(title = "Belum terkirim") {
+                    Caption(queued.error?.text("message") ?: "Ada catatan yang perlu dicek.")
+                    TextButton(onClick = { onQueue(queued) }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat rinciannya") }
                 }
             }
             items(findings, key = { it.getString("id") }) { finding ->
@@ -229,7 +229,7 @@ internal fun ManagerHomeScreen(
                 val outside = finding.text("type") == "measurement_outside_range"
                 val gh = finding.getString("greenhouse_id")
                 val title = when {
-                    periodFinding -> "Periode tanam perlu ditinjau"
+                    periodFinding -> "Tanam saat ini belum dipilih"
                     outside -> "PPM di luar acuan"
                     else -> "Belum ada pengukuran tercatat hari ini"
                 }
@@ -253,7 +253,7 @@ internal fun ManagerHomeScreen(
                                 from = today.toString(), until = today.toString(), recordState = "active"), finding.text("source_record_id")))
                         }
                     }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
-                        Text(if (periodFinding) "Tinjau periode tanam" else "Lihat riwayat pengukuran")
+                        Text(if (periodFinding) "Pilih tanam saat ini" else "Lihat riwayat pengukuran")
                     }
                 }
             }
@@ -263,7 +263,7 @@ internal fun ManagerHomeScreen(
                 FarmPanel(title = "Catatan terbaru") {
                     val recent = snapshot.json.rows("recent")
                     if (snapshot.json.isNull("recent")) Caption("Catatan terbaru belum dapat dibaca lengkap.")
-                    else if (recent.isEmpty()) Caption("Belum ada catatan operasional diterima dalam cakupan ini.")
+                    else if (recent.isEmpty()) Caption("Belum ada catatan.")
                     recent.forEach { record ->
                         val type = record.text("activity_type")
                         val kind = if (record.text("kind") == "harvest") OperationalKind.HARVEST else OperationalKind.ACTIVITY
@@ -282,7 +282,7 @@ internal fun ManagerHomeScreen(
                                 Caption(listOfNotNull(names[gh], record.text("recorded_by_name") ?: "Pencatat belum tersedia").joinToString(" · "))
                                 Caption(timeLabel(at))
                                 if (java.time.Duration.between(Instant.parse(at), Instant.parse(received)).toHours() >= 1)
-                                    Caption("Diterima ${timeLabel(received)}")
+                                    Caption("Terkirim ${timeLabel(received)}")
                             }
                         }
                         HorizontalDivider()
@@ -330,9 +330,9 @@ private fun PeriodFacts(period: JSONObject, expanded: Boolean) {
                 Caption(period.text("transplant_date")?.let { "Pindah tanam ${dateLabel(it)}" } ?: "Tanggal pindah tanam belum tercatat")
             }
         }
-        "needs_review" -> Text("Periode tanam perlu ditinjau")
+        "needs_review" -> Text("Tanam saat ini belum dipilih")
         "inactive" -> Text("Greenhouse tidak aktif")
-        else -> Text("Belum ada periode tanam aktif")
+        else -> Text("Belum ada tanam saat ini")
     }
 }
 
@@ -345,7 +345,7 @@ private fun CashSummary(snapshot: HomeSnapshot, onOpen: (HomeDestination) -> Uni
     val payments = cash.getJSONObject("payments")
     val filter = LocalHistoryFilter(greenhouseId = snapshot.selection, from = from, until = until, recordState = "active")
     FarmPanel(title = "Keuangan bulan ini") {
-        Caption("${dateLabel(from)} – ${dateLabel(until)} WIB · ${snapshot.selected?.getString("name") ?: "Semua greenhouse dalam penugasan"}")
+        Caption("${dateLabel(from)} – ${dateLabel(until)} WIB · ${snapshot.selected?.getString("name") ?: "Semua greenhouse"}")
         if (receipts.getLong("records") + payments.getLong("records") == 0L) {
             Text("Belum ada transaksi tercatat pada periode ini.")
         } else {

@@ -15,7 +15,7 @@ data class InvestmentScenarioDraft(val id:String=UUID.randomUUID().toString(),va
         val count=runCatching {InvestmentInputs.horizon(value)}.getOrNull() ?: 0
         return copy(horizon=value,flows=(0 until maxOf(count,flows.size)).map {flows.getOrNull(it) ?: InvestmentFlowDraft()})
     }
-    fun validation():Map<String,String> = buildMap {
+    fun validation(reasonRequired:Boolean=true):Map<String,String> = buildMap {
         if(runCatching {WireContract.uuid(greenhouseId)}.isFailure) put("greenhouse","Pilih greenhouse.")
         if(name.isBlank() || name.length>120) put("name","Nama wajib, maksimal 120 karakter.")
         val count=runCatching {InvestmentInputs.horizon(horizon)}.getOrNull()
@@ -30,15 +30,15 @@ data class InvestmentScenarioDraft(val id:String=UUID.randomUUID().toString(),va
             flows.take(count).forEachIndexed {i,f->if(runCatching {InvestmentInputs.money(f.amount)}.isFailure || f.kind !in setOf("","actual","projection") || f.reference.length>200 || f.basis.length>2000) put("flow-${i+1}","Periksa nominal bertanda, sumber, referensi dan dasar tahun ${i+1}.")}
         }
         if(notes.length>2000) put("notes","Catatan maksimal 2.000 karakter.")
-        if(reason.length>2000 || baseVersion!=null && reason.isBlank()) put("reason","Koreksi memerlukan alasan, maksimal 2.000 karakter.")
+        if(reason.length>2000 || reasonRequired && baseVersion!=null && reason.isBlank()) put("reason","Isi alasan koreksi, maksimal 2.000 karakter.")
     }
     fun payload():JSONObject {
-        require(validation().isEmpty()) {validation().values.joinToString("\n")}
+        require(validation(false).isEmpty()) {validation(false).values.joinToString("\n")}
         return JSONObject().put("greenhouse_id",greenhouseId).put("name",name.trim()).put("base_date",baseDate).put("horizon_years",InvestmentInputs.horizon(horizon))
             .put("initial_outlay",InvestmentInputs.money(initial,true) ?: JSONObject.NULL).put("initial_source",JSONObject().put("kind",initialKind.ifBlank {null} ?: JSONObject.NULL).put("reference",initialReference.trim()).put("basis",initialBasis.trim()))
             .put("discount_rate",InvestmentInputs.rateFromPercent(discountPercent) ?: JSONObject.NULL).put("payback_convention",convention.ifBlank {null} ?: JSONObject.NULL)
             .put("cash_flows",JSONArray().also {array->flows.take(InvestmentInputs.horizon(horizon)).forEachIndexed {i,f->array.put(JSONObject().put("year",i+1).put("amount",InvestmentInputs.money(f.amount) ?: JSONObject.NULL).put("source_kind",f.kind.ifBlank {null} ?: JSONObject.NULL).put("source_reference",f.reference.trim()).put("basis",f.basis.trim()))}})
-            .put("notes",notes).apply {if(baseVersion!=null) put("reason",reason.trim())}
+            .put("notes",notes).apply {if(baseVersion!=null && reason.isNotBlank()) put("reason",reason.trim())}
     }
     fun localJson()=JSONObject().put("completeness","draft").put("_local_form",JSONObject().put("name",name).put("base_date",baseDate).put("horizon",horizon).put("initial",initial)
         .put("initial_kind",initialKind).put("initial_reference",initialReference).put("initial_basis",initialBasis).put("discount_percent",discountPercent).put("convention",convention)

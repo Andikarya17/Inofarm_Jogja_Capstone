@@ -59,7 +59,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
         FarmCheckbox("Saya memastikan pembayaran penjualan ini sudah lunas.", draft.paid,
             { value -> vm.edit { it.copy(paid = value) } }, Modifier.testTag("sale-paid"))
         FinanceField("Keterangan penjualan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"sale-notes",state.errors["notes"],singleLine=false)
-        if(draft.baseVersion!=null) FinanceField("Alasan koreksi",draft.reason,{value -> vm.edit {it.copy(reason=value)}},"sale-reason",state.errors["reason"],singleLine=false)
+        if(draft.baseVersion!=null) FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"sale-reason",state.errors["reason"],singleLine=false)
         Notice("Saldo adalah data terakhir tersimpan dan dapat berubah. Penerimaan transaksi dipastikan server; draf/offline belum menjadi penjualan diterima.")
         runCatching { draft.preview() }.getOrNull()?.let {
             FarmPanel {

@@ -17,7 +17,7 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
     val lockedSources:Set<String> = emptySet(),val lockedSeason:Boolean=false,val replaceValidationRejected:Boolean=false) {
     fun paidAt()=ManualTime.encode(date,time)
     fun preview()=SaleAmounts.quote(items.map {decimal(it.quantity,true).toPlainString() to decimal(it.price,false).toPlainString()})
-    fun validation():Map<String,String> = buildMap {
+    fun validation(reasonRequired:Boolean=true):Map<String,String> = buildMap {
         if(runCatching {WireContract.uuid(greenhouseId)}.isFailure) put("greenhouse","Pilih greenhouse.")
         if(runCatching {WireContract.uuid(seasonId)}.isFailure) put("season","Pilih musim penjualan.")
         if(runCatching {paidAt()}.isFailure) put("paid_at","Isi tanggal YYYY-MM-DD dan jam HH:mm WIB yang sah.")
@@ -32,14 +32,14 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
             if(runCatching {decimal(line.price,false)}.isFailure) put("items.$index.price","Harga IDR/kg wajib tidak negatif, maksimal6 desimal; kosong bukan nol.")
         }
         if(items.size in 1..30 && runCatching {preview()}.isFailure && keys.none {it.endsWith("quantity") || it.endsWith("price")}) put("total","Total uang atau bobot melebihi rentang angka yang didukung.")
-        if(baseVersion!=null && reason.isBlank()) put("reason","Koreksi memerlukan alasan.")
-        if(reason.length>1000) put("reason","Alasan maksimal1.000 karakter.")
+        if(reasonRequired && baseVersion!=null && reason.isBlank()) put("reason","Isi alasan koreksi.")
+        if(reason.length>1000) put("reason","Catatan maksimal 1.000 karakter.")
     }
     fun payload():JSONObject {
-        require(validation().isEmpty()) {validation().values.joinToString("\n")}
+        require(validation(false).isEmpty()) {validation(false).values.joinToString("\n")}
         return JSONObject().put("season_id",seasonId).put("paid_at",paidAt()).put("payment_status","paid").put("customer_name",customer).put("notes",notes)
             .put("items",JSONArray().also {rows -> items.forEach {rows.put(JSONObject().put("id",it.id).put("harvest_item_id",it.sourceId).put("quantity_kg",decimal(it.quantity,true).toPlainString()).put("price_per_kg",decimal(it.price,false).toPlainString()))}})
-            .apply {if(baseVersion!=null) put("reason",reason)}
+            .apply {if(baseVersion!=null && reason.isNotBlank()) put("reason",reason)}
     }
     fun localJson():JSONObject {
         val form=JSONObject().put("season_id",seasonId).put("date",date).put("time",time).put("paid",paid).put("customer_name",customer).put("notes",notes).put("reason",reason)

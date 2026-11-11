@@ -50,12 +50,12 @@ private fun JSONObject.text(key: String): String? = optString(key).takeUnless { 
 private fun option(id: String, name: String) = JSONObject().put("id", id).put("name", name)
 
 internal fun verificationLabel(status: String): String = when (status) {
-    "pending" -> "Belum diverifikasi"
-    "valid" -> "Valid"
-    "invalid" -> "Tidak valid"
+    "pending" -> "Belum dicek"
+    "valid" -> "Sesuai"
+    "invalid" -> "Perlu diperbaiki"
     "manager" -> "Dicatat pengelola"
-    "legacy" -> "Belum pernah diverifikasi"
-    else -> "Status verifikasi belum tersedia"
+    "legacy" -> "Catatan lama"
+    else -> "Status belum tersedia"
 }
 
 private fun recordLabel(kind: ReviewKind, row: JSONObject) =
@@ -134,22 +134,22 @@ internal fun ActivityVerificationScreen(
             }.onSuccess { response ->
                 rows = (rows + response.rows("data")).distinctBy { it.getJSONObject(kind.wire).getString("id") }
                 cursor = response.text("next_cursor")
-            }.onFailure { failure = it.message ?: "Server belum dapat dihubungi." }
+            }.onFailure { failure = it.message ?: "Belum tersambung ke internet." }
             loading = false
         }
         FarmMenuList(Modifier.testTag("${kind.wire}-verification-list")) {
             item {
-                FarmMenuHeader("Verifikasi ${kind.label}", "Periksa catatan pekerja yang sudah diterima server.") {
+                FarmMenuHeader("Cek catatan pekerja", "") {
                     OutlinedButton(onClick = onOutbox, shape = FarmShape.Control,
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("verification-outbox")) { Text("Pengiriman saya") }
+                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("verification-outbox")) { Text("Belum terkirim") }
                 }
             }
             item {
                 Choice("Jenis catatan", kind.wire, listOf(option("activity", "Kegiatan"), option("harvest", "Panen")),
                     "verification-kind") { wire -> onKind(ReviewKind.entries.first { it.wire == wire }) }
-                Choice("Status verifikasi", status, listOf(
-                    option("pending", "Menunggu pemeriksaan"), option("decided", "Pernah diputuskan"),
-                    option("valid", "Valid"), option("invalid", "Tidak valid"),
+                Choice("Status", status, listOf(
+                    option("pending", "Belum dicek"), option("decided", "Sudah dicek"),
+                    option("valid", "Sesuai"), option("invalid", "Perlu diperbaiki"),
                     option("legacy", "Catatan lama")
                 ), "verification-status") { status = it }
                 TextButton(onClick = { filters = !filters }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
@@ -180,19 +180,18 @@ internal fun ActivityVerificationScreen(
                     }
                 }
             }
-            if (loading) item { Text("Memeriksa ${kind.label} di server…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            if (loading) item { Text("Memuat ${kind.label}…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
             failure?.let { error -> item {
-                FarmPanel(title = "Catatan belum dapat diperiksa") {
+                FarmPanel(title = "Catatan belum bisa dimuat") {
                     Text(error)
-                    if (rows.isNotEmpty()) Text("Daftar di bawah adalah hasil pemeriksaan terakhir.")
-                    OutlinedButton(onClick = { refresh++ }) { Text("Periksa kembali") }
+                    if (rows.isNotEmpty()) Text("Daftar di bawah adalah data tersimpan.")
+                    OutlinedButton(onClick = { refresh++ }) { Text("Coba lagi") }
                 }
             } }
             if (!loading && failure == null && rows.isEmpty()) item {
-                FarmPanel(title = if (status == "pending") "Tidak ada ${kind.label} yang menunggu pemeriksaan"
+                FarmPanel(title = if (status == "pending") "Semua ${kind.label} sudah dicek"
                     else "Tidak ada ${kind.label} yang cocok") {
-                    Text("Daftar mengikuti penugasan greenhouse dan filter yang dipilih.")
-                    TextButton(onClick = { refresh++ }) { Text("Periksa lagi") }
+                    TextButton(onClick = { refresh++ }) { Text("Perbarui") }
                 }
             }
             items(rows, key = { it.getJSONObject(kind.wire).getString("id") }) { entry ->
@@ -265,12 +264,12 @@ private fun VerificationDetail(
     }
     FarmMenuList(Modifier.testTag("${kind.wire}-verification-detail")) {
         item {
-            TextButton(onClick = onBack, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kembali ke verifikasi") }
-            FarmPageTitle("Periksa ${kind.label}")
+            TextButton(onClick = onBack, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kembali ke daftar") }
+            FarmPageTitle("Cek ${kind.label}")
             if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             error?.let {
-                FarmAttention(if (detail != null) "Pemeriksaan terbaru gagal. Menampilkan data terakhir. $it" else it)
-                TextButton(onClick = { refresh++ }) { Text("Periksa lagi") }
+                FarmAttention(if (detail != null) "Belum bisa memperbarui. Data yang tampil adalah data tersimpan. $it" else it)
+                TextButton(onClick = { refresh++ }) { Text("Coba lagi") }
             }
         }
         val entry = detail
@@ -284,7 +283,7 @@ private fun VerificationDetail(
             item {
                 FarmPanel(title = recordLabel(kind, activity)) {
                     Text(listOfNotNull(names.text("greenhouse"), names.text("season"), names.text("group"), names.text("variety")).joinToString(" · "))
-                    Text("Diterima server · revisi $version")
+                    Text("Revisi $version")
                     Text(verificationLabel(entry.getString("status")), style = MaterialTheme.typography.titleMedium)
                     if (!current) TextButton(onClick = { detail = null; reviewedVersion = null }) { Text("Buka revisi terbaru") }
                     entry.optJSONObject("decision")?.let { DecisionFacts(it) }
@@ -418,46 +417,30 @@ private fun DecisionEditor(
         val submitted = draft?.syncState?.takeUnless { it == SyncState.LOCAL }
         if (submitted != null) {
             Text(when (submitted) {
-                SyncState.ACCEPTED -> "Keputusan diterima server."
+                SyncState.ACCEPTED -> "Keputusan terkirim."
                 SyncState.QUEUED -> "Keputusan belum terkirim."
-                else -> "Pengiriman keputusan perlu ditinjau."
+                else -> "Keputusan perlu dicek."
             })
             draft?.error?.text("message")?.let { Text(it) }
-            OutlinedButton(onClick = onOutbox) { Text("Buka Pengiriman saya") }
+            OutlinedButton(onClick = onOutbox) { Text("Lihat belum terkirim") }
         } else {
-            Text("Periksa ketepatan catatan pekerja. Hasil di luar acuan dapat tetap dicatat dengan benar.")
-            Choice("Keputusan", decision, listOf(option("valid", "Tandai valid"), option("invalid", "Tandai tidak valid")),
+            Choice("Keputusan", decision, listOf(option("valid", "Sesuai"), option("invalid", "Perlu diperbaiki")),
                 "verification-decision") { decision = it }
             if (decision != null) {
-                FinanceField(if (decision == "invalid") "Alasan tidak valid (wajib)" else "Catatan (opsional)",
+                FinanceField(if (decision == "invalid") "Alasan (wajib)" else "Catatan (opsional)",
                     reason, { reason = it.take(1000) }, "verification-reason", singleLine = false)
                 error?.let { FarmAttention(it) }
-                Button(onClick = { confirmation = true }, enabled = !busy && reason.length <= 1000 &&
+                Button(onClick = { save(true) }, enabled = !busy && reason.length <= 1000 &&
                     (decision != "invalid" || reason.isNotBlank()), modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch)
-                    .testTag("verification-review")) { Text("Tinjau keputusan") }
+                    .testTag("verification-review")) { Text("Simpan keputusan") }
                 TextButton(onClick = { save(false) }, enabled = !busy && reason.length <= 1000,
-                    modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Simpan draf keputusan") }
+                    modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Simpan draf") }
                 val saved = decision == draft?.body?.text("decision") && reason.trim() == draft?.body?.text("reason").orEmpty()
                 Text(if (saved) "Draf tersimpan di perangkat." else "Perubahan draf belum tersimpan.",
                     style = MaterialTheme.typography.bodySmall)
             }
         }
     }
-    if (confirmation && decision != null) AlertDialog(
-        onDismissRequest = { if (!busy) confirmation = false },
-        title = { Text("Kirim keputusan?") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                Text("${recordLabel(kind, activity)} · revisi $version")
-                Text(verificationLabel(decision.orEmpty()))
-                if (reason.isNotBlank()) Text(reason)
-                Text("Pekerja dapat membaca keputusan setelah diterima server.")
-            }
-        },
-        confirmButton = { TextButton(onClick = { save(true) }, enabled = !busy,
-            modifier = Modifier.testTag("verification-submit")) { Text("Simpan dan antrekan") } },
-        dismissButton = { TextButton(onClick = { confirmation = false }, enabled = !busy) { Text("Kembali") } },
-    )
 }
 
 @Composable
@@ -502,7 +485,7 @@ internal fun ActivityVerificationFeedback(session: FinanceSession, record: Local
             }
     }
     val decision = reviews.firstOrNull { it.optLong(kind.versionKey) == version }
-    FarmSection(title = "Verifikasi pengelola") {
+    FarmSection(title = "Cek pengelola") {
         Text(verificationLabel(decision?.optString("decision") ?: status.orEmpty()))
         if (lastKnown) Text("Status berdasarkan data tersimpan di perangkat.", style = MaterialTheme.typography.bodySmall)
         decision?.let { DecisionFacts(it) }

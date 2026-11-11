@@ -150,9 +150,9 @@ private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:Inves
         item(key="year-basis-$year") {FinanceField("Dasar kas neto tahun $year",flow.basis,{v->vm.editScenario {d->d.copy(flows=d.flows.mapIndexed {i,f->if(i==index) f.copy(basis=v) else f})}},"investment-flow-basis-$year")}
     }
     item {FinanceField("Catatan dan asumsi skenario",draft.notes,{v->vm.editScenario {it.copy(notes=v)}},"investment-notes",state.errors["notes"])}
-    if(draft.baseVersion!=null) item {FinanceField("Alasan koreksi",draft.reason,{v->vm.editScenario {it.copy(reason=v)}},"investment-reason",state.errors["reason"])}
+    if(draft.baseVersion!=null) item {FinanceField(vm.reasonLabel,draft.reason,{v->vm.editScenario {it.copy(reason=v)}},"investment-reason",state.errors["reason"])}
     state.errors.filterKeys {it !in setOf("name","base_date","horizon","initial","discount","initial_source","notes","reason") && !it.startsWith("flow-")}.values.forEach {item {Notice(it,true)}}
-    item {Button(onClick=vm::queueScenario,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("investment-scenario-queue")) {Text("Simpan skenario dan antrekan")}}
+    item {Button(onClick=vm::queueScenario,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("investment-scenario-queue")) {Text("Simpan skenario")}}
     item {OutlinedButton(onClick={vm.back(returnToQueue)},shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("investment-save-draft")) {Text("Simpan draf dan kembali")}}
 }
 private fun LazyListScope.rawScenario(d:InvestmentScenarioDraft) {

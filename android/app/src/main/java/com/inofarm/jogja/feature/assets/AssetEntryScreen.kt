@@ -82,7 +82,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
         }
         FarmSection(title = "Dasar dan catatan") {
         FinanceField("Dasar pemakaian / pembagian",draft.basis,{value -> vm.edit {it.copy(basis=value)}},"asset-basis",state.errors["basis"],singleLine=false)
-        if(draft.baseVersion!=null) FinanceField("Alasan koreksi",draft.reason,{value -> vm.edit {it.copy(reason=value)}},"asset-reason",state.errors["reason"],singleLine=false)
+        if(draft.baseVersion!=null) FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"asset-reason",state.errors["reason"],singleLine=false)
         }
         Notice("Harga pembelian aset terpisah dari biaya operasi dan alokasi penyusutan. Draf/antrean belum diterima server. Anggaran dan sumber diperiksa ulang saat sinkronisasi.")
         state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}

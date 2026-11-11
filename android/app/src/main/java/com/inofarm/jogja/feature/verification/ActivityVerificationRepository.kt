@@ -39,7 +39,7 @@ internal class ActivityVerificationRepository(
     suspend fun read(session: FinanceSession, ticket: Long, path: String, query: Map<String, String> = emptyMap()) =
         withContext(Dispatchers.IO) {
             checkSession(session, ticket)
-            require(!session.expired()) { "Masuk kembali untuk memeriksa data server." }
+            require(!session.expired()) { "Masuk lagi untuk memuat catatan." }
             api.request(session.scope.server, session.token, path, query = query).also { checkSession(session, ticket) }
         }
 
@@ -60,14 +60,14 @@ internal class ActivityVerificationRepository(
                 require(session.role == UserRole.MANAGER && entry.optString("status") == "pending")
                 require(kind != ReviewKind.HARVEST || entry.optBoolean("can_review")) { "Revisi panen ini tidak dapat diputuskan." }
                 require(decision in setOf("valid", "invalid") && reason.length <= 1000)
-                require(!queue || decision != "invalid" || reason.isNotBlank()) { "Isi alasan tidak valid." }
+                require(!queue || decision != "invalid" || reason.isNotBlank()) { "Isi alasan perlu diperbaiki." }
                 val activity = entry.getJSONObject(kind.wire)
                 val activityId = activity.getString("id")
                 val version = activity.getLong("version")
                 val greenhouse = entry.getJSONObject("context").getString("greenhouse_id")
                 val id = draftId(session, kind, activityId, version)
                 val old = store.record(session.scope.key, id)
-                require(old == null || old.syncState == SyncState.LOCAL) { "Pengajuan sudah ada. Periksa Pengiriman saya." }
+                require(old == null || old.syncState == SyncState.LOCAL) { "Keputusan ini sudah dikirim atau menunggu dikirim." }
                 val payload = JSONObject().put(kind.parentKey, activityId).put(kind.versionKey, version)
                     .put("decision", decision).put("reason", reason.trim().ifBlank { null } ?: JSONObject.NULL)
                 if (queue) store.saveAndQueue(session.scope.key, id, greenhouse, payload, old?.revision, kind = kind.operationKind)

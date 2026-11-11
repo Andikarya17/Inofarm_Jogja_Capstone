@@ -99,7 +99,7 @@ internal class ManagerHomeRepository(
                 return@withContext ManagerHomeState(loading = false, denied = true,
                     sessionRejected = sessionRejected,
                     selectionRevoked = error.status == 404 && selection != null,
-                    message = if (error.status == 404 && selection != null) "Greenhouse tidak tersedia dalam penugasan saat ini." else "Ringkasan pengelola belum dapat diakses.")
+                    message = if (error.status == 404 && selection != null) "Greenhouse ini tidak ditemukan." else "Beranda belum bisa dimuat.")
             }
             throw error
         }
@@ -113,7 +113,7 @@ internal class ManagerHomeRepository(
             previousEpoch != null && currentEpoch == null ||
             snapshot.validUntil?.let { it <= Instant.now() } == true) {
             store.invalidateManagerHome(key)
-            return@withContext ManagerHomeState(loading = false, message = "Penugasan atau titik pemulihan berubah. Sinkronkan untuk memeriksa ringkasan.")
+            return@withContext ManagerHomeState(loading = false, message = "Data berubah. Perbarui untuk melihat yang terbaru.")
         }
         if (snapshot.complete && currentEpoch == snapshot.epoch && currentScope == snapshot.scope) {
             store.cacheManagerHome(key, selection.orEmpty(), YearMonth.from(snapshot.day).toString(), json, snapshot.epoch, snapshot.scope)

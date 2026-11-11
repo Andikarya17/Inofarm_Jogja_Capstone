@@ -20,7 +20,7 @@ data class HarvestDraft(val id:String=UUID.randomUUID().toString(),val greenhous
     val items:List<HarvestLine> = emptyList(),val notes:String="",val reason:String="",val referencePolicy:String="preserve",val baseVersion:Long?=null,
     val replaceValidationRejected:Boolean=false,val lockedItems:Set<String> = emptySet(),val runningPeriodVersion:Long?=null, val requireQuality: Boolean = false) {
     fun occurredAt()=ManualTime.encode(date,time)
-    fun validation():Map<String,String> = buildMap {
+    fun validation(reasonRequired:Boolean=true):Map<String,String> = buildMap {
         if(runCatching {WireContract.uuid(groupId)}.isFailure) put("group","Pilih kelompok tanam.")
         if(runCatching {occurredAt()}.isFailure) put("occurred_at","Gunakan tanggal YYYY-MM-DD dan jam HH:mm yang sah; detik opsional.")
         if(items.isEmpty() || items.size>30) put("items","Isi 1–30 rincian grade panen.")
@@ -33,16 +33,16 @@ data class HarvestDraft(val id:String=UUID.randomUUID().toString(),val greenhous
             if(weight==null || weight<BigDecimal.ZERO) put("items.$index.weight","Isi bobot kg desimal tidak negatif, maksimal 6 angka di belakang koma.")
         }
         if(notes.length>2000) put("notes","Keterangan maksimal 2.000 karakter.")
-        if(baseVersion!=null && reason.isBlank()) put("reason","Koreksi panen memerlukan alasan.")
-        if(reason.length>1000) put("reason","Alasan maksimal 1.000 karakter.")
+        if(reasonRequired && baseVersion!=null && reason.isBlank()) put("reason","Isi alasan koreksi.")
+        if(reason.length>1000) put("reason","Catatan maksimal 1.000 karakter.")
         if(referencePolicy !in setOf("preserve","refresh")) put("reference_policy","Pilih kebijakan acuan.")
     }
     fun payload():JSONObject {
-        require(validation().isEmpty()) {validation().values.joinToString("\n")}
+        require(validation(false).isEmpty()) {validation(false).values.joinToString("\n")}
         return JSONObject().put("planting_group_id",groupId).put("occurred_at",occurredAt()).put("notes",notes)
             .put("items",JSONArray().apply {items.forEach {line -> put(JSONObject().put("id",line.id).put("grade_id",line.gradeId).put("fruit_count",count(line.fruitCount)!!).put("weight_kg",number(line.weightKg).toPlainString())
                 .apply { line.quality?.let { put("quality", it.wire) } })}})
-            .apply {if(baseVersion!=null) {put("reason",reason);put("reference_policy",referencePolicy)}}
+            .apply {if(baseVersion!=null) {if(reason.isNotBlank()) put("reason",reason);put("reference_policy",referencePolicy)}}
             .apply {if(baseVersion==null) runningPeriodVersion?.let {put("running_period_version",it)}}
     }
     fun localJson()=JSONObject().put("planting_group_id",groupId).put("notes",notes).put("occurred_at",runCatching {occurredAt()}.getOrNull() ?: JSONObject.NULL).put("completeness","draft")

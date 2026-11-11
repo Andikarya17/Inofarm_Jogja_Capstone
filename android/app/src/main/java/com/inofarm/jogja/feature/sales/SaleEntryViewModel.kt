@@ -16,6 +16,8 @@ data class SaleEntryState(val draft:SaleDraft?=null,val errors:Map<String,String
     val reviewing:Boolean=false,val saved:Boolean=false,val message:String?=null,val changed:Long=0)
 class SaleEntryViewModel(private val repository:SaleRepository):ViewModel() {
     private val vault get()=repository.vault
+    private val reasonRequired get()=vault.current?.role!=com.inofarm.jogja.core.contracts.UserRole.MANAGER
+    val reasonLabel get()=if(reasonRequired) "Alasan koreksi" else "Catatan (opsional)"
     private val mutable=MutableStateFlow(SaleEntryState());val state=mutable.asStateFlow()
     private var saveJob:Job?=null;private var scope:String?=null
     fun bind(session:FinanceSession?) {
@@ -34,10 +36,10 @@ class SaleEntryViewModel(private val repository:SaleRepository):ViewModel() {
         pauseAutosave();saveJob=viewModelScope.launch {delay(350);save(updated,false,false)}
     }
     fun pauseAutosave() {saveJob?.cancel();saveJob=null}
-    fun review() {val draft=state.value.draft ?: return;val errors=draft.validation();mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty())}
+    fun review() {val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty())}
     fun backToForm() {mutable.value=state.value.copy(reviewing=false)}
     fun saveAndClose() {val draft=state.value.draft ?: return;pauseAutosave();viewModelScope.launch {save(draft,false,true)}}
-    fun queue() {val draft=state.value.draft ?: return;val errors=draft.validation();if(errors.isNotEmpty()) {mutable.value=state.value.copy(errors=errors,reviewing=false);return};pauseAutosave();viewModelScope.launch {save(draft,true,true)}}
+    fun queue() {val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);if(errors.isNotEmpty()) {mutable.value=state.value.copy(errors=errors,reviewing=false);return};pauseAutosave();viewModelScope.launch {save(draft,true,true)}}
     private suspend fun save(draft:SaleDraft,queue:Boolean,close:Boolean) {
         val session=vault.current ?: return;val ticket=vault.generation
         if(queue || close) mutable.value=state.value.copy(busy=true)

@@ -24,7 +24,7 @@ class FinancialEntryRepository(val vault:FinanceSessionVault,private val store:L
         }
         if(queue) {
             val effective=draft.copy(baseVersion=draft.baseVersion ?: known)
-            val errors=effective.validation()
+            val errors=effective.validation(session.role!=UserRole.MANAGER)
             if(errors.isNotEmpty()) throw FinancialValidationFailure(errors,effective.baseVersion)
             if(draft.kind==RecordKind.COST_ALLOCATION) {
                 val source=store.cachedOne(session.scope.key,"expense",draft.expenseId) ?: error("Pembayaran sumber belum diterima dan tersinkron. Simpan draf dahulu.")

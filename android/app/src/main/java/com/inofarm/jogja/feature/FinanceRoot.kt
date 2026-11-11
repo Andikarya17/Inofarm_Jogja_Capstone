@@ -96,9 +96,9 @@ private fun <T:ViewModel> factory(create:()->T)=object:ViewModelProvider.Factory
     @Suppress("UNCHECKED_CAST") override fun <V:ViewModel> create(modelClass:Class<V>):V=create() as V
 }
 internal fun SyncState.label()=when(this) {
-    SyncState.LOCAL -> "Disimpan lokal";SyncState.QUEUED -> "Menunggu pengiriman";SyncState.ACCEPTED -> "Diterima server"
-    SyncState.CONFLICT -> "Konflik versi";SyncState.REJECTED -> "Perlu diperbaiki";SyncState.AUTH_REQUIRED -> "Perlu masuk kembali"
-    SyncState.SCOPE_REVOKED -> "Penugasan perlu ditinjau";SyncState.EPOCH_REVIEW -> "Perlu rekonsiliasi"
+    SyncState.LOCAL -> "Tersimpan di perangkat";SyncState.QUEUED -> "Belum terkirim";SyncState.ACCEPTED -> "Terkirim"
+    SyncState.CONFLICT -> "Data berubah di perangkat lain";SyncState.REJECTED -> "Perlu diperbaiki";SyncState.AUTH_REQUIRED -> "Perlu masuk lagi"
+    SyncState.SCOPE_REVOKED -> "Perlu dicek";SyncState.EPOCH_REVIEW -> "Perlu dicek setelah data dipulihkan"
 }
 internal fun timeLabel(value:String)=runCatching { OffsetDateTime.parse(value).atZoneSameInstant(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm 'WIB'",Locale.forLanguageTag("id-ID"))) }.getOrDefault(value)
 internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBlank {serverBody?.optString("recorded_by").orEmpty()}
@@ -290,8 +290,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
             FarmPageTitle("Periksa akses akun")
             FarmPanel {
-                Text("Akses pengelola telah berubah. Masuk kembali dengan akun yang sama untuk memeriksa penugasan.")
-                Text("Draf dan antrean tetap tersimpan di perangkat.")
+                Text("Akses akun berubah. Masuk lagi untuk melanjutkan.")
+                Text("Draf dan catatan yang belum terkirim tetap tersimpan.")
                 Button(onClick = onLogout, shape = FarmShape.Control,
                     modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-home-relogin")) { Text("Keluar dari sesi ini") }
             }
@@ -385,7 +385,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             if (gh != null && selectedGreenhouse == null) {
                 contextChange = if (context.greenhouses.any { it.optString("id") == gh })
                     "Greenhouse yang dipilih sekarang nonaktif. Draf tetap tersimpan."
-                else "Penugasan untuk greenhouse yang dipilih sudah tidak berlaku. Draf tetap tersimpan."
+                else "Anda tidak lagi bertugas di greenhouse ini. Draf tetap tersimpan."
                 gh = null
             }
             if (gh == null || selectedSeason == null) season = null
@@ -584,7 +584,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         }
                     }
                     if (selectedGreenhouse != null) item("harvest-progress-link") {
-                        FarmActionRow("Progres panen", "Target, hasil tercatat dan hasil terverifikasi", FarmIcon.Report,
+                        FarmActionRow("Progres panen", "Target, hasil tercatat dan hasil yang sudah dicek", FarmIcon.Report,
                             Modifier.testTag("worker-harvest-progress-open"), onClick = ::openWorkerHarvestProgress)
                     }
                     if (selectedGreenhouse != null && selectedSeason != null && selectedGroup != null) {
@@ -609,12 +609,12 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         }
                     }
                     if (selectedGroup == null) item("sync") {
-                        FarmPanel(title = "Sinkronisasi") {
+                        FarmPanel(title = "Pembaruan data") {
                             if (!sessionExpired) context.message?.let {
                                 Text(it, Modifier.testTag("finance-sync-message"), style = MaterialTheme.typography.bodySmall)
                             }
-                            Text(context.lastSyncedAt?.let { "Sinkron terakhir: ${timeLabel(Instant.ofEpochMilli(it).toString())}" }
-                                ?: "Belum ada data server tersimpan.", style = MaterialTheme.typography.bodySmall)
+                            Text(context.lastSyncedAt?.let { "Diperbarui: ${timeLabel(Instant.ofEpochMilli(it).toString())}" }
+                                ?: "Belum ada data tersimpan.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     item { activity.message?.let { Notice(it) } }
@@ -746,12 +746,12 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     ) {
         Text("Inofarm", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
         if (syncing && LocalDensity.current.fontScale <= 1.3f) Text(
-            "Sinkronisasi",
+            "Memperbarui",
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
         )
         IconButton(onClick = onSync, enabled = !syncing, modifier = Modifier.testTag("finance-sync")) {
-            FarmControlIcon(FarmIcon.Sync, if (syncing) "Memeriksa server" else "Sinkronkan")
+            FarmControlIcon(FarmIcon.Sync, if (syncing) "Memperbarui" else "Perbarui")
         }
         Box {
             IconButton(onClick = { accountOpen = true }, modifier = Modifier.testTag("finance-account")) {
@@ -801,7 +801,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
 
 @Composable
 internal fun ExpiredSessionNotice() {
-    Notice("Sesi berakhir. Masuk kembali dengan akun yang sama untuk mengirim antrean. Draf tetap dapat disimpan.", true)
+    Notice("Sesi berakhir. Masuk lagi untuk mengirim catatan. Draf tetap bisa disimpan.", true)
 }
 
 @Composable private fun ActivityForm(state:ActivityUiState,context:CultivationUiState,vm:ActivityViewModel,worker:Boolean) {
@@ -846,7 +846,7 @@ internal fun ExpiredSessionNotice() {
             val units=context.units.filter {it.optString("greenhouse_id")==draft.greenhouseId}
             FarmSection(title = "Bahan aktual") {
             if(!draft.skipped && !context.loading && (materials.none {it.optBoolean("active",true)} || units.none {it.optBoolean("active",true)}))
-                Notice("Bahan atau satuan aktif belum tersedia di perangkat untuk greenhouse ini. Sinkronkan atau minta pengelola menyiapkan master.")
+                Notice("Bahan atau satuan belum tersedia untuk greenhouse ini. Perbarui, atau tambahkan di Kelola.")
             draft.materials.forEachIndexed { index,row -> FarmPanel {
                 fun change(updated:MaterialDraft) { vm.edit {it.copy(materials=it.materials.toMutableList().apply {set(index,updated)})} }
                 val material=materials.find {it.optString("id")==row.materialId}
@@ -890,7 +890,7 @@ internal fun ExpiredSessionNotice() {
             FinanceField("Keterangan pekerjaan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"finance-notes",state.errors["notes"],singleLine=false)
         }
         if(draft.baseVersion!=null) {
-            FinanceField("Alasan koreksi",draft.reason,{value -> vm.edit {it.copy(reason=value)}},"finance-reason",state.errors["reason"])
+            FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"finance-reason",state.errors["reason"])
             Choice("Acuan koreksi",draft.referencePolicy,listOf(JSONObject().put("id","preserve").put("name","Pertahankan tanggal/target historis"),JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"finance-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
         }
         if(draft.baseVersion!=null && draft.referencePolicy=="preserve") {
@@ -975,7 +975,7 @@ internal fun ExpiredSessionNotice() {
             if(record.serverVersion==null || record.recorderId()==session.scope.accountId) session.name else "Nama pencatat belum tersedia"
         }
         Text("Pencatat: $recorder")
-        Text("Versi server: ${record.serverVersion ?: "belum diterima"}")
+        Text("Versi: ${record.serverVersion ?: "belum terkirim"}")
         val snapshot=record.body.optJSONObject("reference_snapshot")
         snapshot?.let { snap -> val age=snap.optJSONObject("age");Text("HSS ${if(age?.isNull("hss")==false) age.optString("hss") else "belum tersedia"} · HST ${if(age?.isNull("hst")==false) age.optString("hst") else "belum berlaku"}")
             age?.optJSONArray("reasons")?.let { a -> repeat(a.length()) {Text(a.getString(it))} }
