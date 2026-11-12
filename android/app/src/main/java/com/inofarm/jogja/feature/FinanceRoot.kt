@@ -620,7 +620,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             sheet = true
         )
     }
-    val recordButton = showNavigation && !writing && (tab == 0 || tab == 5)
     if (recordSheet) RecordSheet(::startRecord,
         if (manager && gh != null && runningGroup == null && !managerHome.loading) ({ recordSheet = false; onAdmin(AdminResource.GROUP) }) else null,
         { recordSheet = false }, if (manager) RecordChoice.entries else WorkerRecordChoices,
@@ -632,10 +631,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         containerColor = MaterialTheme.colorScheme.surface,
         contentWindowInsets = { WindowInsets.safeDrawing }
     ) { Box(Modifier.fillMaxHeight(.92f).padding(horizontal = FarmSpace.Page)) { queueScreen() } }
-    val translucentNavigation = !manager && tab == 0 && showNavigation && !writing && LocalDensity.current.fontScale <= 1.4f &&
-        android.os.Build.VERSION.SDK_INT >= 31 && androidx.compose.ui.platform.LocalView.current.isHardwareAccelerated
+    val translucentNavigation = false
     val wibNow = remember { java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Jakarta")) }
-    val managerBar: ManagerBar? = if (!manager) null else when {
+    val managerBar: ManagerBar? = if (!manager) when {
+        tab == 0 && !correctionsOpen && !harvestProgressOpen -> ManagerBar("${greetingForWib(wibNow.hour, wibNow.minute)}, ${session.name.trim().substringBefore(' ')}",
+            dateLabel(wibNow.toLocalDate()), null)
+        tab == 5 && history.selected == null && harvestHistory.selected == null -> ManagerBar("Riwayat", null, null)
+        else -> null
+    } else when {
         tab == 0 && gh != null -> ManagerBar(homeSnapshot?.selected?.text("name") ?: "Greenhouse", null, onBack = { gh = null; periodReview = false })
         tab == 0 -> ManagerBar(greetingForWib(wibNow.hour, wibNow.minute), dateLabel(wibNow.toLocalDate()), null)
         tab == 5 -> ManagerBar("Riwayat", null, null)
@@ -668,14 +671,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             FinanceToolbar(session, context.loading, writing, sessionExpired, onSync, onLogout, onAdmin,
                 unsent = unsent, onUnsent = { queueFocus = null; showOutbox = true }, bar = managerBar)
         }
-    } },floatingActionButton={
-        if (recordButton && !manager) ExtendedFloatingActionButton(
-            onClick = { recordSheet = true },
-            icon = { FarmControlIcon(FarmIcon.Add, null) },
-            text = { Text("Catat") },
-            modifier = Modifier.testTag("finance-record-fab")
-        )
-    },bottomBar={
+    } },bottomBar={
         if (showNavigation) {
             val internalTabs = if (manager) ManagerScreenIds else WorkerScreenIds
             val selectTab: (Int) -> Unit = { index ->
@@ -687,10 +683,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     tab = target
                 }
             }
-            if (manager) FarmDockNavigation(navIndex(tab), ManagerDestinations.map { it.label to it.icon }, selectTab,
+            FarmDockNavigation(navIndex(tab), (if (manager) ManagerDestinations else WorkerDestinations).map { it.label to it.icon }, selectTab,
                 onRecord = { recordSheet = true }, recordEnabled = !writing,
                 modifier = Modifier.padding(horizontal = 12.dp).navigationBarsPadding())
-            else FinanceNavigation(navIndex(tab), WorkerDestinations, translucentNavigation, selectTab)
         }
     }) { padding ->
         val menuViewport = showNavigation && !writing
@@ -707,7 +702,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             translationY = 5.dp.toPx() * (1f - tabEntrance.value)
         } else Modifier
         // The Catat button grows with the font, so a worker's list keeps more room behind it at large sizes.
-        val recordInset = if (manager) 8.dp else if (!recordButton) 0.dp else 80.dp + 24.dp * (LocalDensity.current.fontScale - 1f).coerceAtLeast(0f)
+        val recordInset = 8.dp
         CompositionLocalProvider(LocalFarmListBottomInset provides recordInset) {
         Box(Modifier.widthIn(max = 900.dp).fillMaxSize().then(workerTabMotion)) {
             when {
@@ -918,18 +913,16 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
     val stackUnsent = largeFont && unsent > 0
     val amber = farmToneColors(FarmTone.Amber).second
     val unsentButton: @Composable () -> Unit = {
-        if (manager) OutlinedButton(onClick = onUnsent, shape = FarmShape.Control,
+        OutlinedButton(onClick = onUnsent, shape = FarmShape.Control,
             colors = ButtonDefaults.outlinedButtonColors(contentColor = amber),
             border = androidx.compose.foundation.BorderStroke(1.dp, amber.copy(alpha = 0.5f)),
             contentPadding = PaddingValues(horizontal = FarmSpace.Medium),
             modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-unsent")
                 .semantics { liveRegion = LiveRegionMode.Polite }) {
-            Text("$unsent belum terkirim", style = MaterialTheme.typography.labelLarge)
-        } else TextButton(onClick = onUnsent, shape = FarmShape.Control,
-            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-unsent")
-                .semantics { liveRegion = LiveRegionMode.Polite }) {
-            FarmControlIcon(FarmIcon.Schedule, null)
-            Spacer(Modifier.width(FarmSpace.Small))
+            if (!manager) {
+                FarmControlIcon(FarmIcon.Sync, null)
+                Spacer(Modifier.width(FarmSpace.Small))
+            }
             Text("$unsent belum terkirim", style = MaterialTheme.typography.labelLarge)
         }
     }
@@ -937,7 +930,7 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
         Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (manager && bar != null) {
+        if (bar != null) {
             bar.onBack?.let { back ->
                 IconButton(onClick = back, modifier = Modifier.testTag("manager-back").semantics { contentDescription = bar.backLabel }) {
                     Box(Modifier.graphicsLayer { rotationZ = 180f }) { FarmControlIcon(FarmIcon.ChevronRight, null) }
@@ -958,15 +951,13 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
             FarmControlIcon(FarmIcon.Sync, if (syncing) "Memperbarui" else "Perbarui")
         }
         Box {
-            if (manager) Box(Modifier.size(FarmSpace.Touch).clickable(role = androidx.compose.ui.semantics.Role.Button) { accountOpen = true }
+            Box(Modifier.size(FarmSpace.Touch).clickable(role = androidx.compose.ui.semantics.Role.Button) { accountOpen = true }
                 .semantics { contentDescription = if (sessionExpired) "Menu akun. Sesi berakhir." else "Menu akun" }
                 .testTag("finance-account"), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(44.dp).background(FarmColors.Sage, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
                     Text(initialsOf(session.name), Modifier.clearAndSetSemantics {}, style = MaterialTheme.typography.labelLarge,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = FarmColors.Ink)
                 }
-            } else IconButton(onClick = { accountOpen = true }, modifier = Modifier.testTag("finance-account")) {
-                FarmControlIcon(FarmIcon.Account, if (sessionExpired) "Menu akun. Sesi berakhir." else "Menu akun")
             }
             DropdownMenu(expanded = accountOpen, onDismissRequest = { accountOpen = false },
                 containerColor = MaterialTheme.colorScheme.surface) {
