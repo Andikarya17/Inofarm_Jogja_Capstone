@@ -740,9 +740,9 @@ class FinanceEntryUiTest {
     }
 
     @Test fun glassFrontendCapturesWorkerManagerAndPreservesDraftNavigation() {
-        rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
+        rule.onNodeWithTag("finance-tab-2").assertDoesNotExist()
         rule.onNodeWithTag("finance-account").performClick()
-        rule.onNodeWithTag("finance-admin").assertDoesNotExist()
+        rule.onNodeWithTag("finance-tab-3").assertDoesNotExist()
         Espresso.pressBack()
         capture("worker-home")
         gfxInfo("reset")
@@ -773,9 +773,9 @@ class FinanceEntryUiTest {
         selectManagerGreenhouse()
         capture("manager-home-selected")
         rule.onNodeWithTag("finance-account").performClick()
-        rule.onNodeWithTag("finance-admin").assertExists()
+        rule.onNodeWithTag("finance-tab-3").assertExists()
         Espresso.pressBack()
-        rule.selectFinanceTab(4);choose("expense-gh",gh);capture("manager-finance")
+        rule.selectFinanceTab(2);choose("expense-gh",gh);capture("manager-finance")
         rule.openFinanceTools()
         readyText("Penjualan dan penerimaan").assertExists()
         readyNode("sale-new").performScrollTo().assertIsEnabled().assertIsDisplayed()
@@ -1208,7 +1208,7 @@ class FinanceEntryUiTest {
         rule.waitUntil(10_000) { runCatching { sync.assertIsEnabled() }.isSuccess }
         sync.performClick()
         readyNode("manager-home-relogin").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
+        rule.onNodeWithTag("finance-tab-2").assertDoesNotExist()
         rule.activityRule.scenario.recreate()
         readyNode("manager-home-relogin").performScrollTo().assertIsDisplayed()
         rule.logoutFromAccount()
@@ -1280,7 +1280,7 @@ class FinanceEntryUiTest {
         historyList.assertIsDisplayed()
         captureSecondary("harvest-responsive")
         managerLogin()
-        rule.selectFinanceTab(4)
+        rule.selectFinanceTab(2)
         historyList.assertIsDisplayed()
         captureSecondary("finance-responsive")
         rule.openFinanceTools()
@@ -1328,7 +1328,7 @@ class FinanceEntryUiTest {
         Espresso.pressBack()
         Espresso.pressBack()
 
-        rule.selectFinanceTab(4)
+        rule.selectFinanceTab(2)
         rule.openFinanceTools()
         readyNode("allocation-new").assertIsNotEnabled()
         captureWindow("manager-walk-tools-no-scope")
@@ -1346,15 +1346,15 @@ class FinanceEntryUiTest {
             Espresso.pressBack()
         }
 
-        readyNode("finance-account").performClick()
+        readyNode("finance-tab-3").performClick()
         captureWindow("manager-walk-account")
-        readyNode("finance-admin-accounts").performClick()
+        readyNode("manage-users").performClick()
         readyText("Kelola akun").assertIsDisplayed()
         readyNode("admin-resource").assertTextContains("Akun")
         captureWindow("manager-walk-admin-accounts")
         Espresso.pressBack()
-        readyNode("finance-account").performClick()
-        readyNode("finance-admin").performClick()
+        readyNode("finance-tab-3").performClick()
+        readyNode("manage-greenhouse").performClick()
         readyText("Kelola greenhouse").assertIsDisplayed()
         captureWindow("manager-walk-admin")
         readyNode("admin-resource").performScrollTo().performClick()
@@ -1418,8 +1418,8 @@ class FinanceEntryUiTest {
         assertEquals(0, observations.getInt("leaf_count"))
         assertFalse(observations.has("plant_height_cm"))
 
-        readyNode("finance-account").performClick()
-        readyNode("finance-admin").performClick()
+        readyNode("finance-tab-3").performClick()
+        readyNode("manage-greenhouse").performClick()
         readyNode("admin-resource").performScrollTo().performClick()
         readyNode("farm-picker-options").performScrollToNode(hasTestTag("admin-resource-option-TARGET"))
         readyNode("admin-resource-option-TARGET").performClick()
@@ -1587,7 +1587,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("harvest-weight-1").performScrollTo().performTextReplacement("5");hideKeyboard();queueHarvest()
         rule.waitUntil(10000) {harvestPosts.get()==1}
         val sources=harvestReceipts.values.single().getJSONObject("data").getJSONArray("items").let {rows -> (0 until rows.length()).map {rows.getJSONObject(it).getString("id")}}
-        managerLogin();rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("sale-new")
+        managerLogin();rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",gh);rule.clickFinanceTool("sale-new")
         choose("sale-season",season)
         sources.forEachIndexed {index,id ->
             if(index>0) rule.onNodeWithTag("sale-add").performScrollTo().performClick()
@@ -1606,9 +1606,9 @@ class FinanceEntryUiTest {
         val session=runtime().vault.current!!
         rule.waitUntil(10000) {runtime().store.outbox(session.scope.key).any {it.envelope.optString("entity_type")=="sale"}}
         val op=runtime().store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="sale"};assertEquals("QUEUED",op.state)
-        offline.set(false);rule.onNodeWithTag("finance-sync").performClick();val id=acceptedFinancial("sale")
+        offline.set(false);rule.openFinanceOutbox();rule.onNodeWithTag("queue-send-now").performClick();Espresso.pressBack();val id=acceptedFinancial("sale")
         assertEquals("0.01",runtime().store.record(session.scope.key,id)!!.body.getString("total_amount"));assertEquals(op.hash,runtime().store.outbox(session.scope.key).single {it.id==op.id}.hash)
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","sale")
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","sale")
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("sale-accepted-total").performScrollTo().assertTextContains("0,01",substring=true)
         captureSecondary("sale-detail")
@@ -1619,7 +1619,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("sale-review").performScrollTo().performClick();rule.onNodeWithTag("sale-queue").performScrollTo().performClick()
         val session=runtime().vault.current!!;rule.waitUntil(15000) {runtime().store.outbox(session.scope.key).any {it.error?.optString("code")=="harvest_exceeded"}}
         val original=runtime().store.outbox(session.scope.key).single {it.error?.optString("code")=="harvest_exceeded"}
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","sale")
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","sale")
         awaitRecord("finance-record-${original.entityId}");rule.onNodeWithTag("finance-record-${original.entityId}").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("history-fix-rejected").fetchSemanticsNodes().isNotEmpty()}
         readyNode("history-fix-rejected").performScrollTo().performClick()
@@ -1638,7 +1638,7 @@ class FinanceEntryUiTest {
         assertEquals("belum",raw.getString("date"));assertFalse(raw.getBoolean("paid"));assertEquals("1,2,3",raw.getJSONArray("items").getJSONObject(0).getString("quantity"));assertTrue(runtime().store.outbox(session.scope.key).isEmpty())
     }
     private fun financialForm(allocation:Boolean=false) {
-        rule.selectFinanceTab(4);choose("expense-gh",gh)
+        rule.selectFinanceTab(2);choose("expense-gh",gh)
         if(allocation) rule.clickFinanceTool("allocation-new") else rule.onNodeWithTag("expense-new").performClick()
     }
     private fun fillPayment() {
@@ -1665,9 +1665,9 @@ class FinanceEntryUiTest {
         val session=runtime().vault.current!!;val original=runtime().store.outbox(session.scope.key).single()
         assertEquals(0,financePosts.get());rule.activityRule.scenario.recreate()
         assertEquals(original.hash,runtime().store.outbox(session.scope.key).single().hash)
-        offline.set(false);Thread.sleep(1200);rule.onNodeWithTag("finance-sync").performClick()
+        offline.set(false);Thread.sleep(1200);rule.openFinanceOutbox();rule.onNodeWithTag("queue-send-now").performClick();Espresso.pressBack()
         val source=acceptedFinancial("expense");assertEquals("100.01",runtime().store.record(session.scope.key,source)!!.body.getString("amount"))
-        rule.onNodeWithTag("finance-tab-4").performClick();awaitRecord("finance-record-$source")
+        rule.onNodeWithTag("finance-tab-2").performClick();awaitRecord("finance-record-$source")
         captureSecondary("finance-records")
         rule.onNodeWithTag("finance-record-$source").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick);readyNode("history-audit").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()};Espresso.pressBack()
@@ -1677,7 +1677,7 @@ class FinanceEntryUiTest {
         captureSecondary("allocation-review")
         rule.onNodeWithTag("expense-queue").performScrollTo().performClick()
         val allocationId=acceptedFinancial("cost_allocation")
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","cost_allocation")
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","cost_allocation")
         awaitRecord("finance-record-$allocationId");rule.onNodeWithTag("finance-record-$allocationId").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("expense-remaining-fact").performScrollTo().assertTextContains("40,00",substring=true)
         captureSecondary("allocation-detail")
@@ -1689,7 +1689,7 @@ class FinanceEntryUiTest {
         val session=runtime().vault.current!!
         rule.waitUntil(15000) {runtime().store.outbox(session.scope.key).any {it.error?.optString("code")=="allocation_exceeds_source"}}
         val original=runtime().store.outbox(session.scope.key).single {it.error?.optString("code")=="allocation_exceeds_source"}
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","cost_allocation")
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","cost_allocation")
         awaitRecord("finance-record-${original.entityId}");rule.onNodeWithTag("finance-record-${original.entityId}").performScrollTo().performClick()
         readyNode("history-fix-rejected").performScrollTo().performClick();rule.onNodeWithTag("expense-amount").performScrollTo().performTextReplacement("60,01");hideKeyboard()
         queueFinancial();acceptedFinancial("cost_allocation")
@@ -1798,7 +1798,7 @@ class FinanceEntryUiTest {
     }
     @Test fun assetFormReviewRecreationAndAcceptedHistoryUseDedicatedFlow() {
         val expense=assetSources();rule.logoutFromAccount();login("manager@example.invalid")
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new");choose("asset-expense",expense)
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new");choose("asset-expense",expense)
         for((tag,value) in listOf("asset-name" to "Pompa UI sintetis","asset-cost" to "100,00","asset-residual" to "0","asset-life" to "3","asset-start" to "2026-01-01","asset-basis" to "Basis manual eksplisit")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
         hideKeyboard();rule.activityRule.scenario.recreate();rule.onNodeWithTag("asset-name").performScrollTo().assertTextContains("Pompa UI sintetis")
         captureSecondary("asset-form")
@@ -1814,7 +1814,7 @@ class FinanceEntryUiTest {
     }
     @Test fun depreciationRequiresExplicitUsagePeriodBasisAndDoesNotInventAmount() {
         val asset=assetSources(true);rule.logoutFromAccount();login("manager@example.invalid")
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("depreciation-new");choose("asset-source",asset);choose("asset-season",season)
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",gh);rule.clickFinanceTool("depreciation-new");choose("asset-source",asset);choose("asset-season",season)
         assertEquals("",rule.onNodeWithTag("asset-amount").performScrollTo().fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.EditableText].text)
         for((tag,value) in listOf("asset-usage-year" to "1","asset-period-start" to "2026-01-01","asset-period-end" to "2027-01-01","asset-amount" to "33,33","asset-basis" to "Pemakaian musim sintetis")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
         hideKeyboard();rule.onNodeWithTag("asset-new-usage").performScrollTo().performClick()
@@ -1832,7 +1832,7 @@ class FinanceEntryUiTest {
         captureSecondary("depreciation-detail")
     }
     @Test fun assetImmediateLogoutFlushesLatestIncompleteRawInput() {
-        assetSources();rule.logoutFromAccount();login("manager@example.invalid");rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new")
+        assetSources();rule.logoutFromAccount();login("manager@example.invalid");rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new")
         rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Terakhir sebelum logout");hideKeyboard();rule.logoutFromAccount()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
         login("manager@example.invalid");val model=runtime();val session=model.vault.current!!
@@ -1844,7 +1844,7 @@ class FinanceEntryUiTest {
             val model=ViewModelProvider(rule.activity)[FinanceRuntime::class.java];val density=rule.activity.resources.displayMetrics.density
             rule.activity.setContent {CompositionLocalProvider(LocalDensity provides Density(density,2f)) {InofarmTheme {Box(Modifier.width(320.dp).fillMaxHeight()) {FinanceRoot(model)}}}}
         }
-        rule.waitForIdle();rule.selectFinanceTab(4);choose("expense-gh",gh)
+        rule.waitForIdle();rule.selectFinanceTab(2);choose("expense-gh",gh)
         rule.openFinanceTools()
         rule.onNodeWithTag("asset-new").performScrollTo().assertIsDisplayed();rule.onNodeWithTag("depreciation-new").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("finance-tools-close").performScrollTo().performClick()
@@ -1857,7 +1857,7 @@ class FinanceEntryUiTest {
     @Test fun assetConflictReviewPreservesRawLocalNameAndOldOperation() {
         val id=assetSources(true);rule.logoutFromAccount();login("manager@example.invalid")
         val model=runtime();val session=model.vault.current!!
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","asset")
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","asset")
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("finance-edit").performScrollTo().performClick();rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Nama aset lokal diperiksa")
         rule.onNodeWithTag("asset-reason").performScrollTo().performTextReplacement("Koreksi nama aset");hideKeyboard();assetConflictNext.set(true)
@@ -1880,7 +1880,7 @@ class FinanceEntryUiTest {
 
     @Test fun assetQueueRechecksPaymentAndReturnsFailureReasonWithoutLosingRawInput() {
         val expense=assetSources();rule.logoutFromAccount();login("manager@example.invalid")
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new");choose("asset-expense",expense)
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new");choose("asset-expense",expense)
         for((tag,value) in listOf("asset-name" to "Aset sumber berubah","asset-cost" to "100","asset-residual" to "0","asset-life" to "3","asset-start" to "2026-01-01","asset-basis" to "Basis manual")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
         hideKeyboard();rule.onNodeWithTag("asset-review").performScrollTo().performClick()
         val model=runtime();val session=model.vault.current!!;val cancelled=JSONObject(model.store.cachedOne(session.scope.key,"expense",expense)!!.toString()).put("version",2).put("record_state","cancelled")
@@ -1896,7 +1896,7 @@ class FinanceEntryUiTest {
 
     @Test fun investmentWorkspaceRecreationAndLogoutKeepLatestIncompleteRawInput() {
         rule.logoutFromAccount();login("manager@example.invalid")
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("investment-open")
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",gh);rule.clickFinanceTool("investment-open")
         rule.waitUntil(10000) {rule.onAllNodesWithTag("investment-list").fetchSemanticsNodes().isNotEmpty()}
         fun scroll(tag:String) {rule.onNodeWithTag("investment-list").performScrollToNode(hasTestTag(tag))}
         scroll("investment-new");rule.onNodeWithTag("investment-new").performClick();scroll("investment-name")
@@ -1910,7 +1910,7 @@ class FinanceEntryUiTest {
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
         val saved=model.store.record(session.scope.key,id)!!;assertEquals("1,",saved.body.getJSONObject("_local_form").getString("initial"));assertEquals("2",saved.body.getJSONObject("_local_form").getString("horizon"));assertNull(saved.serverVersion)
         assertTrue(model.store.outbox(session.scope.key).none {it.entityId==id})
-        login("manager@example.invalid");rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",gh);rule.clickFinanceTool("investment-open")
+        login("manager@example.invalid");rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",gh);rule.clickFinanceTool("investment-open")
         rule.waitUntil(10000) {rule.onAllNodesWithTag("investment-record-$id").fetchSemanticsNodes().isNotEmpty()};scroll("investment-record-$id");rule.onNodeWithTag("investment-record-$id").performClick()
         rule.waitUntil(10000) {runCatching {scroll("investment-initial")}.isSuccess}
         rule.onNodeWithTag("investment-initial").assertTextContains("1,")

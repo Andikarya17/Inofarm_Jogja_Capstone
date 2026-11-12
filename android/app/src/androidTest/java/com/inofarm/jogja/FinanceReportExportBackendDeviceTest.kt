@@ -83,7 +83,7 @@ class FinanceReportExportBackendDeviceTest {
         model.api.request(session.scope.server,session.token,"investment-scenarios/${f.getString("scenario_id")}","PATCH",operation("investment_scenario",f.getString("scenario_id"),payload,"update",1))
         for(row in listOf(season,investment)) {assertArrayEquals(before[row.id],save(row,"csv"));assertTrue(save(row,"pdf").isNotEmpty())}
         file("finance-report-export-proof.json").writeText(JSONObject().put("fixture_id",f.getString("fixture_id")).put("season_snapshot_hash",f.getString("season_report_hash")).put("investment_snapshot_hash",f.getString("investment_report_hash")).put("pdf_csv_before_after","PASS").toString())
-        login(f,"worker");rule.onNodeWithTag("finance-tab-4").assertDoesNotExist();val worker=model.vault.current!!
+        login(f,"worker");rule.onNodeWithTag("finance-tab-2").assertDoesNotExist();val worker=model.vault.current!!
         for(row in listOf(season,investment)) try {model.api.exportReport(worker.scope.server,worker.token,row.id,"csv",row.serverBody!!.getString("snapshot_hash"));fail("Worker downloaded report")} catch(expected:FinanceApiFailure) {assertEquals(403,expected.status)}
     }
 }

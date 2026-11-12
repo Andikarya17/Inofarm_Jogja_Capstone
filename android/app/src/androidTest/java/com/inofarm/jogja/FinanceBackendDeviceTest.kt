@@ -548,7 +548,7 @@ class FinanceBackendDeviceTest {
     @Test fun queueFinancialPaymentWithBackendOffline() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="payment-queue")
         val f=fixture();login(f,"manager");val a=f.getJSONArray("contexts").getJSONObject(0)
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",a.getString("greenhouse_id"))
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",a.getString("greenhouse_id"))
         rule.onNodeWithTag("expense-new").performClick();choose("expense-category",a.getString("category_id"));choose("expense-payment-kind","operating")
         rule.onNodeWithTag("expense-date").performScrollTo().performTextReplacement("2026-10-30");rule.onNodeWithTag("expense-time").performScrollTo().performTextReplacement("08:12:34")
         rule.onNodeWithTag("expense-amount").performScrollTo().performTextReplacement("100,01");rule.onNodeWithTag("expense-notes").performScrollTo().performTextReplacement("DEVICE EXPENSE — ${f.getString("fixture_id")}");hideKeyboard()
@@ -616,13 +616,13 @@ class FinanceBackendDeviceTest {
         val balance=model.api.request(session.scope.server,session.token,"expenses/${proof.getString("expense_id")}/availability").getJSONObject("data")
         assertEquals("60.01",balance.getString("allocated_amount"));assertEquals("40.00",balance.getString("available_amount"));assertEquals(1,balance.getInt("expense_version"));assertEquals(2,balance.getInt("version"))
         val attachmentIds=verifyPrivateAttachments(proof)
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","cost_allocation")
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","cost_allocation")
         rule.waitUntil(15000) {runCatching {rule.onNodeWithTag("finance-history-list").performScrollToNode(hasTestTag("finance-record-${op.entityId}"))}.isSuccess}
         rule.onNodeWithTag("finance-record-${op.entityId}").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("history-audit").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("history-audit").performScrollTo().performClick();rule.waitUntil(15000) {rule.onAllNodesWithText("Pencatatan · versi 1").fetchSemanticsNodes().isNotEmpty()}
         rule.logoutFromAccount();login(f,"worker");val worker=model.vault.current!!
-        rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
+        rule.onNodeWithTag("finance-tab-2").assertDoesNotExist()
         try {model.api.request(worker.scope.server,worker.token,"expenses/${proof.getString("expense_id")}");fail("Worker financial read must be denied")} catch(error:FinanceApiFailure) {assertEquals(403,error.status)}
         attachmentIds.forEach {id -> listOf("attachments/$id","attachments/$id/content","attachments/$id/audit").forEach {path ->
             try {model.api.request(worker.scope.server,worker.token,path);fail("Worker private financial file must be denied")} catch(error:FinanceApiFailure) {assertEquals(404,error.status)}
@@ -663,7 +663,7 @@ class FinanceBackendDeviceTest {
         val sourceOp=model.store.outbox(worker.scope.key).single {it.id==proof.getString("harvest_op")};assertEquals(proof.getString("harvest_hash"),sourceOp.hash)
         model.api.request(worker.scope.server,worker.token,"harvests","POST",sourceOp.envelope)
         login(f,"manager");val ctx=f.getJSONArray("contexts").getJSONObject(0)
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",ctx.getString("greenhouse_id"));rule.clickFinanceTool("sale-new")
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",ctx.getString("greenhouse_id"));rule.clickFinanceTool("sale-new")
         choose("sale-season",ctx.getString("season_id"));rule.onNodeWithTag("sale-date").performScrollTo().performTextReplacement("2026-10-30")
         repeat(2) {index ->
             if(index>0) rule.onNodeWithTag("sale-add").performScrollTo().performClick()
@@ -684,7 +684,7 @@ class FinanceBackendDeviceTest {
         rule.waitUntil(20000) {model.store.record(session.scope.key,id)?.syncState==com.inofarm.jogja.core.contracts.SyncState.ACCEPTED}
         val op=model.store.outbox(session.scope.key).single {it.id==proof.getString("sale_op")};assertEquals(proof.getString("sale_hash"),op.hash)
         val receipt=model.api.request(session.scope.server,session.token,"sales","POST",op.envelope);assertEquals("0.01",receipt.getJSONObject("data").getString("total_amount"))
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-history-kind","sale")
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","sale")
         rule.waitUntil(15000) {runCatching {rule.onNodeWithTag("finance-history-list").performScrollToNode(hasTestTag("finance-record-$id"))}.isSuccess}
         rule.onNodeWithTag("finance-record-$id").performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("history-audit").fetchSemanticsNodes().isNotEmpty()}

@@ -27,7 +27,7 @@ class FinanceRecoveryUiBackendDeviceTest {
         rule.runOnIdle {(rule.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(rule.activity.window.decorView.windowToken,0)}
         rule.onNodeWithTag("finance-login").performScrollTo().performClick()
         rule.waitUntil(15000){rule.onAllNodesWithTag("manager-home-picker").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("finance-tab-4").performClick();rule.clickFinanceTool("recovery-open")
+        rule.onNodeWithTag("finance-tab-2").performClick();rule.clickFinanceTool("recovery-open")
         rule.waitUntil(15000){rule.onAllNodesWithTag("recovery-reason").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)==false}
         val text="Uji pemulihan berhasil: "+f.getString("restored_run_id")
         rule.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex) and hasAnyAncestor(isDialog())).performScrollToNode(hasText(text))
