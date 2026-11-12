@@ -2,6 +2,7 @@ package com.inofarm.jogja.feature.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.inofarm.jogja.core.contracts.UserRole
 import com.inofarm.jogja.core.database.LocalHistoryFilter
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.database.QueuedOperation
@@ -17,7 +18,8 @@ import org.json.JSONObject
 data class HistoryUiState(val records:List<LocalRecord> = emptyList(),val filter:LocalHistoryFilter=LocalHistoryFilter(),val hasMore:Boolean=false,val loading:Boolean=false,
     val selected:LocalRecord?=null,val comparison:LocalRecord?=null,val audit:AuditPage?=null,val archives:List<JSONObject> = emptyList(),val auditLoading:Boolean=false,
     val message:String?=null,val busy:Boolean=false,val changed:Long=0,val pending:List<QueuedOperation> = emptyList(),
-    val loaded:Boolean=false,val loadError:String?=null,val filterSeason:String?=null)
+    val loaded:Boolean=false,val loadError:String?=null,val filterSeason:String?=null,
+    val mine:Boolean=false,val checks:Map<String,String> = emptyMap())
 
 class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
     private val vault get()=repository.vault
@@ -26,11 +28,16 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
     private var selectionVersion=0L
     fun bind(session:FinanceSession?) {
         if(boundScope==session?.scope?.key) return
-        boundScope=session?.scope?.key;selectionVersion++;query?.cancel();auditJob?.cancel();selectJob?.cancel();mutable.value=HistoryUiState();count=50;if(session!=null) reload()
+        boundScope=session?.scope?.key;selectionVersion++;query?.cancel();auditJob?.cancel();selectJob?.cancel();mutable.value=HistoryUiState(mine=session?.role==UserRole.WORKER);count=50;if(session!=null) reload()
     }
     fun filter(filter:LocalHistoryFilter, season:String?=filter.seasonId) {
         count=50
         mutable.value=state.value.copy(filter=filter,filterSeason=season,records=emptyList(),hasMore=false,loaded=false,loadError=null)
+        reload()
+    }
+    fun mine(on:Boolean) {
+        count=50
+        mutable.value=state.value.copy(mine=on,records=emptyList(),hasMore=false,loaded=false,loadError=null)
         reload()
     }
     fun more() {count+=50;reload()}
@@ -40,12 +47,13 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
         query?.cancel();query=viewModelScope.launch {
             mutable.value=state.value.copy(loading=true)
             try {
-                val rows=repository.records(session,state.value.filter,count+1)
+                val rows=repository.records(session,state.value.filter,count+1,state.value.mine)
+                val checks=if(session.role==UserRole.WORKER) repository.checks(session) else emptyMap()
                 val detail=selectedId?.let {repository.detail(session,it)}
                 val selected=detail?.record;val pending=detail?.pending ?: emptyList();val archives=detail?.archives ?: emptyList()
                 if(vault.matches(ticket,session.scope)) {
                     val current=state.value;val sameSelection=selectionVersion==selection && current.selected?.id==selectedId
-                    mutable.value=current.copy(records=rows.take(count),hasMore=rows.size>count,loaded=true,loadError=null,selected=if(sameSelection) selected else current.selected,
+                    mutable.value=current.copy(records=rows.take(count),hasMore=rows.size>count,loaded=true,loadError=null,checks=checks,selected=if(sameSelection) selected else current.selected,
                         pending=if(sameSelection) pending else current.pending,archives=if(sameSelection) archives else current.archives,
                         comparison=if(sameSelection && selected==null) null else current.comparison)
                 }
@@ -65,8 +73,8 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
                 val record=detail?.record;val archived=detail?.archives ?: emptyList();val pending=detail?.pending ?: emptyList()
                 if(vault.matches(ticket,session.scope)) {
                     val error = when {
-                        versionMismatch -> "Revisi di perangkat berbeda dari daftar sumber. Sinkronkan untuk membandingkan."
-                        record == null -> "Catatan belum tersedia di perangkat. Periksa penugasan dan sinkronkan."
+                        versionMismatch -> "Revisi di perangkat berbeda dari daftar. Perbarui untuk membandingkan."
+                        record == null -> "Catatan belum tersedia di perangkat. Perbarui lalu coba lagi."
                         else -> null
                     }
                     selectionVersion++
@@ -97,7 +105,7 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
                 val page=repository.audit(session,ticket,selected,previous?.cursor,previous)
                 if(vault.matches(ticket,session.scope) && state.value.selected?.id==selected.id) mutable.value=state.value.copy(audit=page)
             } catch(cancelled:CancellationException) {throw cancelled}
-            catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message="Audit terbaru belum tersedia. ${userMessage(error)}")}
+            catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message="Riwayat perubahan belum bisa dimuat. ${userMessage(error)}")}
             finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(auditLoading=false)}
         }
     }
@@ -108,7 +116,7 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
             mutable.value=state.value.copy(busy=true,message=null)
             try {
                 action(session,ticket)
-                if(vault.matches(ticket,session.scope)) {mutable.value=state.value.copy(comparison=null,message="Pilihan tersimpan di perangkat. Tinjau status pengiriman pada antrean.",changed=state.value.changed+1);reload()}
+                if(vault.matches(ticket,session.scope)) {mutable.value=state.value.copy(comparison=null,message="Tersimpan. Terkirim otomatis saat ada internet.",changed=state.value.changed+1);reload()}
             } catch(cancelled:CancellationException) {throw cancelled}
             catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error))}
             finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(busy=false)}

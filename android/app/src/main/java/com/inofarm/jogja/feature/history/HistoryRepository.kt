@@ -12,6 +12,7 @@ import com.inofarm.jogja.core.session.FinanceSessionVault
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.harvest.domain.HarvestDraft
 import com.inofarm.jogja.feature.expenses.FinancialDraft
+import com.inofarm.jogja.feature.recorderId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -27,12 +28,19 @@ data class AuditPage(val entries:List<AuditEntry>,val cursor:String?,val fetched
 
 class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFinanceStore,private val api:FinanceApi,private val kind:OperationalKind=OperationalKind.ACTIVITY) {
     private fun check(session:FinanceSession,ticket:Long) {check(vault.matches(ticket,session.scope)) {"Sesi berubah."}}
-    suspend fun records(session:FinanceSession,filter:LocalHistoryFilter,count:Int)=withContext(Dispatchers.IO) {
+    /** [ownOnly] keeps this account's records and unsent drafts; the recorder is inside the encrypted body, so it filters after the query. */
+    suspend fun records(session:FinanceSession,filter:LocalHistoryFilter,count:Int,ownOnly:Boolean=false)=withContext(Dispatchers.IO) {
         buildList {var offset=0;while(size<count) {
             val requested=minOf(1000,count-size)
             val page=store.records(session.scope.key,requested,kind=kind.wire,filter=filter,offset=offset)
-            addAll(page);offset+=page.size;if(page.size<requested) break
+            addAll(if(ownOnly) page.filter {row -> row.recorderId().let {it.isBlank() || it==session.scope.accountId}} else page)
+            offset+=page.size;if(page.size<requested) break
         }}
+    }
+    /** Latest manager decision per record revision, keyed "id#version", for the check label in the worker's list. */
+    suspend fun checks(session:FinanceSession):Map<String,String> = withContext(Dispatchers.IO) {
+        val review=when(kind) {OperationalKind.ACTIVITY -> "activity";OperationalKind.HARVEST -> "harvest";else -> return@withContext emptyMap()}
+        store.cachedAll(session.scope.key,"${review}_review").associate {"${it.optString("${review}_id")}#${it.optLong("${review}_version")}" to it.optString("decision")}
     }
     suspend fun detail(session:FinanceSession,id:String)=withContext(Dispatchers.IO) {store.detail(session.scope.key,id)?.takeIf {it.record.kind==kind.wire}}
     suspend fun cachedAudit(session:FinanceSession,id:String)=withContext(Dispatchers.IO) {
@@ -44,7 +52,7 @@ class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFin
     }
     suspend fun audit(session:FinanceSession,ticket:Long,record:LocalRecord,cursor:String?,previous:AuditPage?):AuditPage=withContext(Dispatchers.IO) {
         check(session,ticket)
-        require(record.greenhouseId in store.visibleGreenhouses(session.scope.key)) {"Penugasan tidak lagi berlaku."}
+        require(record.greenhouseId in store.visibleGreenhouses(session.scope.key)) {"Anda tidak lagi bertugas di greenhouse ini."}
         require(record.kind==kind.wire)
         val result=api.request(session.scope.server,session.token,"${kind.resource}/${record.id}/audit",query=mapOf("limit" to "50")+(cursor?.let {mapOf("cursor" to it)} ?: emptyMap()))
         check(session,ticket)
@@ -59,9 +67,9 @@ class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFin
     suspend fun resolve(session:FinanceSession,ticket:Long,reviewed:LocalRecord,keepLocal:Boolean,reason:String,policy:String)=withContext(Dispatchers.IO) {
         check(session,ticket)
         require(reviewed.kind==kind.wire)
-        val version=reviewed.serverVersion ?: error("Versi server belum tersedia.")
+        val version=reviewed.serverVersion ?: error("Versi terbaru belum tersedia. Perbarui dulu.")
         val payload=if(keepLocal) {
-            require(reason.isNotBlank() && reason.length<=1000) {"Alasan koreksi wajib, maksimal 1.000 karakter."}
+            require((session.role==UserRole.MANAGER || reason.isNotBlank()) && reason.length<=1000) {"Isi alasan koreksi, maksimal 1.000 karakter."}
             require(kind.financial || policy in setOf("preserve","refresh")) {"Pilih kebijakan acuan historis."}
             when(kind) {
                 OperationalKind.ACTIVITY -> ActivityDraft.from(reviewed.id,reviewed.greenhouseId,reviewed.body,version).copy(reason=reason,referencePolicy=policy).payload()
@@ -75,35 +83,35 @@ class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFin
     }
     suspend fun cancel(session:FinanceSession,ticket:Long,reviewed:LocalRecord,reason:String)=withContext(Dispatchers.IO) {
         check(session,ticket);require(session.role==UserRole.MANAGER) {"Pembatalan memerlukan pengelola."}
-        require(reason.isNotBlank() && reason.length<=1000) {"Alasan wajib, maksimal 1.000 karakter."}
-        require(reviewed.syncState==SyncState.ACCEPTED && reviewed.body.optString("record_state")!="cancelled") {"Catatan perlu diterima server dan masih aktif."}
+        require(reason.length<=1000) {"Catatan maksimal 1.000 karakter."}
+        require(reviewed.syncState==SyncState.ACCEPTED && reviewed.body.optString("record_state")!="cancelled") {"Catatan harus sudah terkirim dan masih aktif."}
         require(reviewed.kind==kind.wire)
-        store.queueAction(session.scope.key,reviewed.id,reviewed.greenhouseId,kind.wire,reviewed.body,JSONObject().put("reason",reason),"cancel",reviewed.serverVersion!!,reviewed.revision)
+        store.queueAction(session.scope.key,reviewed.id,reviewed.greenhouseId,kind.wire,reviewed.body,JSONObject().apply {if(reason.isNotBlank()) put("reason",reason)},"cancel",reviewed.serverVersion!!,reviewed.revision)
     }
     suspend fun season(session:FinanceSession,ticket:Long,reviewed:JSONObject,reason:String)=withContext(Dispatchers.IO) {
         check(session,ticket);require(session.role==UserRole.MANAGER) {"Tindakan ini memerlukan pengelola."}
-        require(reason.isNotBlank() && reason.length<=1000) {"Alasan wajib, maksimal 1.000 karakter."}
+        require(reason.length<=1000) {"Catatan maksimal 1.000 karakter."}
         val id=reviewed.getString("id");val gh=reviewed.getString("greenhouse_id")
         val action=if(reviewed.getString("status")=="open") "close" else "reopen"
         val old=store.record(session.scope.key,id)
-        store.queueAction(session.scope.key,id,gh,"seasons",reviewed,JSONObject().put("reason",reason),action,reviewed.getLong("version"),old?.revision)
+        store.queueAction(session.scope.key,id,gh,"seasons",reviewed,JSONObject().apply {if(reason.isNotBlank()) put("reason",reason)},action,reviewed.getLong("version"),old?.revision)
     }
     suspend fun retryClosed(session:FinanceSession,ticket:Long,record:LocalRecord)=withContext(Dispatchers.IO) {
         check(session,ticket)
         if(kind.financial) {
             val form=record.body.optJSONObject("_local_form") ?: record.body
             val seasons=if(kind in setOf(OperationalKind.COST_ALLOCATION,OperationalKind.SALE,OperationalKind.DEPRECIATION)) setOf(form.getString("season_id")) else store.allocationSeasons(session.scope.key,record.id)
-            require(seasons.isNotEmpty()) {"Musim terkait belum tersimpan lengkap. Sinkronkan dan tinjau kembali."}
-            seasons.forEach {id -> require(store.cachedOne(session.scope.key,"seasons",id)?.optString("status")=="open") {"Musim terkait masih ditutup atau belum tersimpan. Buka kembali dan sinkronkan dahulu."}}
-            val op=store.pendingFor(session.scope.key,record.id).singleOrNull {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"} ?: error("Operasi tertahan tidak ditemukan.")
+            require(seasons.isNotEmpty()) {"Data musim belum lengkap. Perbarui lalu coba lagi."}
+            seasons.forEach {id -> require(store.cachedOne(session.scope.key,"seasons",id)?.optString("status")=="open") {"Musim masih ditutup. Buka musim dulu, lalu perbarui."}}
+            val op=store.pendingFor(session.scope.key,record.id).singleOrNull {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"} ?: error("Catatan tertahan tidak ditemukan.")
             store.retryClosedSeason(session.scope.key,op.id)
             return@withContext
         }
         val groupId=record.body.optJSONObject("_local_form")?.optString("group_id") ?: record.body.getString("planting_group_id")
-        val group=store.cachedOne(session.scope.key,"planting_groups",groupId) ?: error("Kelompok belum tersedia. Sinkronkan dahulu.")
-        val season=store.cachedOne(session.scope.key,"seasons",group.getString("season_id")) ?: error("Musim belum tersedia. Sinkronkan dahulu.")
-        require(season.getString("status")=="open") {"Musim masih ditutup pada data terakhir. Pengelola perlu membukanya kembali, lalu sinkronkan."}
-        val op=store.pendingFor(session.scope.key,record.id).singleOrNull {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"} ?: error("Operasi tertahan tidak ditemukan.")
+        val group=store.cachedOne(session.scope.key,"planting_groups",groupId) ?: error("Kelompok tanam belum tersedia. Perbarui dulu.")
+        val season=store.cachedOne(session.scope.key,"seasons",group.getString("season_id")) ?: error("Musim belum tersedia. Perbarui dulu.")
+        require(season.getString("status")=="open") {"Musim masih ditutup. Minta pengelola membukanya, lalu perbarui."}
+        val op=store.pendingFor(session.scope.key,record.id).singleOrNull {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"} ?: error("Catatan tertahan tidak ditemukan.")
         store.retryClosedSeason(session.scope.key,op.id)
     }
 }

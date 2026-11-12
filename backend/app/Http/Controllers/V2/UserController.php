@@ -24,15 +24,16 @@ final class UserController extends Controller
     {
         return $read->run($request, function (User $actor) use ($request, $access) {
             $access->manager($actor);
-            $input = $request->validate(['greenhouse_id' => 'required|uuid', 'cursor' => 'nullable|uuid', 'limit' => 'sometimes|integer|min:1|max:100', 'for_assignment' => 'sometimes|boolean']);
+            $input = $request->validate(['greenhouse_id' => 'required|uuid', 'cursor' => 'nullable|uuid', 'limit' => 'sometimes|integer|min:1|max:100', 'for_assignment' => 'sometimes|boolean', 'all_accounts' => 'sometimes|boolean']);
             $access->require($actor, $input['greenhouse_id']);
             $limit = (int) ($input['limit'] ?? 50);
             $assigned = DB::table('greenhouse_assignments')->where('greenhouse_id', $input['greenhouse_id'])->select('user_id');
-            $query = ($input['for_assignment'] ?? false)
-                ? $access->manageableUsers($actor)->where('active', true)->whereIn('role', ['worker', 'manager'])
-                    ->whereIn('id', DB::table('greenhouse_assignments')->select('user_id')->whereIn('greenhouse_id', $access->ids($actor)))
-                    ->whereNotIn('id', $assigned)
-                : User::whereIn('id', $assigned);
+            $query = match (true) {
+                (bool) ($input['for_assignment'] ?? false) => $access->manageableUsers($actor)->where('active', true)
+                    ->where('role', 'worker')->whereNotIn('id', $assigned),
+                (bool) ($input['all_accounts'] ?? false) => $access->manageableUsers($actor),
+                default => User::whereIn('id', $assigned),
+            };
             $rows = $query
                 ->when($input['cursor'] ?? null, fn ($q, $cursor) => $q->where('public_id', '>', $cursor))
                 ->whereNotNull('public_id')->orderBy('public_id')->limit($limit + 1)->get();
@@ -73,7 +74,7 @@ final class UserController extends Controller
         if ($action === 'create') {
             $rules += ['email' => 'required|email|max:254', 'password' => 'required|string|min:12|max:256'];
         } else {
-            $rules += ['active' => 'required|boolean', 'reason' => 'required|string|max:1000', 'email' => 'sometimes|required|email|max:254', 'password' => 'sometimes|string|min:12|max:256'];
+            $rules += ['active' => 'required|boolean', 'reason' => OperationInput::reasonRule($request, 'required|string|max:1000'), 'email' => 'sometimes|required|email|max:254', 'password' => 'sometimes|string|min:12|max:256'];
         }
         $op = OperationInput::read($request, 'users', $action, $rules, $id);
         $gh = $op['payload']['greenhouse_id'];
@@ -81,9 +82,7 @@ final class UserController extends Controller
             $access->manager($actor);
             $access->require($actor, $gh);
             if ($action !== 'create') {
-                $target = User::where('public_id', $op['entity_id'])->first() ?? abort(404);
-                abort_unless(DB::table('greenhouse_assignments')->where('greenhouse_id', $gh)->where('user_id', $target->id)->exists(), 404);
-                abort_unless($access->manageableUsers($actor)->whereKey($target->id)->exists(), 403, 'Akun juga terhubung greenhouse di luar kewenangan Anda.');
+                abort_unless($access->manageableUsers($actor)->where('public_id', $op['entity_id'])->exists(), 404, 'Akun tidak ditemukan.');
             }
         }, function (User $actor) use ($ledger, $op, $action, $gh) {
             $p = $op['payload'];
@@ -102,7 +101,9 @@ final class UserController extends Controller
                 $ledger->version((object) ['version' => $user->version], $op['base_version'], $before);
                 abort_if($email !== null && User::where('email', $email)->whereKeyNot($user->id)->exists(), 422, 'Email telah digunakan akun lain.');
                 abort_unless(is_bool($p['active']), 422, 'active harus boolean.');
-                abort_if($user->id === $actor->id && (! $p['active'] || $p['role'] !== $user->role), 422, 'Tidak dapat menonaktifkan atau mengubah peran akun sendiri.');
+                abort_if($user->id === $actor->id && (! $p['active'] || $p['role'] !== $user->role), 422, 'Anda tidak bisa menonaktifkan atau mengubah peran akun sendiri.');
+                abort_if($user->role === 'manager' && ($p['role'] !== 'manager' || ! $p['active'])
+                    && ! User::where('role', 'manager')->where('active', true)->whereKeyNot($user->id)->exists(), 422, 'Harus ada minimal satu pengelola aktif.');
                 $user->update(['name' => $p['name'], 'role' => $p['role'], 'active' => $p['active'], 'version' => $user->version + 1,
                     ...($email !== null ? ['email' => $email] : []),
                     ...(isset($p['password']) ? ['password' => $p['password']] : [])]);

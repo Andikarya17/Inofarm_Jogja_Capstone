@@ -18,7 +18,7 @@ data class FinancialDraft(val id:String=UUID.randomUUID().toString(),val kind:Re
     val replaceValidationRejected:Boolean=false,val lockedParents:Boolean=false) {
     init {require(kind in setOf(RecordKind.EXPENSE,RecordKind.COST_ALLOCATION))}
     fun paidAt()=ManualTime.encode(date,time)
-    fun validation():Map<String,String> = buildMap {
+    fun validation(reasonRequired:Boolean=true):Map<String,String> = buildMap {
         if(runCatching {WireContract.uuid(greenhouseId)}.isFailure) put("greenhouse","Pilih greenhouse.")
         if(runCatching {money(amount)}.isFailure) put("amount","Isi nominal IDR tidak negatif, maksimal 2 angka di belakang koma; kosong bukan nol.")
         if(kind==RecordKind.EXPENSE) {
@@ -27,20 +27,20 @@ data class FinancialDraft(val id:String=UUID.randomUUID().toString(),val kind:Re
             if(runCatching {paidAt()}.isFailure) put("paid_at","Isi tanggal YYYY-MM-DD dan jam HH:mm WIB yang sah; detik opsional.")
             if(notes.length>2000) put("notes","Keterangan maksimal 2.000 karakter.")
         } else {
-            if(runCatching {WireContract.uuid(expenseId)}.isFailure) put("expense","Pilih pembayaran operasi yang telah diterima server.")
+            if(runCatching {WireContract.uuid(expenseId)}.isFailure) put("expense","Pilih pembayaran operasi yang sudah terkirim.")
             if(runCatching {WireContract.uuid(seasonId)}.isFailure) put("season","Pilih musim tujuan alokasi.")
             if(costClass !in setOf("FC","VC")) put("cost_class","Pilih biaya tetap (FC) atau variabel (VC).")
             if(basis.isBlank() || basis.length>2000) put("basis","Dasar alokasi wajib, maksimal 2.000 karakter.")
         }
-        if(baseVersion!=null && reason.isBlank()) put("reason","Koreksi memerlukan alasan.")
-        if(reason.length>1000) put("reason","Alasan maksimal 1.000 karakter.")
+        if(reasonRequired && baseVersion!=null && reason.isBlank()) put("reason","Isi alasan koreksi.")
+        if(reason.length>1000) put("reason","Catatan maksimal 1.000 karakter.")
     }
     fun payload():JSONObject {
-        require(validation().isEmpty()) {validation().values.joinToString("\n")}
+        require(validation(false).isEmpty()) {validation(false).values.joinToString("\n")}
         val result=if(kind==RecordKind.EXPENSE) JSONObject().put("greenhouse_id",greenhouseId).put("category_id",categoryId)
             .put("paid_at",paidAt()).put("payment_kind",paymentKind).put("notes",notes)
         else JSONObject().put("expense_id",expenseId).put("season_id",seasonId).put("cost_class",costClass).put("allocation_basis",basis)
-        return result.put("amount",money(amount).toPlainString()).apply {if(baseVersion!=null) put("reason",reason)}
+        return result.put("amount",money(amount).toPlainString()).apply {if(baseVersion!=null && reason.isNotBlank()) put("reason",reason)}
     }
     fun localJson():JSONObject {
         val form=JSONObject().put("amount",amount).put("category_id",categoryId).put("payment_kind",paymentKind).put("notes",notes)

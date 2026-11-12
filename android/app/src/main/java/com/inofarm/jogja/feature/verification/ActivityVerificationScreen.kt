@@ -1,6 +1,18 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.inofarm.jogja.feature.verification
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import com.inofarm.jogja.feature.FinanceDateField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,6 +21,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -50,12 +68,12 @@ private fun JSONObject.text(key: String): String? = optString(key).takeUnless { 
 private fun option(id: String, name: String) = JSONObject().put("id", id).put("name", name)
 
 internal fun verificationLabel(status: String): String = when (status) {
-    "pending" -> "Belum diverifikasi"
-    "valid" -> "Valid"
-    "invalid" -> "Tidak valid"
+    "pending" -> "Belum dicek"
+    "valid" -> "Sesuai"
+    "invalid" -> "Perlu diperbaiki"
     "manager" -> "Dicatat pengelola"
-    "legacy" -> "Belum pernah diverifikasi"
-    else -> "Status verifikasi belum tersedia"
+    "legacy" -> "Catatan lama"
+    else -> "Status belum tersedia"
 }
 
 private fun recordLabel(kind: ReviewKind, row: JSONObject) =
@@ -134,86 +152,88 @@ internal fun ActivityVerificationScreen(
             }.onSuccess { response ->
                 rows = (rows + response.rows("data")).distinctBy { it.getJSONObject(kind.wire).getString("id") }
                 cursor = response.text("next_cursor")
-            }.onFailure { failure = it.message ?: "Server belum dapat dihubungi." }
+            }.onFailure { failure = it.message ?: "Belum tersambung ke internet." }
             loading = false
         }
         FarmMenuList(Modifier.testTag("${kind.wire}-verification-list")) {
             item {
-                FarmMenuHeader("Verifikasi ${kind.label}", "Periksa catatan pekerja yang sudah diterima server.") {
-                    OutlinedButton(onClick = onOutbox, shape = FarmShape.Control,
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("verification-outbox")) { Text("Pengiriman saya") }
-                }
-            }
-            item {
-                Choice("Jenis catatan", kind.wire, listOf(option("activity", "Kegiatan"), option("harvest", "Panen")),
-                    "verification-kind") { wire -> onKind(ReviewKind.entries.first { it.wire == wire }) }
-                Choice("Status verifikasi", status, listOf(
-                    option("pending", "Menunggu pemeriksaan"), option("decided", "Pernah diputuskan"),
-                    option("valid", "Valid"), option("invalid", "Tidak valid"),
-                    option("legacy", "Catatan lama")
-                ), "verification-status") { status = it }
-                TextButton(onClick = { filters = !filters }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
-                    Text(if (filters) "Tutup filter" else if (kind == ReviewKind.HARVEST) "Filter greenhouse" else "Filter greenhouse, pencatat dan tanggal")
-                }
-            }
-            if (filters) item {
-                FarmPanel(title = "Filter ${kind.label}") {
-                    Choice("Greenhouse", greenhouse, listOf(option("", "Semua greenhouse")) + context.greenhouses,
-                        "verification-greenhouse") { greenhouse = it; worker = ""; workerOptions = emptyList() }
-                    if (kind == ReviewKind.ACTIVITY) {
-                    Choice("Pencatat", worker, listOf(option("", "Semua pekerja")) + workerOptions,
-                        "verification-worker") { worker = it }
-                    workerMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                    if (workerCursor != null || workerMessage != null) TextButton(onClick = { workerPage++ }) { Text("Muat pencatat") }
-                    Choice("Jenis kegiatan", type, listOf(option("", "Semua jenis")) +
-                        ActivityType.entries.map { option(it.wire, it.label) }, "verification-type") { type = it }
-                    FinanceField("Dari tanggal WIB (YYYY-MM-DD)", from, { from = it }, "verification-from")
-                    FinanceField("Sampai tanggal WIB (YYYY-MM-DD)", until, { until = it }, "verification-until")
-                    val validDates = runCatching {
-                        val first = from.takeIf(String::isNotBlank)?.let(LocalDate::parse)
-                        val last = until.takeIf(String::isNotBlank)?.let(LocalDate::parse)
-                        first == null || last == null || last >= first
-                    }.getOrDefault(false)
-                    if (!validDates) Text("Periksa format dan urutan tanggal.", color = MaterialTheme.colorScheme.error)
-                    OutlinedButton(onClick = { appliedFrom = from; appliedUntil = until }, enabled = validDates,
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Terapkan tanggal") }
+                Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                    FarmChoiceChips("Jenis catatan", kind.wire, listOf(option("activity", "Kegiatan"), option("harvest", "Panen")),
+                        "verification-kind") { wire -> onKind(ReviewKind.entries.first { it.wire == wire }) }
+                    FarmChoiceChips("Status", status, listOf(
+                        option("pending", "Belum dicek"), option("decided", "Sudah dicek"),
+                        option("valid", "Sesuai"), option("invalid", "Perlu diperbaiki"),
+                        option("legacy", "Catatan lama")
+                    ), "verification-status", scroll = true) { status = it }
+                    TextButton(onClick = { filters = !filters }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
+                        Text(if (filters) "Tutup filter" else if (kind == ReviewKind.HARVEST) "Filter greenhouse" else "Filter greenhouse, pencatat dan tanggal")
                     }
                 }
             }
-            if (loading) item { Text("Memeriksa ${kind.label} di server…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            if (loading) item { Text("Memuat ${kind.label}…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
             failure?.let { error -> item {
-                FarmPanel(title = "Catatan belum dapat diperiksa") {
+                FarmPanel(title = "Catatan belum bisa dimuat") {
                     Text(error)
-                    if (rows.isNotEmpty()) Text("Daftar di bawah adalah hasil pemeriksaan terakhir.")
-                    OutlinedButton(onClick = { refresh++ }) { Text("Periksa kembali") }
+                    if (rows.isNotEmpty()) Text("Daftar di bawah adalah data tersimpan.")
+                    OutlinedButton(onClick = { refresh++ }) { Text("Coba lagi") }
                 }
             } }
             if (!loading && failure == null && rows.isEmpty()) item {
-                FarmPanel(title = if (status == "pending") "Tidak ada ${kind.label} yang menunggu pemeriksaan"
+                FarmPanel(title = if (status == "pending") "Semua ${kind.label} sudah dicek"
                     else "Tidak ada ${kind.label} yang cocok") {
-                    Text("Daftar mengikuti penugasan greenhouse dan filter yang dipilih.")
-                    TextButton(onClick = { refresh++ }) { Text("Periksa lagi") }
+                    TextButton(onClick = { refresh++ }) { Text("Perbarui") }
                 }
             }
             items(rows, key = { it.getJSONObject(kind.wire).getString("id") }) { entry ->
                 val activity = entry.getJSONObject(kind.wire)
                 val id = activity.getString("id")
-                FarmRecordCard(Modifier.testTag("verification-${kind.wire}-$id"), onOpen = { onSelect(id) }) {
-                    Text(recordLabel(kind, activity), style = MaterialTheme.typography.titleMedium)
-                    val names = entry.getJSONObject("context")
-                    Text(listOfNotNull(names.text("greenhouse"), names.text("season"), names.text("group")).joinToString(" · "))
-                    Text(listOfNotNull(activity.text("recorded_by_name"), activity.text("occurred_at")?.let(::timeLabel)).joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall)
-                    val measures = listOfNotNull(activity.text("manual_ec")?.let { "$it mS/cm" }, activity.text("manual_ppm")?.let { "$it ppm" })
-                    if (measures.isNotEmpty()) Text(measures.joinToString(" · "))
-                    else activity.text("notes")?.let { Text(it, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
-                    val statusLabel = if (activity.optString("record_state") == "cancelled") "Dibatalkan"
-                        else verificationLabel(entry.getString("status"))
-                    Text(statusLabel, style = MaterialTheme.typography.labelLarge)
-                }
+                VerificationCard(kind, entry, activity, "verification-${kind.wire}-$id") { onSelect(id) }
             }
             if (cursor != null && !loading && failure == null) item {
                 OutlinedButton(onClick = { loadPage++ }) { Text("Muat ${kind.label} berikutnya") }
+            }
+            item {
+                TextButton(onClick = onOutbox, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("verification-outbox")) {
+                    Text("Catatan saya yang belum terkirim")
+                }
+            }
+        }
+        if (filters) CompositionLocalProvider(LocalFarmDialogPicker provides true) {
+            ModalBottomSheet(
+                onDismissRequest = { filters = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentWindowInsets = { WindowInsets.safeDrawing }
+            ) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Page)) {
+                    FarmSheetHeading("Filter ${kind.label}", { filters = false })
+                    Column(Modifier.weight(1f, fill = false).imePadding().verticalScroll(rememberScrollState()).padding(bottom = FarmSpace.Large),
+                        verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                        Choice("Greenhouse", greenhouse, listOf(option("", "Semua greenhouse")) + context.greenhouses,
+                            "verification-greenhouse") { greenhouse = it; worker = ""; workerOptions = emptyList() }
+                        if (kind == ReviewKind.ACTIVITY) {
+                            Choice("Pencatat", worker, listOf(option("", "Semua pekerja")) + workerOptions,
+                                "verification-worker") { worker = it }
+                            workerMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                            if (workerCursor != null || workerMessage != null) TextButton(onClick = { workerPage++ }) { Text("Muat pencatat") }
+                            Choice("Jenis kegiatan", type, listOf(option("", "Semua jenis")) +
+                                ActivityType.entries.map { option(it.wire, it.label) }, "verification-type") { type = it }
+                            FinanceDateField("Dari tanggal WIB (YYYY-MM-DD)", from, { from = it }, "verification-from")
+                            FinanceDateField("Sampai tanggal WIB (YYYY-MM-DD)", until, { until = it }, "verification-until")
+                            val validDates = runCatching {
+                                val first = from.takeIf(String::isNotBlank)?.let(LocalDate::parse)
+                                val last = until.takeIf(String::isNotBlank)?.let(LocalDate::parse)
+                                first == null || last == null || last >= first
+                            }.getOrDefault(false)
+                            if (!validDates) Text("Periksa format dan urutan tanggal.", color = MaterialTheme.colorScheme.error)
+                            OutlinedButton(onClick = { appliedFrom = from; appliedUntil = until }, enabled = validDates,
+                                modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Terapkan tanggal") }
+                        }
+                        Button(onClick = { filters = false }, modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("verification-filter-done")) {
+                            Text("Selesai")
+                        }
+                    }
+                }
             }
         }
     }
@@ -265,12 +285,12 @@ private fun VerificationDetail(
     }
     FarmMenuList(Modifier.testTag("${kind.wire}-verification-detail")) {
         item {
-            TextButton(onClick = onBack, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kembali ke verifikasi") }
-            FarmPageTitle("Periksa ${kind.label}")
+            TextButton(onClick = onBack, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kembali ke daftar") }
+            FarmPageTitle("Cek ${kind.label}")
             if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             error?.let {
-                FarmAttention(if (detail != null) "Pemeriksaan terbaru gagal. Menampilkan data terakhir. $it" else it)
-                TextButton(onClick = { refresh++ }) { Text("Periksa lagi") }
+                FarmAttention(if (detail != null) "Belum bisa memperbarui. Data yang tampil adalah data tersimpan. $it" else it)
+                TextButton(onClick = { refresh++ }) { Text("Coba lagi") }
             }
         }
         val entry = detail
@@ -284,7 +304,7 @@ private fun VerificationDetail(
             item {
                 FarmPanel(title = recordLabel(kind, activity)) {
                     Text(listOfNotNull(names.text("greenhouse"), names.text("season"), names.text("group"), names.text("variety")).joinToString(" · "))
-                    Text("Diterima server · revisi $version")
+                    Text("Revisi $version")
                     Text(verificationLabel(entry.getString("status")), style = MaterialTheme.typography.titleMedium)
                     if (!current) TextButton(onClick = { detail = null; reviewedVersion = null }) { Text("Buka revisi terbaru") }
                     entry.optJSONObject("decision")?.let { DecisionFacts(it) }
@@ -308,7 +328,7 @@ private fun VerificationDetail(
                     DecisionEditor(session, ticket, repository, kind, entry, draft, onOutbox, onSync) { draft = it }
                 } else Text("Panen sendiri perlu diperiksa pengelola lain.")
             }
-            if (history.isNotEmpty()) item { FarmSectionHeading("Histori keputusan") }
+            if (history.isNotEmpty()) item { FarmSectionHeading("Riwayat keputusan") }
             items(history, key = { it.getString("id") }) { review ->
                 FarmRecordCard(onOpen = {
                     val requested = review.getLong(kind.versionKey)
@@ -418,46 +438,30 @@ private fun DecisionEditor(
         val submitted = draft?.syncState?.takeUnless { it == SyncState.LOCAL }
         if (submitted != null) {
             Text(when (submitted) {
-                SyncState.ACCEPTED -> "Keputusan diterima server."
+                SyncState.ACCEPTED -> "Keputusan terkirim."
                 SyncState.QUEUED -> "Keputusan belum terkirim."
-                else -> "Pengiriman keputusan perlu ditinjau."
+                else -> "Keputusan perlu dicek."
             })
             draft?.error?.text("message")?.let { Text(it) }
-            OutlinedButton(onClick = onOutbox) { Text("Buka Pengiriman saya") }
+            OutlinedButton(onClick = onOutbox) { Text("Lihat belum terkirim") }
         } else {
-            Text("Periksa ketepatan catatan pekerja. Hasil di luar acuan dapat tetap dicatat dengan benar.")
-            Choice("Keputusan", decision, listOf(option("valid", "Tandai valid"), option("invalid", "Tandai tidak valid")),
+            Choice("Keputusan", decision, listOf(option("valid", "Sesuai"), option("invalid", "Perlu diperbaiki")),
                 "verification-decision") { decision = it }
             if (decision != null) {
-                FinanceField(if (decision == "invalid") "Alasan tidak valid (wajib)" else "Catatan (opsional)",
+                FinanceField(if (decision == "invalid") "Alasan (wajib)" else "Catatan (opsional)",
                     reason, { reason = it.take(1000) }, "verification-reason", singleLine = false)
                 error?.let { FarmAttention(it) }
-                Button(onClick = { confirmation = true }, enabled = !busy && reason.length <= 1000 &&
+                Button(onClick = { save(true) }, enabled = !busy && reason.length <= 1000 &&
                     (decision != "invalid" || reason.isNotBlank()), modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch)
-                    .testTag("verification-review")) { Text("Tinjau keputusan") }
+                    .testTag("verification-review")) { Text("Simpan keputusan") }
                 TextButton(onClick = { save(false) }, enabled = !busy && reason.length <= 1000,
-                    modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Simpan draf keputusan") }
+                    modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Simpan draf") }
                 val saved = decision == draft?.body?.text("decision") && reason.trim() == draft?.body?.text("reason").orEmpty()
                 Text(if (saved) "Draf tersimpan di perangkat." else "Perubahan draf belum tersimpan.",
                     style = MaterialTheme.typography.bodySmall)
             }
         }
     }
-    if (confirmation && decision != null) AlertDialog(
-        onDismissRequest = { if (!busy) confirmation = false },
-        title = { Text("Kirim keputusan?") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                Text("${recordLabel(kind, activity)} · revisi $version")
-                Text(verificationLabel(decision.orEmpty()))
-                if (reason.isNotBlank()) Text(reason)
-                Text("Pekerja dapat membaca keputusan setelah diterima server.")
-            }
-        },
-        confirmButton = { TextButton(onClick = { save(true) }, enabled = !busy,
-            modifier = Modifier.testTag("verification-submit")) { Text("Simpan dan antrekan") } },
-        dismissButton = { TextButton(onClick = { confirmation = false }, enabled = !busy) { Text("Kembali") } },
-    )
 }
 
 @Composable
@@ -502,7 +506,7 @@ internal fun ActivityVerificationFeedback(session: FinanceSession, record: Local
             }
     }
     val decision = reviews.firstOrNull { it.optLong(kind.versionKey) == version }
-    FarmSection(title = "Verifikasi pengelola") {
+    FarmSection(title = "Cek pengelola") {
         Text(verificationLabel(decision?.optString("decision") ?: status.orEmpty()))
         if (lastKnown) Text("Status berdasarkan data tersimpan di perangkat.", style = MaterialTheme.typography.bodySmall)
         decision?.let { DecisionFacts(it) }
@@ -510,5 +514,64 @@ internal fun ActivityVerificationFeedback(session: FinanceSession, record: Local
             Text("Revisi ${it.optLong(kind.versionKey)} · ${verificationLabel(it.optString("decision"))}")
             DecisionFacts(it)
         }
+    }
+}
+
+@Composable
+private fun VerificationCard(kind: ReviewKind, entry: JSONObject, activity: JSONObject, tag: String, onOpen: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val names = entry.getJSONObject("context")
+    val type = activity.text("activity_type")
+    val measurement = kind == ReviewKind.ACTIVITY && type == ActivityType.MEASUREMENT.wire
+    val cancelled = activity.optString("record_state") == "cancelled"
+    val statusCode = entry.getString("status")
+    val chip = if (cancelled) "Dibatalkan" else verificationLabel(statusCode)
+    val tone = when {
+        cancelled -> FarmTone.Neutral
+        statusCode == "pending" -> FarmTone.Info
+        statusCode == "valid" -> FarmTone.Good
+        statusCode == "invalid" -> FarmTone.Error
+        else -> FarmTone.Neutral
+    }
+    val title = recordLabel(kind, activity)
+    val who = listOfNotNull(activity.text("recorded_by_name"), activity.text("occurred_at")?.let(::timeLabel)).joinToString(" · ")
+    val context = listOfNotNull(names.text("greenhouse"), names.text("season"), names.text("group")).joinToString(" · ")
+    val ec = activity.text("manual_ec")
+    val ppm = activity.text("manual_ppm")
+    val large = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
+    Surface(
+        Modifier.fillMaxWidth().testTag(tag).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onOpen)
+            .semantics(mergeDescendants = true) {
+                contentDescription = listOfNotNull(title, who.ifBlank { null }, chip, ec?.let { "EC $it mS/cm" }, ppm?.let { "PPM $it ppm" }, context.ifBlank { null }).joinToString(", ")
+            },
+        shape = FarmShape.Card, color = colors.surface, border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant)
+    ) {
+        Column(Modifier.padding(FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.Top) {
+                FarmIconTile(if (kind == ReviewKind.HARVEST) FarmIcon.Basket else if (measurement) FarmIcon.Droplet else FarmIcon.Schedule,
+                    tone = if (measurement) FarmTone.Info else FarmTone.Neutral, size = 40.dp)
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    Text(who, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                }
+                if (!large) FarmStatusChip(chip, tone = tone)
+            }
+            if (large) FarmStatusChip(chip, tone = tone)
+            if (ec != null || ppm != null) Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                MeasureBox("EC", ec?.let { "$it mS/cm" } ?: "belum ada", Modifier.weight(1f))
+                MeasureBox("PPM", ppm?.let { "$it ppm" } ?: "belum ada", Modifier.weight(1f))
+            } else activity.text("notes")?.let {
+                Text(it, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+            }
+            if (context.isNotBlank()) Text(context, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun MeasureBox(label: String, value: String, modifier: Modifier) {
+    Column(modifier.background(MaterialTheme.colorScheme.surfaceVariant, FarmShape.Tile).padding(FarmSpace.Medium)) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
     }
 }

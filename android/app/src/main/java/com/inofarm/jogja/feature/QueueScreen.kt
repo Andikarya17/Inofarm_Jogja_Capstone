@@ -60,22 +60,31 @@ internal fun QueueScreen(
     canReview: (QueuedOperation) -> Boolean,
     focusOperation: String? = null,
     onVerification: (() -> Unit)? = null,
+    onSendNow: (() -> Unit)? = null,
+    title: String = "Belum terkirim",
+    worker: Boolean = false,
 ) {
-    val queue = activity.queue
+    val recovery = LocalRecoveryActions.current
+    // Workers only see what still needs sending or checking; sent records are in Riwayat.
+    val queue = if (worker) activity.queue.filter {
+        it.state != SyncState.ACCEPTED.name && it.state != "SUPERSEDED" || recovery?.canReview?.invoke(it) == true
+    } else activity.queue
     val displayOrder = remember(queue, focusOperation) {
         queue.sortedWith(compareBy({ it.id != focusOperation }, { it.syncState()?.needsReview != true }))
     }
     FarmMenuList(Modifier.testTag("finance-queue-list")) {
         item("queue-header") {
-            FarmMenuHeader("Pengiriman saya", "Pengajuan dari perangkat ini dan tanggapan server.") {
+            FarmMenuHeader(title, "") {
                 if (onVerification != null) TextButton(onClick = onVerification, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
-                    Text("Kembali ke verifikasi")
+                    Text("Kembali ke cek catatan")
                 }
+                if (onSendNow != null) Button(onClick = onSendNow, shape = FarmShape.Control,
+                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("queue-send-now")) { Text("Kirim sekarang") }
                 if (activity.queueLoaded && activity.queueLoadError == null && queue.isNotEmpty()) {
                     val counts = listOf(
-                        queue.count { it.syncState()?.needsReview == true } to "Perlu ditinjau",
+                        queue.count { it.syncState()?.needsReview == true } to "Perlu dicek",
                         queue.count { it.state == SyncState.QUEUED.name } to "Menunggu",
-                        queue.count { it.state == SyncState.ACCEPTED.name } to "Diterima"
+                        (if (worker) 0 else queue.count { it.state == SyncState.ACCEPTED.name }) to "Terkirim"
                     ).filter { it.first > 0 }
                     if (counts.isNotEmpty()) {
                         FarmPanel {
@@ -91,7 +100,7 @@ internal fun QueueScreen(
                             }
                         }
                     }
-                    if (queue.size == 1000) Text("Menampilkan 1.000 pengajuan terbaru.", style = MaterialTheme.typography.bodySmall)
+                    if (queue.size == 1000) Text("Menampilkan 1.000 catatan terbaru.", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -102,45 +111,45 @@ internal fun QueueScreen(
                     Text(it, Modifier.testTag("finance-sync-message"), style = MaterialTheme.typography.bodyMedium)
                 }
                 context.lastSyncedAt?.let {
-                    Text("Sinkron terakhir ${timeLabel(Instant.ofEpochMilli(it).toString())}",
+                    Text("Diperbarui ${timeLabel(Instant.ofEpochMilli(it).toString())}",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         when {
             activity.queueLoadError != null -> item("queue-error") {
-                FarmPanel(title = "Antrean belum dapat dimuat") {
+                FarmPanel(title = "Daftar belum bisa dimuat") {
                     Text(activity.queueLoadError)
                     OutlinedButton(onClick = onReload, shape = FarmShape.Control,
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Muat ulang antrean") }
+                        modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Coba lagi") }
                 }
             }
             !activity.queueLoaded -> item("queue-loading") {
                 FarmPanel {
-                    Text("Memuat antrean…")
+                    Text("Memuat…")
                     LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
             }
             queue.isEmpty() -> item("queue-empty") {
-                FarmPanel(title = "Belum ada operasi dalam antrean.") {
-                    Text("Pengajuan akan muncul di sini setelah Anda memilih Simpan lokal & antrekan.")
+                FarmPanel(title = "Semua catatan sudah terkirim.") {
+                    Text("Catatan yang baru disimpan muncul di sini sampai terkirim.", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
         items(displayOrder, key = { it.id }) { operation ->
             QueueRecord(operation, opening, reviewError.takeIf { reviewOperation == operation.id },
-                if (canReview(operation)) ({ onReview(operation) }) else null, operation.id == focusOperation)
+                if (canReview(operation)) ({ onReview(operation) }) else null, operation.id == focusOperation, worker)
         }
     }
 }
 
 @Composable
-private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewError: String?, onReview: (() -> Unit)?, initiallyExpanded: Boolean) {
+private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewError: String?, onReview: (() -> Unit)?, initiallyExpanded: Boolean, worker: Boolean) {
     val kind = operation.envelope.optString("entity_type")
     val state = operation.syncState()
     val label = OperationalKind.entries.find { it.wire == kind }?.label ?: when (kind) {
-        "activity_review" -> "keputusan verifikasi"
-        "harvest_review" -> "verifikasi panen"
+        "activity_review" -> "keputusan cek kegiatan"
+        "harvest_review" -> "keputusan cek panen"
         "season_report" -> "evaluasi musim"
         "investment_scenario" -> "skenario investasi"
         "investment_report" -> "evaluasi investasi"
@@ -157,47 +166,47 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
     var expanded by rememberSaveable(operation.id) { mutableStateOf(initiallyExpanded) }
     FarmRecordCard(Modifier.animateContentSize(tween(FarmMotion.State))) {
         if (state == SyncState.ACCEPTED && reviewReceipt) {
-            Text("Penerimaan historis", style = MaterialTheme.typography.labelMedium)
+            Text("Catatan sebelum data dipulihkan", style = MaterialTheme.typography.labelMedium)
             RecordStatus(SyncState.EPOCH_REVIEW)
         } else if (state != null) RecordStatus(state)
-        else Text(if (operation.state == "SUPERSEDED") "Digantikan setelah ditinjau" else "Perlu ditinjau",
+        else Text(if (operation.state == "SUPERSEDED") "Sudah diganti" else "Perlu dicek",
             style = MaterialTheme.typography.labelMedium)
         Text(label.replaceFirstChar { it.uppercaseChar() }, style = MaterialTheme.typography.titleMedium)
         time?.let { Text(timeLabel(it), style = MaterialTheme.typography.bodySmall) }
         operation.error?.let { ErrorReasons(it) }
         reviewError?.let { Notice(it,true) }
         when (state) {
-            SyncState.AUTH_REQUIRED -> Text("Masuk kembali dengan akun yang sama untuk melanjutkan pengiriman.")
-            SyncState.SCOPE_REVOKED -> Text("Hubungi pengelola untuk memeriksa penugasan. Pengajuan tetap tersimpan.")
-            SyncState.EPOCH_REVIEW -> Text("Pengiriman ditahan sampai tanda terima diperiksa setelah pemulihan.")
+            SyncState.AUTH_REQUIRED -> Text("Masuk lagi untuk melanjutkan pengiriman.")
+            SyncState.SCOPE_REVOKED -> Text("Anda tidak lagi bertugas di greenhouse ini. Catatan tetap tersimpan.")
+            SyncState.EPOCH_REVIEW -> Text("Data di server dipulihkan. Beberapa catatan perlu dicek sebelum dikirim.")
             else -> Unit
         }
         if (reviewReceipt) OutlinedButton(
             onClick = { recovery.review(operation) }, shape = FarmShape.Control,
             modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("recovery-review-${operation.id}")
-        ) { Text("Periksa tanda terima setelah pemulihan") }
+        ) { Text("Cek catatan ini") }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small),
             verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
             if (onReview != null) FilledTonalButton(
                 onClick = onReview, enabled = !opening, shape = FarmShape.Control,
                 modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-review-${operation.id}")
-            ) { Text("Tinjau catatan") }
-            TextButton(
+            ) { Text("Buka catatan") }
+            if (!worker) TextButton(
                 onClick = { expanded = !expanded }, shape = FarmShape.Control,
                 modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("queue-operation-${operation.id}")
-            ) { Text(if (expanded) "Tutup rincian operasi" else "Rincian operasi") }
+            ) { Text(if (expanded) "Tutup rincian" else "Rincian") }
         }
-        if (expanded) {
+        if (expanded && !worker) {
             HorizontalDivider()
-            FarmFact("ID operasi", operation.id)
+            FarmFact("ID kiriman", operation.id)
             FarmFact("ID catatan", operation.entityId)
-            FarmFact("Percobaan pengiriman", operation.attempts.toString())
+            FarmFact("Percobaan kirim", operation.attempts.toString())
             if (kind in setOf("activity_review", "harvest_review") && payload != null) {
                 val parent = if (kind == "harvest_review") "panen" else "kegiatan"
                 FarmFact("Revisi $parent", payload.optLong("${kind.removeSuffix("_review")}_version").toString())
-                FarmFact("Keputusan", if (payload.optString("decision") == "valid") "Valid" else "Tidak valid")
+                FarmFact("Keputusan", if (payload.optString("decision") == "valid") "Sesuai" else "Perlu diperbaiki")
                 payload.optString("reason").takeUnless { payload.isNull("reason") || it.isBlank() }?.let { FarmFact("Alasan", it) }
-            } else if (state == SyncState.ACCEPTED) Text("Server telah menerima pengajuan. Periksa detail catatan untuk hasil pembandingan dengan acuan.")
+            } else if (state == SyncState.ACCEPTED) Text("Catatan sudah terkirim. Buka catatan untuk melihat hasil pembandingan dengan acuan.")
         }
     }
 }

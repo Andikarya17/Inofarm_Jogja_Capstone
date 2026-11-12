@@ -60,16 +60,18 @@ final class ManagerHomeTest extends FinanceTestCase
     {
         $manager = $this->account();
         $other = $this->context($this->account());
-        $this->asUser($manager)->getJson(self::HOME)->assertOk()->assertJsonCount(0, 'greenhouses');
-        $this->getJson(self::HOME.'?greenhouse_id='.$other['gh']['id'])->assertNotFound();
+        // A manager without any assignment reaches the greenhouse another manager created.
+        $this->asUser($manager)->getJson(self::HOME)->assertOk()->assertJsonCount(1, 'greenhouses');
+        $this->getJson(self::HOME.'?greenhouse_id='.$other['gh']['id'])->assertOk();
+        $this->getJson(self::HOME.'?greenhouse_id='.(string) Str::uuid())->assertNotFound();
         foreach (range(1, 5) as $number) {
             $this->createMaster('greenhouses', ['name' => "Greenhouse $number"]);
-            $this->getJson(self::HOME)->assertOk()->assertJsonCount($number, 'greenhouses')
-                ->assertJsonPath('greenhouses.'.($number - 1).'.period.state', 'no_active_period');
+            $this->getJson(self::HOME)->assertOk()->assertJsonCount($number + 1, 'greenhouses')
+                ->assertJsonPath('greenhouses.'.$number.'.period.state', 'no_active_period');
         }
         $this->asUser($this->account('worker'))->getJson(self::HOME)->assertForbidden();
         DB::table('greenhouse_assignments')->where('user_id', $manager->id)->update(['active' => false]);
-        $this->asUser($manager)->getJson(self::HOME)->assertOk()->assertJsonCount(0, 'greenhouses');
+        $this->asUser($manager)->getJson(self::HOME)->assertOk()->assertJsonCount(6, 'greenhouses');
     }
 
     public function test_designation_is_explicit_versioned_and_separate_from_reopen(): void

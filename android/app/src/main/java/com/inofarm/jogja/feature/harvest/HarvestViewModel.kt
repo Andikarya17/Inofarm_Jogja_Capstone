@@ -19,6 +19,8 @@ import kotlinx.coroutines.withContext
 data class HarvestUiState(val records:List<LocalRecord> = emptyList(),val queue:List<QueuedOperation> = emptyList(),val draft:HarvestDraft?=null,val errors:Map<String,String> = emptyMap(),val busy:Boolean=false,val reviewing:Boolean=false,val saved:Boolean=false,val message:String?=null,val changed:Long=0)
 class HarvestViewModel(private val repository:HarvestRepository):ViewModel() {
     private val vault get()=repository.vault
+    private val reasonRequired get()=vault.current?.role!=com.inofarm.jogja.core.contracts.UserRole.MANAGER
+    val reasonLabel get()=if(reasonRequired) "Alasan koreksi" else "Catatan (opsional)"
     private val mutable=MutableStateFlow(HarvestUiState());val state=mutable.asStateFlow();private var saveJob:Job?=null
     private var boundScope:String?=null
     fun bind(session:FinanceSession?) {
@@ -34,6 +36,7 @@ class HarvestViewModel(private val repository:HarvestRepository):ViewModel() {
                 mutable.value=state.value.copy(records=data.records,queue=data.queue,draft=if(draft?.baseVersion==null && known!=null) draft?.copy(baseVersion=known) else draft)
             } }
     }
+    fun clearMessage() {mutable.value=state.value.copy(message=null)}
     fun new(gh:String,group:String,runningPeriodVersion:Long?=null) {saveJob?.cancel();mutable.value=state.value.copy(draft=HarvestDraft(greenhouseId=gh,groupId=group,runningPeriodVersion=runningPeriodVersion, requireQuality=true),errors=emptyMap(),saved=false,reviewing=false,message=null)}
     fun open(record:LocalRecord,replaceRejected:Boolean=false) {
         saveJob?.cancel()
@@ -46,11 +49,11 @@ class HarvestViewModel(private val repository:HarvestRepository):ViewModel() {
         val updated=change(draft);mutable.value=state.value.copy(draft=updated,saved=false,reviewing=false,errors=emptyMap())
         saveJob?.cancel();saveJob=viewModelScope.launch { delay(350);save(updated,false,false) }
     }
-    fun review() { val draft=state.value.draft ?: return;val errors=draft.validation();mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty()) }
+    fun review() { val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty()) }
     fun backToForm() { mutable.value=state.value.copy(reviewing=false) }
     fun pauseAutosave() {saveJob?.cancel();saveJob=null}
     fun saveAndClose() { val draft=state.value.draft ?: return;saveJob?.cancel();viewModelScope.launch { save(draft,false,true) } }
-    fun queue() { val draft=state.value.draft ?: return;val errors=draft.validation();if(errors.isNotEmpty()) { mutable.value=state.value.copy(errors=errors,reviewing=false);return };saveJob?.cancel();viewModelScope.launch { save(draft,true,true) } }
+    fun queue() { val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);if(errors.isNotEmpty()) { mutable.value=state.value.copy(errors=errors,reviewing=false);return };saveJob?.cancel();viewModelScope.launch { save(draft,true,true) } }
     private suspend fun save(draft:HarvestDraft,queue:Boolean,close:Boolean) {
         val session=vault.current ?: return;val ticket=vault.generation
         if(queue || close) mutable.value=state.value.copy(busy=true)
@@ -58,7 +61,7 @@ class HarvestViewModel(private val repository:HarvestRepository):ViewModel() {
             repository.save(session,ticket,draft,queue)
             if(vault.matches(ticket,session.scope) && state.value.draft?.id==draft.id) {
                 mutable.value=state.value.copy(draft=if(close) null else state.value.draft,saved=state.value.draft==draft,reviewing=if(close) false else state.value.reviewing,
-                    changed=if(queue) state.value.changed+1 else state.value.changed,message=if(queue) "Tersimpan lokal dan masuk antrean. Belum diterima server." else if(close) "Draf tersimpan di perangkat." else state.value.message)
+                    changed=if(queue) state.value.changed+1 else state.value.changed,message=if(queue) "Tersimpan. Terkirim otomatis saat ada internet." else if(close) "Draf tersimpan di perangkat." else state.value.message)
                 reload()
             }
         } catch(cancelled:CancellationException) { throw cancelled }

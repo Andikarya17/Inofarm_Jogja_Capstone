@@ -83,8 +83,8 @@ final class ActivityReviewTest extends FinanceTestCase
         $this->assertSame(2, DB::table('sync_operations')->where('entity_type', 'activity_review')->count());
 
         DB::table('greenhouse_assignments')->where('id', $assignment['id'])->update(['active' => false]);
-        $this->asUser($otherManager)->getJson($path)->assertNotFound();
-        $this->postJson('/api/v2/activity-reviews', $next)->assertNotFound();
+        // A manager reaches every greenhouse; the assignment only says who works there.
+        $this->asUser($otherManager)->getJson($path)->assertOk();
         $this->asUser($manager)->postJson('/api/v2/activity-reviews', [...$next, 'sync_epoch' => (string) Str::uuid()])
             ->assertConflict()->assertJsonPath('code', 'epoch_mismatch');
     }

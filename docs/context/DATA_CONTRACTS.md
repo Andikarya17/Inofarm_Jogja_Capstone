@@ -14,7 +14,7 @@ Source memakai finance migration 19/SQLite 10/wire 2. Tambahan terbaru: activity
 
 [Audit API/database](SYSTEM_AUDIT_20261110.md) menemukan database aplikasi lokal baru migration16,25 operasi belum didokumentasikan OpenAPI, dan34 operasi dengan respons sukses tanpa content/schema. Karena itu "executable" tidak berarti seluruh DTO OpenAPI sudah ketat/lengkap. Rancangan API_V2 lama tidak dipakai membangun endpoint fiktif. Semua checkpoint FIN di bawah dibaca menurut tanggalnya, bukan larangan pelaksanaan terbaru.
 
-Snapshot Beranda pengelola dan penetapan periode berjalan memiliki [kontrak executable](../../contracts/v2/MANAGER_HOME.md). Migration 16 menambah penunjukan kelompok berjalan per greenhouse. Pembacaan kas bulanan memakai nominal desimal dan cakupan penugasan efektif.
+Snapshot Beranda pengelola dan penetapan periode berjalan memiliki [kontrak executable](../../contracts/v2/MANAGER_HOME.md). Migration 16 menambah penunjukan kelompok berjalan per greenhouse. Pembacaan kas bulanan memakai nominal desimal dan semua greenhouse bagi pengelola dan penugasan efektif bagi pekerja.
 
 Perubahan2 November2026: [kontrak EC/PPM manual](../../contracts/v2/MEASUREMENTS.md), nullable EC schema15, tipe activity measurement dan read latest scoped, tanpa mengubah envelope wire2/hash antrean lama atau SQLite9. EC mS/cm dan PPM ppm tidak dikonversi.
 

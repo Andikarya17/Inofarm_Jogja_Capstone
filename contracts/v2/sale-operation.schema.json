@@ -206,8 +206,7 @@
         "payment_status",
         "customer_name",
         "notes",
-        "items",
-        "reason"
+        "items"
       ],
       "properties": {
         "season_id": {
@@ -285,9 +284,7 @@
     "cancel": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "reason"
-      ],
+      "required": [],
       "properties": {
         "reason": {
           "type": "string",

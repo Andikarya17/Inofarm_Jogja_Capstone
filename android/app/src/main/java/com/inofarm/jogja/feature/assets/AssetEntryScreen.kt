@@ -1,5 +1,13 @@
 package com.inofarm.jogja.feature.assets
 
+import com.inofarm.jogja.feature.FarmFormFrame
+import com.inofarm.jogja.feature.FarmFormHeader
+import com.inofarm.jogja.feature.FarmFormBar
+import com.inofarm.jogja.feature.FarmFormSection
+import com.inofarm.jogja.feature.FarmReviewFrame
+import com.inofarm.jogja.core.design.FarmIcon
+import com.inofarm.jogja.core.design.FarmHeroCard
+import com.inofarm.jogja.feature.FinanceDateField
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -30,85 +38,76 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
 
 @Composable fun AssetForm(state:AssetEntryState,context:CultivationUiState,vm:AssetEntryViewModel) {
     val draft=state.draft ?: return
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        FarmPageTitle(if(draft.kind==AssetKind.ASSET) "Catat aset" else "Alokasikan penyusutan")
-        FarmDraftStatus(state.saved, Modifier.testTag("asset-draft-status"))
+    FarmFormFrame(header = { FarmFormHeader(if(draft.kind==AssetKind.ASSET) "Catat aset" else "Alokasikan penyusutan", state.saved, "asset-draft-status", "asset-close", vm::saveAndClose, !state.busy) }, bar = { FarmFormBar("asset-save-draft", vm::saveAndClose, "asset-review", "Periksa", vm::review, enabled = !state.busy) }) {
         if(draft.kind==AssetKind.ASSET) {
-            FarmSection("Identitas dan nilai aset") {
+            FarmFormSection("Identitas dan nilai aset") {
                 FinanceField("Nama aset",draft.name,{value -> vm.edit {it.copy(name=value)}},"asset-name",state.errors["name"])
-                FinanceField("Harga perolehan (IDR)",draft.cost,{value -> vm.edit {it.copy(cost=value)}},"asset-cost",state.errors["cost"],KeyboardType.Decimal)
-                FinanceField("Nilai sisa (IDR)",draft.residual,{value -> vm.edit {it.copy(residual=value)}},"asset-residual",state.errors["cost"],KeyboardType.Decimal)
+                FinanceField("Harga perolehan (IDR)",draft.cost,{value -> vm.edit {it.copy(cost=value)}},"asset-cost",state.errors["cost"],KeyboardType.Decimal, suffix = "IDR", prominent = true)
+                FinanceField("Nilai sisa (IDR)",draft.residual,{value -> vm.edit {it.copy(residual=value)}},"asset-residual",state.errors["cost"],KeyboardType.Decimal, suffix = "IDR")
             }
-            FarmSection("Pembayaran sumber") {
+            FarmFormSection("Pembayaran sumber") {
             val sources=context.expenses.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("payment_kind")=="asset_acquisition" && it.optString("record_state")=="active"}.map {JSONObject(it.toString()).put("name","${moneyLabel(it.optString("amount"))} · ${it.optString("notes")} · ${it.optString("id").take(8)}")}
             if(draft.lockedParents) Text("Pembayaran sumber: ${sources.find {it.optString("id")==draft.expenseId}?.optString("name") ?: "terakhir tersimpan"}")
             else Choice("Pembayaran pembelian aset",draft.expenseId,sources,"asset-expense") {value -> vm.edit {it.copy(expenseId=value)}}
             }
-            FarmSection("Masa pemakaian") {
-            FinanceField("Umur pemakaian (tahun)",draft.lifeYears,{value -> vm.edit {it.copy(lifeYears=value)}},"asset-life",state.errors["depreciation"],KeyboardType.Number)
-            FinanceField("Mulai dipakai (YYYY-MM-DD)",draft.inServiceDate,{value -> vm.edit {it.copy(inServiceDate=value)}},"asset-start",state.errors["depreciation"])
+            FarmFormSection("Masa pemakaian") {
+            FinanceField("Umur pemakaian (tahun)",draft.lifeYears,{value -> vm.edit {it.copy(lifeYears=value)}},"asset-life",state.errors["depreciation"],KeyboardType.Number, suffix = "tahun")
+            FinanceDateField("Mulai dipakai (YYYY-MM-DD)",draft.inServiceDate,{value -> vm.edit {it.copy(inServiceDate=value)}},"asset-start",state.errors["depreciation"])
             runCatching {DepreciationAmounts.year(AssetDraft.money(draft.cost).toPlainString(),AssetDraft.money(draft.residual).toPlainString(),AssetDraft.year(draft.lifeYears),1,AssetDraft.date(draft.inServiceDate))}.getOrNull()?.let {
-                FarmFact("Pratinjau anggaran tahun pertama", moneyLabel(it.amount.toPlainString()))
+                FarmFact("Perkiraan anggaran tahun pertama", moneyLabel(it.amount.toPlainString()))
                 Text("${it.start} hingga ${it.end}, akhir tidak termasuk.", style = MaterialTheme.typography.bodySmall)
             }
             }
         } else {
             val sources=context.assets.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("record_state")=="active"}
-            FarmSection("Aset dan musim tujuan") {
+            FarmFormSection("Aset dan musim tujuan") {
             if(draft.lockedParents) Text("Aset: ${sources.find {it.optString("id")==draft.assetId}?.optString("name") ?: "terakhir tersimpan"} · musim ${context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "terakhir tersimpan"}")
             else {
                 Choice("Aset sumber",draft.assetId,sources,"asset-source") {value -> vm.edit {it.copy(assetId=value)}}
                 Choice("Musim tujuan",draft.seasonId,context.seasons.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("status")=="open"},"asset-season") {value -> vm.edit {it.copy(seasonId=value)}}
             }
             }
-            FarmSection("Periode pemakaian") {
+            FarmFormSection("Periode pemakaian") {
             if(draft.lockedParents) Text("Tahun ${draft.usageYear} · ${draft.periodStart} hingga ${draft.periodEnd} (akhir eksklusif)")
             else {
                 FinanceField("Tahun pemakaian ke",draft.usageYear,{value -> vm.edit {it.copy(usageYear=value)}},"asset-usage-year",state.errors["usage_year"],KeyboardType.Number)
-                FinanceField("Awal periode (YYYY-MM-DD)",draft.periodStart,{value -> vm.edit {it.copy(periodStart=value)}},"asset-period-start",state.errors["period"])
-                FinanceField("Akhir periode eksklusif (YYYY-MM-DD)",draft.periodEnd,{value -> vm.edit {it.copy(periodEnd=value)}},"asset-period-end",state.errors["period"])
+                FinanceDateField("Awal periode (YYYY-MM-DD)",draft.periodStart,{value -> vm.edit {it.copy(periodStart=value)}},"asset-period-start",state.errors["period"])
+                FinanceDateField("Akhir periode eksklusif (YYYY-MM-DD)",draft.periodEnd,{value -> vm.edit {it.copy(periodEnd=value)}},"asset-period-end",state.errors["period"])
             }
             if(draft.usageReference.isBlank()) OutlinedButton(onClick={vm.edit {it.copy(usageReference=UUID.randomUUID().toString())}},modifier=Modifier.testTag("asset-new-usage")) {Text("Buat referensi pemakaian baru")}
             else Text("Referensi pemakaian: ${draft.usageReference.take(8)}. Pastikan pemakaian ini belum dicatat sebelumnya.")
             }
-            FarmPanel(title = "Nominal alokasi") {
+            FarmFormSection("Nominal alokasi") {
             FinanceField("Nominal alokasi (IDR)",draft.amount,{value -> vm.edit {it.copy(amount=value)}},"asset-amount",state.errors["amount"],KeyboardType.Decimal,
-                hint = "Isi nominal pemakaian untuk musim tujuan.")
+                hint = "Isi nominal pemakaian untuk musim tujuan.", suffix = "IDR", prominent = true)
             runCatching {val source=sources.single {it.getString("id")==draft.assetId};DepreciationAmounts.year(source.getString("cost"),source.getString("residual"),source.getInt("life_years"),AssetDraft.year(draft.usageYear),AssetDraft.date(source.getString("in_service_date")))}.getOrNull()?.let {
                 FarmFact("Anggaran tahun pemakaian", moneyLabel(it.amount.toPlainString()))
-                Text("Server memeriksa sisa anggaran setelah alokasi lain.", style = MaterialTheme.typography.bodySmall)
+                Text("Sisa anggaran diperiksa saat catatan terkirim.", style = MaterialTheme.typography.bodySmall)
             }
             }
         }
-        FarmSection(title = "Dasar dan catatan") {
+        FarmFormSection("Dasar dan catatan") {
         FinanceField("Dasar pemakaian / pembagian",draft.basis,{value -> vm.edit {it.copy(basis=value)}},"asset-basis",state.errors["basis"],singleLine=false)
-        if(draft.baseVersion!=null) FinanceField("Alasan koreksi",draft.reason,{value -> vm.edit {it.copy(reason=value)}},"asset-reason",state.errors["reason"],singleLine=false)
+        if(draft.baseVersion!=null) FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"asset-reason",state.errors["reason"],singleLine=false)
         }
-        Notice("Harga pembelian aset terpisah dari biaya operasi dan alokasi penyusutan. Draf/antrean belum diterima server. Anggaran dan sumber diperiksa ulang saat sinkronisasi.")
+        Notice("Harga pembelian aset terpisah dari biaya operasi dan alokasi penyusutan. Anggaran dan sumber diperiksa ulang saat catatan terkirim.")
         state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
-        Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("asset-review")) {Text("Periksa catatan aset")}
-        OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("asset-save-draft")) {Text("Simpan draf dan kembali")}
     }
 }
 
 @Composable fun AssetReview(draft:AssetDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     val acquisition = draft.kind == AssetKind.ASSET
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        FarmPageTitle(if (acquisition) "Periksa perolehan aset" else "Periksa alokasi penyusutan")
-        FarmPanel { AssetDraftFacts(draft,context) }
-        Notice(if (acquisition) "Pengajuan disimpan di perangkat. Server memeriksa sumber pembayaran dan nilai perolehan saat menerima pengajuan."
-            else "Nominal alokasi diisi manual. Server memeriksa anggaran tahunan, batas penyusutan, dan duplikasi pemakaian.")
-        if(draft.replaceValidationRejected) Notice("Perbaikan membuat operasi baru; pengajuan lama yang ditolak tetap disimpan.")
-        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,
-            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("asset-queue")) {Text("Simpan lokal & antrekan")}
-        OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,
-            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Kembali ke isian")}
+    FarmReviewFrame(if (acquisition) "perolehan aset" else "alokasi penyusutan",
+        if (acquisition) draft.name.ifBlank { "Aset belum diberi nama" } else "Musim tujuan dan periode pemakaian",
+        FarmIcon.Asset, busy, "asset-queue", "asset-back", onBack, onQueue) {
+        FarmFormSection("Rincian") { AssetDraftFacts(draft,context) }
+        if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat.")
     }
 }
 
 @Composable private fun AssetDraftFacts(draft:AssetDraft,context:CultivationUiState) {
     fun nominal(value:String) = runCatching { moneyLabel(AssetDraft.money(value).toPlainString()) }
-        .getOrDefault(if (value.isBlank()) "Belum diisi" else "Isian belum valid")
+        .getOrDefault(if (value.isBlank()) "Belum diisi" else "Isian belum benar")
     if(draft.kind==AssetKind.ASSET) {
         FarmFact("Aset",draft.name.ifBlank { "Belum diisi" })
         FarmFact("Harga perolehan",nominal(draft.cost),Modifier.testTag("asset-cost-fact"),prominent=true)

@@ -133,7 +133,7 @@ final class MasterService
                     abort_if($complete && ! DB::table('harvests')->where('planting_group_id', $id)->where('record_state', 'active')->exists(),
                         422, 'Catat sedikitnya satu panen sebelum menandai selesai.');
                     $data = ['harvest_completion' => $complete ? json_encode([
-                        'reason' => $payload['reason'], 'at' => CarbonImmutable::now('UTC')->toISOString(),
+                        'reason' => $payload['reason'] ?? null, 'at' => CarbonImmutable::now('UTC')->toISOString(),
                         'by' => $current->public_id, 'by_name' => $current->name,
                     ], JSON_THROW_ON_ERROR) : null];
                 } else {
@@ -153,15 +153,11 @@ final class MasterService
                 abort_if(($data['end_date'] ?? null) !== null && $data['end_date'] < $data['start_date'], 422, 'Tanggal akhir tidak boleh sebelum mulai.');
             } elseif ($table === 'greenhouse_assignments') {
                 if ($action === 'create') {
-                    $user = $this->access->manageableUsers($current)->where('public_id', $data['user_id'])->whereIn('role', ['worker', 'manager'])->where('active', true)->first() ?? abort(422, 'Akun operasional aktif dalam kewenangan Anda diperlukan.');
-                    abort_if($user->role === 'manager' && ! DB::table($table)->where('user_id', $user->id)->exists(), 422, 'Pengelola tanpa penugasan harus menyiapkan greenhouse pertamanya sendiri.');
+                    $user = $this->access->manageableUsers($current)->where('public_id', $data['user_id'])->where('role', 'worker')->where('active', true)->first() ?? abort(422, 'Pilih akun pekerja aktif untuk ditambahkan ke greenhouse ini.');
                     $data['user_id'] = $user->id;
                     abort_if(DB::table($table)->where('user_id', $user->id)->where('greenhouse_id', $gh)->exists(), 422, 'Penugasan sudah ada; perbarui versi yang ada.');
                 }
                 abort_if(isset($data['effective_until']) && strtotime($data['effective_until']) <= strtotime($data['effective_from']), 422, 'Akhir penugasan harus sesudah awal.');
-                if ($action === 'update' && $row->user_id === $current->id) {
-                    abort_if(! $data['active'] || strtotime($data['effective_from']) > time() || (isset($data['effective_until']) && strtotime($data['effective_until']) <= time()), 422, 'Pengelola tidak dapat mencabut penugasannya sendiri.');
-                }
                 foreach (['effective_from', 'effective_until'] as $key) {
                     if (isset($data[$key])) {
                         $data[$key] = CarbonImmutable::parse($data[$key])->utc()->format('Y-m-d H:i:s.u');

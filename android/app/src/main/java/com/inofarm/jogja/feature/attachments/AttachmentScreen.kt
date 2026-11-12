@@ -39,12 +39,12 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
     val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {uri -> uri?.let {vm.importResult(it,pickerScope,pickerOwner,pickerTicket)}}
     LaunchedEffect(state.preview) {state.preview?.let {intent ->
         val error=runCatching {androidContext.startActivity(intent)}.exceptionOrNull()
-        vm.previewHandled(if(error!=null) "Aplikasi pembuka berkas belum tersedia atau pratinjau tidak dapat dibuka. Salinan terenkripsi tetap disimpan." else null)
+        vm.previewHandled(if(error!=null) "Berkas tidak bisa dibuka. Pasang aplikasi pembuka PDF atau gambar, lalu coba lagi." else null)
     }}
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp).testTag("attachment-screen"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         com.inofarm.jogja.core.design.FarmPageTitle(when {
-            state.parentReview!=null -> "Periksa versi induk"
-            state.reviewing -> "Periksa lampiran"
+            state.parentReview!=null -> "Cek catatan terbaru"
+            state.reviewing -> "Cek lampiran"
             else -> "Lampiran catatan"
         })
         if(state.busy || state.loading) {
@@ -53,27 +53,27 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
         }
         state.message?.let {Notice(it,true)}
         val policy=state.policy
-        FarmSection(title = "Batas dan akses lampiran") {
-        if(policy==null) Notice("Batas lampiran belum tersedia. Berkas dapat disalin sebagai draf; pengajuan menunggu konfigurasi server.")
+        FarmSection(title = "Batas lampiran") {
+        if(policy==null) Notice("Batas lampiran belum bisa dicek. Berkas tetap bisa disimpan sebagai draf.")
         else {
-            if(!policy.optBoolean("configured")) Notice("Konfigurasi lampiran produksi belum ditetapkan.")
-            else Text("Batas ${policy.optLong("max_bytes")} byte per berkas · ${policy.optLong("max_files")} berkas aktif. Jenis: ${policy.optJSONArray("allowed_mime_types")?.let {a -> (0 until a.length()).joinToString {typeLabel(a.getString(it))}}}")
-            if(policy.has("fetched_at")) Text("${if(state.policyCached) "Acuan tersimpan" else "Terakhir diperiksa"}: ${timeLabel(Instant.ofEpochMilli(policy.getLong("fetched_at")).toString())}",style=MaterialTheme.typography.bodySmall)
+            if(!policy.optBoolean("configured")) Notice("Lampiran belum diaktifkan. Hubungi operator sistem.")
+            else Text("Maksimal ${policy.optLong("max_bytes")} byte per berkas dan ${policy.optLong("max_files")} berkas. Jenis: ${policy.optJSONArray("allowed_mime_types")?.let {a -> (0 until a.length()).joinToString {typeLabel(a.getString(it))}}}")
+            if(policy.has("fetched_at")) Text("${if(state.policyCached) "Batas tersimpan" else "Diperbarui"}: ${timeLabel(Instant.ofEpochMilli(policy.getLong("fetched_at")).toString())}",style=MaterialTheme.typography.bodySmall)
             policy.optJSONArray("reasons")?.let {reasons -> repeat(reasons.length()) {Notice(reasons.getString(it),true)}}
         }
-        OutlinedButton(onClick=vm::refreshPolicy,enabled=!state.busy,modifier=Modifier.fillMaxWidth()) {Text("Periksa batas dan akses terbaru")}
+        OutlinedButton(onClick=vm::refreshPolicy,enabled=!state.busy,modifier=Modifier.fillMaxWidth()) {Text("Perbarui")}
         }
         if(state.selected==null) {
-            FarmFact("Catatan induk", RecordKind.entries.single { it.wire == parent.kind }.label.replaceFirstChar { it.uppercaseChar() })
+            FarmFact("Catatan terkait", RecordKind.entries.single { it.wire == parent.kind }.label.replaceFirstChar { it.uppercaseChar() })
             val canChoose=session.role==UserRole.MANAGER || parent.recorderId()==session.scope.accountId
-            if(canChoose) Button(onClick={pickerScope=session.scope.key;pickerOwner=parent.id;pickerTicket=ticket;picker.launch(AttachmentContract.supportedMimes.toTypedArray())},enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("attachment-choose")) {Text("Pilih berkas sebagai draf")}
-            if(state.rows.isEmpty() && !state.loading) Notice("Belum ada lampiran atau draf berkas pada catatan ini.")
+            if(canChoose) Button(onClick={pickerScope=session.scope.key;pickerOwner=parent.id;pickerTicket=ticket;picker.launch(AttachmentContract.supportedMimes.toTypedArray())},enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("attachment-choose")) {Text("Pilih berkas")}
+            if(state.rows.isEmpty() && !state.loading) Notice("Belum ada lampiran.")
             state.rows.forEach {row -> FarmRecordCard(
                 Modifier.testTag("attachment-${row.id}"), onOpen={vm.select(row.id)}) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small),
                         verticalAlignment = Alignment.CenterVertically) {
                         FarmControlIcon(FarmIcon.Report, null)
-                        Text(row.body.optString("original_name","Berkas belum selesai disalin"),
+                        Text(row.body.optString("original_name","Berkas belum selesai disimpan"),
                             Modifier.weight(1f), style=MaterialTheme.typography.titleMedium)
                         FarmControlIcon(FarmIcon.ChevronRight, null)
                     }
@@ -82,9 +82,9 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
                     }
                     Text(copyLabel(row.body),style=MaterialTheme.typography.bodyMedium)
                     RecordStatus(row.syncState)
-                    if(row.body.optString("record_state")=="cancelled") Text("Lampiran dibatalkan; riwayat tetap tersedia.")
+                    if(row.body.optString("record_state")=="cancelled") Text("Lampiran dibatalkan. Riwayatnya tetap ada.")
             }}
-            if(state.hasMore) OutlinedButton(onClick=vm::more,enabled=!state.loading) {Text("Muat 50 berikutnya")}
+            if(state.hasMore) OutlinedButton(onClick=vm::more,enabled=!state.loading) {Text("Tampilkan 50 lagi")}
             OutlinedButton(onClick=vm::close,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-close")) {Text("Kembali ke catatan")}
         } else {
             val row=state.selected
@@ -93,7 +93,7 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
                 Text(copyLabel(row.body))
                 if(row.body.has("bytes")) Text("${row.body.getLong("bytes")} byte · ${typeLabel(row.body.optString("mime"))}",
                     style = MaterialTheme.typography.bodySmall)
-                FarmFact("Versi catatan induk saat ditinjau",
+                FarmFact("Versi catatan saat dicek",
                     row.body.optLong("owner_version").takeIf { it > 0 }?.toString() ?: "Belum tersedia")
             }
             row.error?.let {ErrorReasons(it)};state.pending.forEach {op -> op.error?.let {ErrorReasons(it)}}
@@ -101,44 +101,44 @@ val LocalAttachmentAction=staticCompositionLocalOf<((LocalRecord)->Unit)?> {null
             when {
                 state.parentReview!=null -> {
                     val snapshot=state.parentReview
-                    FarmPanel(title="Catatan induk terbaru") {
+                    FarmPanel(title="Catatan terbaru") {
                         RecordFacts(parent.copy(body=snapshot,serverBody=snapshot,serverVersion=snapshot.getLong("version")),session,context,RecordKind.entries.single {it.wire==parent.kind})
                     }
-                    Notice("Pengajuan baru memakai versi induk yang ditinjau dan salinan berkas yang sama. Pengajuan lama disimpan sebagai riwayat.")
-                    Button(onClick=vm::confirmParent,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-confirm-parent")) {Text("Setujui versi induk dan antrekan")}
-                    TextButton(onClick=vm::backToDetails) {Text("Kembali tanpa mengajukan")}
+                    Notice("Lampiran dikirim ulang untuk catatan terbaru dengan berkas yang sama.")
+                    Button(onClick=vm::confirmParent,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-confirm-parent")) {Text("Pakai data terbaru")}
+                    TextButton(onClick=vm::backToDetails) {Text("Kembali")}
                 }
                 state.reviewing -> {
-                    Notice("Berkas ini terikat pada catatan induk. Server memeriksa ulang versi, akses, ukuran, jenis, dan jumlah saat menerima unggahan.")
-                    FarmPanel(title="Catatan induk") {
+                    Notice("Pastikan berkas dan catatan sudah benar sebelum disimpan.")
+                    FarmPanel(title="Catatan terkait") {
                         RecordFacts(parent,session,context,RecordKind.entries.single {it.wire==parent.kind})
                     }
-                    Button(onClick=vm::queue,enabled=!state.busy && policy?.optBoolean("configured")==true && policy.optBoolean("upload_allowed"),modifier=Modifier.fillMaxWidth().testTag("attachment-queue")) {Text("Simpan dan antrekan lampiran")}
+                    Button(onClick=vm::queue,enabled=!state.busy && policy?.optBoolean("configured")==true && policy.optBoolean("upload_allowed"),modifier=Modifier.fillMaxWidth().testTag("attachment-queue")) {Text("Simpan lampiran")}
                     TextButton(onClick=vm::backToDetails) {Text("Kembali ke detail berkas")}
                 }
                 else -> {
-                    if(ready && row.serverVersion==null && state.pending.isEmpty()) Button(onClick=vm::review,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-review")) {Text("Periksa pengajuan berkas")}
-                    if(row.body.optString("_copy_state") in setOf("COPYING","FAILED")) OutlinedButton(onClick=vm::resumeCopy,enabled=!state.busy,modifier=Modifier.fillMaxWidth()) {Text("Lanjutkan salinan dari sumber")}
+                    if(ready && row.serverVersion==null && state.pending.isEmpty()) Button(onClick=vm::review,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-review")) {Text("Cek lampiran")}
+                    if(row.body.optString("_copy_state") in setOf("COPYING","FAILED")) OutlinedButton(onClick=vm::resumeCopy,enabled=!state.busy,modifier=Modifier.fillMaxWidth()) {Text("Salin ulang berkas")}
                     if(ready || row.serverVersion!=null) OutlinedButton(onClick=vm::preview,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-preview")) {Text("Buka berkas")}
-                    if(state.pending.any {it.error?.optString("code")=="parent_version_conflict"}) OutlinedButton(onClick=vm::inspectParent,enabled=!state.busy,modifier=Modifier.fillMaxWidth()) {Text("Muat dan tinjau induk terbaru")}
-                    if(state.pending.any {it.state=="REJECTED" && it.error?.optString("code") in setOf("attachment_configuration_missing","attachment_limit_reached","season_closed","local_attachment_unavailable")}) OutlinedButton(onClick=vm::retry,enabled=!state.busy,modifier=Modifier.fillMaxWidth()) {Text("Tinjau dan coba pengajuan yang sama")}
-                    if(row.serverVersion!=null) OutlinedButton(onClick={vm.audit()},enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-audit")) {Text("Muat audit lampiran")}
+                    if(state.pending.any {it.error?.optString("code")=="parent_version_conflict"}) OutlinedButton(onClick=vm::inspectParent,enabled=!state.busy,modifier=Modifier.fillMaxWidth()) {Text("Pakai data terbaru")}
+                    if(state.pending.any {it.state=="REJECTED" && it.error?.optString("code") in setOf("attachment_configuration_missing","attachment_limit_reached","season_closed","local_attachment_unavailable")}) OutlinedButton(onClick=vm::retry,enabled=!state.busy,modifier=Modifier.fillMaxWidth()) {Text("Coba kirim lagi")}
+                    if(row.serverVersion!=null) OutlinedButton(onClick={vm.audit()},enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-audit")) {Text("Lihat riwayat lampiran")}
                     if(session.role==UserRole.MANAGER && row.syncState==SyncState.ACCEPTED && row.body.optString("record_state")=="active" && !state.cancelEditing) OutlinedButton(onClick=vm::beginCancel,modifier=Modifier.fillMaxWidth().testTag("attachment-cancel")) {Text("Batalkan lampiran dengan alasan")}
                 }
             }
             if(state.cancelEditing) {
                 FinanceField("Alasan pembatalan lampiran",state.reason,vm::editReason,"attachment-reason",singleLine=false)
-                Text(if(state.reasonSaved) "Draf alasan tersimpan di perangkat." else "Menyimpan draf alasan…")
-                Button(onClick=vm::cancel,enabled=!state.busy && state.reason.isNotBlank() && state.reason.length<=1000,modifier=Modifier.fillMaxWidth().testTag("attachment-confirm-cancel")) {Text("Antrekan pembatalan")}
+                Text(if(state.reasonSaved) "Alasan tersimpan." else "Menyimpan alasan…")
+                Button(onClick=vm::cancel,enabled=!state.busy && state.reason.isNotBlank() && state.reason.length<=1000,modifier=Modifier.fillMaxWidth().testTag("attachment-confirm-cancel")) {Text("Batalkan lampiran")}
             }
             state.audit?.let {audit ->
-                if(state.auditCached) Notice("Audit tersimpan; pemeriksaan terbaru belum berhasil.")
+                if(state.auditCached) Notice("Menampilkan riwayat tersimpan. Belum bisa memuat yang terbaru.")
                 audit.getJSONArray("data").let {rows -> repeat(rows.length()) {val entry=rows.getJSONObject(it);Text("${entry.optString("actor_name")} · ${if(entry.optString("action")=="cancel") "Pembatalan" else "Pencatatan"} · versi ${entry.optLong("version")}");if(!entry.isNull("reason")) Text("Alasan: ${entry.optString("reason")}")}}
-                if(!audit.isNull("next_cursor")) TextButton(onClick={vm.audit(true)},enabled=!state.busy) {Text("Muat audit berikutnya")}
+                if(!audit.isNull("next_cursor")) TextButton(onClick={vm.audit(true)},enabled=!state.busy) {Text("Tampilkan lagi")}
             }
-            OutlinedButton(onClick=vm::closeSelected,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-back-list")) {Text("Simpan draf dan kembali ke lampiran")}
+            OutlinedButton(onClick=vm::closeSelected,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("attachment-back-list")) {Text("Kembali ke lampiran")}
         }
     }
 }
-private fun copyLabel(body:JSONObject)=when(body.optString("_copy_state")) {"COPYING" -> "Salinan berkas belum selesai.";"FAILED" -> "Salinan gagal; sumber mungkin perlu dipilih ulang.";"READY" -> "Salinan terenkripsi siap di perangkat.";else -> "Metadata diterima server; salinan lokal diperiksa saat dibuka."}
-private fun typeLabel(mime:String)=when(mime) {"image/png" -> "PNG";"image/jpeg" -> "JPEG";"application/pdf" -> "PDF";else -> "Jenis belum tersedia"}
+private fun copyLabel(body:JSONObject)=when(body.optString("_copy_state")) {"COPYING" -> "Salinan berkas belum selesai.";"FAILED" -> "Berkas gagal disalin. Pilih berkas lagi.";"READY" -> "Berkas tersimpan di perangkat.";else -> "Berkas sudah terkirim. Salinan diunduh saat dibuka."}
+private fun typeLabel(mime:String)=when(mime) {"image/png" -> "PNG";"image/jpeg" -> "JPEG";"application/pdf" -> "PDF";else -> "Jenis tidak diketahui"}

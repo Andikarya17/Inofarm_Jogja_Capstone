@@ -1,5 +1,11 @@
 # Inofarm: konteks untuk Claude Code
 
+**Keputusan 11 November 2026 (masukan dosen pembimbing): pengelola adalah super admin.** Pengelola mengakses semua greenhouse dan semua akun tanpa penugasan, alasan perubahan opsional, dan UI pengelola dirombak menjadi empat tab. Batas integritas data tetap berlaku di server. Backend terbukti oleh tes (backend 157 tes); UI Android terkompilasi dan lulus tes JVM, tetapi **belum diverifikasi di emulator atau perangkat**. [Bukti, batas dan sisa pekerjaan](docs/context/MANAGER_SUPERADMIN_EVIDENCE_20261111.md), [keputusan](docs/migration/finance-20261029/DECISIONS.md).
+
+**Tampilan Canopy 12 November 2026 (kode selesai, polish belum):** login, dock pengelola dengan Catat di tengah, app bar sapaan, sheet Catat berkotak, Beranda (hero kas, pintasan, kartu greenhouse), detail greenhouse, Riwayat dan Cek catatan, Keuangan dan Kelola, serta semua form pengelola (kerangka `FarmFormFrame` di `feature/FormCanopy.kt`: header X, strip konteks, bagian berkartu, chip pilihan pendek, isian angka berpasangan, bar bawah penuh lebar, langkah Periksa, wizard, form akun) sudah bergaya Canopy; form pekerja tidak berubah. Font Plus Jakarta Sans berlaku untuk semua peran; tanggal dan jam pengelola memakai picker Android. **Belum:** pemisah ribuan tampilan pada nominal, langkah wizard 2-3 dan form pada mode gelap/200%/360 dp belum terlihat di layar, TalkBack nyata, dan pass polish/harden akhir. `FinanceEntryUiTest` penuh: 17 gagal (15 baseline + 2 yang kemudian diperbaiki, belum dijalankan ulang penuh). Bukti emulator dengan fixture, bukan perangkat fisik: [bukti dan sisa pekerjaan](docs/context/FRONTEND_CANOPY_EVIDENCE_20261112.md).
+
+**Alur pekerja dirapikan 11 November 2026:** dua tab (Beranda, Riwayat), tombol Catat, indikator "N belum terkirim", kartu ringkasan per greenhouse dan koreksi dengan acuan otomatis. Bukti emulator API 30 dengan fixture sintetis, **belum diuji di perangkat fisik atau backend nyata**. [Bukti, batas dan matriks temuan](docs/context/WORKER_FLOW_EVIDENCE_20261111.md).
+
 Penyelarasan pekerja 10–11 November 2026 menambah pilihan greenhouse langsung, agenda WIB, picker lapangan, verifikasi panen per revisi dan progres pekerja. Source backend memakai migration 20, dengan verifikasi hanya pada `inofarm_test`. Database aplikasi lokal berada pada checkpoint schema 19. [Status, bukti dan gate PK0–PK7](docs/context/WORKER_ALIGNMENT_EVIDENCE_20261110.md).
 
 Baseline diperbarui **10 November 2026 setelah remediasi**, source engineering `a67577d`. Baca `AGENTS.md` root dan `backend/AGENTS.md` sebelum bekerja. Instruksi pengguna terbaru mengatasi histori. [Bukti penyelesaian audit](docs/context/AUDIT_REMEDIATION_20261110.md) menjadi rujukan status terbaru.
@@ -33,7 +39,7 @@ Finance merupakan launcher default tanpa flag `-PfinanceApp`. Jangan menghidupka
 | Penyimpanan Android | SQLiteOpenHelper schema **10**, vault/sesi dan payload terenkripsi per server+akun, draf/outbox durable; bukan Room |
 | Sinkronisasi | foreground coordinator dan Android JobScheduler/JobService; bukan WorkManager |
 | Backend | PHP, Laravel 13 (constraint `^13.17`), Sanctum 4, controller/domain service/Query Builder/Eloquent, BCMath |
-| Database server | MySQL 8; runtime lokal diperiksa versi 8.0.30; migration finance sampai **19** di source |
+| Database server | MySQL 8; runtime lokal diperiksa versi 8.0.30; migration finance sampai **20** di source (database lokal di 19) |
 | Laporan | snapshot immutable; Dompdf 3.1.6 untuk PDF, CSV dari snapshot yang sama |
 | Pengujian | PHPUnit, Kotlin/JUnit, MockWebServer, Android instrumentation, checker Python JSON Schema dan oracle perhitungan |
 
@@ -41,28 +47,28 @@ Versi dependency pasti ada di `backend/composer.lock` dan Gradle; jangan mengang
 
 ## Peran dan kewenangan
 
-Role wire hanya **`worker`** (pekerja) dan **`manager`** (pengelola). Kedua peran perlu penugasan greenhouse yang efektif. Pengelola bukan superadmin global. Actor diambil dari sesi server, bukan field buatan client.
+Role wire hanya **`worker`** (pekerja) dan **`manager`** (pengelola). Pekerja memerlukan penugasan greenhouse yang efektif. **Pengelola adalah super admin**: `GreenhouseAccess` mengembalikan semua greenhouse (aktif dan nonaktif) dan semua akun untuk role `manager`, tanpa penugasan. Penugasan kini hanya berarti pekerja mana yang bekerja di greenhouse itu, dan hanya akun pekerja yang bisa ditugaskan. Actor diambil dari sesi server, bukan field buatan client.
 
 | Kemampuan | Pekerja | Pengelola |
 |---|---|---|
 | Login/logout/sesi | Akun sendiri | Akun sendiri |
-| Baca konteks, jadwal, target, kegiatan dan panen | Greenhouse penugasan | Greenhouse penugasan |
-| Membuat kegiatan/panen | Parent sah, musim terbuka, GH aktif | Sama, sesuai cakupan |
-| Koreksi kegiatan/panen | Milik sendiri, versi cocok, musim terbuka | Dalam cakupan, alasan dan audit |
-| Pembatalan kegiatan/panen | Tidak | Ya, tetap dibatasi saldo/referensi dan musim |
-| Verifikasi kegiatan | Baca keputusan/alasan pada catatan sendiri | Inbox catatan asal pekerja; valid/tidak valid per revisi |
-| Master, jadwal, target, penugasan | Baca yang diizinkan | Membuat/mengubah/menonaktifkan dalam cakupan; tanpa hard delete histori |
-| Akun | Tidak mengelola akun lain | Buat akun, edit nama/email/peran/status, reset password dalam cakupan |
-| Periode berjalan GH | Baca | Tetapkan kelompok berjalan secara eksplisit dan diaudit |
-| Target/selesai panen | Mencatat hasil dan kondisi rincian | Atur target, tandai selesai/buka kembali dengan alasan |
-| Tutup/buka musim | Tidak | Tindakan terpisah dengan alasan dan validasi |
-| Biaya, alokasi, aset, penyusutan, penjualan | Tidak, termasuk API/sync/file | Dalam cakupan penugasan |
-| Evaluasi, investasi, laporan, ekspor | Tidak | Preview, review, publikasi snapshot dan unduh PDF/CSV |
+| Baca konteks, jadwal, target, kegiatan dan panen | Greenhouse penugasan | Semua greenhouse |
+| Membuat kegiatan/panen | Parent sah, musim terbuka, GH aktif | Sama, di greenhouse mana pun |
+| Koreksi kegiatan/panen | Milik sendiri, versi cocok, musim terbuka, **alasan wajib** | Semua, catatan opsional, audit |
+| Pembatalan kegiatan/panen | Tidak | Ya, catatan opsional; tetap dibatasi saldo/referensi dan musim |
+| Cek catatan pekerja | Baca keputusan/alasan pada catatan sendiri | Inbox catatan asal pekerja; Sesuai / Perlu diperbaiki per revisi (**alasan wajib hanya untuk Perlu diperbaiki**) |
+| Master, jadwal, target, penugasan | Baca yang diizinkan | Membuat/mengubah/menonaktifkan di greenhouse mana pun; tanpa hard delete histori |
+| Akun | Tidak mengelola akun lain | Buat akun, edit nama/email/peran/status, reset password untuk semua akun (`GET /users?all_accounts=1`) |
+| Tanam saat ini GH (periode berjalan) | Baca | Tetapkan kelompok secara eksplisit dan diaudit, catatan opsional |
+| Target/selesai panen | Mencatat hasil dan kondisi rincian | Atur target, tandai selesai/buka kembali, catatan opsional |
+| Tutup/buka musim | Tidak | Tindakan terpisah dengan validasi, catatan opsional |
+| Biaya, alokasi, aset, penyusutan, penjualan | Tidak, termasuk API/sync/file | Semua greenhouse |
+| Evaluasi, investasi, laporan, ekspor | Tidak | Preview, review, publikasi laporan terbit dan unduh PDF/CSV |
 | Backup/recovery | Tidak | Membutuhkan kapabilitas operator sistem eksplisit di konfigurasi, bukan otomatis dari role |
 
-Administrasi akun menolak pengelolaan user dengan penugasan di luar cakupan manager. Manager tidak boleh menonaktifkan atau menurunkan peran dirinya sendiri. Perubahan akun mencabut token akun yang diubah. Tidak ada self-registration/reset password publik; reset dilakukan pengelola. Manager tanpa assignment dapat menyiapkan greenhouse melalui jalur create yang memang diimplementasikan. Jangan menambah hak global untuk mengatasi setup yang belum lengkap.
+Batas integritas yang tetap ditolak server: tidak ada hard delete histori/ledger/audit/laporan; laporan terbit tidak bisa diedit; saldo panen terjual, alokasi biaya dan anggaran penyusutan dijaga transaksi; musim tertutup harus dibuka dulu; pengelola tidak boleh menonaktifkan atau menurunkan peran dirinya sendiri, dan harus selalu ada minimal satu pengelola aktif (penjaga ini belum teruji lewat API); perubahan akun mencabut token akun yang diubah; password hanya bisa direset. Tidak ada self-registration/reset password publik. Alasan tetap wajib untuk keputusan "Perlu diperbaiki", recovery dan pembatalan lampiran.
 
-Verifikasi manusia berbeda dari sinkronisasi: `ACCEPTED` berarti server menerima catatan. Kegiatan pekerja yang belum diperiksa boleh tampil di Beranda dengan label **Belum diverifikasi**. Revisi invalid dikecualikan dari kartu pengukuran pengelola, tetapi tetap ada di riwayat. Koreksi menghasilkan revisi baru yang perlu keputusan baru. Catatan pengelola sendiri bukan otomatis keputusan verifikasi pekerja.
+Cek catatan berbeda dari pengiriman: `ACCEPTED` berarti server menerima catatan. Kegiatan pekerja yang belum dicek boleh tampil di Beranda dengan label **Belum dicek**. Revisi invalid dikecualikan dari kartu pengukuran pengelola, tetapi tetap ada di riwayat. Koreksi menghasilkan revisi baru yang perlu keputusan baru. Catatan pengelola sendiri bukan otomatis keputusan verifikasi pekerja.
 
 ## Struktur source dan navigasi
 
@@ -79,7 +85,9 @@ Verifikasi manusia berbeda dari sinkronisasi: `ACCEPTED` berarti server menerima
 | `backend/database/migrations/` | Skema additive, termasuk legacy yang tidak dihapus |
 | `backend/tests/` | Guard database dan tes unit/fitur |
 
-Pekerja: login → konteks GH/musim/kelompok → kegiatan/panen → review → draf/antrekan → detail/riwayat/koreksi. Pengelola memiliki lima tab Beranda, Antrean, Kegiatan, Panen, Keuangan. Beranda mulai dari semua greenhouse dalam penugasan; satu GH membuka periode berjalan. Antrean memisahkan verifikasi server dan **Pengiriman saya**. Menu akun membuka Kelola greenhouse/Kelola akun. Keuangan mengarahkan biaya/alokasi, aset/penyusutan, penjualan, evaluasi dan investasi.
+Pekerja: login → konteks GH/musim/kelompok → kegiatan/panen → review → draf/belum terkirim → detail/riwayat/koreksi. Pengelola memiliki empat tab selalu terlihat: **Beranda, Riwayat, Keuangan, Kelola** (`ManagerTab`, `FinanceNavigation.kt`), tombol **Catat** (kegiatan, pengukuran, panen, biaya, penjualan) dan indikator **"N belum terkirim"** di top bar yang membuka sheet dengan "Kirim sekarang". Beranda menampilkan semua greenhouse, kartu "N catatan pekerja perlu dicek" dan "Tambah greenhouse" (wizard tiga langkah, `GreenhouseWizard.kt`, butuh koneksi seperti tulis admin lain). Satu greenhouse membuka halaman detail dengan bagian Ringkasan, Kegiatan, Panen, Keuangan, Pengaturan. Riwayat menggabungkan kegiatan, pengukuran dan panen dengan chip; biaya, penjualan dan aset membuka tab Keuangan. Kelola memuat greenhouse, pekerja dan akun, data master, jadwal dan target, serta akun saya. Status pengelola ini terkompilasi dan lulus tes JVM, **belum diverifikasi di emulator atau perangkat**.
+
+Navigasi pekerja punya dua tab: **Beranda** dan **Riwayat** (`WorkerDestinations`, `FinanceNavigation.kt`). Tombol **Catat** (`ExtendedFloatingActionButton`, tag `finance-record-fab`) menawarkan kegiatan, pengukuran dan panen; bila konteks belum lengkap, sheet konteks terbuka lebih dulu. Indikator **"N belum terkirim"** di top bar membuka sheet berisi catatan yang belum terkirim atau perlu dicek, dengan "Kirim sekarang"; ID kiriman dan percobaan kirim tidak tampil untuk pekerja. Beranda menampilkan kartu tiap greenhouse (jadwal hari ini dan pengukuran terakhir dari cache perangkat) dan satu kartu "N catatan perlu diperbaiki" di atas daftar. Riwayat punya chip Kegiatan, Pengukuran, Panen dan "Catatan saya" (aktif secara awal); baris menampilkan **Draf** atau status cek (Belum dicek, Sesuai, Perlu diperbaiki). Form memakai "Simpan sebagai draf" dan "Kirim". Koreksi pekerja memilih acuan sendiri lewat `CorrectionReference`: acuan dinilai ulang hanya bila tanggal atau jam kejadian berubah dibanding revisi server. Pengelola tetap memilih acuan manual.
 
 Draf tidak dipindahkan parent-nya ketika pengguna mengganti GH untuk browsing. Riwayat dan pemilih banyak membaca cache hasil `sync/changes`, bukan selalu GET list resource saat layar dibuka. Karena itu salah tampilan dapat berasal dari cache/scope/epoch, bukan selalu route HTTP.
 
@@ -117,7 +125,7 @@ Mutasi domain memakai envelope JSON top-level: `schema_version: "2"`, `sync_epoc
 - Pull memakai cursor/epoch/scope. Client baru mengirim `activity_reviews=1`; pergantian scope memutar ulang feed yang sah. Restore epoch menahan antrean lama untuk rekonsiliasi, bukan replay/clear otomatis.
 - Request JSON dibatasi 16 KiB; file memiliki policy privat terpisah. Kebijakan produksi upload/retensi/recovery masih perlu keputusan.
 
-**Hasil remediasi API:** OpenAPI kini memuat 108 path/152 operasi, setara 153 operasi runtime setelah pdf/csv diekspansi. Parity dua arah lulus. Respons sukses dengan body memiliki schema, sedangkan logout204 tanpa body. Schema master/acuan/akun, login/profil, review, receipt/audit dan latest diperjelas. Envelope feed memiliki payload polimorfik untuk snapshot historis. `measurements/latest` sudah mengecualikan review invalid pada revisi aktif dan menerima revisi koreksi pending. [Evidence](docs/context/AUDIT_REMEDIATION_20261110.md).
+**Hasil remediasi API (baseline 10 November; OpenAPI sekarang 111 path/156 operasi):** OpenAPI kini memuat 108 path/152 operasi, setara 153 operasi runtime setelah pdf/csv diekspansi. Parity dua arah lulus. Respons sukses dengan body memiliki schema, sedangkan logout204 tanpa body. Schema master/acuan/akun, login/profil, review, receipt/audit dan latest diperjelas. Envelope feed memiliki payload polimorfik untuk snapshot historis. `measurements/latest` sudah mengecualikan review invalid pada revisi aktif dan menerima revisi koreksi pending. [Evidence](docs/context/AUDIT_REMEDIATION_20261110.md).
 
 ## Database dan model data
 
@@ -186,7 +194,7 @@ python scripts/check-finance-context.py
 
 Lokasi `.tools` spesifik laptop; gunakan tooling kompatibel jika tidak tersedia. Runner Android memerlukan JDK yang benar; JDK audit berada di `C:/Program Files/Eclipse Adoptium/jdk-25.0.4.101-hotspot`. Jangan menimpa env/SDK pengguna untuk menjalankan pemeriksaan. Runner HTTP fixture/device dan PHPUnit tidak boleh menulis database uji bersamaan. `scripts/local-database.ps1` adalah bootstrap/provisioning, bukan alat audit read-only. Jangan menjalankannya sembarang untuk memeriksa data existing.
 
-Hasil baru remediasi mencakup backend144 tes/3.690 assertion, guard4 tes/12 assertion, JVM74 tes, debug/test APK dan lint lulus (0 error,16 warning,1 hint). Instrumentasi32 tes penyimpanan/sync/pengukuran lulus pada emulator API30, termasuk1.005 data cache, isolasi akun dan pencabutan akses. ContextRepository membaca cache bertahap sampai selesai dalam scope. Snapshot list akhir tetap memakai memori sebanding jumlah data, sehingga benchmark skala produksi masih perlu bukti perangkat sasaran. [Evidence remediasi](docs/context/AUDIT_REMEDIATION_20261110.md).
+Hasil remediasi 10 November (angka kini: backend 157 tes, JVM 89) mencakup backend144 tes/3.690 assertion, guard4 tes/12 assertion, JVM74 tes, debug/test APK dan lint lulus (0 error,16 warning,1 hint). Instrumentasi32 tes penyimpanan/sync/pengukuran lulus pada emulator API30, termasuk1.005 data cache, isolasi akun dan pencabutan akses. ContextRepository membaca cache bertahap sampai selesai dalam scope. Snapshot list akhir tetap memakai memori sebanding jumlah data, sehingga benchmark skala produksi masih perlu bukti perangkat sasaran. [Evidence remediasi](docs/context/AUDIT_REMEDIATION_20261110.md).
 
 ## Prioritas lanjut dan aturan kerja
 

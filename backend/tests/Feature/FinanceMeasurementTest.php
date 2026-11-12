@@ -69,7 +69,7 @@ class FinanceMeasurementTest extends FinanceTestCase
         $this->getJson($url)->assertOk()->assertJsonPath('data', null);
         DB::table('greenhouse_assignments')->where('id', $assignment['id'])->update(['active' => false]);
         $this->asUser($worker)->getJson($url)->assertNotFound();
-        $this->asUser($this->account())->getJson($url)->assertNotFound();
+        $this->asUser($this->account())->getJson($url)->assertOk();
     }
 
     public function test_pair_validation_missing_zero_precision_actor_and_legacy_null_ec(): void

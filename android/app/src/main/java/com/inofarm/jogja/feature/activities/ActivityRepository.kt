@@ -27,7 +27,7 @@ class ActivityRepository(val vault:FinanceSessionVault,private val store:LocalFi
         }
         if(queue) {
             val effective=draft.copy(baseVersion=draft.baseVersion ?: existing?.baseVersion)
-            val errors=effective.validation()
+            val errors=effective.validation(session.role!=com.inofarm.jogja.core.contracts.UserRole.MANAGER)
             if(errors.isNotEmpty()) throw DraftValidationFailure(errors,effective.baseVersion)
             store.saveAndQueue(session.scope.key,draft.id,draft.greenhouseId,effective.payload(),existing?.revision,effective.baseVersion,effective.replaceValidationRejected)
         }

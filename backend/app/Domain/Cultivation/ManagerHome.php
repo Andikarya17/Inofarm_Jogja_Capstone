@@ -21,7 +21,7 @@ final class ManagerHome
         $this->access->manager($actor);
         $at = CarbonImmutable::now('Asia/Jakarta');
         $all = $this->access->query($actor)->orderBy('name')->orderBy('id')->get();
-        abort_if($selected !== null && ! $all->contains('id', $selected), 404, 'Greenhouse di luar penugasan.');
+        abort_if($selected !== null && ! $all->contains('id', $selected), 404, 'Greenhouse tidak ditemukan.');
         $greenhouses = $selected === null ? $all : $all->where('id', $selected);
         $ids = $greenhouses->pluck('id')->all();
         $groups = $this->period->groups($ids)->groupBy('greenhouse_id');
@@ -106,8 +106,8 @@ final class ManagerHome
             $detail = $this->detail($selected, $groups->get($selected, collect()), $group, $measurements[$pair->id ?? ''] ?? null,
                 $measurements !== null, $dayState, $at, $harvestTotals->get($group ?? ''));
         }
-        $accessUntil = DB::table('greenhouse_assignments')->where('user_id', $actor->id)->whereIn('greenhouse_id', $all->pluck('id'))
-            ->min('effective_until');
+        $accessUntil = $this->access->sees($actor) ? null : DB::table('greenhouse_assignments')->where('user_id', $actor->id)
+            ->whereIn('greenhouse_id', $all->pluck('id'))->min('effective_until');
         $recent = $this->readAcceptedSection(fn () => $this->recent($activities, $harvests));
         $complete = $recent !== null && $measurements !== null;
 

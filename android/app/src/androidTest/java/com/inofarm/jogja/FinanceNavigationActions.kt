@@ -18,35 +18,49 @@ internal fun FinanceTestRule.waitForFinanceMasterPull() {
     }
 }
 
-internal fun FinanceTestRule.openCompactNavigationIfPresent(): Boolean {
-    val compact = onAllNodesWithTag("finance-navigation-menu").fetchSemanticsNodes().isNotEmpty()
-    if (compact) {
-        onNodeWithTag("finance-navigation-menu").performClick()
-    }
-    return compact
+/** Scrolls to the node when a scrollable parent exists; sticky-bar buttons have none and are always on screen. */
+internal fun SemanticsNodeInteraction.scrollIfScrollable(): SemanticsNodeInteraction {
+    runCatching { performScrollTo() }
+    return this
 }
 
 internal fun FinanceTestRule.selectFinanceTab(index: Int) {
-    waitUntil(10_000) {
-        onAllNodesWithTag("finance-navigation-menu").fetchSemanticsNodes().isNotEmpty() ||
-            onAllNodesWithTag("finance-tab-$index").fetchSemanticsNodes().isNotEmpty()
-    }
-    val compact = openCompactNavigationIfPresent()
-    val destination = onNodeWithTag("finance-tab-$index")
-    if (compact) destination.performScrollTo()
-    destination.performClick()
+    waitUntil(10_000) { onAllNodesWithTag("finance-tab-$index").fetchSemanticsNodes().isNotEmpty() }
+    onNodeWithTag("finance-tab-$index").performClick()
 }
 
-internal fun FinanceTestRule.openFinanceOutbox() {
+/** Worker Riwayat holds activity, measurement and harvest behind chips; this opens the harvest list. */
+internal fun FinanceTestRule.openWorkerHarvestHistory() {
     selectFinanceTab(1)
-    val verification = onAllNodesWithTag("activity-verification-list")
-    waitUntil(10_000) {
-        verification.fetchSemanticsNodes().isNotEmpty() || onAllNodesWithTag("finance-queue-list").fetchSemanticsNodes().isNotEmpty()
+    onNodeWithTag("history-chip-harvest").performClick()
+}
+
+/** Opens a form through the Catat button; [choice] is activity, measurement or harvest. */
+internal fun FinanceTestRule.openRecord(choice: String) {
+    waitUntil(10_000) { onAllNodesWithTag("finance-record-fab").fetchSemanticsNodes().isNotEmpty() }
+    onNodeWithTag("finance-record-fab").performClick()
+    onNodeWithTag("record-$choice").performClick()
+}
+
+/** The "N belum terkirim" button in the top bar opens the outbox sheet; it only exists while something is unsent. */
+internal fun FinanceTestRule.openFinanceOutbox() {
+    waitUntil(10_000) { onAllNodesWithTag("finance-unsent").fetchSemanticsNodes().isNotEmpty() }
+    waitForIdle()
+    onNodeWithTag("finance-unsent").performClick()
+    waitUntil(10_000) { onAllNodesWithTag("finance-queue-list").fetchSemanticsNodes().isNotEmpty() }
+}
+
+/** Sends whatever is still queued from the unsent sheet; does nothing when the queue already drained by itself. */
+internal fun FinanceTestRule.sendQueuedNow() {
+    if (onAllNodesWithTag("finance-unsent").fetchSemanticsNodes().isEmpty()) return
+    // The queue can drain on its own between the check above and the tap, which is the outcome this call wants.
+    runCatching {
+        waitForIdle()
+        onNodeWithTag("finance-unsent").performClick()
+        waitUntil(5_000) { onAllNodesWithTag("queue-send-now").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("queue-send-now").performClick()
     }
-    if (verification.fetchSemanticsNodes().isNotEmpty()) {
-        onNodeWithTag("activity-verification-list").performScrollToNode(hasTestTag("verification-outbox"))
-        onNodeWithTag("verification-outbox").performClick()
-    }
+    if (onAllNodesWithTag("finance-queue-list").fetchSemanticsNodes().isNotEmpty()) androidx.test.espresso.Espresso.pressBack()
 }
 
 internal fun FinanceTestRule.logoutFromAccount() {

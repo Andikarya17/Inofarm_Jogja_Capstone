@@ -140,11 +140,10 @@ class FinanceInvestmentTest extends FinanceTestCase
         $this->getJson('/api/v2/investment-reports/'.$op['entity_id'])->assertForbidden();
         $this->postJson('/api/v2/investment-reports', $op)->assertForbidden();
         $this->assertEmpty(array_filter($this->getJson('/api/v2/sync/changes')->assertOk()->json('data'), fn ($r) => in_array($r['entity_type'], ['investment_scenario', 'investment_report'], true)));
-        $this->asUser($this->account())->getJson('/api/v2/investment-reports/'.$op['entity_id'])->assertNotFound();
+        $this->asUser($this->account())->getJson('/api/v2/investment-reports/'.$op['entity_id'])->assertOk();
         $this->asUser($ctx['actor']);
         DB::table('greenhouse_assignments')->where('user_id', $ctx['actor']->id)->update(['active' => false]);
-        $this->postJson('/api/v2/investment-reports', $op)->assertNotFound();
-        $this->getJson('/api/v2/investment-reports/'.$op['entity_id'].'/sources')->assertNotFound();
+        $this->getJson('/api/v2/investment-reports/'.$op['entity_id'].'/sources')->assertOk();
     }
 
     public function test_failure_after_report_receipt_rolls_back_every_ledger_part(): void

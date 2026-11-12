@@ -27,10 +27,6 @@ import com.inofarm.jogja.core.design.ForestScheme
 import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.design.FarmSpace
 import com.inofarm.jogja.core.design.FarmSheetHeading
-import com.inofarm.jogja.core.design.FarmActionRow
-import com.inofarm.jogja.core.design.FarmIcon
-import com.inofarm.jogja.core.design.FarmPanel
-import com.inofarm.jogja.core.design.FarmRowDivider
 import com.inofarm.jogja.core.design.LocalFarmDialogPicker
 import com.inofarm.jogja.core.sync.ContextCheck
 import com.inofarm.jogja.feature.Choice
@@ -56,33 +52,7 @@ internal fun CultivationUiState.workerDefault(greenhouse: JSONObject, today: Loc
         preferred?.getString("id"))
 }
 
-@Composable
-internal fun WorkerGreenhouseList(data: CultivationUiState, today: LocalDate, onSelect: (JSONObject) -> Unit) {
-    val greenhouses = data.greenhouses
-    if (greenhouses.isEmpty() || data.check == ContextCheck.ACCESS_CHANGED) return
-    FarmPanel(title = "Greenhouse penugasan") {
-        greenhouses.forEachIndexed { index, greenhouse ->
-            if (index > 0) FarmRowDivider()
-            val preferred = data.workerDefault(greenhouse, today)
-            val season = data.seasons.find { it.optString("id") == preferred.season }
-            val group = data.groups.find { it.optString("id") == preferred.group }
-            val active = greenhouse.optBoolean("active", true)
-            val detail = when {
-                !active -> "Greenhouse nonaktif"
-                group != null -> listOfNotNull(season?.optString("name"), group.optString("name"),
-                    workerAge(group, today)).joinToString(" · ")
-                season != null -> "${season.optString("name")} · Pilih kelompok tanam"
-                data.seasons.any { it.optString("greenhouse_id") == preferred.greenhouse && it.optString("status") == "open" } ->
-                    "Pilih musim dan kelompok tanam"
-                else -> "Belum ada musim terbuka"
-            }
-            FarmActionRow(greenhouse.getString("name"), detail, FarmIcon.Greenhouse,
-                Modifier.testTag("worker-greenhouse-${preferred.greenhouse}"), enabled = active) { onSelect(greenhouse) }
-        }
-    }
-}
-
-private fun workerAge(group: JSONObject, today: LocalDate): String {
+internal fun workerAge(group: JSONObject, today: LocalDate): String {
     val age = runCatching {
         PlantAge.calculate(group.getString("sowing_date"),
             if (group.isNull("transplant_date")) null else group.getString("transplant_date"),
@@ -92,14 +62,14 @@ private fun workerAge(group: JSONObject, today: LocalDate): String {
 }
 
 internal fun CultivationUiState.greenhouseAvailability(): String? = when {
-    loading -> "Memeriksa penugasan dan konteks budidaya…"
+    loading -> "Memeriksa greenhouse dan musim Anda…"
     check == ContextCheck.ACCESS_CHANGED -> "Akses akun berubah. Masuk kembali dengan akun yang sama."
-    check == ContextCheck.OFFLINE && greenhouses.isEmpty() -> "Server belum dapat dihubungi dan belum ada greenhouse tersimpan. Periksa koneksi lalu sinkronkan."
-    check == ContextCheck.OFFLINE -> "Menggunakan konteks tersimpan. Penugasan akan diperiksa kembali saat terhubung."
-    check == ContextCheck.FAILED && greenhouses.isEmpty() -> "Penugasan gagal dimuat. Sinkronkan untuk mencoba lagi."
-    check == ContextCheck.FAILED -> "Pemeriksaan server gagal. Daftar tersimpan mungkin belum mutakhir."
-    check == ContextCheck.CHECKED && greenhouses.isEmpty() -> "Belum ada penugasan efektif. Minta pengelola memeriksa penugasan dan masa berlakunya."
-    check == ContextCheck.CHECKED && greenhouses.none { it.optBoolean("active", true) } -> "Greenhouse penugasan sedang nonaktif. Minta pengelola memeriksa statusnya."
+    check == ContextCheck.OFFLINE && greenhouses.isEmpty() -> "Belum bisa terhubung dan belum ada greenhouse tersimpan. Periksa internet lalu perbarui."
+    check == ContextCheck.OFFLINE -> "Memakai data tersimpan. Diperbarui otomatis saat ada internet."
+    check == ContextCheck.FAILED && greenhouses.isEmpty() -> "Greenhouse gagal dimuat. Perbarui untuk mencoba lagi."
+    check == ContextCheck.FAILED -> "Gagal memeriksa data terbaru. Daftar tersimpan mungkin belum terbaru."
+    check == ContextCheck.CHECKED && greenhouses.isEmpty() -> "Anda belum ditugaskan di greenhouse mana pun. Minta pengelola menambahkan Anda."
+    check == ContextCheck.CHECKED && greenhouses.none { it.optBoolean("active", true) } -> "Greenhouse Anda sedang nonaktif. Minta pengelola memeriksa statusnya."
     else -> null
 }
 
@@ -151,7 +121,7 @@ internal fun HomeContextCard(
                     }
                     val summary = when {
                         group != null -> workerAge(group, today)
-                        greenhouse == null -> "Pilih dari penugasan Anda."
+                        greenhouse == null -> "Pilih greenhouse Anda."
                         season == null -> "Pilih musim terbuka untuk mulai mencatat."
                         else -> "Pilih kelompok tanam untuk mulai mencatat."
                     }
@@ -161,7 +131,7 @@ internal fun HomeContextCard(
                             onClick = onOpen, shape = FarmShape.Control,
                             contentPadding = PaddingValues(end = FarmSpace.Large),
                             modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-context-open")
-                        ) { Text(if (greenhouse == null) "Pilihan konteks" else "Ubah musim atau kelompok") }
+                        ) { Text(if (greenhouse == null) "Pilih greenhouse" else "Ubah musim atau kelompok") }
                         if (greenhouse != null) TextButton(
                             onClick = onOverview, shape = FarmShape.Control,
                             contentPadding = PaddingValues(end = FarmSpace.Large),
@@ -187,12 +157,29 @@ internal fun WorkerContextSheet(
     onSetup: (() -> Unit)? = null,
     chooseSingleGroup: Boolean = false,
     preferRunningPeriod: Boolean = false,
+    startableOnly: Boolean = false,
 ) {
+    val today = LocalDate.now(ActivityDraft.WIB)
     val greenhouses = data.greenhouses.filter { it.optBoolean("active", true) }
     val greenhouse = greenhouses.find { it.optString("id") == selected.greenhouse }
-    val seasons = data.seasons.filter { it.optString("greenhouse_id") == selected.greenhouse }
+    // A recording needs an open season and a group that has been sown, so the worker is not offered anything else.
+    val seasons = data.seasons.filter {
+        it.optString("greenhouse_id") == selected.greenhouse && (!startableOnly || it.optString("status") == "open")
+    }
     val season = seasons.find { it.optString("id") == selected.season }
-    val groups = data.groups.filter { it.optString("season_id") == selected.season && it.optBoolean("active", true) }
+    val groups = data.groups.filter {
+        it.optString("season_id") == selected.season && it.optBoolean("active", true) &&
+            (!startableOnly || runCatching { LocalDate.parse(it.getString("sowing_date")) <= today }.getOrDefault(false))
+    }
+    val allSeasons = data.seasons.filter { it.optString("greenhouse_id") == selected.greenhouse }
+    val allGroups = data.groups.filter { it.optString("season_id") == selected.season && it.optBoolean("active", true) }
+    LaunchedEffect(startableOnly, selected, season, groups) {
+        // Only after the cache has loaded: an empty list during start-up must not clear the saved choice.
+        if (!startableOnly || data.check != ContextCheck.CHECKED) Unit
+        else if (selected.season != null && season == null) onSelect(selected.copy(season = null, group = null))
+        else if (selected.group != null && groups.none { it.optString("id") == selected.group })
+            onSelect(selected.copy(group = null))
+    }
     val singleSeason = seasons.singleOrNull { it.optString("status") == "open" }
     val singleGroup = groups.singleOrNull()
     LaunchedEffect(chooseSingleGroup, selected, singleSeason, singleGroup) {
@@ -211,7 +198,7 @@ internal fun WorkerContextSheet(
     ) {
         CompositionLocalProvider(LocalFarmDialogPicker provides true) {
             Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Page)) {
-                FarmSheetHeading(recordingLabel ?: "Pilih konteks budidaya", onClose)
+                FarmSheetHeading(recordingLabel ?: if (greenhouse == null) "Pilih greenhouse" else "Pilih musim dan kelompok tanam", onClose)
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(bottom = FarmSpace.Large),
                     verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                     data.greenhouseAvailability()?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
@@ -226,7 +213,8 @@ internal fun WorkerContextSheet(
                             if (it != selected.season) onSelect(selected.copy(season = it, group = null))
                         }
                         if (data.check == ContextCheck.CHECKED && seasons.isEmpty())
-                            Text(if (onSetup == null) "Belum ada musim di greenhouse ini. Minta pengelola menyiapkannya." else "Belum ada musim di greenhouse ini.")
+                            Text(if (allSeasons.isNotEmpty()) "Semua musim di greenhouse ini sudah ditutup. Minta pengelola membukanya kembali."
+                                else if (onSetup == null) "Belum ada musim di greenhouse ini. Minta pengelola menambahkannya." else "Belum ada musim di greenhouse ini.")
                     }
                     if (season != null) {
                         val groupChoices = if (!chooseSingleGroup) groups else groups.map { group ->
@@ -239,17 +227,18 @@ internal fun WorkerContextSheet(
                         if (season.optString("status") == "closed")
                             Text("Musim ditutup. Pilih musim terbuka atau minta pengelola membukanya kembali.")
                         else if (data.check == ContextCheck.CHECKED && groups.isEmpty())
-                            Text(if (onSetup == null) "Belum ada kelompok aktif di musim ini. Minta pengelola menyiapkannya." else "Belum ada kelompok aktif di musim ini.")
+                            Text(if (allGroups.isNotEmpty()) "Kelompok tanam di musim ini belum ditanam. Bisa dicatat setelah tanggal tanam."
+                                else if (onSetup == null) "Belum ada kelompok aktif di musim ini. Minta pengelola menambahkannya." else "Belum ada kelompok aktif di musim ini.")
                     }
                     if (onSetup != null && !canContinue) {
-                        TextButton(onClick = onSetup, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Siapkan greenhouse dan periode") }
+                        TextButton(onClick = onSetup, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Atur greenhouse dan musim") }
                     }
                     if (recordingLabel != null && canContinue) Button(onClick = onContinue, shape = FarmShape.Control,
                         modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("finance-context-continue")) {
                         Text("Lanjut ke formulir")
                     }
                     if (!data.loading && (greenhouses.isEmpty() || data.check != ContextCheck.CHECKED)) {
-                        TextButton(onClick = onSync, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Sinkronkan") }
+                        TextButton(onClick = onSync, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Perbarui") }
                     }
                     OutlinedButton(onClick = onClose, shape = FarmShape.Control,
                         modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("finance-context-close")) {

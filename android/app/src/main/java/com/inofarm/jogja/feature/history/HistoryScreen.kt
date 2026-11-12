@@ -1,9 +1,14 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.inofarm.jogja.feature.history
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.rememberScrollState
@@ -11,8 +16,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +48,8 @@ import com.inofarm.jogja.core.design.FarmSheetHeading
 import com.inofarm.jogja.core.design.LocalFarmDialogPicker
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.*
+import com.inofarm.jogja.feature.activities.domain.ActivityDraft
+import com.inofarm.jogja.feature.activities.domain.CorrectionReference
 import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.assets.AssetDraft
 import com.inofarm.jogja.feature.context.CultivationUiState
@@ -48,19 +58,38 @@ import com.inofarm.jogja.feature.expenses.moneyLabel
 import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable fun HistoryScreen(session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind=OperationalKind.ACTIVITY,
-    returnToQueue:Boolean=false, onRecord:(()->Unit)?=null, recordLabel:String="", recordScope:String?=null, onSync:(()->Unit)?=null,
-    historyKindPicker:(@Composable ()->Unit)?=null, header:LazyListScope.()->Unit={}) {
+    returnToQueue:Boolean=false, recordScope:String?=null, onSync:(()->Unit)?=null,
+    historyKindPicker:(@Composable ()->Unit)?=null, canopy:Boolean=false, header:LazyListScope.()->Unit={}) {
     when {
         state.comparison!=null -> ConflictReview(state.comparison,session,context,state.busy,state.message,vm::resolve,vm::closeComparison,kind)
         state.selected!=null -> HistoryDetail(state.selected,session,context,state,vm,queue,onEdit,kind,returnToQueue)
         else -> FarmMenuList(Modifier.testTag("finance-history-list")) {
-            if (!kind.financial) item("history-heading") {
-                FarmMenuHeader(kind.label.replaceFirstChar { it.uppercaseChar() }, "Riwayat dalam penugasan akun ini.")
+            if (!kind.financial && !canopy) item("history-heading") {
+                FarmMenuHeader(kind.label.replaceFirstChar { it.uppercaseChar() }, "")
             }
             header()
-            item("history-filters") {
+            if (canopy) item("history-filters") {
+                Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                    historyKindPicker?.invoke()
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                        Text(historyScope(context, state, kind), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        HistoryFilters(context, state.filter, state.filterSeason, vm::filter, kind, pickDates = false,
+                            badge = activeFilterCount(state.filter, state.filterSeason), keepType = state.filter.type)
+                    }
+                    context.lastSyncedAt?.let {
+                        Text("Diperbarui ${java.time.Instant.ofEpochMilli(it).atZone(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH.mm 'WIB'"))}",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    recordScope?.let {
+                        Text("Catatan baru · $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else item("history-filters") {
                 FarmRecordCard {
                     if (historyKindPicker != null) Text("Riwayat", Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleMedium)
@@ -69,9 +98,7 @@ import java.time.LocalDate
                         color=MaterialTheme.colorScheme.onSurfaceVariant)
                     FlowRow(horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small),
                         verticalArrangement=Arrangement.spacedBy(FarmSpace.Small)) {
-                        HistoryFilters(context,state.filter,state.filterSeason,vm::filter,kind)
-                        if (onRecord != null) FilledTonalButton(onClick=onRecord,shape=FarmShape.Control,
-                            modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("history-new")) { Text(recordLabel) }
+                        HistoryFilters(context,state.filter,state.filterSeason,vm::filter,kind,pickDates=session.role==UserRole.WORKER)
                     }
                     recordScope?.let {
                         Text("Catatan baru · $it",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -79,44 +106,64 @@ import java.time.LocalDate
                 }
             }
             if (session.expired()) item("history-session") { ExpiredSessionNotice() }
-            else if (context.message != null || context.lastSyncedAt != null) item("history-sync") {
+            else if (context.message != null || (!canopy && context.lastSyncedAt != null)) item("history-sync") {
                 FarmRecordCard {
                     context.message?.let { Text(it, Modifier.testTag("finance-sync-message"),
                         style=MaterialTheme.typography.bodySmall, color=MaterialTheme.colorScheme.onSurfaceVariant) }
-                    context.lastSyncedAt?.let {
-                        Text("Sinkron terakhir ${timeLabel(Instant.ofEpochMilli(it).toString())}",
+                    if (!canopy) context.lastSyncedAt?.let {
+                        Text("Diperbarui ${timeLabel(Instant.ofEpochMilli(it).toString())}",
                             style=MaterialTheme.typography.bodySmall, color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
             state.message?.let { item("history-message") { Notice(it,true) } }
-            val filtered = state.filter != LocalHistoryFilter()
+            val filtered = (if (canopy) state.filter.copy(type = null) else state.filter) != LocalHistoryFilter()
             when {
                 state.loading || !state.loaded && state.loadError == null -> item("history-loading") {
                     FarmRecordCard { Text("Memuat riwayat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 }
                 state.loadError != null -> item("history-error") {
-                    FarmPanel(title="Riwayat belum dapat dimuat") {
+                    FarmPanel(title="Riwayat belum bisa dimuat") {
                         Text(state.loadError)
                         OutlinedButton(onClick=vm::reload,shape=FarmShape.Control,
-                            modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Muat ulang riwayat") }
+                            modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Coba lagi") }
                     }
                 }
                 state.records.isEmpty() -> item("history-empty") {
                     FarmPanel(title=if (filtered) "Belum ada catatan yang cocok dengan filter ini."
-                        else "Belum ada catatan ${kind.label} dalam riwayat akun ini.") {
-                        if (filtered) TextButton(onClick={vm.filter(LocalHistoryFilter())},
+                        else "Belum ada catatan ${kind.label}.") {
+                        if (filtered) TextButton(onClick={vm.filter(LocalHistoryFilter(type = state.filter.type.takeIf { canopy }))},
                             modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Hapus filter") }
                         else if (onSync != null && !session.expired()) TextButton(onClick=onSync,enabled=!context.loading,
-                            modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Sinkronkan riwayat") }
+                            modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Perbarui") }
                     }
                 }
             }
-            items(state.records, key = { it.id }) { record ->
-                HistoryRecordRow(record, kind, context) { vm.select(record.id) }
+            if (canopy) {
+                val today = LocalDate.now(ActivityDraft.WIB)
+                val days = mutableListOf<Pair<String, MutableList<LocalRecord>>>()
+                state.records.forEach { r ->
+                    val heading = dayHeading(r, today)
+                    if (days.lastOrNull()?.first == heading) days.last().second.add(r) else days.add(heading to mutableListOf(r))
+                }
+                days.forEach { (heading, rows) ->
+                    stickyHeader(key = "day-$heading-${rows.first().id}") { CanopyDayHeader(heading) }
+                    item(key = "day-rows-$heading-${rows.first().id}") {
+                        Column(Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+                            .background(MaterialTheme.colorScheme.surface)) {
+                            rows.forEachIndexed { i, r ->
+                                CanopyRecordRow(r, kind, context, session.scope.accountId, state.checks, i == 0, i == rows.lastIndex) { vm.select(r.id) }
+                            }
+                        }
+                    }
+                }
+            } else items(state.records, key = { it.id }) { record ->
+                HistoryRecordRow(record, kind, context, session.scope.accountId.takeIf { session.role == UserRole.WORKER }, state.checks) { vm.select(record.id) }
             }
             if(state.hasMore) item {
-                Button(onClick=vm::more,enabled=!state.loading,shape=FarmShape.Control,
+                if (canopy) OutlinedButton(onClick=vm::more,enabled=!state.loading,shape=FarmShape.Control,
+                    modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("finance-history-more")) {Text("Muat 50 berikutnya")}
+                else Button(onClick=vm::more,enabled=!state.loading,shape=FarmShape.Control,
                     modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("finance-history-more")) {Text("Muat 50 berikutnya")}
             }
         }
@@ -124,7 +171,9 @@ import java.time.LocalDate
 }
 
 @Composable
-private fun HistoryRecordRow(record: LocalRecord, kind: OperationalKind, context: CultivationUiState, onOpen: () -> Unit) {
+private fun HistoryRecordRow(
+    record: LocalRecord, kind: OperationalKind, context: CultivationUiState, workerAccount: String?, checks: Map<String, String>, onOpen: () -> Unit,
+) {
     val data = record.body
     val local = data.optJSONObject("_local_form")
     val facts = local ?: data
@@ -158,7 +207,7 @@ private fun HistoryRecordRow(record: LocalRecord, kind: OperationalKind, context
                 }.toPlainString()
             }.getOrNull()
             if (displayAmount != null) FarmAmount(moneyLabel(displayAmount))
-            else Text("Nominal draf belum valid",style=MaterialTheme.typography.bodySmall)
+            else Text("Nominal draf belum benar",style=MaterialTheme.typography.bodySmall)
         }
         if (kind == OperationalKind.HARVEST) facts.optJSONArray("items")?.let { grades ->
             repeat(minOf(grades.length(), 2)) { index ->
@@ -179,13 +228,32 @@ private fun HistoryRecordRow(record: LocalRecord, kind: OperationalKind, context
         if (notes != null) Text(notes, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(listOfNotNull(group, greenhouse, time ?: "Waktu belum tersedia").joinToString(" · "),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        RecordStatus(record.syncState)
+        if (workerAccount != null) WorkerRecordStatus(record, workerAccount, checks) else RecordStatus(record.syncState)
         if (data.optString("record_state") == "cancelled") Text("Dibatalkan", color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.labelMedium)
         if (kind == OperationalKind.ACTIVITY && (local?.optBoolean("skipped") ?: (data.optString("work_state") == "skipped")))
             Text("Kegiatan dilewati", style = MaterialTheme.typography.labelMedium)
     }
 }
+
+/** A worker reads drafts as "Draf" and sent records with the manager's check, not the transport state. */
+@Composable
+private fun WorkerRecordStatus(record: LocalRecord, account: String, checks: Map<String, String>) {
+    val colors = MaterialTheme.colorScheme
+    when {
+        record.syncState == SyncState.LOCAL ->
+            Text("Draf · tersimpan di perangkat", style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+        record.syncState == SyncState.ACCEPTED && record.recorderId() == account -> {
+            val decision = record.serverVersion?.let { checks["${record.id}#$it"] }
+            Text("Terkirim · " + when (decision) { "valid" -> "Sesuai"; "invalid" -> "Perlu diperbaiki"; else -> "Belum dicek" },
+                style = MaterialTheme.typography.labelLarge, color = if (decision == "invalid") colors.error else colors.onSurfaceVariant)
+        }
+        else -> RecordStatus(record.syncState)
+    }
+}
+
+private fun activeFilterCount(filter: LocalHistoryFilter, season: String?): Int =
+    listOfNotNull(filter.greenhouseId, season ?: filter.seasonId, filter.groupId, filter.from, filter.until, filter.recordState).size
 
 private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:OperationalKind):String {
     val filter=state.filter
@@ -199,7 +267,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
     val type=ActivityType.entries.find { it.wire==filter.type }?.label
     val status=when(filter.recordState) {"active" -> "Aktif"; "cancelled" -> "Dibatalkan"; else -> null}
     val scope=listOfNotNull(greenhouse,season,group,type,status,period).joinToString(" · ")
-    if(scope.isBlank()) return "Riwayat semua greenhouse dalam penugasan"
+    if(scope.isBlank()) return "Semua greenhouse"
     return when {
         season!=null && kind==OperationalKind.EXPENSE -> "Pembayaran yang dialokasikan · $scope"
         season!=null && kind==OperationalKind.ASSET -> "Aset dengan alokasi penyusutan · $scope"
@@ -208,7 +276,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun HistoryFilters(context:CultivationUiState,filter:LocalHistoryFilter,filterSeason:String?,onApply:(LocalHistoryFilter,String?)->Unit,kind:OperationalKind) {
+@Composable private fun HistoryFilters(context:CultivationUiState,filter:LocalHistoryFilter,filterSeason:String?,onApply:(LocalHistoryFilter,String?)->Unit,kind:OperationalKind,pickDates:Boolean,badge:Int?=null,keepType:String?=null) {
     var expanded by rememberSaveable {mutableStateOf(false)}
     var gh by rememberSaveable {mutableStateOf(filter.greenhouseId.orEmpty())};var season by rememberSaveable {mutableStateOf(filter.seasonId.orEmpty())};var group by rememberSaveable {mutableStateOf(filter.groupId.orEmpty())}
     var type by rememberSaveable {mutableStateOf(filter.type.orEmpty())};var status by rememberSaveable {mutableStateOf(filter.recordState.orEmpty())}
@@ -217,8 +285,9 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
         gh=filter.greenhouseId.orEmpty();season=filterSeason.orEmpty();group=filter.groupId.orEmpty()
         type=filter.type.orEmpty();status=filter.recordState.orEmpty()
         from=filter.from.orEmpty();until=filter.until.orEmpty();error=null;expanded=true
-    },shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-history-filters")) {
-        Text(if (filter == LocalHistoryFilter()) "Filter riwayat" else "Ubah filter")
+    },shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-history-filters")
+        .semantics { if (badge != null && badge > 0) contentDescription = "Filter riwayat, $badge aktif" }) {
+        Text(if (badge != null) (if (badge > 0) "Filter · $badge" else "Filter") else if (filter == LocalHistoryFilter()) "Filter riwayat" else "Ubah filter")
     }
     if(expanded) CompositionLocalProvider(LocalFarmDialogPicker provides true) { ModalBottomSheet(onDismissRequest={expanded=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
         containerColor=MaterialTheme.colorScheme.surface, contentWindowInsets = { WindowInsets.safeDrawing }) {
@@ -228,18 +297,23 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
             verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium)) {
         fun choices(rows:List<JSONObject>)=listOf(JSONObject().put("id","").put("name","Semua"))+rows
         val groups=context.groups.filter {row -> (season.isBlank() || row.optString("season_id")==season) && (gh.isBlank() || context.seasons.any {it.optString("id")==row.optString("season_id") && it.optString("greenhouse_id")==gh})}
-        FarmSection("Cakupan catatan") {
+        FarmSection("Greenhouse dan tanam") {
             Choice("Greenhouse",gh,choices(context.greenhouses),"history-gh") {gh=it;season="";group=""}
             Choice("Musim",season,choices(context.seasons.filter {gh.isBlank() || it.optString("greenhouse_id")==gh}),"history-season") {season=it;group=""}
             if(!kind.financial) Choice("Kelompok tanam",group,choices(groups),"history-group") {group=it}
         }
         FarmSection(if (kind == OperationalKind.ACTIVITY) "Jenis dan status" else "Status") {
-            if(kind==OperationalKind.ACTIVITY) Choice("Jenis kegiatan",type,choices(ActivityType.entries.map {JSONObject().put("id",it.wire).put("name",it.label)}),"history-type") {type=it}
+            if(kind==OperationalKind.ACTIVITY && badge==null) Choice("Jenis kegiatan",type,choices(ActivityType.entries.map {JSONObject().put("id",it.wire).put("name",it.label)}),"history-type") {type=it}
             Choice("Status catatan",status,choices(listOf(JSONObject().put("id","active").put("name","Aktif"),JSONObject().put("id","cancelled").put("name","Dibatalkan"))),"history-state") {status=it}
         }
         FarmSection("Periode WIB") {
-            FinanceField("Dari tanggal WIB",from,{from=it},"history-from",hint="YYYY-MM-DD; kosong untuk semua")
-            FinanceField("Sampai tanggal WIB",until,{until=it},"history-until",hint="YYYY-MM-DD; termasuk tanggal ini")
+            if(pickDates) {
+                DateFilterButton("Dari",from,"history-from") {from=it}
+                DateFilterButton("Sampai",until,"history-until") {until=it}
+            } else {
+                FinanceDateField("Dari tanggal WIB",from,{from=it},"history-from",hint="YYYY-MM-DD; kosong untuk semua")
+                FinanceDateField("Sampai tanggal WIB",until,{until=it},"history-until",hint="YYYY-MM-DD; termasuk tanggal ini")
+            }
         }
         error?.let {Notice(it,true)}
         Button(onClick={
@@ -260,11 +334,31 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
                 expanded=false
             }
         },shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("history-apply")) {Text("Terapkan filter")}
-        TextButton(onClick={onApply(LocalHistoryFilter(),null);expanded=false},
+        TextButton(onClick={onApply(LocalHistoryFilter(type = keepType),null);expanded=false},
             modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Hapus semua filter")}
         }
         }
     } }
+}
+
+@Composable private fun DateFilterButton(label:String,value:String,tag:String,onValue:(String)->Unit) {
+    val android=LocalContext.current
+    var open by remember {mutableStateOf(false)}
+    val day=remember(value) {runCatching {LocalDate.parse(value)}.getOrNull()}
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small),verticalAlignment=Alignment.CenterVertically) {
+        OutlinedButton(onClick={open=true},shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag(tag)) {
+            Text(day?.let {"$label ${it.format(DateTimeFormatter.ofPattern("d MMM yyyy",Locale.forLanguageTag("id-ID")))}"} ?: "$label: pilih tanggal")
+        }
+        if(day!=null) TextButton(onClick={onValue("")},modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("$tag-clear")) {Text("Hapus")}
+    }
+    val update by rememberUpdatedState(onValue)
+    DisposableEffect(open,android) {
+        val initial=day ?: LocalDate.now(ActivityDraft.WIB)
+        val dialog=if(open) DatePickerDialog(android,{_,year,month,dayOfMonth -> update(LocalDate.of(year,month+1,dayOfMonth).toString())},initial.year,initial.monthValue-1,initial.dayOfMonth) else null
+        dialog?.setOnDismissListener {open=false}
+        dialog?.show()
+        onDispose {dialog?.setOnDismissListener(null);dialog?.dismiss()}
+    }
 }
 
 @Composable private fun HistoryDetail(record:LocalRecord,session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind,returnToQueue:Boolean) {
@@ -281,47 +375,46 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
         state.message?.let {Notice(it,true)}
         pending.forEach {op ->
             var expanded by rememberSaveable(op.id) {mutableStateOf(false)}
-            TextButton(onClick={expanded=!expanded},modifier=Modifier.fillMaxWidth().testTag("history-operation-${op.id}")) {Text(if(expanded) "Tutup isi pengajuan" else "Lihat isi pengajuan yang tersimpan")}
+            TextButton(onClick={expanded=!expanded},modifier=Modifier.fillMaxWidth().testTag("history-operation-${op.id}")) {Text(if(expanded) "Tutup isi yang belum terkirim" else "Lihat isi yang belum terkirim")}
             if(expanded) {
                 val action=op.envelope.optString("action");val payload=op.envelope.optJSONObject("payload")
-                if(payload==null) Notice("Isi pengajuan belum dapat dibaca lengkap. Data tetap disimpan untuk ditinjau.",true)
+                if(payload==null) Notice("Isi catatan belum bisa dibaca lengkap. Data tetap tersimpan.",true)
                 else {
                     if(action in setOf("create","update")) RecordFacts(record.copy(body=payload,baseVersion=if(op.envelope.isNull("base_version")) null else op.envelope.getLong("base_version")),session,context,kind)
-                    if(payload.has("reason")) Text("Alasan pengajuan: ${payload.optString("reason")}")
+                    if(payload.has("reason")) Text("Catatan: ${payload.optString("reason")}")
                 }
-                Notice("Isi pengajuan ini tetap saat dicoba ulang. Edit lokal yang lebih baru ditampilkan terpisah pada detail di atas.")
             }
         }
-        if(pending.any {it.state=="CONFLICT"}) Button(onClick=vm::compare,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("history-compare")) {Text("Bandingkan lokal dan server")}
+        if(pending.any {it.state=="CONFLICT"}) Button(onClick=vm::compare,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("history-compare")) {Text("Bandingkan isian saya dengan data terbaru")}
         if(reviewable && (own || session.role==UserRole.MANAGER)) OutlinedButton(onClick={onEdit(record,true)},modifier=Modifier.fillMaxWidth().testTag("history-fix-rejected")) {Text("Perbaiki catatan yang ditolak")}
         if(pending.any {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"}) {
-            Notice("Operasi tertahan karena musim ditutup. Setelah pengelola membuka musim dan data disinkronkan, Anda dapat mencoba operasi yang sama.")
-            OutlinedButton(onClick=vm::retryClosed,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("history-retry-closed")) {Text("Tinjau musim & coba kembali")}
+            Notice("Catatan tertahan karena musim ditutup. Setelah musim dibuka, kirim ulang.")
+            OutlinedButton(onClick=vm::retryClosed,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("history-retry-closed")) {Text("Kirim ulang")}
         }
-        if(session.role==UserRole.MANAGER && record.syncState==SyncState.ACCEPTED && record.body.optString("record_state")!="cancelled") OutlinedButton(onClick={cancelReview=record},enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("history-cancel")) {Text("Batalkan catatan dengan alasan")}
+        if(session.role==UserRole.MANAGER && record.syncState==SyncState.ACCEPTED && record.body.optString("record_state")!="cancelled") OutlinedButton(onClick={cancelReview=record},enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("history-cancel")) {Text("Batalkan catatan")}
         if(record.serverVersion!=null) {
-            OutlinedButton(onClick={vm.audit()},enabled=!state.auditLoading,modifier=Modifier.fillMaxWidth().testTag("history-audit")) {Text(if(state.auditLoading) "Memuat audit…" else "Muat audit server")}
+            OutlinedButton(onClick={vm.audit()},enabled=!state.auditLoading,modifier=Modifier.fillMaxWidth().testTag("history-audit")) {Text(if(state.auditLoading) "Memuat…" else "Lihat riwayat perubahan")}
             state.audit?.let {audit ->
-                Text("Audit terakhir diperiksa: ${timeLabel(Instant.ofEpochMilli(audit.fetchedAt).toString())}",style=MaterialTheme.typography.bodySmall)
-                if(audit.cached) Notice("Audit terakhir tersimpan; pemeriksaan terbaru belum selesai atau koneksi terputus.")
+                Text("Diperbarui ${timeLabel(Instant.ofEpochMilli(audit.fetchedAt).toString())}",style=MaterialTheme.typography.bodySmall)
+                if(audit.cached) Notice("Menampilkan data tersimpan. Belum bisa memperbarui.")
                 audit.entries.forEach {entry -> AuditCard(entry,record,session,context,kind)}
-                if(audit.cursor!=null) TextButton(onClick={vm.audit(true)},enabled=!state.auditLoading,modifier=Modifier.fillMaxWidth()) {Text("Muat audit berikutnya")}
+                if(audit.cursor!=null) TextButton(onClick={vm.audit(true)},enabled=!state.auditLoading,modifier=Modifier.fillMaxWidth()) {Text("Muat lagi")}
             }
         }
         state.archives.forEachIndexed {index,body ->
             var expanded by rememberSaveable(record.id,index) {mutableStateOf(false)}
-            TextButton(onClick={expanded=!expanded},modifier=Modifier.fillMaxWidth().testTag("history-archive-$index")) {Text("Salinan lokal sebelum penyelesaian ${index+1}")}
+            TextButton(onClick={expanded=!expanded},modifier=Modifier.fillMaxWidth().testTag("history-archive-$index")) {Text("Isian saya sebelum diselesaikan ${index+1}")}
             if(expanded) RecordFacts(record.copy(body=body),session,context,kind)
         }
     }
-    cancelReview?.let {reviewed -> ReasonDialog("Batalkan catatan?","Catatan tetap tersimpan dalam histori. Pembatalan baru berlaku setelah diterima server.",state.busy,onDismiss={cancelReview=null},onConfirm={vm.cancel(reviewed,it);cancelReview=null})}
+    cancelReview?.let {reviewed -> ReasonDialog("Batalkan catatan?","Catatan tetap ada di riwayat.","Batalkan catatan",state.busy,onDismiss={cancelReview=null},onConfirm={vm.cancel(reviewed,it);cancelReview=null})}
 }
 
 @Composable private fun AuditCard(entry:AuditEntry,record:LocalRecord,session:FinanceSession,context:CultivationUiState,kind:OperationalKind) {
     var expanded by rememberSaveable(entry.id) {mutableStateOf(false)}
     OutlinedCard(Modifier.fillMaxWidth().animateContentSize(tween(FarmMotion.State))) {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text("${when(entry.action) {"create" -> "Pencatatan";"update" -> "Koreksi";"cancel" -> "Pembatalan";else -> "Perubahan"}} · versi ${entry.version}",fontWeight=FontWeight.SemiBold)
-        Text("${entry.actor} · ${timeLabel(entry.at)}");if(entry.reason.isNotBlank()) Text("Alasan: ${entry.reason}")
+        Text("${when(entry.action) {"create" -> "Pencatatan";"update" -> "Koreksi";"cancel" -> "Pembatalan";else -> "Perubahan"}}${if(session.role==UserRole.MANAGER) " · versi ${entry.version}" else ""}",fontWeight=FontWeight.SemiBold)
+        Text("${entry.actor} · ${timeLabel(entry.at)}");if(entry.reason.isNotBlank()) Text("Catatan: ${entry.reason}")
         TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Tutup perubahan" else "Lihat sebelum dan sesudah")}
         if(expanded) {Text("Sebelum",fontWeight=FontWeight.Bold);entry.before?.let {RecordFacts(record.copy(body=it,serverVersion=entry.version-1),session,context,kind)} ?: Text("Belum ada catatan.")
             HorizontalDivider();Text("Sesudah",fontWeight=FontWeight.Bold);entry.after?.let {RecordFacts(record.copy(body=it,serverVersion=entry.version),session,context,kind)}}
@@ -332,39 +425,41 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
     var reason by rememberSaveable(reviewed.id,reviewed.revision,reviewed.serverVersion) {mutableStateOf("")}
     var policy by rememberSaveable(reviewed.id,reviewed.revision,reviewed.serverVersion) {mutableStateOf("")}
     var useServer by remember {mutableStateOf(false)}
+    val worker=session.role==UserRole.WORKER
+    // A worker is never asked for the reference: it is refreshed only when the event time differs from the server revision.
+    val chosenPolicy=if(worker) CorrectionReference.policyBetween(reviewed.body.optString("occurred_at").takeIf {it.isNotBlank()},reviewed.serverBody?.optString("occurred_at")) else policy
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        com.inofarm.jogja.core.design.FarmPageTitle("Tinjau konflik versi")
-        Notice("Bandingkan seluruh isi. Penyelesaian menyimpan salinan lokal sebelumnya; perubahan ke server memerlukan operasi baru.")
-        FarmPanel(title = "Lokal · versi ${reviewed.baseVersion ?: "belum diterima"}") {
+        com.inofarm.jogja.core.design.FarmPageTitle("Data ini baru diubah di perangkat lain")
+        FarmPanel(title = if(worker) "Isian saya" else "Isian saya · versi ${reviewed.baseVersion ?: "belum terkirim"}") {
             RecordFacts(reviewed,session,context,kind)
         }
-        FarmPanel(title = "Server · versi ${reviewed.serverVersion ?: "belum tersedia"}") {
-            reviewed.serverBody?.let {RecordFacts(reviewed.copy(body=it),session,context,kind)} ?: Notice("Versi server belum tersedia. Sinkronkan dan buka perbandingan kembali.",true)
+        FarmPanel(title = if(worker) "Data terbaru" else "Data terbaru · versi ${reviewed.serverVersion ?: "belum tersedia"}") {
+            reviewed.serverBody?.let {RecordFacts(reviewed.copy(body=it),session,context,kind)} ?: Notice("Data terbaru belum tersedia. Perbarui lalu buka perbandingan lagi.",true)
         }
-        FinanceField("Alasan mempertahankan isi lokal",reason,{reason=it},"conflict-reason",singleLine=false)
-        if(!kind.financial) Choice("Acuan untuk koreksi",policy,listOf(JSONObject().put("id","preserve").put("name","Pertahankan acuan historis"),JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"conflict-policy") {policy=it}
+        FinanceField(if(session.role==UserRole.MANAGER) "Catatan (opsional)" else "Alasan memakai isian saya",reason,{reason=it},"conflict-reason",singleLine=false)
+        if(!kind.financial && !worker) Choice("Acuan untuk koreksi",policy,listOf(JSONObject().put("id","preserve").put("name","Pertahankan acuan historis"),JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"conflict-policy") {policy=it}
         message?.let {Notice(it,true)}
-        Button(onClick={onResolve(true,reason,policy)},enabled=!busy && reason.isNotBlank() && (kind.financial || policy.isNotBlank()) && reviewed.serverBody!=null,modifier=Modifier.fillMaxWidth().testTag("conflict-keep-local")) {Text("Antrekan isi lokal sebagai koreksi baru")}
-        OutlinedButton(onClick={useServer=true},enabled=!busy && reviewed.serverBody!=null,modifier=Modifier.fillMaxWidth().testTag("conflict-use-server")) {Text("Gunakan isi server")}
-        TextButton(onClick=onClose,enabled=!busy,modifier=Modifier.fillMaxWidth()) {Text("Kembali tanpa menyelesaikan")}
+        Button(onClick={onResolve(true,reason,chosenPolicy)},enabled=!busy && (session.role==UserRole.MANAGER || reason.isNotBlank()) && (kind.financial || chosenPolicy.isNotBlank()) && reviewed.serverBody!=null,modifier=Modifier.fillMaxWidth().testTag("conflict-keep-local")) {Text("Pakai isian saya")}
+        OutlinedButton(onClick={useServer=true},enabled=!busy && reviewed.serverBody!=null,modifier=Modifier.fillMaxWidth().testTag("conflict-use-server")) {Text("Pakai data terbaru")}
+        TextButton(onClick=onClose,enabled=!busy,modifier=Modifier.fillMaxWidth()) {Text("Kembali")}
     }
-    if(useServer) AlertDialog(onDismissRequest={useServer=false},title={Text("Gunakan versi server?")},text={Text("Isi server yang ditinjau menjadi catatan aktif di perangkat. Salinan lokal dan operasi lama tetap disimpan dalam histori.")},confirmButton={TextButton(onClick={useServer=false;onResolve(false,"","")},modifier=Modifier.testTag("conflict-confirm-server")) {Text("Gunakan versi server")}},dismissButton={TextButton(onClick={useServer=false}) {Text("Kembali")}})
+    if(useServer) AlertDialog(onDismissRequest={useServer=false},title={Text("Pakai data terbaru?")},text={Text("Isian Anda diganti dengan data terbaru. Isian lama tetap ada di riwayat.")},confirmButton={TextButton(onClick={useServer=false;onResolve(false,"","")},modifier=Modifier.testTag("conflict-confirm-server")) {Text("Pakai data terbaru")}},dismissButton={TextButton(onClick={useServer=false}) {Text("Kembali")}})
 }
 
 @Composable fun SeasonActions(season:JSONObject,busy:Boolean,message:String?,onAction:(JSONObject,String)->Unit) {
     var reviewed by remember {mutableStateOf<JSONObject?>(null)}
     val open=season.optString("status")=="open"
-    Text("Musim ${if(open) "terbuka" else "ditutup"} · versi ${season.optLong("version")}",style=MaterialTheme.typography.bodySmall)
-    OutlinedButton(onClick={reviewed=JSONObject(season.toString())},enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("finance-season-transition")) {Text(if(open) "Tutup musim dengan alasan" else "Buka kembali musim")}
+    Text("Musim ${if(open) "terbuka" else "ditutup"}",style=MaterialTheme.typography.bodySmall)
+    OutlinedButton(onClick={reviewed=JSONObject(season.toString())},enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("finance-season-transition")) {Text(if(open) "Tutup musim" else "Buka musim")}
     message?.let {Notice(it)}
-    reviewed?.let {snapshot -> ReasonDialog(if(snapshot.getString("status")=="open") "Tutup musim?" else "Buka kembali musim?","Alasan dicatat dalam audit. Perubahan berlaku setelah diterima server; antrean lama tetap perlu ditinjau.",busy,onDismiss={reviewed=null},onConfirm={onAction(snapshot,it);reviewed=null})}
+    reviewed?.let {snapshot -> ReasonDialog(if(snapshot.getString("status")=="open") "Tutup musim?" else "Buka musim?",if(snapshot.getString("status")=="open") "Catatan baru ditahan sampai musim dibuka lagi." else "Catatan baru bisa dibuat lagi.",if(snapshot.getString("status")=="open") "Tutup musim" else "Buka musim",busy,onDismiss={reviewed=null},onConfirm={onAction(snapshot,it);reviewed=null})}
 }
 
-@Composable internal fun ReasonDialog(title:String,description:String,busy:Boolean,onDismiss:()->Unit,onConfirm:(String)->Unit) {
+@Composable internal fun ReasonDialog(title:String,description:String,action:String,busy:Boolean,onDismiss:()->Unit,onConfirm:(String)->Unit) {
     var reason by rememberSaveable(title) {mutableStateOf("")}
     AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text(title)},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text(description);FinanceField("Alasan",reason,{reason=it},"history-action-reason",singleLine=false)
-    }},confirmButton={TextButton(onClick={onConfirm(reason)},enabled=!busy && reason.isNotBlank() && reason.length<=1000,modifier=Modifier.testTag("history-action-confirm")) {Text("Simpan & antrekan")}},dismissButton={TextButton(onClick=onDismiss,enabled=!busy) {Text("Kembali")}})
+        Text(description);FinanceField("Catatan (opsional)",reason,{reason=it},"history-action-reason",singleLine=false)
+    }},confirmButton={TextButton(onClick={onConfirm(reason)},enabled=!busy && reason.length<=1000,modifier=Modifier.testTag("history-action-confirm")) {Text(action)}},dismissButton={TextButton(onClick=onDismiss,enabled=!busy) {Text("Batal")}})
 }
 
 @Composable internal fun RecordFacts(record:LocalRecord,session:FinanceSession,context:CultivationUiState,kind:OperationalKind) {

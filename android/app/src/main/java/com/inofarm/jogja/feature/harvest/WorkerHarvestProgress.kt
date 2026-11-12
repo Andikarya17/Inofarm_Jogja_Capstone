@@ -22,11 +22,11 @@ import org.json.JSONObject
 import java.math.BigDecimal
 
 private val harvestStatuses = listOf(
-    "valid" to "Terverifikasi pengelola",
-    "pending" to "Menunggu pemeriksaan",
+    "valid" to "Sudah dicek pengelola",
+    "pending" to "Menunggu cek pengelola",
     "invalid" to "Perlu diperbaiki",
     "manager" to "Dicatat pengelola",
-    "legacy" to "Historis, belum diverifikasi",
+    "legacy" to "Data lama, belum dicek",
 )
 
 private val harvestQualities = listOf("saleable" to "Layak", "defective" to "Cacat", "unknown" to "Kondisi belum diketahui")
@@ -126,7 +126,7 @@ internal fun WorkerHarvestProgress(
                     showSources = false
                 }
                 if (groups.isEmpty()) Text("Belum ada kelompok tanam di greenhouse ini.")
-            } else Text("Pilih greenhouse dalam penugasan Anda.")
+            } else Text("Pilih greenhouse Anda.")
         }
         if (loading) item { Text("Memeriksa progres panen…") }
         error?.let { message -> item {
@@ -210,8 +210,8 @@ private fun ProgressSummary(data: JSONObject, saved: Boolean, showSources: Boole
             }
         }
         HorizontalDivider()
-        FarmSectionHeading("Hasil menurut verifikasi")
-        Text("Tercatat mencakup semua revisi aktif yang diterima server.", style = MaterialTheme.typography.bodySmall)
+        FarmSectionHeading("Hasil menurut cek pengelola")
+        Text("Tercatat mencakup semua revisi aktif yang sudah terkirim.", style = MaterialTheme.typography.bodySmall)
         harvestQualities.forEach { (key, label) -> FarmFact("Tercatat · $label", formatHarvestAmount(totals.getJSONObject(key))) }
         val verification = data.getJSONObject("verification")
         harvestStatuses.forEach { (status, label) ->

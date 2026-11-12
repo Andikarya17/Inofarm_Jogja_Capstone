@@ -38,7 +38,7 @@ class AdminFormTest {
     }
     @Test fun closeSeasonOnlySubmitsReasonAndRetainsVersion() {
         val form=AdminForm.edit(AdminResource.SEASON,JSONObject().put("id","s").put("version",4),"close")
-        assertTrue(runCatching {form.payload()}.isFailure)
+        assertEquals(emptySet<String>(),form.payload().keys().asSequence().toSet())
         assertEquals(setOf("reason"),form.copy(values=mapOf("reason" to "Review selesai")).payload().keys().asSequence().toSet())
         assertEquals(4L,AdminForm.parse(form.json()).version)
     }

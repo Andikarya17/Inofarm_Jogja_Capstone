@@ -124,7 +124,7 @@ final class ActivityController extends Controller
             'observations.leaf_count' => 'nullable|integer:strict|min:0|max:2147483647', 'observations.sample_basis' => 'nullable|string|max:500',
             'notes' => 'present|string|max:2000'];
         if ($action !== 'create') {
-            $rules['reason'] = 'required|string|min:1|max:1000';
+            $rules['reason'] = OperationInput::reasonRule($request, 'required|string|min:1|max:1000');
         } else {
             $rules['running_period_version'] = 'sometimes|integer:strict|min:1|max:2147483647';
         }

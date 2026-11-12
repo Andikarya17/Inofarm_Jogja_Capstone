@@ -1,5 +1,13 @@
 # Status implementasi nyata, 11 November 2026
 
+## Pengelola super admin dan UI Versi B
+
+**Terbukti (tes baru dari sesi ini):** backend 157 tes/3.972 assertion lulus pada `inofarm_test`; pengelola tanpa penugasan membaca dan mengubah semua greenhouse dan akun, pekerja tetap terbatas penugasan, alasan opsional hanya untuk pengelola, urutan permintaan wizard diterima server. Android: build debug, 89 tes JVM, lint (0 error, 16 warning, 1 hint). **Tidak terbukti:** tampilan di emulator atau perangkat, instrumentasi Android, TalkBack, font 200%, benchmark. Teks di tes instrumentasi sudah diselaraskan dan dikompilasi, tetapi tidak dijalankan. Tidak ada migration; database lokal tidak disentuh. Rincian, string lama yang tersisa dan batas: [bukti](MANAGER_SUPERADMIN_EVIDENCE_20261111.md).
+
+## Alur pekerja, 11 November 2026
+
+Pekerja memakai dua tab (Beranda, Riwayat), tombol Catat untuk kegiatan, pengukuran dan panen, dan indikator "N belum terkirim" dengan sheet "Kirim sekarang". Beranda menampilkan kartu tiap greenhouse (jadwal hari ini, pengukuran terakhir) dan satu kartu "N catatan perlu diperbaiki". Riwayat punya chip Catatan saya, label Draf dan status cek, serta filter tanggal dengan pemilih Android. Koreksi pekerja memilih acuan otomatis: dinilai ulang hanya bila waktu kejadian berubah. Source Android saja, tanpa perubahan backend atau migration. Terbukti pada emulator API 30 dengan fixture sintetis, 96 tes JVM dan lint 0 error; belum pada perangkat fisik atau backend nyata. [Matriks dan batas bukti](WORKER_FLOW_EVIDENCE_20261111.md).
+
 ## Penyelarasan pekerja
 
 Beranda pekerja membuka periode yang sah dari pilihan greenhouse scoped. HSS/HST tetap dibaca dari acuan tanggal, dan pasangan EC/PPM cache mengikuti keputusan revisi. Form memakai picker tanggal dan jam Android. Agenda WIB memisahkan jadwal, catatan saya, koreksi dan kiriman tertahan. Panen pekerja dapat diperiksa pengelola per revisi dan progres memisahkan hasil tercatat dari hasil terverifikasi. [Checkpoint dan bukti PK0–PK7](WORKER_ALIGNMENT_EVIDENCE_20261110.md).

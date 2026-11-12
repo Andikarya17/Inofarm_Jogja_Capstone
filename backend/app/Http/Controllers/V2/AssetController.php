@@ -98,7 +98,7 @@ final class AssetController extends Controller
             'period_start' => 'required|date_format:Y-m-d', 'period_end' => 'required|date_format:Y-m-d|after:operation.payload.period_start',
             'amount' => 'required|string|max:30', 'allocation_basis' => $text]);
         if ($action !== 'create') {
-            $rules['reason'] = $text;
+            $rules['reason'] = OperationInput::reasonRule($request, $text, 2000);
         }
         $op = OperationInput::read($request, $this->kind($resource), $action, $rules, $id);
         foreach (['life_years', 'usage_year'] as $key) {

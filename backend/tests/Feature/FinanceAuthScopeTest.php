@@ -118,14 +118,12 @@ class FinanceAuthScopeTest extends TestCase
             ->assertStatus(413)->assertJsonPath('code', 'payload_too_large');
     }
 
-    public function test_context_pagination_is_bounded_and_manager_has_no_global_access(): void
+    public function test_context_pagination_is_bounded_and_manager_reaches_every_greenhouse_without_assignment(): void
     {
         $manager = $this->account('manager');
         $a = $this->greenhouse($manager, 'A');
         $b = $this->greenhouse($manager, 'B');
-        $this->withToken($this->token($manager))->getJson('/api/v2/greenhouses')->assertJsonCount(0, 'data');
-        $this->assign($manager, $a, $manager);
-        $this->assign($manager, $b, $manager);
+        $this->withToken($this->token($manager))->getJson('/api/v2/greenhouses')->assertJsonCount(2, 'data');
         $first = $this->getJson('/api/v2/greenhouses?limit=1')->assertJsonCount(1, 'data')->json();
         $second = $this->getJson('/api/v2/greenhouses?limit=1&cursor='.$first['next_cursor'])->assertJsonCount(1, 'data')->json();
         $this->assertNotSame($first['data'][0]['id'], $second['data'][0]['id']);

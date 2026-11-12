@@ -40,7 +40,7 @@ object InvestmentContract {
         return body
     }
     fun report(body:JSONObject,accepted:Boolean):JSONObject {
-        require(body.getString("formula_version")==VERSION) {"Versi rumus investasi belum didukung."}
+        require(body.getString("formula_version")==VERSION) {"Versi rumus investasi belum didukung. Perbarui aplikasi."}
         WireContract.uuid(body.getString("greenhouse_id"));WireContract.uuid(body.getString("scenario_id"));integer(body,"scenario_version",1)
         require(body.has("season_id") && body.isNull("season_id") && body.getString("currency")=="IDR" && body.getString("timezone")=="Asia/Jakarta" && body.getString("report_state")=="provisional")
         require(hash.matches(body.getString("sources_hash")));integer(body,"source_count",2,101)

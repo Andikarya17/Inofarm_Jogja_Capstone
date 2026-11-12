@@ -29,18 +29,18 @@ class ReportExportTransport(client:OkHttpClient) {
                 try {response.use {
                     val body=response.body ?: throw IOException("Unduhan belum tersedia.")
                     if(!response.isSuccessful) {
-                        val detail=runCatching {JSONObject(body.byteStream().use {input->val buffer=ByteArray(65536);var count=0;while(count<buffer.size) {val read=input.read(buffer,count,buffer.size-count);if(read<0) break;count+=read};String(buffer,0,count,Charsets.UTF_8)})}.getOrElse {JSONObject().put("message","Server belum dapat memberikan unduhan (${response.code}).")}
+                        val detail=runCatching {JSONObject(body.byteStream().use {input->val buffer=ByteArray(65536);var count=0;while(count<buffer.size) {val read=input.read(buffer,count,buffer.size-count);if(read<0) break;count+=read};String(buffer,0,count,Charsets.UTF_8)})}.getOrElse {JSONObject().put("message","Unduhan belum bisa disiapkan. Coba lagi nanti.")}
                         throw FinanceApiFailure(response.code,detail)
                     }
-                    require(response.header("Content-Type").orEmpty().substringBefore(';').trim().lowercase()==mime) {"Jenis berkas unduhan tidak sesuai."}
-                    require(response.header("X-Report-Snapshot-Hash")==hash) {"Unduhan bukan snapshot yang ditinjau."}
-                    val expected=response.header("X-Content-SHA256").orEmpty();require(Regex("[0-9a-f]{64}").matches(expected)) {"Checksum unduhan tidak tersedia."}
-                    val length=body.contentLength();require(length==-1L || length in 1..MAX_BYTES.toLong()) {"Ukuran unduhan di luar batas teknis aplikasi."}
+                    require(response.header("Content-Type").orEmpty().substringBefore(';').trim().lowercase()==mime) {"Jenis berkas tidak sesuai. Coba unduh lagi."}
+                    require(response.header("X-Report-Snapshot-Hash")==hash) {"Berkas bukan dari laporan yang sedang dibuka. Coba unduh lagi."}
+                    val expected=response.header("X-Content-SHA256").orEmpty();require(Regex("[0-9a-f]{64}").matches(expected)) {"Berkas tidak bisa dipastikan utuh. Coba unduh lagi."}
+                    val length=body.contentLength();require(length==-1L || length in 1..MAX_BYTES.toLong()) {"Berkas terlalu besar untuk diunduh."}
                     val digest=MessageDigest.getInstance("SHA-256");val output=ByteArrayOutputStream();var count=0
-                    body.byteStream().use {input->val buffer=ByteArray(32768);while(true) {val read=input.read(buffer);if(read<0) break;count+=read;if(count>MAX_BYTES) throw IOException("Unduhan melewati batas teknis16MB.");digest.update(buffer,0,read);output.write(buffer,0,read)}}
-                    require(count>0 && (length<0 || count.toLong()==length)) {"Unduhan belum diterima utuh."}
-                    val actual=digest.digest().joinToString("") {b->"%02x".format(b)};require(actual==expected) {"Checksum berkas tidak cocok. Unduhan belum disimpan."}
-                    val bytes=output.toByteArray();if(format=="pdf") require(bytes.size>=5 && bytes.copyOfRange(0,5).toString(Charsets.US_ASCII)=="%PDF-") {"Berkas PDF tidak sah."}
+                    body.byteStream().use {input->val buffer=ByteArray(32768);while(true) {val read=input.read(buffer);if(read<0) break;count+=read;if(count>MAX_BYTES) throw IOException("Berkas terlalu besar untuk diunduh (maksimal 16 MB).");digest.update(buffer,0,read);output.write(buffer,0,read)}}
+                    require(count>0 && (length<0 || count.toLong()==length)) {"Unduhan terputus. Coba lagi."}
+                    val actual=digest.digest().joinToString("") {b->"%02x".format(b)};require(actual==expected) {"Berkas rusak saat diunduh dan tidak disimpan. Coba lagi."}
+                    val bytes=output.toByteArray();if(format=="pdf") require(bytes.size>=5 && bytes.copyOfRange(0,5).toString(Charsets.US_ASCII)=="%PDF-") {"Berkas PDF rusak. Coba unduh lagi."}
                     if(continuation.isActive) continuation.resume(ReportFile(bytes,mime,hash,actual))
                 }} catch(error:Exception) {if(continuation.isActive) continuation.resumeWithException(error)}
             }

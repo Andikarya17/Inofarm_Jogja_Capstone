@@ -24,12 +24,12 @@ class FinancialEntryRepository(val vault:FinanceSessionVault,private val store:L
         }
         if(queue) {
             val effective=draft.copy(baseVersion=draft.baseVersion ?: known)
-            val errors=effective.validation()
+            val errors=effective.validation(session.role!=UserRole.MANAGER)
             if(errors.isNotEmpty()) throw FinancialValidationFailure(errors,effective.baseVersion)
             if(draft.kind==RecordKind.COST_ALLOCATION) {
-                val source=store.cachedOne(session.scope.key,"expense",draft.expenseId) ?: error("Pembayaran sumber belum diterima dan tersinkron. Simpan draf dahulu.")
+                val source=store.cachedOne(session.scope.key,"expense",draft.expenseId) ?: error("Pembayaran sumber belum terkirim. Simpan draf dulu.")
                 require(source.getString("greenhouse_id")==draft.greenhouseId && source.getString("record_state")=="active" && source.getString("payment_kind")=="operating") {"Pilih sumber pembayaran operasi aktif dari greenhouse yang sama."}
-                val season=store.cachedOne(session.scope.key,"seasons",draft.seasonId) ?: error("Musim belum tersimpan. Sinkronkan dahulu.")
+                val season=store.cachedOne(session.scope.key,"seasons",draft.seasonId) ?: error("Musim belum tersedia di perangkat. Perbarui dulu.")
                 require(season.getString("greenhouse_id")==draft.greenhouseId && season.getString("status")=="open") {"Musim harus terbuka dan berasal dari greenhouse yang sama."}
             }
             store.saveAndQueue(session.scope.key,draft.id,draft.greenhouseId,effective.copy(lockedParents=true).localJson().put("completeness","ready"),existing?.revision,effective.baseVersion,

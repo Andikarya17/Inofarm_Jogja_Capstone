@@ -76,14 +76,14 @@ class HarvestRepository(val vault:FinanceSessionVault,private val store:LocalFin
     suspend fun queueTransition(session: FinanceSession, ticket: Long, progress: JSONObject, complete: Boolean, reason: String) =
         withContext(Dispatchers.IO) {
             checkSession(session, ticket)
-            require(session.role == UserRole.MANAGER && reason.isNotBlank() && reason.length <= 1000)
+            require(session.role == UserRole.MANAGER && reason.length <= 1000)
             val id = progress.getString("group_id")
             val greenhouse = progress.getString("greenhouse_id")
             val version = progress.getLong("group_version")
             val current = store.record(session.scope.key, id)
             val master = store.cachedOne(session.scope.key, "planting_groups", id)?.takeIf { it.optLong("version") == version }
                 ?: JSONObject().put("id", id).put("season_id", progress.getString("season_id")).put("version", version)
-            store.queueAction(session.scope.key, id, greenhouse, "planting_groups", master, JSONObject().put("reason", reason.trim()),
+            store.queueAction(session.scope.key, id, greenhouse, "planting_groups", master, JSONObject().apply { if (reason.isNotBlank()) put("reason", reason.trim()) },
                 if (complete) "complete_harvest" else "reopen_harvest", version, current?.revision)
         }
 
@@ -104,7 +104,7 @@ class HarvestRepository(val vault:FinanceSessionVault,private val store:LocalFin
         }
         if(queue) {
             val effective=draft.copy(baseVersion=draft.baseVersion ?: existing?.baseVersion)
-            val errors=effective.validation()
+            val errors=effective.validation(session.role!=UserRole.MANAGER)
             if(errors.isNotEmpty()) throw HarvestValidationFailure(errors,effective.baseVersion)
             val local=effective.copy(lockedItems=effective.lockedItems+effective.items.map {it.id}).localJson().put("completeness","ready")
             store.saveAndQueue(session.scope.key,draft.id,draft.greenhouseId,local,existing?.revision,effective.baseVersion,effective.replaceValidationRejected,kind="harvest",queuePayload=effective.payload())

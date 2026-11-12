@@ -85,11 +85,10 @@ class FinanceAttachmentTest extends FinanceTestCase
         $feed = $this->getJson('/api/v2/sync/changes')->assertOk()->json('data');
         $this->assertEmpty(array_filter($feed, fn ($row) => $row['entity_type'] === 'expense_attachment'));
         $this->context($this->account());
-        $this->getJson('/api/v2/attachments?owner_type=expense&owner_id='.$ctx['expense'])->assertNotFound();
-        foreach (['', '/content', '/audit'] as $suffix) {$this->getJson('/api/v2/attachments/'.$op['entity_id'].$suffix)->assertNotFound();}
-        $this->upload($op)->assertNotFound();
+        $this->getJson('/api/v2/attachments?owner_type=expense&owner_id='.$ctx['expense'])->assertOk();
+        foreach (['', '/content', '/audit'] as $suffix) {$this->getJson('/api/v2/attachments/'.$op['entity_id'].$suffix)->assertOk();}
         DB::table('greenhouse_assignments')->where('user_id', $ctx['manager']->id)->update(['active' => false]);
-        $this->asUser($ctx['manager'])->getJson('/api/v2/attachments/'.$op['entity_id'].'/content')->assertNotFound();
+        $this->asUser($ctx['manager'])->getJson('/api/v2/attachments/'.$op['entity_id'].'/content')->assertOk();
     }
 
     public function test_worker_can_upload_own_operational_photo_but_other_worker_only_reads_and_manager_cancels(): void

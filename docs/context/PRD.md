@@ -10,7 +10,7 @@ Bagian audit sebelum remediasi di bawah mencatat kondisi saat diperiksa. Keterti
 
 KF01–14/KNF01–08 tetap berlaku. Keputusan terbaru menambah inbox verifikasi catatan pekerja per revisi, label belum diverifikasi pada pengukuran yang diterima server, pengecualian revisi invalid dari kartu pengelola, pengamatan opsional terstruktur, target panen terpisah dari populasi, kondisi layak/cacat per rincian, dan penyelesaian panen manual terpisah dari penutupan musim. Menu akun menyediakan Kelola greenhouse/Kelola akun. [Keputusan dan bukti PG0–PG7](MANAGER_ALIGNMENT_EVIDENCE_20261110.md).
 
-Produk aktif Android native minSdk29, finance default tanpa flag; dua role worker/manager dengan assignment eksplisit. Pemilihan GH di Beranda pengelola tidak mengubah parent draf. [CLAUDE.md](../../CLAUDE.md) memuat matriks kewenangan/alur. [Audit10 November](SYSTEM_AUDIT_20261110.md) memisahkan kebutuhan, source dan database lokal yang masih tertinggal. Bagian FIN bertanggal di bawah adalah riwayat, bukan backlog terbaru atau penundaan push yang masih berlaku.
+Produk aktif Android native minSdk29, finance default tanpa flag; dua role worker/manager (pekerja dengan penugasan eksplisit; pengelola super admin sejak 11 November 2026). Pemilihan GH di Beranda pengelola tidak mengubah parent draf. [CLAUDE.md](../../CLAUDE.md) memuat matriks kewenangan/alur. [Audit10 November](SYSTEM_AUDIT_20261110.md) memisahkan kebutuhan, source dan database lokal yang masih tertinggal. Bagian FIN bertanggal di bawah adalah riwayat, bukan backlog terbaru atau penundaan push yang masih berlaku.
 
 ## Beranda pengelola — 8 November 2026
 

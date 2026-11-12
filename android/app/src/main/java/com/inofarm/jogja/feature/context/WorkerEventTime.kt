@@ -39,7 +39,7 @@ internal fun WorkerEventTime(
     val group = context.groups.find { it.optString("id") == groupId }
     val season = context.seasons.find { it.optString("id") == group?.optString("season_id") }
     val parents = listOfNotNull(greenhouse?.optString("name"), season?.optString("name"), group?.optString("name"))
-    Text(parents.joinToString(" · ").ifBlank { "Konteks belum tersimpan" }, style = MaterialTheme.typography.titleMedium)
+    Text(parents.joinToString(" · ").ifBlank { "Pilihan belum tersimpan" }, style = MaterialTheme.typography.titleMedium)
     val age = remember(group, date, time, preserveAge) {
         if (preserveAge || group == null) null else runCatching {
             PlantAge.calculate(group.getString("sowing_date"), group.optString("transplant_date").takeUnless { group.isNull("transplant_date") },
@@ -49,7 +49,7 @@ internal fun WorkerEventTime(
     if (preserveAge) {
         val hss = historicalAge?.takeUnless { it.isNull("hss") }?.optString("hss") ?: "belum tersedia"
         val hst = historicalAge?.takeUnless { it.isNull("hst") }?.optString("hst") ?: "belum berlaku"
-        Text("Acuan historis · HSS $hss · HST $hst", style = MaterialTheme.typography.bodySmall)
+        Text("Umur saat dicatat · HSS $hss · HST $hst", style = MaterialTheme.typography.bodySmall)
     } else {
         Text("HSS ${age?.hss ?: "belum tersedia"} · HST ${age?.hst ?: "belum berlaku"}", style = MaterialTheme.typography.bodySmall)
         age?.reasons?.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }

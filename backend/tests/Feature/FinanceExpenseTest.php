@@ -84,17 +84,15 @@ class FinanceExpenseTest extends FinanceTestCase
         $this->getJson('/api/v2/expenses/'.$expense['entity_id'].'/availability')->assertForbidden();
         $feed = $this->getJson('/api/v2/sync/changes')->assertOk()->json('data');
         $this->assertEmpty(array_filter($feed, fn ($row) => in_array($row['entity_type'], ['expense', 'cost_allocation', 'expense_balance', 'expense_categories'], true)));
+        // A manager reaches every greenhouse, with or without an assignment.
         $this->context($this->account());
         foreach (['expenses' => $expense, 'cost-allocations' => $allocation] as $path => $op) {
-            $this->getJson('/api/v2/'.$path)->assertJsonCount(0, 'data');
-            $this->postJson('/api/v2/'.$path, $op)->assertNotFound();
-            $this->getJson('/api/v2/'.$path.'/'.$op['entity_id'])->assertNotFound();
-            $this->getJson('/api/v2/'.$path.'/'.$op['entity_id'].'/audit')->assertNotFound();
+            $this->getJson('/api/v2/'.$path.'/'.$op['entity_id'])->assertOk();
+            $this->getJson('/api/v2/'.$path.'/'.$op['entity_id'].'/audit')->assertOk();
         }
-        $this->getJson('/api/v2/expenses/'.$expense['entity_id'].'/availability')->assertNotFound();
+        $this->getJson('/api/v2/expenses/'.$expense['entity_id'].'/availability')->assertOk();
         DB::table('greenhouse_assignments')->where('user_id', $ctx['manager']->id)->update(['active' => false]);
-        $this->asUser($ctx['manager'])->postJson('/api/v2/expenses', $expense)->assertNotFound();
-        $this->getJson('/api/v2/expenses/'.$expense['entity_id'])->assertNotFound();
+        $this->asUser($ctx['manager'])->getJson('/api/v2/expenses/'.$expense['entity_id'])->assertOk();
     }
 
     public function test_money_basis_and_source_type_are_strict_and_missing_is_not_zero(): void

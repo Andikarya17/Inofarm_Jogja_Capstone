@@ -148,8 +148,8 @@ class FinanceRecoveryTest extends FinanceTestCase
         $this->assertDatabaseCount('activities', 1);
         $this->assertDatabaseCount('sync_operations', $ledgerCount);
         DB::table('greenhouse_assignments')->where('user_id', $actor->id)->update(['active' => false]);
-        $this->postJson('/api/v2/sync/reconcile', $input)->assertNotFound();
-        $this->postJson('/api/v2/sync/reconcile', ['sync_epoch' => $epoch, 'operation' => $missing])->assertNotFound();
+        $this->postJson('/api/v2/sync/reconcile', $input)->assertOk()->assertJsonPath('state', 'receipt_found');
+        $this->postJson('/api/v2/sync/reconcile', ['sync_epoch' => $epoch, 'operation' => $missing])->assertOk()->assertJsonPath('state', 'manual_review');
         $this->postJson('/api/v2/sync/reconcile', [...$input, 'actor_id' => 'forged'])->assertUnprocessable();
     }
 

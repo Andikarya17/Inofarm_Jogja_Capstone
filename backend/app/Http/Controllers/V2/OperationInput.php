@@ -12,6 +12,26 @@ final class OperationInput
 {
     public const UUID = 'regex:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D';
 
+    /** Managers may omit the change note (stored as null); every other actor keeps the endpoint's existing rule. */
+    public static function reasonRule(Request $request, array|string $existing, int $max = 1000): array|string
+    {
+        return $request->user()?->role === 'manager' ? ['sometimes', 'nullable', 'string', 'max:'.$max] : $existing;
+    }
+
+    /** True when no payload key is required, so an empty payload object is a valid request. */
+    private static function allOptional(array $payloadRules): bool
+    {
+        foreach ($payloadRules as $rule) {
+            foreach (is_array($rule) ? $rule : explode('|', $rule) as $part) {
+                if (is_string($part) && in_array(explode(':', $part)[0], ['required', 'present'], true)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     public static function read(Request $request, string $type, string $action, array $payloadRules, ?string $id = null): array
     {
         $rules = ['operation' => 'required|array:schema_version,sync_epoch,operation_id,entity_id,entity_type,action,base_version,payload',
@@ -19,7 +39,7 @@ final class OperationInput
             'operation.operation_id' => ['required', self::UUID], 'operation.entity_id' => ['required', self::UUID],
             'operation.entity_type' => 'required|in:'.$type, 'operation.action' => 'required|in:'.$action,
             'operation.base_version' => $action === 'create' ? 'present|prohibited' : ['required', 'integer', 'min:1', 'max:2147483647'],
-            'operation.payload' => 'required|array:'.implode(',', array_unique(array_map(fn ($key) => explode('.', $key)[0], array_keys($payloadRules))))];
+            'operation.payload' => (self::allOptional($payloadRules) ? 'present' : 'required').'|array:'.implode(',', array_unique(array_map(fn ($key) => explode('.', $key)[0], array_keys($payloadRules))))];
         foreach ($payloadRules as $key => $rule) {
             $rules['operation.payload.'.$key] = $rule;
         }

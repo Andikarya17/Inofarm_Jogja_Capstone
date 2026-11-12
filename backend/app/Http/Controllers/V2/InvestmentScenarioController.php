@@ -22,7 +22,7 @@ final class InvestmentScenarioController extends Controller
             'cash_flows' => 'required|array|min:1|max:100', 'cash_flows.*' => 'required|array:year,amount,source_kind,source_reference,basis', 'cash_flows.*.year' => 'required|integer|min:1|max:100', 'cash_flows.*.amount' => $money,
             'cash_flows.*.source_kind' => 'present|nullable|in:actual,projection', 'cash_flows.*.source_reference' => 'present|nullable|string|max:200', 'cash_flows.*.basis' => 'present|nullable|string|max:2000', 'notes' => 'present|nullable|string|max:2000'];
         if ($reason) {
-            $rules['reason'] = ['required', 'string', 'max:2000', 'regex:/\\S/u'];
+            $rules['reason'] = OperationInput::reasonRule(request(), ['required', 'string', 'max:2000', 'regex:/\\S/u'], 2000);
         }
 
         return $rules;
@@ -45,7 +45,7 @@ final class InvestmentScenarioController extends Controller
 
     private function write(Request $request, string $action, ?string $id = null)
     {
-        $rules = $action === 'cancel' ? ['reason' => ['required', 'string', 'max:2000', 'regex:/\\S/u']] : $this->rules($action === 'update');
+        $rules = $action === 'cancel' ? ['reason' => OperationInput::reasonRule($request, ['required', 'string', 'max:2000', 'regex:/\\S/u'], 2000)] : $this->rules($action === 'update');
         $op = OperationInput::read($request, 'investment_scenario', $action, $rules, $id);
         if ($action !== 'cancel') {
             $raw = json_decode($request->getContent(), flags: JSON_THROW_ON_ERROR);

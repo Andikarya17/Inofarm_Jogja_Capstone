@@ -139,12 +139,12 @@ internal fun FarmRowDivider(inset: Dp = FarmSpace.Medium) {
 private fun FarmRowText(label: String, detail: String?, modifier: Modifier, contentColor: Color, detailColor: Color) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
         Text(label, style = MaterialTheme.typography.titleMedium, color = contentColor)
-        detail?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = detailColor) }
+        detail?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = detailColor) }
     }
 }
 
 @Composable
-private fun Modifier.farmRowFocus(): Modifier {
+internal fun Modifier.farmRowFocus(): Modifier {
     var focused by remember { mutableStateOf(false) }
     return onFocusChanged { focused = it.isFocused }
         .border(2.dp, if (focused) MaterialTheme.colorScheme.primary else Color.Transparent, FarmShape.Control)

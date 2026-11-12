@@ -17,7 +17,7 @@ import java.util.UUID
 class AdminRepository(context:Context,val vault:FinanceSessionVault,private val store:LocalFinanceStore,private val api:FinanceApi,private val cipher:PayloadCipher,preferenceName:String="finance_admin_v2") {
     private val preferences=context.getSharedPreferences(preferenceName,Context.MODE_PRIVATE)
     private fun current(session:FinanceSession,ticket:Long) {
-        check(vault.matches(ticket,session.scope) && vault.current?.token==session.token && vault.current?.role==UserRole.MANAGER) {"Sesi pengelola berubah. Isian akun sebelumnya tetap disimpan."}
+        check(vault.matches(ticket,session.scope) && vault.current?.token==session.token && vault.current?.role==UserRole.MANAGER) {"Akun yang masuk berubah. Isian sebelumnya tetap tersimpan."}
     }
     @Synchronized fun read(session:FinanceSession,ticket:Long):JSONObject {
         current(session,ticket)
@@ -53,7 +53,7 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
             val page=list(session,ticket,resource,if(resource==AdminResource.GREENHOUSE) null else greenhouse,cursor,forAssignment)
             val data=page.getJSONArray("data");repeat(data.length()) {rows+=data.getJSONObject(it)}
             cursor=page.optString("next_cursor").takeUnless {it.isBlank() || it=="null"}
-            check(cursor==null || seen.add(cursor)) {"Pagination server tidak bergerak."}
+            check(cursor==null || seen.add(cursor)) {"Daftar tidak bisa dimuat sampai habis. Coba lagi."}
         } while(cursor!=null)
         return rows
     }
@@ -77,18 +77,51 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
         current(session,ticket)
         require(status.getString("schema_version")=="2")
         val epoch=status.getString("sync_epoch");WireContract.uuid(epoch)
-        require(store.epoch(session.scope.key)==epoch) {"Epoch berubah. Sinkronkan dan tinjau pemulihan sebelum mengajukan administrasi."}
+        require(store.epoch(session.scope.key)==epoch) {"Data dipulihkan dari cadangan. Beberapa catatan perlu dicek sebelum dikirim."}
         val payload=form.payload(password)
         val operation=JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("operation_id",UUID.randomUUID().toString())
             .put("entity_id",form.id).put("entity_type",form.resource.kind).put("action",form.action).put("base_version",form.version ?: JSONObject.NULL).put("payload",payload)
         val hash=WireContract.hash(operation);val secret=payload.has("password");payload.remove("password")
         JSONObject(journal.toString()).put("pending",operation).put("hash",hash).put("needs_password",secret).also {write(session,ticket,it)}
     }
+    /** Builds one admin operation for the setup wizard without touching the shared admin journal. Reuse the result on retry. */
+    suspend fun buildOperation(session:FinanceSession,ticket:Long,form:AdminForm,password:String=""):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val status=api.request(session.scope.server,session.token,"sync/status")
+        current(session,ticket)
+        val epoch=status.getString("sync_epoch");WireContract.uuid(epoch)
+        require(store.epoch(session.scope.key)==epoch) {"Data dipulihkan dari cadangan. Beberapa catatan perlu dicek sebelum dikirim."}
+        JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("operation_id",UUID.randomUUID().toString())
+            .put("entity_id",form.id).put("entity_type",form.resource.kind).put("action",form.action)
+            .put("base_version",form.version ?: JSONObject.NULL).put("payload",form.payload(password))
+    }
+    suspend fun sendOperation(session:FinanceSession,ticket:Long,form:AdminForm,operation:JSONObject):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val result=api.request(session.scope.server,session.token,form.resource.path,"POST",operation)
+        current(session,ticket)
+        require(result.getString("operation_id")==operation.getString("operation_id") && result.getString("entity_id")==form.id)
+        result
+    }
+    /** Sets the running planting group of a greenhouse. [version] is the greenhouse version the manager just saw. */
+    suspend fun designateOperation(session:FinanceSession,ticket:Long,greenhouse:String,version:Long,group:String?):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val epoch=api.request(session.scope.server,session.token,"sync/status").getString("sync_epoch");WireContract.uuid(epoch)
+        JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("operation_id",UUID.randomUUID().toString())
+            .put("entity_id",greenhouse).put("entity_type","greenhouses").put("action","designate_period").put("base_version",version)
+            .put("payload",JSONObject().put("planting_group_id",group ?: JSONObject.NULL))
+    }
+    suspend fun sendDesignation(session:FinanceSession,ticket:Long,greenhouse:String,operation:JSONObject):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val result=api.request(session.scope.server,session.token,"greenhouses/$greenhouse/running-period","POST",operation)
+        current(session,ticket)
+        require(result.getString("operation_id")==operation.getString("operation_id"))
+        result
+    }
     suspend fun send(session:FinanceSession,ticket:Long,journal:JSONObject,password:String):JSONObject=withContext(Dispatchers.IO) {
         current(session,ticket)
         val operation=JSONObject(journal.getJSONObject("pending").toString())
         if(journal.optBoolean("needs_password")) operation.getJSONObject("payload").put("password",password)
-        require(WireContract.hash(operation)==journal.getString("hash")) {"Isi pengajuan harus sama. Masukkan kembali password yang dipakai saat pengajuan pertama."}
+        require(WireContract.hash(operation)==journal.getString("hash")) {"Masukkan password yang sama seperti sebelumnya."}
         val form=AdminForm.parse(journal.getJSONObject("form"))
         val path=if(form.action=="create") form.resource.path else "${form.resource.path}/${form.id}"+if(form.action in setOf("close","reopen")) "/${form.action}" else ""
         val result=api.request(session.scope.server,session.token,path,if(form.action=="update") "PATCH" else "POST",operation)

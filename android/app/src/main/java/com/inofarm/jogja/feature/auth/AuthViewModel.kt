@@ -11,17 +11,17 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 
 fun userMessage(error:Throwable):String = when(error) {
-    is android.database.sqlite.SQLiteException, is java.security.GeneralSecurityException -> "Penyimpanan lokal belum berhasil. Isian tetap tersedia; coba simpan kembali."
+    is android.database.sqlite.SQLiteException, is java.security.GeneralSecurityException -> "Belum bisa menyimpan di perangkat. Isian tetap tersedia; coba simpan lagi."
     is FinanceApiFailure -> {
         val messages=mutableListOf(error.message.orEmpty())
         error.detail.optJSONArray("reasons")?.let { reasons -> repeat(reasons.length()) { messages.add(reasons.getString(it)) } }
         error.detail.optJSONObject("field_errors")?.let { fields ->
-            fields.keys().forEach { key -> fields.optJSONArray(key)?.let { values -> repeat(values.length()) { messages.add("$key: ${values.getString(it)}") } } }
+            fields.keys().forEach { key -> fields.optJSONArray(key)?.let { values -> repeat(values.length()) { messages.add(values.getString(it)) } } }
         }
         messages.distinct().joinToString("\n")
     }
-    is IOException -> "Server belum dapat dihubungi. Periksa koneksi; draf tetap disimpan di perangkat."
-    else -> error.message ?: "Permintaan belum berhasil. Coba kembali."
+    is IOException -> "Tidak ada koneksi. Periksa internet; draf tetap tersimpan di perangkat."
+    else -> error.message ?: "Belum berhasil. Coba lagi."
 }
 enum class LogoutStatus { Confirmed, RevocationUnconfirmed }
 
@@ -34,7 +34,7 @@ data class AuthUiState(
 class AuthViewModel(private val repository:AuthRepository):ViewModel() {
     private val mutable=MutableStateFlow(AuthUiState());val state=mutable.asStateFlow()
     init { viewModelScope.launch {
-        try { mutable.value=AuthUiState(false,repository.restore()) } catch(error:Exception) { mutable.value=AuthUiState(false,error="Sesi tersimpan belum dapat dibuka. Masuk kembali; database lokal tetap dipertahankan.") }
+        try { mutable.value=AuthUiState(false,repository.restore()) } catch(error:Exception) { mutable.value=AuthUiState(false,error="Sesi tersimpan belum bisa dibuka. Masuk lagi; draf di perangkat tetap tersimpan.") }
         repository.vault.sessions.collect {session -> if(state.value.session!=session) mutable.value=state.value.copy(session=session)}
     } }
     fun login(base:String,email:String,password:String) {

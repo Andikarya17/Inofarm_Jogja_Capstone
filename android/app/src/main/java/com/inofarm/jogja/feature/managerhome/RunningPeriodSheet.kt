@@ -80,30 +80,30 @@ internal fun RunningPeriodSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.surface,
         contentWindowInsets = { WindowInsets.safeDrawing }) {
         Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Page)) {
-        FarmSheetHeading(if (editing) "Tinjau penetapan" else "Riwayat periode tanam", { onVisible(false) }, enabled = !busy)
+        FarmSheetHeading(if (editing) "Ganti tanam saat ini" else "Tanam saat ini", { onVisible(false) }, enabled = !busy)
         LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false).imePadding().testTag("manager-period-list"), state = list,
             contentPadding = PaddingValues(bottom = FarmSpace.Large),
             verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
             item("title") {
                 Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                     Text(greenhouse.getString("name"), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
-                    Caption("Pilihan periode berjalan dipakai untuk catatan baru. Riwayat dan draf mempertahankan konteks aslinya.")
-                    if (state.cached) Caption("Periksa koneksi untuk menetapkan periode.")
+                    Caption("Dipakai untuk catatan baru. Riwayat tetap pada tanam aslinya.")
+                    if (state.cached) Caption("Perlu internet untuk mengganti tanam saat ini.")
                     if (error != null) Notice(error!!, true)
                 }
             }
             if (pending != null) item("pending") {
-                FarmPanel(title = "Penetapan menunggu konfirmasi") {
-                    Caption(pending.getString("reason"))
+                FarmPanel(title = "Belum terkirim") {
+                    pending.optString("reason").takeIf { it.isNotBlank() }?.let { Caption(it) }
                     Button(onClick = submit, enabled = !busy && !state.cached, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
-                        Text("Periksa pengajuan yang sama")
+                        Text("Kirim ulang")
                     }
                 }
             }
             if (pending == null) item("review") {
                 val candidate = candidates.find { it.text("group_id") == group }
                 AnimatedVisibility(visible = editing, enter = fadeIn(tween(FarmMotion.State)), exit = fadeOut(tween(FarmMotion.State))) {
-                    FarmPanel(title = if (candidate == null) "Akhiri periode berjalan" else "Tinjau periode berjalan") {
+                    FarmPanel(title = if (candidate == null) "Kosongkan tanam saat ini" else "Ganti tanam saat ini") {
                         if (candidate != null) {
                             Text(candidate.getString("season_name"))
                             if (candidates.count { it.text("season_id") == candidate.text("season_id") } > 1) {
@@ -113,21 +113,20 @@ internal fun RunningPeriodSheet(
                             Caption("Semai ${dateLabel(candidate.getString("sowing_date"))}")
                             Caption(candidate.text("transplant_date")?.let { "Pindah tanam ${dateLabel(it)}" } ?: "Tanggal pindah tanam belum tercatat")
                         }
-                        Caption("Status periode untuk transaksi keuangan tetap berlaku.")
-                        OutlinedTextField(reason, { reason = it }, label = { Text("Alasan penetapan") },
+                        OutlinedTextField(reason, { reason = it }, label = { Text("Catatan (opsional)") },
                             enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("manager-period-reason"))
-                        Button(onClick = submit, enabled = !busy && !state.cached && reason.isNotBlank() && reason.length <= 1000,
+                        Button(onClick = submit, enabled = !busy && !state.cached && reason.length <= 1000,
                             shape = FarmShape.Control, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-period-confirm")) {
-                            Text(if (busy) "Mengirim…" else "Konfirmasi periode")
+                            Text(if (busy) "Menyimpan…" else "Simpan")
                         }
                         TextButton(onClick = { editing = false }, enabled = !busy,
-                            modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kembali ke daftar periode") }
+                            modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kembali") }
                     }
                 }
             }
             if (!editing) {
             val seasons = snapshot.detail?.rows("seasons").orEmpty()
-            if (seasons.isEmpty()) item("empty") { Caption("Belum ada periode tanam untuk greenhouse ini.") }
+            if (seasons.isEmpty()) item("empty") { Caption("Belum ada musim di greenhouse ini.") }
             items(seasons, key = { it.getString("id") }) { season ->
                 val seasonId = season.getString("id")
                 FarmPanel(title = season.getString("name")) {
@@ -141,7 +140,7 @@ internal fun RunningPeriodSheet(
                             "Semai ${dateLabel(candidate.getString("sowing_date"))}").joinToString(" · ")
                         if (id == current) Surface(shape = FarmShape.Control, color = MaterialTheme.colorScheme.primaryContainer) {
                             Column(Modifier.padding(FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
-                                Text("Periode berjalan", style = MaterialTheme.typography.labelLarge)
+                                Text("Tanam saat ini", style = MaterialTheme.typography.labelLarge)
                                 Text(label, style = MaterialTheme.typography.titleMedium)
                                 Text(detail, style = MaterialTheme.typography.bodySmall)
                             }
@@ -152,7 +151,7 @@ internal fun RunningPeriodSheet(
                         if (id != current && candidate.optBoolean("eligible") && greenhouse.optBoolean("active") && pending == null) {
                             TextButton(onClick = { review(id) }, enabled = !state.cached && !busy,
                                 modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-period-option-$id")) {
-                                Text("Tinjau penetapan")
+                                Text("Jadikan tanam saat ini")
                             }
                         }
                     }
@@ -168,11 +167,11 @@ internal fun RunningPeriodSheet(
             }
             if (current != null && pending == null) item("end") {
                 OutlinedButton(onClick = { review(null) }, enabled = !state.cached && !busy,
-                    modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Akhiri periode berjalan") }
+                    modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kosongkan tanam saat ini") }
             }
             item("admin") {
                 TextButton(onClick = { onVisible(false); onAdmin() }, enabled = !busy, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
-                    Text("Kelola periode tanam")
+                    Text("Kelola musim dan kelompok")
                 }
             }
             }

@@ -46,7 +46,7 @@ class SeasonReportViewModel(private val repository:SeasonReportRepository):ViewM
         val draft=state.value.draft ?: return;val session=vault.current ?: return;val ticket=vault.generation;pauseAutosave();mutable.value=state.value.copy(busy=true,message=null)
         viewModelScope.launch {try {
             repository.queue(session,ticket,draft)
-            if(vault.matches(ticket,session.scope) && state.value.draft==draft) mutable.value=state.value.copy(draft=null,sources=null,changed=state.value.changed+1,message="Permintaan tersimpan lokal dan diantrekan; snapshot belum diterima server.")
+            if(vault.matches(ticket,session.scope) && state.value.draft==draft) mutable.value=state.value.copy(draft=null,sources=null,changed=state.value.changed+1,message="Tersimpan. Terkirim otomatis saat ada internet.")
             reload()
         } catch(c:CancellationException) {throw c} catch(error:Exception) {failure(session,ticket,error)} finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(busy=false)}}
     }

@@ -16,6 +16,8 @@ data class AssetEntryState(val draft:AssetDraft?=null,val errors:Map<String,Stri
     val reviewing:Boolean=false,val saved:Boolean=false,val message:String?=null,val changed:Long=0)
 class AssetEntryViewModel(private val repository:AssetRepository):ViewModel() {
     private val vault get()=repository.vault
+    private val reasonRequired get()=vault.current?.role!=com.inofarm.jogja.core.contracts.UserRole.MANAGER
+    val reasonLabel get()=if(reasonRequired) "Alasan koreksi" else "Catatan (opsional)"
     private val mutable=MutableStateFlow(AssetEntryState());val state=mutable.asStateFlow()
     private var saveJob:Job?=null;private var scope:String?=null
     fun bind(session:FinanceSession?) {
@@ -35,10 +37,10 @@ class AssetEntryViewModel(private val repository:AssetRepository):ViewModel() {
     }
     fun persist(session:FinanceSession,ticket:Long,draft:AssetDraft) {viewModelScope.launch {try {repository.flush(session,ticket,draft)} catch(cancelled:CancellationException) {throw cancelled} catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error))}}}
     fun pauseAutosave() {saveJob?.cancel();saveJob=null}
-    fun review() {val draft=state.value.draft ?: return;val errors=draft.validation();mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty())}
+    fun review() {val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty())}
     fun backToForm() {mutable.value=state.value.copy(reviewing=false)}
     fun saveAndClose() {val draft=state.value.draft ?: return;pauseAutosave();viewModelScope.launch {save(draft,false,true)}}
-    fun queue() {val draft=state.value.draft ?: return;val errors=draft.validation();if(errors.isNotEmpty()) {mutable.value=state.value.copy(errors=errors,reviewing=false);return};pauseAutosave();viewModelScope.launch {save(draft,true,true)}}
+    fun queue() {val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);if(errors.isNotEmpty()) {mutable.value=state.value.copy(errors=errors,reviewing=false);return};pauseAutosave();viewModelScope.launch {save(draft,true,true)}}
     private suspend fun save(draft:AssetDraft,queue:Boolean,close:Boolean) {
         val session=vault.current ?: return;val ticket=vault.generation
         if(queue || close) mutable.value=state.value.copy(busy=true)
@@ -46,7 +48,7 @@ class AssetEntryViewModel(private val repository:AssetRepository):ViewModel() {
             repository.save(session,ticket,draft,queue)
             if(vault.matches(ticket,session.scope) && state.value.draft?.id==draft.id) mutable.value=state.value.copy(draft=if(close && state.value.draft==draft) null else state.value.draft,
                 saved=state.value.draft==draft,reviewing=if(close) false else state.value.reviewing,changed=if(queue || close) state.value.changed+1 else state.value.changed,
-                message=if(queue) "Tersimpan lokal dan masuk antrean. Belum diterima server." else if(close) "Draf aset tersimpan di perangkat." else state.value.message)
+                message=if(queue) "Tersimpan. Terkirim otomatis saat ada internet." else if(close) "Draf aset tersimpan di perangkat." else state.value.message)
         } catch(cancelled:CancellationException) {throw cancelled}
         catch(error:AssetValidationFailure) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(draft=state.value.draft?.copy(baseVersion=error.baseVersion),errors=error.fields,reviewing=false,message=error.message)}
         catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(reviewing=false,message=userMessage(error))}

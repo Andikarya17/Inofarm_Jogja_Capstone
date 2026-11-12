@@ -40,7 +40,7 @@ class FinanceSeasonReportBackendDeviceTest {
         hideKeyboard()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)==false}
         rule.onNodeWithTag("finance-login").performScrollTo().assertIsEnabled().performClick()
-        try {rule.waitUntil(15000) {rule.onAllNodesWithTag(if (role == "manager") "manager-home-picker" else "finance-context-open").fetchSemanticsNodes().isNotEmpty()}}
+        try {rule.waitUntil(15000) {rule.onAllNodesWithTag(if (role == "manager") "manager-add-greenhouse" else "finance-context-open").fetchSemanticsNodes().isNotEmpty()}}
         catch(error:Exception) {
             lateinit var auth:com.inofarm.jogja.feature.auth.AuthViewModel;rule.runOnIdle {auth=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.auth.AuthViewModel::class.java]}
             throw AssertionError("Login transition: loading=${auth.state.value.loading}, hasSession=${auth.state.value.session!=null}, reason=${auth.state.value.error}",error)
@@ -61,7 +61,7 @@ class FinanceSeasonReportBackendDeviceTest {
     private fun scroll(tag:String) {rule.onNodeWithTag("report-list").performScrollToNode(hasTestTag(tag))}
     private fun click(tag:String) {scroll(tag);rule.onNodeWithTag(tag).performClick()}
     private fun open(f:JSONObject) {
-        rule.onNodeWithTag("finance-tab-4").performClick();choose("expense-gh",f.getString("greenhouse_id"));rule.clickFinanceTool("report-open")
+        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",f.getString("greenhouse_id"));rule.clickFinanceTool("report-open")
         rule.waitUntil(10000) {reports().state.value.active}
     }
     private fun fill(f:JSONObject) {
@@ -138,7 +138,7 @@ class FinanceSeasonReportBackendDeviceTest {
             scroll("report-metric-TC");rule.onNodeWithTag("report-metric-TC").assertIsDisplayed();click("report-sources")
             rule.waitUntil(15000) {!reports().state.value.busy && reports().state.value.sources?.rows?.length()==6};click("report-back")
         }
-        click("report-back");login(f,"worker");rule.onNodeWithTag("finance-tab-4").assertDoesNotExist();val worker=model.vault.current!!
+        click("report-back");login(f,"worker");rule.onNodeWithTag("finance-tab-2").assertDoesNotExist();val worker=model.vault.current!!
         for(path in listOf("season-reports","reports/$originalId","reports/$originalId/sources")) {
             try {model.api.request(worker.scope.server,worker.token,path);fail("Worker must never read financial reports")} catch(error:FinanceApiFailure) {assertEquals(403,error.status)}
         }

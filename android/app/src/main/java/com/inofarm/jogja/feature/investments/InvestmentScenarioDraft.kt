@@ -15,30 +15,30 @@ data class InvestmentScenarioDraft(val id:String=UUID.randomUUID().toString(),va
         val count=runCatching {InvestmentInputs.horizon(value)}.getOrNull() ?: 0
         return copy(horizon=value,flows=(0 until maxOf(count,flows.size)).map {flows.getOrNull(it) ?: InvestmentFlowDraft()})
     }
-    fun validation():Map<String,String> = buildMap {
+    fun validation(reasonRequired:Boolean=true):Map<String,String> = buildMap {
         if(runCatching {WireContract.uuid(greenhouseId)}.isFailure) put("greenhouse","Pilih greenhouse.")
         if(name.isBlank() || name.length>120) put("name","Nama wajib, maksimal 120 karakter.")
         val count=runCatching {InvestmentInputs.horizon(horizon)}.getOrNull()
-        if(count==null) put("horizon","Jumlah tahun harus integer 1–100; batas teknis aplikasi.")
-        if(runCatching {InvestmentInputs.baseDate(baseDate,count ?: 1)}.isFailure) put("base_date","Isi tanggal dasar YYYY-MM-DD dan periode dalam tahun 1–9999.")
-        if(runCatching {InvestmentInputs.money(initial,true)}.isFailure) put("initial","Investasi awal nonnegatif, maksimal 2 desimal. Kosong berarti belum diketahui.")
-        if(runCatching {InvestmentInputs.rateFromPercent(discountPercent)}.isFailure) put("discount","Diskonto harus lebih dari −100%; jangan memakai pemisah ribuan. Maksimal presisi setara 8 desimal fraksi.")
-        if(convention !in setOf("","interpolation","end_of_year")) put("convention","Pilih konvensi yang tersedia.")
-        if(initialKind !in setOf("","actual","projection") || initialReference.length>200 || initialBasis.length>2000) put("initial_source","Periksa jenis, referensi (200) dan dasar (2.000 karakter) investasi awal.")
+        if(count==null) put("horizon","Jumlah tahun harus angka bulat 1 sampai 100.")
+        if(runCatching {InvestmentInputs.baseDate(baseDate,count ?: 1)}.isFailure) put("base_date","Isi tanggal dasar dengan format 2026-01-31.")
+        if(runCatching {InvestmentInputs.money(initial,true)}.isFailure) put("initial","Investasi awal harus 0 atau lebih, maksimal 2 angka desimal. Kosongkan jika belum tahu.")
+        if(runCatching {InvestmentInputs.rateFromPercent(discountPercent)}.isFailure) put("discount","Diskonto harus lebih dari −100%, tanpa pemisah ribuan, maksimal 6 angka desimal.")
+        if(convention !in setOf("","interpolation","end_of_year")) put("convention","Pilih cara hitung waktu pengembalian dari daftar.")
+        if(initialKind !in setOf("","actual","projection") || initialReference.length>200 || initialBasis.length>2000) put("initial_source","Periksa sumber investasi awal. Referensi maksimal 200 karakter, dasar maksimal 2.000.")
         if(count!=null) {
-            if(flows.size<count) put("flows","Lengkapi baris tahun 1 sampai horizon.")
-            flows.take(count).forEachIndexed {i,f->if(runCatching {InvestmentInputs.money(f.amount)}.isFailure || f.kind !in setOf("","actual","projection") || f.reference.length>200 || f.basis.length>2000) put("flow-${i+1}","Periksa nominal bertanda, sumber, referensi dan dasar tahun ${i+1}.")}
+            if(flows.size<count) put("flows","Lengkapi isian untuk setiap tahun.")
+            flows.take(count).forEachIndexed {i,f->if(runCatching {InvestmentInputs.money(f.amount)}.isFailure || f.kind !in setOf("","actual","projection") || f.reference.length>200 || f.basis.length>2000) put("flow-${i+1}","Periksa kas neto, sumber, referensi dan dasar tahun ${i+1}. Kas neto boleh negatif.")}
         }
         if(notes.length>2000) put("notes","Catatan maksimal 2.000 karakter.")
-        if(reason.length>2000 || baseVersion!=null && reason.isBlank()) put("reason","Koreksi memerlukan alasan, maksimal 2.000 karakter.")
+        if(reason.length>2000 || reasonRequired && baseVersion!=null && reason.isBlank()) put("reason","Isi alasan koreksi, maksimal 2.000 karakter.")
     }
     fun payload():JSONObject {
-        require(validation().isEmpty()) {validation().values.joinToString("\n")}
+        require(validation(false).isEmpty()) {validation(false).values.joinToString("\n")}
         return JSONObject().put("greenhouse_id",greenhouseId).put("name",name.trim()).put("base_date",baseDate).put("horizon_years",InvestmentInputs.horizon(horizon))
             .put("initial_outlay",InvestmentInputs.money(initial,true) ?: JSONObject.NULL).put("initial_source",JSONObject().put("kind",initialKind.ifBlank {null} ?: JSONObject.NULL).put("reference",initialReference.trim()).put("basis",initialBasis.trim()))
             .put("discount_rate",InvestmentInputs.rateFromPercent(discountPercent) ?: JSONObject.NULL).put("payback_convention",convention.ifBlank {null} ?: JSONObject.NULL)
             .put("cash_flows",JSONArray().also {array->flows.take(InvestmentInputs.horizon(horizon)).forEachIndexed {i,f->array.put(JSONObject().put("year",i+1).put("amount",InvestmentInputs.money(f.amount) ?: JSONObject.NULL).put("source_kind",f.kind.ifBlank {null} ?: JSONObject.NULL).put("source_reference",f.reference.trim()).put("basis",f.basis.trim()))}})
-            .put("notes",notes).apply {if(baseVersion!=null) put("reason",reason.trim())}
+            .put("notes",notes).apply {if(baseVersion!=null && reason.isNotBlank()) put("reason",reason.trim())}
     }
     fun localJson()=JSONObject().put("completeness","draft").put("_local_form",JSONObject().put("name",name).put("base_date",baseDate).put("horizon",horizon).put("initial",initial)
         .put("initial_kind",initialKind).put("initial_reference",initialReference).put("initial_basis",initialBasis).put("discount_percent",discountPercent).put("convention",convention)

@@ -74,9 +74,9 @@ import java.time.LocalDate
     }
 }
 
-@Composable internal fun MeasurementCards(pair: ManualMeasurement?, loading: Boolean = false, unavailable: Boolean = false) {
+@Composable internal fun MeasurementCards(pair: ManualMeasurement?, loading: Boolean = false, unavailable: Boolean = false, showTitle: Boolean = true) {
     Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-        Surface(color = MaterialTheme.colorScheme.background, shape = FarmShape.Control) {
+        if (showTitle) Surface(color = MaterialTheme.colorScheme.background, shape = FarmShape.Control) {
             Text("Pengukuran manual", Modifier.padding(horizontal = FarmSpace.Small, vertical = FarmSpace.Tiny)
                 .semantics { heading() }, style = MaterialTheme.typography.titleMedium)
         }
@@ -120,14 +120,14 @@ internal fun MeasurementSource(
                 Column(Modifier.weight(1f).align(Alignment.CenterVertically)) {
                     if (pair != null) {
                         Text(if (snapshotSource) timeLabel(pair.at.toString()) else pair.message(today), style = MaterialTheme.typography.labelLarge)
-                        Text(if (pair.queued) "Belum tersinkron" else "Diterima server",
+                        Text(if (pair.queued) "Belum terkirim" else "Terkirim",
                             style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                         if (!snapshotSource) {
                             val label = when (pair.verification) {
-                                "valid" -> "Terverifikasi pengelola"
-                                "pending" -> "Belum diverifikasi"
+                                "valid" -> "Sudah dicek"
+                                "pending" -> "Belum dicek"
                                 "manager" -> "Dicatat pengelola"
-                                "legacy" -> "Historis · belum diverifikasi"
+                                "legacy" -> "Data lama · belum dicek"
                                 else -> null
                             }
                             label?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
@@ -136,8 +136,8 @@ internal fun MeasurementSource(
                     if (offline) Text("Menampilkan data tersimpan.", style = MaterialTheme.typography.bodySmall)
                     Text(syncedAt?.let {
                         val label = timeLabel(java.time.Instant.ofEpochMilli(it).toString())
-                        if (snapshotSource) "Diperiksa $label" else "Sinkron terakhir: $label"
-                    } ?: "Belum pernah tersinkron.", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                        if (snapshotSource) "Diperbarui $label" else "Diperbarui $label"
+                    } ?: "Belum pernah diperbarui.", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 }
                 if (pair != null) TextButton(onClick = { expanded = !expanded }, shape = FarmShape.Control,
                     modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("measurement-source")) {
@@ -147,8 +147,8 @@ internal fun MeasurementSource(
             if (expanded && pair != null) {
                 HorizontalDivider()
                 Text("${timeLabel(pair.at.toString())} · input manual", style = MaterialTheme.typography.bodySmall)
-                Text(if (pair.queued) "Belum tersinkron · pencatat: ${pair.recorder ?: "akun ini (menunggu penerimaan server)"}"
-                    else "Diterima server · pencatat: ${pair.recorder ?: "nama belum tersedia"}",
+                Text(if (pair.queued) "Belum terkirim · pencatat: ${pair.recorder ?: "akun ini"}"
+                    else "Terkirim · pencatat: ${pair.recorder ?: "nama belum tersedia"}",
                     style = MaterialTheme.typography.bodySmall)
             }
             if (syncMessage != null) Text(syncMessage, Modifier.testTag("finance-sync-message"),

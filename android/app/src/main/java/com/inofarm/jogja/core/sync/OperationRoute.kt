@@ -10,7 +10,7 @@ data class OperationRoute(val path:String,val method:String) {
             WireContract.uuid(id)
             if(kind in AttachmentContract.kinds) {
                 require(kind!="expense_attachment" || role==UserRole.MANAGER) {"Bukti keuangan hanya untuk pengelola."}
-                require(action in setOf("create","cancel")) {"Berkas immutable; pilih lampiran baru."}
+                require(action in setOf("create","cancel")) {"Berkas tidak bisa diubah. Pilih lampiran baru."}
                 require(action!="cancel" || role==UserRole.MANAGER) {"Pembatalan lampiran hanya untuk pengelola."}
                 return OperationRoute(if(action=="create") "attachments" else "attachments/$id/cancel","POST")
             }
@@ -22,14 +22,14 @@ data class OperationRoute(val path:String,val method:String) {
             }
             require(role==UserRole.MANAGER) {"Perubahan ini hanya untuk pengelola."}
             if (kind in setOf("activity_review", "harvest_review")) {
-                require(action == "create") { "Keputusan verifikasi tersimpan per revisi catatan." }
+                require(action == "create") { "Keputusan cek dicatat untuk setiap revisi." }
                 return OperationRoute(if (kind == "harvest_review") "harvest-reviews" else "activity-reviews", "POST")
             }
             if (kind == "planting_groups" && action in setOf("complete_harvest", "reopen_harvest")) {
                 return OperationRoute("planting-groups/$id/harvest-completion", "POST")
             }
             if(kind in setOf("season_report","investment_report")) {
-                require(action=="create") {"Laporan immutable. Buat evaluasi baru untuk revisi."}
+                require(action=="create") {"Laporan terbit tidak bisa diubah. Buat evaluasi baru."}
                 return OperationRoute(if(kind=="season_report") "season-reports" else "investment-reports","POST")
             }
             if(kind=="investment_scenario" && action in setOf("create","update","cancel")) return when(action) {
@@ -44,12 +44,12 @@ data class OperationRoute(val path:String,val method:String) {
             val resource=mapOf("greenhouses" to "greenhouses","seasons" to "seasons","planting_groups" to "planting-groups",
                 "varieties" to "varieties","materials" to "materials","units" to "units","grades" to "grades",
                 "expense_categories" to "expense-categories","greenhouse_assignments" to "assignments","schedules" to "schedules","targets" to "targets")[kind]
-                ?: error("Jenis operasi belum didukung. Antrean dipertahankan.")
+                ?: error("Jenis catatan ini belum bisa dikirim. Isinya tetap tersimpan.")
             return when {
                 action=="create" -> OperationRoute(resource,"POST")
                 action=="update" -> OperationRoute("$resource/$id","PATCH")
                 kind=="seasons" && action in setOf("close","reopen") -> OperationRoute("$resource/$id/$action","POST")
-                else -> error("Tindakan belum didukung. Antrean dipertahankan.")
+                else -> error("Tindakan ini belum bisa dikirim. Isinya tetap tersimpan.")
             }
         }
     }

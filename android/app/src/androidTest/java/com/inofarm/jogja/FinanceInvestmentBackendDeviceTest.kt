@@ -35,7 +35,7 @@ class FinanceInvestmentBackendDeviceTest {
         hideKeyboard()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)==false}
         rule.onNodeWithTag("finance-login").performScrollTo().assertIsEnabled().performClick()
-        try {rule.waitUntil(15000) {rule.onAllNodesWithTag(if (role == "manager") "manager-home-picker" else "finance-context-open").fetchSemanticsNodes().isNotEmpty()}}
+        try {rule.waitUntil(15000) {rule.onAllNodesWithTag(if (role == "manager") "manager-add-greenhouse" else "finance-context-open").fetchSemanticsNodes().isNotEmpty()}}
         catch(error:Exception) {
             lateinit var auth:com.inofarm.jogja.feature.auth.AuthViewModel;rule.runOnIdle {auth=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.auth.AuthViewModel::class.java]}
             throw AssertionError("Login transition: loading=${auth.state.value.loading}, hasSession=${auth.state.value.session!=null}, reason=${auth.state.value.error}",error)
@@ -106,7 +106,7 @@ class FinanceInvestmentBackendDeviceTest {
         val cancel=JSONObject().put("schema_version","2").put("sync_epoch",m.store.epoch(session.scope.key)).put("operation_id",UUID.randomUUID().toString()).put("entity_id",f.getString("scenario_id")).put("entity_type","investment_scenario").put("action","cancel").put("base_version",2).put("payload",JSONObject().put("reason","Pembatalan skenario sintetis setelah laporan"))
         m.api.request(session.scope.server,session.token,"investment-scenarios/${f.getString("scenario_id")}/cancel","POST",cancel)
         val reportOp=m.store.outbox(session.scope.key).single {it.entityId==f.getString("report_id")};val replay=m.api.request(session.scope.server,session.token,"investment-reports","POST",reportOp.envelope);assertEquals(proof.getString("old_snapshot_hash"),replay.getJSONObject("data").getString("snapshot_hash"))
-        login(f,"worker");rule.onNodeWithTag("finance-tab-4").assertDoesNotExist();val worker=m.vault.current!!
+        login(f,"worker");rule.onNodeWithTag("finance-tab-2").assertDoesNotExist();val worker=m.vault.current!!
         try {m.api.request(worker.scope.server,worker.token,"investment-reports/${old.getString("id")}");fail("Worker accessed finance snapshot")} catch(expected:FinanceApiFailure) {assertEquals(403,expected.status)}
     }
 }
