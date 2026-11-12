@@ -74,9 +74,12 @@ import com.inofarm.jogja.feature.context.HomeContext
 import com.inofarm.jogja.feature.context.HomeContextCard
 import com.inofarm.jogja.feature.context.WorkerContextSheet
 import com.inofarm.jogja.feature.context.WorkerCorrectionsCard
+import com.inofarm.jogja.feature.context.WorkerGreenhouseHero
 import com.inofarm.jogja.feature.context.WorkerGreenhouseList
+import com.inofarm.jogja.feature.context.WorkerGroupChips
 import com.inofarm.jogja.feature.context.WorkerSummaryCard
 import com.inofarm.jogja.feature.context.rememberWorkerHome
+import com.inofarm.jogja.feature.context.workerAge
 import com.inofarm.jogja.feature.context.WorkerCorrectionsScreen
 import com.inofarm.jogja.feature.context.rememberWorkerCorrections
 import com.inofarm.jogja.feature.context.WorkerEventTime
@@ -526,6 +529,23 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         else vm.new(greenhouse, plantingGroup, if (destination == "measurement") ActivityType.MEASUREMENT else ActivityType.GENERAL,
             runningPeriodVersion = version)
     }
+    // Recording from the Catat sheet: the worker picked a greenhouse there, so open its current planting directly.
+    fun recordWorkerIn(greenhouseId: String?, choice: RecordChoice) {
+        val destination = when (choice) { RecordChoice.HARVEST -> "harvest"; RecordChoice.MEASUREMENT -> "measurement"; else -> "activity" }
+        val row = context.greenhouses.find { it.optString("id") == greenhouseId && it.optBoolean("active", true) }
+        if (row == null || row.getString("id") == selectedGreenhouse?.optString("id")) return recordWorker(destination)
+        val picked = context.workerDefault(row, workerToday)
+        setWorkerContext(picked)
+        val pickedGroup = context.groups.find { it.optString("id") == picked.group }
+        val pickedSeason = context.seasons.find { it.optString("id") == picked.season }
+        val ready = pickedGroup != null && pickedSeason?.optString("status") == "open" &&
+            runCatching { LocalDate.parse(pickedGroup.getString("sowing_date")) <= workerToday }.getOrDefault(false)
+        if (!ready || pickedGroup == null) { contextSheet = destination; return }
+        val version = row.takeIf { it.optString("running_group_id") == pickedGroup.getString("id") }?.optLong("version")?.takeIf { it > 0 }
+        if (destination == "harvest") harvestVm.new(row.getString("id"), pickedGroup.getString("id"), version)
+        else vm.new(row.getString("id"), pickedGroup.getString("id"),
+            if (destination == "measurement") ActivityType.MEASUREMENT else ActivityType.GENERAL, runningPeriodVersion = version)
+    }
     if (!manager) contextSheet?.let { destination ->
         WorkerContextSheet(context, HomeContext(gh, season, group), when (destination) {
             "harvest" -> "Catat panen"
@@ -580,13 +600,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             title = "Belum terkirim", worker = !manager)
     }
     val unsent = activity.queue.count { it.state != "ACCEPTED" && it.state != "SUPERSEDED" }
-    fun startRecord(choice: RecordChoice) {
+    fun startRecord(choice: RecordChoice, pickedGreenhouse: String? = null) {
         recordSheet = false
-        if (!manager) return recordWorker(when (choice) {
-            RecordChoice.HARVEST -> "harvest"
-            RecordChoice.MEASUREMENT -> "measurement"
-            else -> "activity"
-        })
+        if (!manager) return recordWorkerIn(pickedGreenhouse ?: gh, choice)
         val target = gh ?: lastGreenhouse ?: context.greenhouses.singleOrNull()?.optString("id")
         when (choice) {
             RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST ->
@@ -625,6 +641,15 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     if (recordSheet) RecordSheet(::startRecord,
         if (manager && gh != null && runningGroup == null && !managerHome.loading) ({ recordSheet = false; onAdmin(AdminResource.GROUP) }) else null,
         { recordSheet = false }, if (manager) RecordChoice.entries else WorkerRecordChoices,
+        worker = if (manager) null else WorkerRecordTarget(
+            context.greenhouses.filter { it.optBoolean("active", true) }, gh ?: lastGreenhouse,
+            caption = { id ->
+                val row = context.greenhouses.find { it.optString("id") == id }
+                val ctx = row?.let { context.workerDefault(it, workerToday) }
+                val grp = context.groups.find { it.optString("id") == ctx?.group }
+                if (grp == null) row?.let { "Tanam saat ini belum dipilih pengelola" }
+                else listOf(grp.optString("name"), workerAge(grp, workerToday).substringAfter(" · ")).joinToString(" · ")
+            }, onPick = { choice, id -> startRecord(choice, id) }),
         contextLine = if (manager && gh != null) listOfNotNull(homeSnapshot?.selected?.text("name"),
             homeSnapshot?.period?.text("group_name")?.let { "Kelompok $it" }).joinToString(" · ").ifBlank { null } else null)
     if (showOutbox) ModalBottomSheet(
@@ -636,9 +661,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val translucentNavigation = false
     val wibNow = remember { java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Jakarta")) }
     val managerBar: ManagerBar? = if (!manager) when {
-        tab == 0 && !correctionsOpen && !harvestProgressOpen -> ManagerBar("${greetingForWib(wibNow.hour, wibNow.minute)}, ${session.name.trim().substringBefore(' ')}",
+        tab == 0 && !correctionsOpen && !harvestProgressOpen && selectedGreenhouse == null -> ManagerBar("${greetingForWib(wibNow.hour, wibNow.minute)}, ${session.name.trim().substringBefore(' ')}",
             dateLabel(wibNow.toLocalDate()), null)
         tab == 0 && correctionsOpen -> ManagerBar("Perlu diperbaiki", null, { correctionsOpen = false }, "Kembali ke Beranda")
+        tab == 0 && !harvestProgressOpen && selectedGreenhouse != null -> ManagerBar(selectedGreenhouse.optString("name"), null,
+            { setWorkerContext(HomeContext()) }, "Kembali ke semua greenhouse")
         tab == 5 && history.selected == null && harvestHistory.selected == null -> ManagerBar("Riwayat", null, null)
         else -> null
     } else when {
@@ -776,9 +803,12 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 ) {
                     if (homeState != null) item("summary") { WorkerSummaryCard(homeState, context) }
                     if (selectedGreenhouse != null) item("context") {
-                        HomeContextCard(context, HomeContext(gh, season, group), workerToday,
-                            onOverview = { setWorkerContext(HomeContext()) }) {
-                            contextSheet = "context"
+                        Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                            WorkerGreenhouseHero(runtime, session, context, HomeContext(gh, season, group), workerToday,
+                                Triple(activity.records, harvest.records, activity.queue), syncUpdates)
+                            WorkerGroupChips(context, HomeContext(gh, season, group), workerToday) { picked -> group = picked }
+                            TextButton(onClick = { contextSheet = "context" }, shape = FarmShape.Control,
+                                modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-context-open")) { Text("Ubah musim atau kelompok") }
                         }
                     }
                     if (homeState != null && workerCorrections.isNotEmpty()) item("corrections") {
@@ -794,10 +824,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     if (sessionExpired) item("expired-session") { ExpiredSessionNotice() }
                     if (selectedGreenhouse != null && selectedSeason?.optString("status") == "closed") item("recording") {
                         FarmAttention("Musim ditutup. Pilih musim terbuka untuk mencatat.")
-                    }
-                    if (selectedGreenhouse != null) item("harvest-progress-link") {
-                        FarmActionRow("Progres panen", "Target, hasil tercatat dan hasil yang sudah dicek", FarmIcon.Report,
-                            Modifier.testTag("worker-harvest-progress-open"), onClick = ::openWorkerHarvestProgress)
                     }
                     if (selectedGreenhouse != null && selectedSeason != null && selectedGroup != null) {
                         val greenhouseId = selectedGreenhouse.getString("id")
@@ -818,6 +844,16 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                     if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
                                 },
                                 onQueue = { queueFocus = null; showOutbox = true })
+                        }
+                    }
+                    if (selectedGreenhouse != null) item("harvest-progress-link") {
+                        FarmActionRow("Progres panen", "Target, hasil tercatat dan hasil yang sudah dicek", FarmIcon.Report,
+                            Modifier.testTag("worker-harvest-progress-open"), onClick = ::openWorkerHarvestProgress)
+                    }
+                    if (selectedGreenhouse != null) item("record-outside-schedule") {
+                        OutlinedButton(onClick = { recordSheet = true }, shape = FarmShape.Control,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("worker-record-outside")) {
+                            Text("Catat di luar jadwal")
                         }
                     }
                 } }

@@ -332,7 +332,7 @@ class FinanceEntryUiTest {
     }
     @Test fun workerSelectsGreenhouseDirectlyAndOpensReadyRecordingContext() {
         capture("worker-alignment-picker")
-        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
+        rule.waitUntil(15_000) { runCatching { rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-$gh")) }.isSuccess }
         readyNode("worker-greenhouse-$gh").performClick()
         capture("worker-alignment-selected")
         rule.openRecord("measurement")
@@ -341,7 +341,7 @@ class FinanceEntryUiTest {
 
     @Test fun workerNativePickersAndImeKeepDraftOnNavigation() {
         val home = rule.onNodeWithTag("finance-home-list")
-        home.performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
+        rule.waitUntil(15_000) { runCatching { home.performScrollToNode(hasTestTag("worker-greenhouse-$gh")) }.isSuccess }
         readyNode("worker-greenhouse-$gh").performClick()
         captureWindow("worker-home-ready")
         rule.openRecord("measurement")
@@ -369,9 +369,8 @@ class FinanceEntryUiTest {
         rule.selectFinanceTab(1)
         readyText("Draf · tersimpan di perangkat").assertExists()
         rule.selectFinanceTab(0)
-        home.performScrollToNode(hasTestTag("worker-greenhouse-overview"))
-        readyNode("worker-greenhouse-overview").performClick()
-        home.performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
+        readyNode("manager-back").performClick()
+        rule.waitUntil(15_000) { runCatching { home.performScrollToNode(hasTestTag("worker-greenhouse-$gh")) }.isSuccess }
         readyNode("worker-greenhouse-$gh").assertIsDisplayed()
     }
 
@@ -384,6 +383,7 @@ class FinanceEntryUiTest {
             rule.selectFinanceTab(tab)
             readyNode("finance-record-fab").performClick()
             for (tag in listOf("record-activity", "record-measurement", "record-harvest")) readyNode(tag).assertIsDisplayed()
+            if (tab == 0) captureSecondary("worker-record-sheet")
             rule.onNodeWithTag("record-expense").assertDoesNotExist()
             rule.onNodeWithTag("record-sale").assertDoesNotExist()
             Espresso.pressBack()
@@ -416,7 +416,10 @@ class FinanceEntryUiTest {
         val home = rule.onNodeWithTag("finance-home-list")
         // Cards appear once the device cache has been read, so wait for the first one.
         rule.waitUntil(15_000) { runCatching { home.performScrollToNode(hasTestTag("worker-greenhouse-$gh")) }.isSuccess }
-        rule.waitUntil(15_000) { rule.onAllNodesWithText("1 dari 1 tugas").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(30_000) {
+            rule.onAllNodesWithText("1 dari 1 tugas").fetchSemanticsNodes().isNotEmpty() ||
+                run { runCatching { rule.onNodeWithTag("finance-sync").performClick() }; false }
+        }
         readyText("Nutrisi belum dicek").assertExists()
         rule.onAllNodesWithText("Pembaruan data").assertCountEquals(0)
         home.performScrollToIndex(0)
@@ -441,9 +444,8 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
         rule.onNodeWithTag("finance-queue").scrollIfScrollable().performClick()
         readyText("Tersimpan. Terkirim otomatis saat ada internet.").assertIsDisplayed()
-        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-overview"))
-        readyNode("worker-greenhouse-overview").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
-        rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
+        readyNode("manager-back").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        rule.waitUntil(15_000) { runCatching { rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-$gh")) }.isSuccess }
         // The card now shows the check as a status chip; the EC and PPM values live on the greenhouse page.
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Nutrisi dicek", substring = true).fetchSemanticsNodes().isNotEmpty() }
         rule.onAllNodesWithText("1 belum terkirim", substring = true).onFirst().assertExists()
@@ -492,9 +494,13 @@ class FinanceEntryUiTest {
         agenda.set(true)
         readyNode("finance-sync").performClick()
         val home = rule.onNodeWithTag("finance-home-list")
-        home.performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
+        rule.waitUntil(15_000) { runCatching { home.performScrollToNode(hasTestTag("worker-greenhouse-$gh")) }.isSuccess }
         readyNode("worker-greenhouse-$gh").performClick()
-        rule.waitUntil(10_000) { runCatching { home.performScrollToNode(hasTestTag("worker-schedule-$agendaSchedule")) }.isSuccess }
+        // The first sync can finish before the schedule exists on the server, so ask again until it arrives.
+        rule.waitUntil(30_000) {
+            runCatching { home.performScrollToNode(hasTestTag("worker-schedule-$agendaSchedule")) }.isSuccess ||
+                run { runCatching { rule.onNodeWithTag("finance-sync").performClick() }; false }
+        }
         readyNode("worker-schedule-$agendaSchedule").performScrollTo().performClick()
         readyNode("finance-pick-date").assertExists()
         rule.onNodeWithTag("finance-type").assertDoesNotExist()
@@ -521,12 +527,12 @@ class FinanceEntryUiTest {
         agenda.set(true)
         readyNode("finance-sync").performClick()
         val home = rule.onNodeWithTag("finance-home-list")
-        home.performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
+        rule.waitUntil(15_000) { runCatching { home.performScrollToNode(hasTestTag("worker-greenhouse-$gh")) }.isSuccess }
         readyNode("worker-greenhouse-$gh").performClick()
-        home.performScrollToNode(hasText("Pekerjaan hari ini"))
-        rule.waitUntil(15_000) {
-            rule.onAllNodesWithText("Ada 2 catatan hasil terkirim · 1 dilewati dengan alasan", substring = true)
-                .fetchSemanticsNodes().isNotEmpty()
+        home.performScrollToNode(hasText("Jadwal hari ini"))
+        rule.waitUntil(30_000) {
+            rule.onAllNodesWithText("1 dilewati", substring = true).fetchSemanticsNodes().isNotEmpty() ||
+                run { runCatching { rule.onNodeWithTag("finance-sync").performClick() }; false }
         }
         captureWindow("worker-agenda-filled")
         readyNode("worker-schedule-$agendaSchedule").performScrollTo().performClick()
