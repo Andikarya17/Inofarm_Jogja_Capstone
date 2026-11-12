@@ -1,6 +1,16 @@
 package com.inofarm.jogja.feature.verification
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import com.inofarm.jogja.feature.FinanceDateField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -139,21 +149,17 @@ internal fun ActivityVerificationScreen(
         }
         FarmMenuList(Modifier.testTag("${kind.wire}-verification-list")) {
             item {
-                FarmMenuHeader("Cek catatan pekerja", "") {
-                    OutlinedButton(onClick = onOutbox, shape = FarmShape.Control,
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("verification-outbox")) { Text("Belum terkirim") }
-                }
-            }
-            item {
-                Choice("Jenis catatan", kind.wire, listOf(option("activity", "Kegiatan"), option("harvest", "Panen")),
-                    "verification-kind") { wire -> onKind(ReviewKind.entries.first { it.wire == wire }) }
-                Choice("Status", status, listOf(
-                    option("pending", "Belum dicek"), option("decided", "Sudah dicek"),
-                    option("valid", "Sesuai"), option("invalid", "Perlu diperbaiki"),
-                    option("legacy", "Catatan lama")
-                ), "verification-status") { status = it }
-                TextButton(onClick = { filters = !filters }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
-                    Text(if (filters) "Tutup filter" else if (kind == ReviewKind.HARVEST) "Filter greenhouse" else "Filter greenhouse, pencatat dan tanggal")
+                Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                    FarmChoiceChips("Jenis catatan", kind.wire, listOf(option("activity", "Kegiatan"), option("harvest", "Panen")),
+                        "verification-kind") { wire -> onKind(ReviewKind.entries.first { it.wire == wire }) }
+                    FarmChoiceChips("Status", status, listOf(
+                        option("pending", "Belum dicek"), option("decided", "Sudah dicek"),
+                        option("valid", "Sesuai"), option("invalid", "Perlu diperbaiki"),
+                        option("legacy", "Catatan lama")
+                    ), "verification-status", scroll = true) { status = it }
+                    TextButton(onClick = { filters = !filters }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
+                        Text(if (filters) "Tutup filter" else if (kind == ReviewKind.HARVEST) "Filter greenhouse" else "Filter greenhouse, pencatat dan tanggal")
+                    }
                 }
             }
             if (filters) item {
@@ -167,8 +173,8 @@ internal fun ActivityVerificationScreen(
                     if (workerCursor != null || workerMessage != null) TextButton(onClick = { workerPage++ }) { Text("Muat pencatat") }
                     Choice("Jenis kegiatan", type, listOf(option("", "Semua jenis")) +
                         ActivityType.entries.map { option(it.wire, it.label) }, "verification-type") { type = it }
-                    FinanceField("Dari tanggal WIB (YYYY-MM-DD)", from, { from = it }, "verification-from")
-                    FinanceField("Sampai tanggal WIB (YYYY-MM-DD)", until, { until = it }, "verification-until")
+                    FinanceDateField("Dari tanggal WIB (YYYY-MM-DD)", from, { from = it }, "verification-from")
+                    FinanceDateField("Sampai tanggal WIB (YYYY-MM-DD)", until, { until = it }, "verification-until")
                     val validDates = runCatching {
                         val first = from.takeIf(String::isNotBlank)?.let(LocalDate::parse)
                         val last = until.takeIf(String::isNotBlank)?.let(LocalDate::parse)
@@ -197,22 +203,15 @@ internal fun ActivityVerificationScreen(
             items(rows, key = { it.getJSONObject(kind.wire).getString("id") }) { entry ->
                 val activity = entry.getJSONObject(kind.wire)
                 val id = activity.getString("id")
-                FarmRecordCard(Modifier.testTag("verification-${kind.wire}-$id"), onOpen = { onSelect(id) }) {
-                    Text(recordLabel(kind, activity), style = MaterialTheme.typography.titleMedium)
-                    val names = entry.getJSONObject("context")
-                    Text(listOfNotNull(names.text("greenhouse"), names.text("season"), names.text("group")).joinToString(" · "))
-                    Text(listOfNotNull(activity.text("recorded_by_name"), activity.text("occurred_at")?.let(::timeLabel)).joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall)
-                    val measures = listOfNotNull(activity.text("manual_ec")?.let { "$it mS/cm" }, activity.text("manual_ppm")?.let { "$it ppm" })
-                    if (measures.isNotEmpty()) Text(measures.joinToString(" · "))
-                    else activity.text("notes")?.let { Text(it, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
-                    val statusLabel = if (activity.optString("record_state") == "cancelled") "Dibatalkan"
-                        else verificationLabel(entry.getString("status"))
-                    Text(statusLabel, style = MaterialTheme.typography.labelLarge)
-                }
+                VerificationCard(kind, entry, activity, "verification-${kind.wire}-$id") { onSelect(id) }
             }
             if (cursor != null && !loading && failure == null) item {
                 OutlinedButton(onClick = { loadPage++ }) { Text("Muat ${kind.label} berikutnya") }
+            }
+            item {
+                TextButton(onClick = onOutbox, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("verification-outbox")) {
+                    Text("Catatan saya yang belum terkirim")
+                }
             }
         }
     }
@@ -493,5 +492,62 @@ internal fun ActivityVerificationFeedback(session: FinanceSession, record: Local
             Text("Revisi ${it.optLong(kind.versionKey)} · ${verificationLabel(it.optString("decision"))}")
             DecisionFacts(it)
         }
+    }
+}
+
+@Composable
+private fun VerificationCard(kind: ReviewKind, entry: JSONObject, activity: JSONObject, tag: String, onOpen: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val names = entry.getJSONObject("context")
+    val type = activity.text("activity_type")
+    val measurement = kind == ReviewKind.ACTIVITY && type == ActivityType.MEASUREMENT.wire
+    val cancelled = activity.optString("record_state") == "cancelled"
+    val statusCode = entry.getString("status")
+    val chip = if (cancelled) "Dibatalkan" else verificationLabel(statusCode)
+    val tone = when {
+        cancelled -> FarmTone.Neutral
+        statusCode == "pending" -> FarmTone.Info
+        statusCode == "valid" -> FarmTone.Good
+        statusCode == "invalid" -> FarmTone.Error
+        else -> FarmTone.Neutral
+    }
+    val title = recordLabel(kind, activity)
+    val who = listOfNotNull(activity.text("recorded_by_name"), activity.text("occurred_at")?.let(::timeLabel)).joinToString(" · ")
+    val context = listOfNotNull(names.text("greenhouse"), names.text("season"), names.text("group")).joinToString(" · ")
+    val ec = activity.text("manual_ec")
+    val ppm = activity.text("manual_ppm")
+    Surface(
+        Modifier.fillMaxWidth().testTag(tag).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onOpen)
+            .semantics(mergeDescendants = true) {
+                contentDescription = listOfNotNull(title, who.ifBlank { null }, chip, ec?.let { "EC $it mS/cm" }, ppm?.let { "PPM $it ppm" }, context.ifBlank { null }).joinToString(", ")
+            },
+        shape = FarmShape.Card, color = colors.surface, border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant)
+    ) {
+        Column(Modifier.padding(FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.Top) {
+                FarmIconTile(if (kind == ReviewKind.HARVEST) FarmIcon.Basket else if (measurement) FarmIcon.Droplet else FarmIcon.Schedule,
+                    tone = if (measurement) FarmTone.Info else FarmTone.Neutral, size = 40.dp)
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    Text(who, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                }
+                FarmStatusChip(chip, tone = tone)
+            }
+            if (ec != null || ppm != null) Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                MeasureBox("EC", ec?.let { "$it mS/cm" } ?: "belum ada", Modifier.weight(1f))
+                MeasureBox("PPM", ppm?.let { "$it ppm" } ?: "belum ada", Modifier.weight(1f))
+            } else activity.text("notes")?.let {
+                Text(it, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+            }
+            if (context.isNotBlank()) Text(context, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun MeasureBox(label: String, value: String, modifier: Modifier) {
+    Column(modifier.background(MaterialTheme.colorScheme.surfaceVariant, FarmShape.Tile).padding(FarmSpace.Medium)) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
     }
 }

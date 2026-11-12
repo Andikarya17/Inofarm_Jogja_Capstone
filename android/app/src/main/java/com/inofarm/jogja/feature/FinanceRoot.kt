@@ -636,12 +636,12 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         android.os.Build.VERSION.SDK_INT >= 31 && androidx.compose.ui.platform.LocalView.current.isHardwareAccelerated
     val wibNow = remember { java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Jakarta")) }
     val managerBar: ManagerBar? = if (!manager) null else when {
-        tab == 0 && gh != null -> ManagerBar(homeSnapshot?.selected?.text("name") ?: "Greenhouse", null) { gh = null; periodReview = false }
+        tab == 0 && gh != null -> ManagerBar(homeSnapshot?.selected?.text("name") ?: "Greenhouse", null, onBack = { gh = null; periodReview = false })
         tab == 0 -> ManagerBar(greetingForWib(wibNow.hour, wibNow.minute), dateLabel(wibNow.toLocalDate()), null)
         tab == 5 -> ManagerBar("Riwayat", null, null)
         tab == 4 -> ManagerBar("Keuangan", null, null)
         tab == 6 -> ManagerBar("Kelola", null, null)
-        tab == 1 -> ManagerBar("Cek catatan pekerja", null, null)
+        tab == 1 -> ManagerBar("Cek catatan pekerja", null, { reviewActivity = null; tab = 0 }, "Kembali ke Beranda")
         else -> null
     }
     val snackbar = remember { SnackbarHostState() }
@@ -853,9 +853,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         kind=if (isActivity) OperationalKind.ACTIVITY else OperationalKind.HARVEST,
                         recordScope=if (manager && canRecordFromHome) listOfNotNull(homeSnapshot?.selected?.text("name"),homeSnapshot?.period?.text("season_name")).joinToString(" · ")
                         else null,
-                        onSync=onSync,
+                        onSync=onSync, canopy = manager,
                         historyKindPicker = if (tab == 5) ({
-                            RecordTypeChips(historyChip, manager, history.mine) { id ->
+                            val choose: (String) -> Unit = { id ->
                                 when (id) {
                                     "mine" -> { historyVm.mine(!history.mine); harvestHistoryVm.mine(!history.mine) }
                                     "activity", "measurement" -> {
@@ -870,15 +870,17 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                     }
                                 }
                             }
+                            if (manager) com.inofarm.jogja.feature.history.CanopyTypeChips(historyChip, choose)
+                            else RecordTypeChips(historyChip, manager, history.mine, choose)
                         }) else null,
                         header = {
                             if (manager && !isActivity) item("harvest-progress-link") {
-                                OutlinedButton(onClick = {
+                                com.inofarm.jogja.feature.managerhome.HarvestRow("Rekap panen", "Target dan hasil kelompok tanam", null,
+                                    tag = "harvest-progress-open") {
                                     harvestProgressGreenhouse = gh
                                     harvestProgressGroup = runningGroup
                                     harvestProgressOpen = true
-                                }, shape = FarmShape.Control, modifier = Modifier.heightIn(min = FarmSpace.Touch)
-                                    .testTag("harvest-progress-open")) { Text("Rekap panen") }
+                                }
                             }
                             if (!manager && !isActivity) item("worker-harvest-progress-link") {
                                 FarmActionRow("Progres panen", "Lihat target dan hasil kelompok tanam", FarmIcon.Report,
@@ -894,7 +896,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
 }
 
 /** Manager app bar content: a title, an optional second line, and a back action when a greenhouse is open. */
-internal class ManagerBar(val title: String, val subtitle: String?, val onBack: (() -> Unit)?)
+internal class ManagerBar(val title: String, val subtitle: String?, val onBack: (() -> Unit)?, val backLabel: String = "Kembali ke semua greenhouse")
 
 @Composable private fun FinanceToolbar(
     session: FinanceSession,
@@ -936,7 +938,7 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
     ) {
         if (manager && bar != null) {
             bar.onBack?.let { back ->
-                IconButton(onClick = back, modifier = Modifier.testTag("manager-back").semantics { contentDescription = "Kembali ke semua greenhouse" }) {
+                IconButton(onClick = back, modifier = Modifier.testTag("manager-back").semantics { contentDescription = bar.backLabel }) {
                     Box(Modifier.graphicsLayer { rotationZ = 180f }) { FarmControlIcon(FarmIcon.ChevronRight, null) }
                 }
             }
@@ -1233,7 +1235,7 @@ internal fun ExpiredSessionNotice() {
         modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }
     ) { Text(message, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium) }
 }
-@Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true,enabled:Boolean=true) {
+@Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true,enabled:Boolean=true,trailingAction:(@Composable ()->Unit)?=null) {
     val labelAbove = LocalDensity.current.fontScale > 1.5f
     val support = error ?: hint
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1246,7 +1248,7 @@ internal fun ExpiredSessionNotice() {
             ),
             label = if (labelAbove) null else ({ Text(label) }),
             isError = error != null,
-            supportingText = support?.let { message -> { Text(message) } },
+            supportingText = support?.let { message -> { Text(message) } }, trailingIcon = trailingAction,
             singleLine = singleLine, enabled = enabled, keyboardOptions = KeyboardOptions(keyboardType = keyboard),
             modifier = Modifier.fillMaxWidth().testTag(tag).semantics { if (labelAbove) contentDescription = label }
         )

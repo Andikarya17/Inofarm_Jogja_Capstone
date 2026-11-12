@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.inofarm.jogja.feature.history
 
 import android.app.DatePickerDialog
@@ -5,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.rememberScrollState
@@ -58,16 +61,33 @@ import java.util.Locale
 
 @Composable fun HistoryScreen(session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind=OperationalKind.ACTIVITY,
     returnToQueue:Boolean=false, recordScope:String?=null, onSync:(()->Unit)?=null,
-    historyKindPicker:(@Composable ()->Unit)?=null, header:LazyListScope.()->Unit={}) {
+    historyKindPicker:(@Composable ()->Unit)?=null, canopy:Boolean=false, header:LazyListScope.()->Unit={}) {
     when {
         state.comparison!=null -> ConflictReview(state.comparison,session,context,state.busy,state.message,vm::resolve,vm::closeComparison,kind)
         state.selected!=null -> HistoryDetail(state.selected,session,context,state,vm,queue,onEdit,kind,returnToQueue)
         else -> FarmMenuList(Modifier.testTag("finance-history-list")) {
-            if (!kind.financial) item("history-heading") {
+            if (!kind.financial && !canopy) item("history-heading") {
                 FarmMenuHeader(kind.label.replaceFirstChar { it.uppercaseChar() }, "")
             }
             header()
-            item("history-filters") {
+            if (canopy) item("history-filters") {
+                Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                    historyKindPicker?.invoke()
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                        Text(historyScope(context, state, kind), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        HistoryFilters(context, state.filter, state.filterSeason, vm::filter, kind, pickDates = false,
+                            badge = activeFilterCount(state.filter, state.filterSeason))
+                    }
+                    context.lastSyncedAt?.let {
+                        Text("Diperbarui ${java.time.Instant.ofEpochMilli(it).atZone(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH.mm 'WIB'"))}",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    recordScope?.let {
+                        Text("Catatan baru · $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else item("history-filters") {
                 FarmRecordCard {
                     if (historyKindPicker != null) Text("Riwayat", Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleMedium)
@@ -84,11 +104,11 @@ import java.util.Locale
                 }
             }
             if (session.expired()) item("history-session") { ExpiredSessionNotice() }
-            else if (context.message != null || context.lastSyncedAt != null) item("history-sync") {
+            else if (context.message != null || (!canopy && context.lastSyncedAt != null)) item("history-sync") {
                 FarmRecordCard {
                     context.message?.let { Text(it, Modifier.testTag("finance-sync-message"),
                         style=MaterialTheme.typography.bodySmall, color=MaterialTheme.colorScheme.onSurfaceVariant) }
-                    context.lastSyncedAt?.let {
+                    if (!canopy) context.lastSyncedAt?.let {
                         Text("Diperbarui ${timeLabel(Instant.ofEpochMilli(it).toString())}",
                             style=MaterialTheme.typography.bodySmall, color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -117,11 +137,26 @@ import java.util.Locale
                     }
                 }
             }
-            items(state.records, key = { it.id }) { record ->
+            if (canopy) {
+                val today = LocalDate.now(ActivityDraft.WIB)
+                val days = mutableListOf<Pair<String, MutableList<LocalRecord>>>()
+                state.records.forEach { r ->
+                    val heading = dayHeading(r, today)
+                    if (days.lastOrNull()?.first == heading) days.last().second.add(r) else days.add(heading to mutableListOf(r))
+                }
+                days.forEach { (heading, rows) ->
+                    stickyHeader(key = "day-$heading-${rows.first().id}") { CanopyDayHeader(heading) }
+                    itemsIndexed(rows, key = { _, r -> r.id }) { i, r ->
+                        CanopyRecordRow(r, kind, context, session.scope.accountId, state.checks, i == 0, i == rows.lastIndex) { vm.select(r.id) }
+                    }
+                }
+            } else items(state.records, key = { it.id }) { record ->
                 HistoryRecordRow(record, kind, context, session.scope.accountId.takeIf { session.role == UserRole.WORKER }, state.checks) { vm.select(record.id) }
             }
             if(state.hasMore) item {
-                Button(onClick=vm::more,enabled=!state.loading,shape=FarmShape.Control,
+                if (canopy) OutlinedButton(onClick=vm::more,enabled=!state.loading,shape=FarmShape.Control,
+                    modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("finance-history-more")) {Text("Muat 50 berikutnya")}
+                else Button(onClick=vm::more,enabled=!state.loading,shape=FarmShape.Control,
                     modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("finance-history-more")) {Text("Muat 50 berikutnya")}
             }
         }
@@ -210,6 +245,9 @@ private fun WorkerRecordStatus(record: LocalRecord, account: String, checks: Map
     }
 }
 
+private fun activeFilterCount(filter: LocalHistoryFilter, season: String?): Int =
+    listOfNotNull(filter.greenhouseId, season ?: filter.seasonId, filter.groupId, filter.type, filter.from, filter.until, filter.recordState).size
+
 private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:OperationalKind):String {
     val filter=state.filter
     fun name(rows:List<JSONObject>,id:String?,fallback:String) =
@@ -231,7 +269,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun HistoryFilters(context:CultivationUiState,filter:LocalHistoryFilter,filterSeason:String?,onApply:(LocalHistoryFilter,String?)->Unit,kind:OperationalKind,pickDates:Boolean) {
+@Composable private fun HistoryFilters(context:CultivationUiState,filter:LocalHistoryFilter,filterSeason:String?,onApply:(LocalHistoryFilter,String?)->Unit,kind:OperationalKind,pickDates:Boolean,badge:Int?=null) {
     var expanded by rememberSaveable {mutableStateOf(false)}
     var gh by rememberSaveable {mutableStateOf(filter.greenhouseId.orEmpty())};var season by rememberSaveable {mutableStateOf(filter.seasonId.orEmpty())};var group by rememberSaveable {mutableStateOf(filter.groupId.orEmpty())}
     var type by rememberSaveable {mutableStateOf(filter.type.orEmpty())};var status by rememberSaveable {mutableStateOf(filter.recordState.orEmpty())}
@@ -241,7 +279,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
         type=filter.type.orEmpty();status=filter.recordState.orEmpty()
         from=filter.from.orEmpty();until=filter.until.orEmpty();error=null;expanded=true
     },shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-history-filters")) {
-        Text(if (filter == LocalHistoryFilter()) "Filter riwayat" else "Ubah filter")
+        Text(if (badge != null) (if (badge > 0) "Filter · $badge" else "Filter") else if (filter == LocalHistoryFilter()) "Filter riwayat" else "Ubah filter")
     }
     if(expanded) CompositionLocalProvider(LocalFarmDialogPicker provides true) { ModalBottomSheet(onDismissRequest={expanded=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
         containerColor=MaterialTheme.colorScheme.surface, contentWindowInsets = { WindowInsets.safeDrawing }) {
@@ -265,8 +303,8 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
                 DateFilterButton("Dari",from,"history-from") {from=it}
                 DateFilterButton("Sampai",until,"history-until") {until=it}
             } else {
-                FinanceField("Dari tanggal WIB",from,{from=it},"history-from",hint="YYYY-MM-DD; kosong untuk semua")
-                FinanceField("Sampai tanggal WIB",until,{until=it},"history-until",hint="YYYY-MM-DD; termasuk tanggal ini")
+                FinanceDateField("Dari tanggal WIB",from,{from=it},"history-from",hint="YYYY-MM-DD; kosong untuk semua")
+                FinanceDateField("Sampai tanggal WIB",until,{until=it},"history-until",hint="YYYY-MM-DD; termasuk tanggal ini")
             }
         }
         error?.let {Notice(it,true)}

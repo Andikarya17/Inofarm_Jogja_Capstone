@@ -83,9 +83,9 @@ private fun AgeTile(label: String, value: String, modifier: Modifier, small: Boo
 
 /** One tappable line for the current planting's harvest, with a basket tile and a chevron. */
 @Composable
-internal fun HarvestRow(title: String, headline: String, note: String?, onClick: () -> Unit) {
+internal fun HarvestRow(title: String, headline: String, note: String?, tag: String = "manager-harvest-row", onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    Surface(Modifier.fillMaxWidth().testTag("manager-harvest-row"), shape = FarmShape.Card, color = colors.surface,
+    Surface(Modifier.fillMaxWidth().testTag(tag), shape = FarmShape.Card, color = colors.surface,
         border = BorderStroke(1.dp, colors.outlineVariant)) {
         Row(Modifier.clickable(role = Role.Button, onClick = onClick).heightIn(min = 64.dp).padding(FarmSpace.Medium),
             horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.CenterVertically) {
