@@ -335,7 +335,7 @@ internal enum class FarmIcon {
     }
 }
 
-private val rupiahGroupSeparator = Regex("(?<=\\d)\\.(?=\\d{3}(?:[.,]|$))")
+internal val rupiahGroupSeparator = Regex("(?<=\\d)\\.(?=\\d{3}(?:[.,]|$))")
 
 @Composable internal fun FarmAmount(value: String, style: TextStyle = MaterialTheme.typography.titleLarge) {
     val display = remember(value) { rupiahGroupSeparator.replace(value, ".\u200B") }

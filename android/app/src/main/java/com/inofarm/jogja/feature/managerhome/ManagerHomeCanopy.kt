@@ -96,8 +96,9 @@ private fun HeroTotal(label: String, note: String, total: JSONObject, modifier: 
         }
         if (records > 0) {
             val full = moneyLabel(total.getString("amount"))
-            Text(wholeRupiah(full), Modifier.clearAndSetSemantics { contentDescription = full },
-                style = FarmType.HeroAmount, maxLines = 1, softWrap = false)
+            // Long amounts break after a thousands dot; clipping would drop digits silently.
+            Text(com.inofarm.jogja.core.design.rupiahGroupSeparator.replace(wholeRupiah(full), ".​"), Modifier.clearAndSetSemantics { contentDescription = full },
+                style = FarmType.HeroAmount)
         } else Text("Belum ada", style = FarmType.HeroAmount, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(if (records > 0) "$note · $records" else note, style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
