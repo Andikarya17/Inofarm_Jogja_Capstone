@@ -1,6 +1,6 @@
 # Canopy: bukti implementasi (12 November 2026)
 
-Rencana: [MASTER_PROMPT_FRONTEND_CANOPY.md](MASTER_PROMPT_FRONTEND_CANOPY.md). Baseline sebelum Canopy: [FRONTEND_CANOPY_BASELINE_20261112.md](FRONTEND_CANOPY_BASELINE_20261112.md). Semua bukti di sini berasal dari emulator API 30 dengan fixture MockWebServer. Tidak ada perangkat fisik, backend nyata, atau TalkBack nyata.
+Rencana: [MASTER_PROMPT_FRONTEND_CANOPY.md](MASTER_PROMPT_FRONTEND_CANOPY.md). Baseline sebelum Canopy: [FRONTEND_CANOPY_BASELINE_20261112.md](FRONTEND_CANOPY_BASELINE_20261112.md). Semua bukti di sini berasal dari emulator API 30 (1080x2340) dengan fixture MockWebServer. Bukan perangkat fisik, bukan backend nyata, dan bukan TalkBack nyata.
 
 ## Status per fase
 
@@ -12,28 +12,49 @@ Rencana: [MASTER_PROMPT_FRONTEND_CANOPY.md](MASTER_PROMPT_FRONTEND_CANOPY.md). B
 | 3 Shell, dock, sheet Catat | `codex/canopy-shell` | Selesai |
 | 4 Beranda semua greenhouse | `codex/canopy-home` | Selesai, ditinjau reviewer |
 | 5 Detail greenhouse | `codex/canopy-detail` | Selesai, ditinjau reviewer |
-| 6 Riwayat dan Cek catatan | `codex/canopy-history` | Selesai, ditinjau reviewer; baris pengelola belum terlihat di screenshot |
-| 7 Keuangan dan Kelola | `codex/canopy-finance-manage` | Sebagian: hero Keuangan, chip jenis, kartu hasil di sheet Alat keuangan, kartu identitas Kelola |
-| 8 Form | `codex/canopy-forms` | **Sebagian kecil**: isian tanggal dan jam pengelola memakai picker Android |
+| 6 Riwayat dan Cek catatan | `codex/canopy-history` | Selesai, ditinjau reviewer; baris pengelola dengan data terbukti di `mhist-manager-rows.png` (terang, gelap, 200%) |
+| 7 Keuangan dan Kelola | `codex/canopy-finance-manage` | Selesai: hero kas per greenhouse, chip, sheet Alat keuangan bergrup, kartu identitas Kelola |
+| 8 Form | `codex/canopy-forms` | Selesai di kode; bukti layar sebagian (lihat bawah). Ditinjau reviewer; perbaikan di `251a7d7` |
 | 9 Polish | belum | Hanya dokumen ini, `CLAUDE.md` dan `DESIGN.md` |
 
-## Belum dikerjakan
+## Form pengelola (Fase 8)
 
-- **Fase 8 (sebagian besar):** strip konteks forest, `FarmFormSection`, isian angka besar dengan satuan, chip untuk pilihan pendek (jenis kegiatan, kondisi buah, jenis pembayaran, kelas biaya, peran akun), bar bawah menempel di atas keyboard, kartu total, langkah Periksa bergaya kartu, wizard dengan indikator tiga segmen, form akun, dan ringkasan waktu dengan tombol Ubah pada form pengukuran dan panen.
-- **Fase 7:** angka kas per greenhouse di hero Keuangan (hanya teks "Kas bulan ini ada di Beranda"), kelompok bertile pada daftar sheet Alat keuangan, dan tanda terlihat pada baris Riwayat pengelola belum dicek dengan data.
-- **Fase 9:** pass `audit.native` dan `harden`, TalkBack, screenshot form pada 100%, 200% dan dengan keyboard, `impeccable-documenter`, dan pembaruan `IMPLEMENTATION_STATUS.md`, `GAP_ANALYSIS.md` dan `docs/context/README.md`.
-- Skala animasi nol untuk parallax motif belum diuji.
+Kerangka `FarmFormFrame` (header X + status draf, strip konteks forest, kartu `FarmFormSection`, bar bawah penuh lebar dengan garis atas) di `feature/FormCanopy.kt`. Berlaku untuk: pengeluaran dan alokasi, penjualan, aset dan penyusutan, kegiatan dan pengukuran, panen, form admin, form akun, wizard Tambah greenhouse, dan semua langkah Periksa (`FarmReviewFrame`). Form pekerja tidak berubah (K8): cabang `worker` memakai tata letak lama dan tag yang sama.
+
+Bukti layar (emulator, terang, 100%) di `outputs/frontend-canopy-20261112/after/`: `v2-measure-*`, `v2-harvest-review`, `forms-*`, `account-*`, `admin-wizard-1*`, `secondary-sale-*`, `secondary-allocation-*`, `secondary-asset-*`, `secondary-depreciation-*`. Pada 200%: `font200/forms-*` (pengukuran dan panen, termasuk keyboard terbuka).
+
+Temuan yang diperbaiki saat pengujian: hero kas memotong nominal panjang pada 200% (kini membungkus di titik ribuan); bar IME lama tidak lagi tampil di atas form pengelola; "Total isian" panen memakai koma desimal.
+
+## Belum dibuktikan atau belum dikerjakan
+
+- Wizard langkah 2 dan 3 belum terlihat di layar (fixture tidak punya route simpan greenhouse); hanya langkah 1.
+- Form pada mode gelap dan 200% hanya sebagian: pengukuran dan panen 200% ada; akun, penjualan, aset, pengeluaran dan semua Periksa pada 200% dan gelap belum. Chip Cacat amber pada permukaan gelap belum dilihat.
+- Lebar 360 dp belum diperiksa (emulator 411 dp).
+- Pemisah ribuan tampilan pada isian nominal (5.13.5) belum ada: menyentuh tampilan nilai yang divalidasi, butuh keputusan. Kartu forest 34 sp untuk nominal pengeluaran belum ada.
+- Tombol "Tambah ..." masih garis penuh, bukan garis putus. Baris rincian penjualan masih memakai tombol teks "Hapus rincian N", bukan `FarmDetailCard`. Tanggal dan jam di form kegiatan bertumpuk, bukan berdampingan. Langkah Periksa belum punya baris angka utama dua kolom.
+- Dialog (wizard, admin) memakai bilah sistem gelap pada mode terang; sudah demikian sebelum Canopy.
+- Picker greenhouse yang dibuka dari hero Keuangan berupa dialog hijau gelap bahkan pada mode terang (terbaca, tetapi bocoran tema hero).
+- Fase 9: `audit.native`, `harden`, TalkBack, `impeccable-documenter`, skala animasi nol untuk parallax, `IMPLEMENTATION_STATUS.md`, `GAP_ANALYSIS.md`, `docs/context/README.md` (perlu diff ditunjukkan ke pengguna lebih dulu).
 
 ## Hasil pemeriksaan (sesi ini)
 
-- Build debug, tes JVM dan lint terakhir: build lulus, 104 tes JVM, 0 error lint, 18 warning, 1 hint. Baseline 16 warning; tambahan dua berasal dari peringatan versi dependensi.
-- Instrumentasi `FinanceEntryUiTest` per fase dijalankan sebagian (kelas yang disentuh), bukan seluruh 64 tes setelah Fase 3. Kegagalan lama sejak baseline tidak berubah: konflik "Server · versi 2", teks "Ringkasan kebun" dan "Belum dapat memeriksa pencatatan hari ini", `finance-sync` pengelola, `Akhiri periode berjalan`, `Catat hasil`, penutupan musim.
-- Kelas backend device dilewati (butuh backend dan `devicePhase`).
-- Tes yang diubah: tag dialihkan (`manager-home-picker` ke `manager-add-greenhouse`, `manager-home-all` ke `manager-back`), helper `readyListNode` dan `sendQueuedNow`, serta helper `choose()` kini menerima opsi yang terpilih sebagai pengganti "opsi hilang". Pemeriksaan picker di tes walkthrough dihapus karena fiturnya dihapus spec.
+- Build debug dan test APK, 104 tes JVM, lint: 0 error, 18 warning, 1 hint (baseline 16 warning; sebagian berasal dari peringatan versi dependensi). `python scripts/check-finance-context.py`: tanpa error.
+- `FinanceEntryUiTest` penuh pada `6019e72`: 64 tes, **17 gagal**. Baseline Fase 0b: 15 gagal. Lima belas yang sama masih gagal dengan sebab yang sama. Dua tambahan, keduanya diperbaiki di `251a7d7` dan lulus saat dijalankan sendiri: `workerScheduleEntryHasNoTypeChoice` (guliran terjadi sebelum panel hari ini selesai dimuat; kini menunggu barisnya) dan `glassFrontend…` (menegaskan judul "Penjualan dan penerimaan" yang hilang saat sheet Alat keuangan dibagi grup; kini "Catat dan alokasi"). Setelah `251a7d7` kelas penuh belum dijalankan ulang.
+- `FinanceAdminUiTest` (2 tes) lulus. Kelas backend device dilewati (butuh backend dan `devicePhase`).
+
+## Perubahan pada tes (setara, tidak ada assertion dihapus)
+
+- Tag dialihkan: `manager-home-picker` ke `manager-add-greenhouse`, `manager-home-all` ke `manager-back`.
+- `choose()` menerima opsi terpilih sebagai pengganti "opsi hilang" (dropdown menjadi chip).
+- `scrollIfScrollable()` menggantikan `performScrollTo()` pada tombol di bar bawah (bar berada di luar area gulir), termasuk tombol admin.
+- Helper `readyListNode`, `sendQueuedNow` toleran antrean yang menguras diri, `openFinanceOutbox` menunggu idle.
+- `offlineQueueRecreation…`: menunggu `posts==1` sebelum teks "Terkirim" (snackbar simpan memuat kata itu), assertion `posts==1` dipertahankan.
+- Judul sheet Alat keuangan: "Penjualan dan penerimaan" menjadi "Catat dan alokasi".
+- Satu assertion picker dialihkan karena picker tanggal kini dialog Android.
 
 ## Dampak pada pekerja (K8)
 
-Pekerja tetap memakai FAB, dua tab dan toolbar "Inofarm". Yang berubah: font Plus Jakarta Sans, gaya kotak sheet Catat, dan login. Screenshot: `outputs/frontend-canopy-20261112/after/shell-worker-*.png` dan `hist-manager-rows.png` (Riwayat pekerja).
+Pekerja tetap memakai FAB, dua tab dan toolbar "Inofarm". Yang berubah: font Plus Jakarta Sans, gaya kotak sheet Catat, dan login. Screenshot: `outputs/frontend-canopy-20261112/after/shell-worker-*.png`.
 
 ## Bahan screenshot
 
