@@ -54,28 +54,34 @@ internal fun CashHero(snapshot: HomeSnapshot, updated: String, loading: Boolean,
         Text("Semua greenhouse", Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
         if (empty) {
             Text("Belum ada transaksi tercatat bulan ini.", style = MaterialTheme.typography.bodyMedium)
-        } else {
-            val longest = listOf(receipts, payments).maxOf { t ->
-                if (t.getLong("records") > 0) wholeRupiah(moneyLabel(t.getString("amount"))).length else 0
-            }
-            val stack = LocalDensity.current.fontScale > 1.3f || longest > 11
-            val columns: @Composable (Modifier) -> Unit = { m ->
-                HeroTotal("Penerimaan", "Penjualan lunas", receipts, m, FarmColors.Sage)
-                HeroTotal("Pengeluaran", "Pembayaran aktual", payments, m, ForestScheme.secondary)
-            }
-            if (stack) Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) { columns(Modifier.fillMaxWidth()) }
-            else Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Large)) { columns(Modifier.weight(1f)) }
-            val share = cashShare(receipts.optString("amount").toBigDecimalOrNull(), payments.optString("amount").toBigDecimalOrNull())
-            if (share != null) Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).clearAndSetSemantics {}) {
-                if (share.first > 0f) Box(Modifier.weight(share.first).fillMaxHeight().background(FarmColors.Sage))
-                if (share.first > 0f && share.second > 0f) Spacer(Modifier.width(2.dp))
-                if (share.second > 0f) Box(Modifier.weight(share.second).fillMaxHeight().background(ForestScheme.secondary))
-            }
-        }
+        } else CashColumns(receipts, payments)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Text(updated, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { onOpen(HomeDestination(OperationalKind.EXPENSE, filter)) },
                 modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-home-finance")) { Text("Lihat keuangan") }
+        }
+    }
+}
+
+/** The two recorded cash totals with the proportion bar. Meant to sit inside a forest hero. */
+@Composable
+internal fun CashColumns(receipts: JSONObject, payments: JSONObject) {
+    val longest = listOf(receipts, payments).maxOf { t ->
+        if (t.getLong("records") > 0) wholeRupiah(moneyLabel(t.getString("amount"))).length else 0
+    }
+    val stack = LocalDensity.current.fontScale > 1.3f || longest > 11
+    val columns: @Composable (Modifier) -> Unit = { m ->
+        HeroTotal("Penerimaan", "Penjualan lunas", receipts, m, FarmColors.Sage)
+        HeroTotal("Pengeluaran", "Pembayaran aktual", payments, m, ForestScheme.secondary)
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+        if (stack) Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) { columns(Modifier.fillMaxWidth()) }
+        else Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Large)) { columns(Modifier.weight(1f)) }
+        val share = cashShare(receipts.optString("amount").toBigDecimalOrNull(), payments.optString("amount").toBigDecimalOrNull())
+        if (share != null) Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).clearAndSetSemantics {}) {
+            if (share.first > 0f) Box(Modifier.weight(share.first).fillMaxHeight().background(FarmColors.Sage))
+            if (share.first > 0f && share.second > 0f) Spacer(Modifier.width(2.dp))
+            if (share.second > 0f) Box(Modifier.weight(share.second).fillMaxHeight().background(ForestScheme.secondary))
         }
     }
 }

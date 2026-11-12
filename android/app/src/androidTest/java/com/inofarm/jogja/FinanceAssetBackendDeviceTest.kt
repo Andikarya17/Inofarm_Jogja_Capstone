@@ -51,7 +51,7 @@ class FinanceAssetBackendDeviceTest {
     private fun fields(values:List<Pair<String,String>>) {values.forEach {(tag,value)->rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)};hideKeyboard()}
     private fun remember(proof:JSONObject,kind:String) {
         val model=runtime();val session=model.vault.current!!
-        rule.onNodeWithTag("asset-review").performScrollTo().performClick();rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("asset-review").scrollIfScrollable().performClick();rule.onNodeWithTag("asset-queue").scrollIfScrollable().performClick()
         rule.waitUntil(15000) {model.store.outbox(session.scope.key).any {it.envelope.optString("entity_type")==kind}}
         val op=model.store.outbox(session.scope.key).single {it.envelope.optString("entity_type")==kind}
         assertEquals("QUEUED",op.state)

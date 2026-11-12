@@ -18,6 +18,12 @@ internal fun FinanceTestRule.waitForFinanceMasterPull() {
     }
 }
 
+/** Scrolls to the node when a scrollable parent exists; sticky-bar buttons have none and are always on screen. */
+internal fun SemanticsNodeInteraction.scrollIfScrollable(): SemanticsNodeInteraction {
+    runCatching { performScrollTo() }
+    return this
+}
+
 internal fun FinanceTestRule.selectFinanceTab(index: Int) {
     waitUntil(10_000) { onAllNodesWithTag("finance-tab-$index").fetchSemanticsNodes().isNotEmpty() }
     onNodeWithTag("finance-tab-$index").performClick()

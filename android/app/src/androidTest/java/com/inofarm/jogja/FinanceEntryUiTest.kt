@@ -393,8 +393,8 @@ class FinanceEntryUiTest {
         chooseContext()
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Catatan belum terkirim sintetis")
         hideKeyboard()
-        rule.onNodeWithTag("finance-review").performScrollTo().performClick()
-        rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
+        rule.onNodeWithTag("finance-queue").scrollIfScrollable().performClick()
         rule.openFinanceOutbox()
         readyNode("queue-send-now").assertIsDisplayed()
         captureSecondary("worker-unsent-sheet")
@@ -437,8 +437,8 @@ class FinanceEntryUiTest {
         readyNode("finance-ec").performScrollTo().performTextReplacement("1,25")
         readyNode("finance-ppm").performScrollTo().performTextReplacement("625,5")
         hideKeyboard()
-        rule.onNodeWithTag("finance-review").performScrollTo().performClick()
-        rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
+        rule.onNodeWithTag("finance-queue").scrollIfScrollable().performClick()
         readyText("Tersimpan. Terkirim otomatis saat ada internet.").assertIsDisplayed()
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-overview"))
         readyNode("worker-greenhouse-overview").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
@@ -508,7 +508,7 @@ class FinanceEntryUiTest {
         readyNode("finance-save-draft").performScrollTo().assertTextContains("Simpan sebagai draf")
         readyNode("finance-reason").performScrollTo().performTextReplacement("Salah ketik keterangan")
         hideKeyboard()
-        rule.onNodeWithTag("finance-review").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
         readyNode("finance-queue").performScrollTo().assertTextContains("Kirim")
         rule.onAllNodesWithText("Acuan", substring = true).assertCountEquals(0)
         rule.onAllNodesWithText("versi", substring = true, ignoreCase = true).assertCountEquals(0)
@@ -771,7 +771,7 @@ class FinanceEntryUiTest {
         capture("worker-form-start")
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Draf verifikasi tampilan botani")
         hideKeyboard();capture("worker-form")
-        rule.onNodeWithTag("finance-save-draft").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-save-draft").scrollIfScrollable().performClick()
         rule.selectFinanceTab(1);capture("worker-history")
         rule.logoutFromAccount();login("manager@example.invalid")
         capture("manager-home")
@@ -874,8 +874,8 @@ class FinanceEntryUiTest {
         readyText("Pengukuran manual",true).performScrollTo().performClick()
         readyNode("finance-edit").performScrollTo().performClick()
         offline.set(true)
-        rule.onNodeWithTag("finance-review").performScrollTo().performClick()
-        rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
+        rule.onNodeWithTag("finance-queue").scrollIfScrollable().performClick()
         rule.selectFinanceTab(0)
         choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("measurement-card-ec"))
@@ -902,9 +902,9 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Catatan offline UI sintetis")
         hideKeyboard()
         captureSecondary("activity-form")
-        rule.onNodeWithTag("finance-review").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
         captureSecondary("activity-review")
-        rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-queue").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-1").fetchSemanticsNodes().isNotEmpty()}
         rule.openFinanceOutbox()
         readyNode("queue-send-now").assertIsDisplayed()
@@ -930,7 +930,7 @@ class FinanceEntryUiTest {
     @Test fun multiMaterialDraftRotationAndBackRetainRawFieldsBeforeReview() {
         chooseContext();choose("finance-type","nutrition")
         rule.onNodeWithTag("finance-ppm").assertTextContains("")
-        rule.onNodeWithTag("finance-review").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
         rule.onAllNodesWithText("Isi PPM manual.").onFirst().assertExists()
         rule.onNodeWithTag("finance-ppm").performScrollTo().performTextReplacement("900")
         rule.onNodeWithTag("finance-ph").performScrollTo().performTextReplacement("6,1")
@@ -948,13 +948,13 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-1").performClick();rule.onNodeWithText("Draf dua bahan tetap ada").performScrollTo().performClick()
         readyNode("finance-edit").performScrollTo().performClick()
         rule.onNodeWithTag("finance-ph").performScrollTo().assertTextContains("6,1")
-        hideKeyboard();rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        hideKeyboard();rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick();rule.onNodeWithTag("finance-queue").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {posts.get()==1}
         val body=receipts.values.single().getJSONObject("data");assertEquals("6.1",body.getString("manual_ph"));assertEquals(2,body.getJSONArray("materials").length())
     }
     private fun createAccepted(note:String):String {
         chooseContext();rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement(note);hideKeyboard()
-        rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick();rule.onNodeWithTag("finance-queue").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {posts.get()==1}
         rule.selectFinanceTab(1)
         val id=receipts.values.single().getString("entity_id")
@@ -1052,7 +1052,7 @@ class FinanceEntryUiTest {
         readyNode("finance-edit").performScrollTo().performClick()
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Koreksi lokal sintetis");hideKeyboard()
         rule.onNodeWithTag("finance-reason").performScrollTo().performTextReplacement("Perbaikan lokal");hideKeyboard()
-        rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick();rule.onNodeWithTag("finance-queue").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {receipts.size==2}
         val id=receipts.values.first().getString("entity_id")
         awaitRecord("finance-record-$id")
@@ -1447,7 +1447,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("harvest-notes").performScrollTo().performTextReplacement(note);hideKeyboard()
     }
     private fun queueHarvest() {
-        rule.onNodeWithTag("harvest-review").performScrollTo().performClick();rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("harvest-review").scrollIfScrollable().performClick();rule.onNodeWithTag("harvest-queue").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-1").fetchSemanticsNodes().isNotEmpty()};rule.openWorkerHarvestHistory()
     }
     @Test fun offlineMultigradeHarvestRecreationReconnectManagerAuditAndCancel() {
@@ -1455,9 +1455,9 @@ class FinanceEntryUiTest {
         rule.activityRule.scenario.recreate();rule.onNodeWithTag("harvest-weight-0").performScrollTo().assertTextContains("15,25")
         rule.onNodeWithTag("harvest-count-1").performScrollTo().assertTextContains("0")
         captureSecondary("harvest-form")
-        rule.onNodeWithTag("harvest-review").performScrollTo().performClick()
+        rule.onNodeWithTag("harvest-review").scrollIfScrollable().performClick()
         captureSecondary("harvest-review")
-        rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("harvest-queue").scrollIfScrollable().performClick()
         rule.openWorkerHarvestHistory()
         rule.waitForIdle()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Belum terkirim").fetchSemanticsNodes().isNotEmpty()};assertEquals(0,harvestPosts.get())
@@ -1510,11 +1510,11 @@ class FinanceEntryUiTest {
         };rule.waitForIdle()}
         fun capture(name:String) {val bitmap=rule.onRoot().captureToImage().asAndroidBitmap();File(rule.activity.getExternalFilesDir(null),name).outputStream().use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}}
         content(true);rule.onNodeWithTag("harvest-weight-0").performScrollTo().performTextReplacement("belum selesai")
-        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("harvest-save-draft").performScrollTo();capture("finance-harvest-narrow-ime.png")
+        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("harvest-save-draft").scrollIfScrollable();capture("finance-harvest-narrow-ime.png")
         rule.onNodeWithTag("harvest-save-draft").assertIsDisplayed();hideKeyboard()
         rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE};rule.waitUntil(10000) {rule.activity.resources.configuration.orientation==Configuration.ORIENTATION_LANDSCAPE}
         content(false);rule.onNodeWithTag("harvest-weight-0").performScrollTo().performClick();Thread.sleep(500);rule.waitForIdle()
-        rule.onNodeWithTag("harvest-save-draft").performScrollTo();capture("finance-harvest-landscape-ime.png");rule.onNodeWithTag("harvest-save-draft").assertIsDisplayed();hideKeyboard()
+        rule.onNodeWithTag("harvest-save-draft").scrollIfScrollable();capture("finance-harvest-landscape-ime.png");rule.onNodeWithTag("harvest-save-draft").assertIsDisplayed();hideKeyboard()
         rule.onNodeWithTag("harvest-save-draft").performClick()
         rule.waitUntil(10000) { rule.onAllNodesWithTag("finance-tab-1").fetchSemanticsNodes().isNotEmpty() }
         rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_PORTRAIT}
@@ -1601,9 +1601,9 @@ class FinanceEntryUiTest {
         saleFormWithSources();offline.set(true)
         rule.activityRule.scenario.recreate();rule.onNodeWithTag("sale-price-0").performScrollTo().assertTextContains("0,004")
         captureSecondary("sale-form")
-        rule.onNodeWithTag("sale-review").performScrollTo().performClick()
+        rule.onNodeWithTag("sale-review").scrollIfScrollable().performClick()
         captureSecondary("sale-review")
-        rule.onNodeWithTag("sale-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("sale-queue").scrollIfScrollable().performClick()
         val session=runtime().vault.current!!
         rule.waitUntil(10000) {runtime().store.outbox(session.scope.key).any {it.envelope.optString("entity_type")=="sale"}}
         val op=runtime().store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="sale"};assertEquals("QUEUED",op.state)
@@ -1617,7 +1617,7 @@ class FinanceEntryUiTest {
     }
     @Test fun saleRejectedSourceReviewRetainsOldOperationAndRequiresNewExplicitCorrection() {
         saleFormWithSources();saleRejectNext.set(true)
-        rule.onNodeWithTag("sale-review").performScrollTo().performClick();rule.onNodeWithTag("sale-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("sale-review").scrollIfScrollable().performClick();rule.onNodeWithTag("sale-queue").scrollIfScrollable().performClick()
         val session=runtime().vault.current!!;rule.waitUntil(15000) {runtime().store.outbox(session.scope.key).any {it.error?.optString("code")=="harvest_exceeded"}}
         val original=runtime().store.outbox(session.scope.key).single {it.error?.optString("code")=="harvest_exceeded"}
         rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","sale")
@@ -1625,7 +1625,7 @@ class FinanceEntryUiTest {
         rule.waitUntil(10000) {rule.onAllNodesWithTag("history-fix-rejected").fetchSemanticsNodes().isNotEmpty()}
         readyNode("history-fix-rejected").performScrollTo().performClick()
         rule.onNodeWithTag("sale-quantity-0").performScrollTo().performTextReplacement("0,5");hideKeyboard()
-        rule.onNodeWithTag("sale-review").performScrollTo().performClick();rule.onNodeWithTag("sale-queue").performScrollTo().performClick();acceptedFinancial("sale")
+        rule.onNodeWithTag("sale-review").scrollIfScrollable().performClick();rule.onNodeWithTag("sale-queue").scrollIfScrollable().performClick();acceptedFinancial("sale")
         val operations=runtime().store.outbox(session.scope.key).filter {it.entityId==original.entityId};assertEquals(2,operations.size)
         assertEquals("SUPERSEDED",operations.single {it.id==original.id}.state);assertEquals(original.hash,operations.single {it.id==original.id}.hash)
     }
@@ -1653,7 +1653,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("allocation-basis").performScrollTo().performTextReplacement("Nominal eksplisit untuk musim sintetis")
         rule.onNodeWithTag("expense-amount").performScrollTo().performTextReplacement(amount);hideKeyboard()
     }
-    private fun queueFinancial() {rule.onNodeWithTag("expense-review").performScrollTo().performClick();rule.onNodeWithTag("expense-queue").performScrollTo().performClick()}
+    private fun queueFinancial() {rule.onNodeWithTag("expense-review").scrollIfScrollable().performClick();rule.onNodeWithTag("expense-queue").scrollIfScrollable().performClick()}
     private fun runtime()=ViewModelProvider(rule.activity)[FinanceRuntime::class.java]
     private fun acceptedFinancial(kind:String):String {
         rule.waitUntil(15000) {runtime().vault.current?.let {session -> runtime().store.records(session.scope.key,kind=kind).any {it.syncState==com.inofarm.jogja.core.contracts.SyncState.ACCEPTED}}==true}
@@ -1674,9 +1674,9 @@ class FinanceEntryUiTest {
         rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()};Espresso.pressBack()
         financialForm(true);fillAllocation(source)
         captureSecondary("allocation-form")
-        rule.onNodeWithTag("expense-review").performScrollTo().performClick()
+        rule.onNodeWithTag("expense-review").scrollIfScrollable().performClick()
         captureSecondary("allocation-review")
-        rule.onNodeWithTag("expense-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("expense-queue").scrollIfScrollable().performClick()
         val allocationId=acceptedFinancial("cost_allocation")
         rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","cost_allocation")
         awaitRecord("finance-record-$allocationId");rule.onNodeWithTag("finance-record-$allocationId").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
@@ -1738,14 +1738,14 @@ class FinanceEntryUiTest {
             rule.waitForIdle()
         }
         layout(true);rule.onNodeWithTag("expense-notes").performScrollTo().performClick().performTextReplacement("Catatan pembayaran font 200 persen")
-        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-save-draft").performScrollTo().assertIsDisplayed()
+        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-save-draft").scrollIfScrollable().assertIsDisplayed()
         File(rule.activity.getExternalFilesDir(null),"expense-narrow-ime.png").outputStream().use {rule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
         captureWindow("payment-narrow-ime")
         hideKeyboard();rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}
         rule.waitUntil(10000) {rule.activity.resources.configuration.orientation==Configuration.ORIENTATION_LANDSCAPE};layout(false)
         rule.onNodeWithTag("expense-notes").performScrollTo().assertTextContains("Catatan pembayaran font 200 persen")
             .performClick().performTextReplacement("Landscape tetap dapat disimpan")
-        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-save-draft").performScrollTo().assertIsDisplayed()
+        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-save-draft").scrollIfScrollable().assertIsDisplayed()
         File(rule.activity.getExternalFilesDir(null),"expense-landscape-ime.png").outputStream().use {rule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
         captureWindow("payment-landscape-ime")
         rule.onNodeWithTag("expense-save-draft").performClick();rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED}
@@ -1771,7 +1771,7 @@ class FinanceEntryUiTest {
         overrideContent(true)
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Uji font 200 persen")
         Thread.sleep(500);rule.waitForIdle()
-        rule.onNodeWithTag("finance-save-draft").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("finance-save-draft").scrollIfScrollable().assertIsDisplayed()
         capture("finance-narrow-ime.png")
         hideKeyboard()
         rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}
@@ -1780,7 +1780,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-notes").performScrollTo().assertTextContains("Uji font 200 persen")
         rule.onNodeWithTag("finance-notes").performTextReplacement("Landscape tetap tersimpan")
         Thread.sleep(500);rule.waitForIdle()
-        rule.onNodeWithTag("finance-save-draft").performScrollTo()
+        rule.onNodeWithTag("finance-save-draft").scrollIfScrollable()
         capture("finance-landscape-ime.png")
         rule.onNodeWithTag("finance-save-draft").assertIsDisplayed()
         rule.onNodeWithTag("finance-save-draft").performClick()
@@ -1803,9 +1803,9 @@ class FinanceEntryUiTest {
         for((tag,value) in listOf("asset-name" to "Pompa UI sintetis","asset-cost" to "100,00","asset-residual" to "0","asset-life" to "3","asset-start" to "2026-01-01","asset-basis" to "Basis manual eksplisit")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
         hideKeyboard();rule.activityRule.scenario.recreate();rule.onNodeWithTag("asset-name").performScrollTo().assertTextContains("Pompa UI sintetis")
         captureSecondary("asset-form")
-        rule.onNodeWithTag("asset-review").performScrollTo().performClick()
+        rule.onNodeWithTag("asset-review").scrollIfScrollable().performClick()
         captureSecondary("asset-review")
-        rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("asset-queue").scrollIfScrollable().performClick()
         rule.waitUntil(15000) {financeKinds.values.count {it=="asset"}==1};val id=financeKinds.entries.single {it.value=="asset"}.key
         choose("expense-history-kind","asset")
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
@@ -1820,9 +1820,9 @@ class FinanceEntryUiTest {
         for((tag,value) in listOf("asset-usage-year" to "1","asset-period-start" to "2026-01-01","asset-period-end" to "2027-01-01","asset-amount" to "33,33","asset-basis" to "Pemakaian musim sintetis")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
         hideKeyboard();rule.onNodeWithTag("asset-new-usage").performScrollTo().performClick()
         captureSecondary("depreciation-form")
-        rule.onNodeWithTag("asset-review").performScrollTo().performClick()
+        rule.onNodeWithTag("asset-review").scrollIfScrollable().performClick()
         captureSecondary("depreciation-review")
-        rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("asset-queue").scrollIfScrollable().performClick()
         rule.waitUntil(15000) {financeKinds.values.any {it=="depreciation_allocation"}}
         val receipt=financeReceipts.values.single {financeKinds[it.getString("entity_id")]=="depreciation_allocation"};assertEquals("33.33",receipt.getJSONObject("data").getString("amount"))
         choose("expense-history-kind","depreciation_allocation")
@@ -1852,7 +1852,7 @@ class FinanceEntryUiTest {
         choose("expense-history-kind","asset");rule.clickFinanceTool("asset-new")
         rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Isian 200 persen")
         rule.onNodeWithTag("asset-basis").performScrollTo().performTextReplacement("Basis tetap bisa dijangkau");hideKeyboard()
-        rule.onNodeWithTag("asset-save-draft").performScrollTo().assertIsDisplayed().performClick()
+        rule.onNodeWithTag("asset-save-draft").scrollIfScrollable().assertIsDisplayed().performClick()
     }
 
     @Test fun assetConflictReviewPreservesRawLocalNameAndOldOperation() {
@@ -1862,7 +1862,7 @@ class FinanceEntryUiTest {
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("finance-edit").performScrollTo().performClick();rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Nama aset lokal diperiksa")
         rule.onNodeWithTag("asset-reason").performScrollTo().performTextReplacement("Koreksi nama aset");hideKeyboard();assetConflictNext.set(true)
-        rule.onNodeWithTag("asset-review").performScrollTo().performClick();rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("asset-review").scrollIfScrollable().performClick();rule.onNodeWithTag("asset-queue").scrollIfScrollable().performClick()
         rule.waitUntil(15000) {model.store.outbox(session.scope.key).any {it.entityId==id && it.state=="CONFLICT"}}
         val original=model.store.outbox(session.scope.key).single {it.entityId==id}
         choose("expense-history-kind","asset")
@@ -1883,11 +1883,11 @@ class FinanceEntryUiTest {
         val expense=assetSources();rule.logoutFromAccount();login("manager@example.invalid")
         rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",gh);rule.clickFinanceTool("asset-new");choose("asset-expense",expense)
         for((tag,value) in listOf("asset-name" to "Aset sumber berubah","asset-cost" to "100","asset-residual" to "0","asset-life" to "3","asset-start" to "2026-01-01","asset-basis" to "Basis manual")) {rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value)}
-        hideKeyboard();rule.onNodeWithTag("asset-review").performScrollTo().performClick()
+        hideKeyboard();rule.onNodeWithTag("asset-review").scrollIfScrollable().performClick()
         val model=runtime();val session=model.vault.current!!;val cancelled=JSONObject(model.store.cachedOne(session.scope.key,"expense",expense)!!.toString()).put("version",2).put("record_state","cancelled")
         model.store.applyPull(session.scope.key,JSONObject().put("sync_epoch",epoch).put("scope",JSONArray().put(JSONObject().put("id",gh)))
             .put("data",JSONArray().put(JSONObject().put("entity_type","expense").put("entity_id",expense).put("greenhouse_id",gh).put("version",2).put("tombstone",false).put("data",cancelled))).put("next_cursor","changed-source").put("has_more",false))
-        rule.onNodeWithTag("asset-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("asset-queue").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("asset-name").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("asset-name").performScrollTo().assertTextContains("Aset sumber berubah")
         rule.onNodeWithText("Pilih pembayaran pembelian aset aktif pada greenhouse yang sama.").assertExists()

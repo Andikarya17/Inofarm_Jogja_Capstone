@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.inofarm.jogja.feature.verification
 
 import androidx.activity.compose.BackHandler
@@ -19,6 +21,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -162,30 +170,6 @@ internal fun ActivityVerificationScreen(
                     }
                 }
             }
-            if (filters) item {
-                FarmPanel(title = "Filter ${kind.label}") {
-                    Choice("Greenhouse", greenhouse, listOf(option("", "Semua greenhouse")) + context.greenhouses,
-                        "verification-greenhouse") { greenhouse = it; worker = ""; workerOptions = emptyList() }
-                    if (kind == ReviewKind.ACTIVITY) {
-                    Choice("Pencatat", worker, listOf(option("", "Semua pekerja")) + workerOptions,
-                        "verification-worker") { worker = it }
-                    workerMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                    if (workerCursor != null || workerMessage != null) TextButton(onClick = { workerPage++ }) { Text("Muat pencatat") }
-                    Choice("Jenis kegiatan", type, listOf(option("", "Semua jenis")) +
-                        ActivityType.entries.map { option(it.wire, it.label) }, "verification-type") { type = it }
-                    FinanceDateField("Dari tanggal WIB (YYYY-MM-DD)", from, { from = it }, "verification-from")
-                    FinanceDateField("Sampai tanggal WIB (YYYY-MM-DD)", until, { until = it }, "verification-until")
-                    val validDates = runCatching {
-                        val first = from.takeIf(String::isNotBlank)?.let(LocalDate::parse)
-                        val last = until.takeIf(String::isNotBlank)?.let(LocalDate::parse)
-                        first == null || last == null || last >= first
-                    }.getOrDefault(false)
-                    if (!validDates) Text("Periksa format dan urutan tanggal.", color = MaterialTheme.colorScheme.error)
-                    OutlinedButton(onClick = { appliedFrom = from; appliedUntil = until }, enabled = validDates,
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Terapkan tanggal") }
-                    }
-                }
-            }
             if (loading) item { Text("Memuat ${kind.label}…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
             failure?.let { error -> item {
                 FarmPanel(title = "Catatan belum bisa dimuat") {
@@ -211,6 +195,44 @@ internal fun ActivityVerificationScreen(
             item {
                 TextButton(onClick = onOutbox, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("verification-outbox")) {
                     Text("Catatan saya yang belum terkirim")
+                }
+            }
+        }
+        if (filters) CompositionLocalProvider(LocalFarmDialogPicker provides true) {
+            ModalBottomSheet(
+                onDismissRequest = { filters = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentWindowInsets = { WindowInsets.safeDrawing }
+            ) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Page)) {
+                    FarmSheetHeading("Filter ${kind.label}", { filters = false })
+                    Column(Modifier.weight(1f, fill = false).imePadding().verticalScroll(rememberScrollState()).padding(bottom = FarmSpace.Large),
+                        verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                        Choice("Greenhouse", greenhouse, listOf(option("", "Semua greenhouse")) + context.greenhouses,
+                            "verification-greenhouse") { greenhouse = it; worker = ""; workerOptions = emptyList() }
+                        if (kind == ReviewKind.ACTIVITY) {
+                            Choice("Pencatat", worker, listOf(option("", "Semua pekerja")) + workerOptions,
+                                "verification-worker") { worker = it }
+                            workerMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                            if (workerCursor != null || workerMessage != null) TextButton(onClick = { workerPage++ }) { Text("Muat pencatat") }
+                            Choice("Jenis kegiatan", type, listOf(option("", "Semua jenis")) +
+                                ActivityType.entries.map { option(it.wire, it.label) }, "verification-type") { type = it }
+                            FinanceDateField("Dari tanggal WIB (YYYY-MM-DD)", from, { from = it }, "verification-from")
+                            FinanceDateField("Sampai tanggal WIB (YYYY-MM-DD)", until, { until = it }, "verification-until")
+                            val validDates = runCatching {
+                                val first = from.takeIf(String::isNotBlank)?.let(LocalDate::parse)
+                                val last = until.takeIf(String::isNotBlank)?.let(LocalDate::parse)
+                                first == null || last == null || last >= first
+                            }.getOrDefault(false)
+                            if (!validDates) Text("Periksa format dan urutan tanggal.", color = MaterialTheme.colorScheme.error)
+                            OutlinedButton(onClick = { appliedFrom = from; appliedUntil = until }, enabled = validDates,
+                                modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Terapkan tanggal") }
+                        }
+                        Button(onClick = { filters = false }, modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("verification-filter-done")) {
+                            Text("Selesai")
+                        }
+                    }
                 }
             }
         }

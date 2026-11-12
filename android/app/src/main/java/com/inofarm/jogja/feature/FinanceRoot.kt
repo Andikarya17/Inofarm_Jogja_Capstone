@@ -838,10 +838,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         { reviewActivity = it }, { showOutbox = true }, onSync, reviewKind, { reviewKind = it })
                 }
                 tab==4 && manager -> tabState.SaveableStateProvider(4) {
-                    FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync,financeKind,financeLink)
+                    FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync,financeKind,financeLink,homeRepository,ticket,syncUpdates)
                 }
                 tab==6 && manager -> tabState.SaveableStateProvider(6) {
-                    ManageScreen(session.name, onAdmin, onLogout, enabled = !writing, onAddGreenhouse = onAddGreenhouse)
+                    ManageScreen(session.name, onAdmin, onLogout, enabled = !writing, onAddGreenhouse = onAddGreenhouse, greenhouseCount = context.greenhouses.size.takeIf { it > 0 })
                 }
                 tab==5 -> tabState.SaveableStateProvider("history-$historyChip") {
                     val isActivity = historyChip != "harvest"
@@ -1236,13 +1236,17 @@ internal fun ExpiredSessionNotice() {
         modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }
     ) { Text(message, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium) }
 }
-@Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true,enabled:Boolean=true,trailingAction:(@Composable ()->Unit)?=null) {
-    val labelAbove = LocalDensity.current.fontScale > 1.5f
+@Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true,enabled:Boolean=true,suffix:String?=null,prominent:Boolean=false,trailingAction:(@Composable ()->Unit)?=null) {
+    val canopy = LocalCanopyForm.current
+    val labelAbove = LocalDensity.current.fontScale > 1.5f || canopy
     val support = error ?: hint
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (labelAbove) Text(label, Modifier.clearAndSetSemantics {}, style = MaterialTheme.typography.labelLarge)
+        if (labelAbove) Text(label, Modifier.clearAndSetSemantics {}, style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (canopy) androidx.compose.ui.text.font.FontWeight.SemiBold else null)
         OutlinedTextField(
-            value, onChange, shape = FarmShape.Control,
+            value, onChange, shape = if (canopy) FarmShape.Tile else FarmShape.Control,
+            suffix = suffix?.let { unit -> { Text(unit) } },
+            textStyle = if (prominent) MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum") else LocalTextStyle.current,
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                 focusedContainerColor = MaterialTheme.colorScheme.surface

@@ -2,6 +2,7 @@ package com.inofarm.jogja.feature
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -161,6 +162,7 @@ internal fun ManageScreen(
     onLogout: () -> Unit,
     enabled: Boolean,
     onAddGreenhouse: () -> Unit,
+    greenhouseCount: Int? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     FarmMenuList(Modifier.testTag("manage-list")) {
@@ -182,11 +184,11 @@ internal fun ManageScreen(
         item("manage-main") {
             FarmRecordCard {
                 ManageRow("Tambah greenhouse", "Greenhouse baru, tanam pertama dan pekerja", FarmIcon.GreenhouseAdd, FarmTone.Brand,
-                    Modifier.testTag("manage-add-greenhouse"), enabled, onAddGreenhouse)
-                FarmRowDivider()
+                    Modifier.testTag("manage-add-greenhouse"), enabled, onClick = onAddGreenhouse)
+                FarmRowDivider(44.dp + FarmSpace.Medium)
                 ManageRow("Greenhouse", "Tambah dan atur greenhouse", FarmIcon.Greenhouse, FarmTone.Neutral,
-                    Modifier.testTag("manage-greenhouse"), enabled) { onOpen(Admin.GREENHOUSE) }
-                FarmRowDivider()
+                    Modifier.testTag("manage-greenhouse"), enabled, greenhouseCount?.toString()) { onOpen(Admin.GREENHOUSE) }
+                FarmRowDivider(44.dp + FarmSpace.Medium)
                 ManageRow("Pekerja dan akun", "Buat akun, ubah peran, reset password", FarmIcon.Account, FarmTone.Neutral,
                     Modifier.testTag("manage-users"), enabled) { onOpen(Admin.USER) }
             }
@@ -226,14 +228,15 @@ internal fun ManageScreen(
 }
 
 @Composable
-private fun ManageRow(label: String, detail: String, icon: FarmIcon, tone: FarmTone, modifier: Modifier, enabled: Boolean, onClick: () -> Unit) {
-    Row(modifier.fillMaxWidth().heightIn(min = 60.dp).clip(FarmShape.Control).clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-        .padding(vertical = FarmSpace.Small), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.CenterVertically) {
+private fun ManageRow(label: String, detail: String, icon: FarmIcon, tone: FarmTone, modifier: Modifier, enabled: Boolean, trailing: String? = null, onClick: () -> Unit) {
+    Row(modifier.fillMaxWidth().heightIn(min = 60.dp).clip(FarmShape.Control).farmRowFocus().clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+        .padding(vertical = FarmSpace.Small).alpha(if (enabled) 1f else 0.5f), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.CenterVertically) {
         FarmIconTile(icon, tone = tone)
         Column(Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.titleMedium)
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        trailing?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (enabled) FarmControlIcon(FarmIcon.ChevronRight, null)
     }
 }
@@ -242,8 +245,8 @@ private fun ManageRow(label: String, detail: String, icon: FarmIcon, tone: FarmT
 private fun ManageBox(label: String, detail: String, icon: FarmIcon, modifier: Modifier, enabled: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Column(modifier.clip(FarmShape.Card).background(colors.surface, FarmShape.Card)
-        .border(1.dp, colors.outlineVariant, FarmShape.Card).clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-        .padding(FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+        .border(1.dp, colors.outlineVariant, FarmShape.Card).farmRowFocus().clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+        .alpha(if (enabled) 1f else 0.5f).padding(FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
         FarmIconTile(icon)
         Text(label, style = MaterialTheme.typography.titleMedium)
         Text(detail, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)

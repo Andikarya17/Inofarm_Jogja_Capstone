@@ -144,7 +144,7 @@ private fun FarmRowText(label: String, detail: String?, modifier: Modifier, cont
 }
 
 @Composable
-private fun Modifier.farmRowFocus(): Modifier {
+internal fun Modifier.farmRowFocus(): Modifier {
     var focused by remember { mutableStateOf(false) }
     return onFocusChanged { focused = it.isFocused }
         .border(2.dp, if (focused) MaterialTheme.colorScheme.primary else Color.Transparent, FarmShape.Control)

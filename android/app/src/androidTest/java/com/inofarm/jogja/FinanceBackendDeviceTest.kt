@@ -83,8 +83,8 @@ class FinanceBackendDeviceTest {
             return runBlocking { model.api.request(session.scope.server, session.token, path) }
         }
         fun submitHarvest() {
-            rule.onNodeWithTag("harvest-review").performScrollTo().performClick()
-            rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+            rule.onNodeWithTag("harvest-review").scrollIfScrollable().performClick()
+            rule.onNodeWithTag("harvest-queue").scrollIfScrollable().performClick()
         }
         login(fixture, "worker")
         waitTag("worker-greenhouse-$greenhouse")
@@ -296,8 +296,8 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-ppm").performScrollTo().performTextReplacement("625,5")
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement(note)
         hideKeyboard()
-        rule.onNodeWithTag("finance-review").performScrollTo().performClick()
-        rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
+        rule.onNodeWithTag("finance-queue").scrollIfScrollable().performClick()
         val worker = model.vault.current!!
         fun workerOperation() = model.store.outbox(worker.scope.key).firstOrNull {
             it.envelope.optJSONObject("payload")?.optString("notes") == note
@@ -454,8 +454,8 @@ class FinanceBackendDeviceTest {
             val note = "$testNote ${index + 1}"
             rule.onNodeWithTag("harvest-notes").performScrollTo().performTextReplacement(note)
             hideKeyboard()
-            rule.onNodeWithTag("harvest-review").performScrollTo().performClick()
-            rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+            rule.onNodeWithTag("harvest-review").scrollIfScrollable().performClick()
+            rule.onNodeWithTag("harvest-queue").scrollIfScrollable().performClick()
             rule.waitUntil(20_000) { model.store.outbox(worker.scope.key).any {
                 it.state == "ACCEPTED" && it.envelope.optJSONObject("payload")?.optString("notes") == note
             } }
@@ -553,13 +553,13 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("expense-date").performScrollTo().performTextReplacement("2026-10-30");rule.onNodeWithTag("expense-time").performScrollTo().performTextReplacement("08:12:34")
         rule.onNodeWithTag("expense-amount").performScrollTo().performTextReplacement("100,01");rule.onNodeWithTag("expense-notes").performScrollTo().performTextReplacement("DEVICE EXPENSE — ${f.getString("fixture_id")}");hideKeyboard()
         financialOfflineBarrier(f,"payment")
-        rule.onNodeWithTag("expense-review").performScrollTo().performClick();rule.onNodeWithTag("expense-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("expense-review").scrollIfScrollable().performClick();rule.onNodeWithTag("expense-queue").scrollIfScrollable().performClick()
         val model=runtime();val session=model.vault.current!!
         rule.waitUntil(15000) {model.store.outbox(session.scope.key).any {it.envelope.getString("entity_type")=="expense"}}
         val payment=model.store.outbox(session.scope.key).single {it.envelope.getString("entity_type")=="expense"};assertEquals("QUEUED",payment.state)
         val editor=financeEditor()
         rule.runOnIdle {editor.new(com.inofarm.jogja.core.contracts.RecordKind.COST_ALLOCATION,a.getString("greenhouse_id"));editor.edit {it.copy(expenseId=payment.entityId,seasonId=a.getString("season_id"),amount="60,01",costClass="VC",basis="DEVICE ALLOCATION ${f.getString("fixture_id")}")}}
-        val allocationId=editor.state.value.draft!!.id;rule.onNodeWithTag("expense-save-draft").performScrollTo().performClick()
+        val allocationId=editor.state.value.draft!!.id;rule.onNodeWithTag("expense-save-draft").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {editor.state.value.draft==null && model.store.record(session.scope.key,allocationId)!=null}
         assertTrue(model.store.outbox(session.scope.key).none {it.envelope.getString("entity_type")=="cost_allocation"})
         file("finance-device-financial-proof.json").writeText(JSONObject().put("payment_pid",android.os.Process.myPid()).put("expense_id",payment.entityId).put("payment_op",payment.id).put("payment_hash",payment.hash).put("allocation_id",allocationId).toString())
@@ -600,7 +600,7 @@ class FinanceBackendDeviceTest {
         proof.put("attachment_operations",attachmentOperations)
         rule.onNodeWithTag("attachment-close").performScrollTo().performClick()
         rule.waitUntil(10000) {attachmentVm.state.value.parent==null && !attachmentVm.state.value.busy}
-        rule.onNodeWithTag("expense-review").performScrollTo().performClick();rule.onNodeWithTag("expense-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("expense-review").scrollIfScrollable().performClick();rule.onNodeWithTag("expense-queue").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {model.store.outbox(session.scope.key).any {it.entityId==allocation.id}}
         val queued=model.store.outbox(session.scope.key).single {it.entityId==allocation.id};assertEquals("QUEUED",queued.state)
         proof.put("allocation_pid",android.os.Process.myPid()).put("allocation_op",queued.id).put("allocation_hash",queued.hash)
@@ -648,7 +648,7 @@ class FinanceBackendDeviceTest {
         }
         rule.onNodeWithTag("harvest-notes").performScrollTo().performTextReplacement("DEVICE SALE HARVEST ${f.getString("fixture_id")}");hideKeyboard()
         financialOfflineBarrier(f,"sale-source")
-        rule.onNodeWithTag("harvest-review").performScrollTo().performClick();rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("harvest-review").scrollIfScrollable().performClick();rule.onNodeWithTag("harvest-queue").scrollIfScrollable().performClick()
         val model=runtime();val session=model.vault.current!!
         rule.waitUntil(10000) {model.store.outbox(session.scope.key).any {it.envelope.optString("entity_type")=="harvest" && it.state=="QUEUED"}}
         val op=model.store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="harvest" && it.state=="QUEUED"}
@@ -672,7 +672,7 @@ class FinanceBackendDeviceTest {
         }
         rule.onNodeWithTag("sale-paid").performScrollTo().performClick();rule.onNodeWithTag("sale-notes").performScrollTo().performTextReplacement("DEVICE SALE ${f.getString("fixture_id")}");hideKeyboard()
         financialOfflineBarrier(f,"sale")
-        rule.onNodeWithTag("sale-review").performScrollTo().performClick();rule.onNodeWithTag("sale-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("sale-review").scrollIfScrollable().performClick();rule.onNodeWithTag("sale-queue").scrollIfScrollable().performClick()
         val session=model.vault.current!!;rule.waitUntil(10000) {model.store.outbox(session.scope.key).any {it.envelope.optString("entity_type")=="sale"}}
         val op=model.store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="sale"};assertEquals("QUEUED",op.state)
         proof.put("sale_pid",android.os.Process.myPid()).put("sale_id",op.entityId).put("sale_op",op.id).put("sale_hash",op.hash);file("finance-device-sale-proof.json").writeText(proof.toString())
@@ -716,7 +716,7 @@ class FinanceBackendDeviceTest {
             rule.onNodeWithTag("finance-ppm").performScrollTo().performTextReplacement("625,5")
         }
         rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("DEVICE OFFLINE ${f.getString("fixture_id")}")
-        hideKeyboard();rule.onNodeWithTag("finance-review").performScrollTo().performClick();rule.onNodeWithTag("finance-queue").performScrollTo().performClick()
+        hideKeyboard();rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick();rule.onNodeWithTag("finance-queue").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-1").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("finance-tab-1").performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Belum terkirim").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("finance-tab-0").performClick();rule.openRecord("harvest")
@@ -727,7 +727,7 @@ class FinanceBackendDeviceTest {
             rule.onNodeWithTag("harvest-weight-$index").performScrollTo().performTextReplacement(if(index==0) "4,5" else "0");hideKeyboard()
         }
         rule.onNodeWithTag("harvest-notes").performScrollTo().performTextReplacement("DEVICE HARVEST OFFLINE ${f.getString("fixture_id")}");hideKeyboard()
-        rule.onNodeWithTag("harvest-review").performScrollTo().performClick();rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
+        rule.onNodeWithTag("harvest-review").scrollIfScrollable().performClick();rule.onNodeWithTag("harvest-queue").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tab-1").fetchSemanticsNodes().isNotEmpty()};rule.openWorkerHarvestHistory()
         val runtime=runtime();val session=runtime.vault.current!!
         val op=runtime.store.outbox(session.scope.key).single {it.envelope.getString("entity_type")=="activity"}
