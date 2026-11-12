@@ -62,7 +62,8 @@ import androidx.compose.ui.unit.dp
 
 internal enum class FarmIcon {
     Account, Sync, Eye, EyeOff, Close, ChevronRight, ChevronDown,
-    Allocate, Payment, Asset, Depreciation, Report, Investment, Backup, Logout, Greenhouse, Schedule, Add
+    Allocate, Payment, Asset, Depreciation, Report, Investment, Backup, Logout, Greenhouse, Schedule, Add,
+    Mail, Lock, AlertTriangle, Droplet, Basket, BarChart, CheckList, GreenhouseAdd, Check, Calendar, Trash, Wallet, TrendUp
 }
 
 @Composable internal fun FarmControlIcon(icon: FarmIcon, description: String?) {
@@ -159,6 +160,75 @@ internal enum class FarmIcon {
             FarmIcon.Add -> {
                 path.moveTo(12 * u, 5 * u); path.lineTo(12 * u, 19 * u)
                 path.moveTo(5 * u, 12 * u); path.lineTo(19 * u, 12 * u)
+            }
+            FarmIcon.Mail -> {
+                path.addRoundRect(androidx.compose.ui.geometry.RoundRect(3 * u, 5 * u, 21 * u, 19 * u, 2.5f * u, 2.5f * u))
+                path.moveTo(3.5f * u, 7 * u); path.lineTo(12 * u, 13 * u); path.lineTo(20.5f * u, 7 * u)
+            }
+            FarmIcon.Lock -> {
+                path.addRoundRect(androidx.compose.ui.geometry.RoundRect(5 * u, 11 * u, 19 * u, 21 * u, 2.5f * u, 2.5f * u))
+                path.moveTo(8 * u, 11 * u); path.lineTo(8 * u, 8 * u)
+                path.cubicTo(8 * u, 2 * u, 16 * u, 2 * u, 16 * u, 8 * u); path.lineTo(16 * u, 11 * u)
+            }
+            FarmIcon.AlertTriangle -> {
+                path.moveTo(12 * u, 3.5f * u); path.lineTo(22 * u, 20 * u); path.lineTo(2 * u, 20 * u); path.close()
+                path.moveTo(12 * u, 9.5f * u); path.lineTo(12 * u, 14 * u)
+                path.moveTo(12 * u, 17 * u); path.lineTo(12 * u, 17.2f * u)
+            }
+            FarmIcon.Droplet -> {
+                path.moveTo(12 * u, 3 * u)
+                path.cubicTo(12 * u, 3 * u, 5 * u, 11 * u, 5 * u, 15 * u)
+                path.cubicTo(5 * u, 19 * u, 8.2f * u, 21 * u, 12 * u, 21 * u)
+                path.cubicTo(15.8f * u, 21 * u, 19 * u, 19 * u, 19 * u, 15 * u)
+                path.cubicTo(19 * u, 11 * u, 12 * u, 3 * u, 12 * u, 3 * u)
+            }
+            FarmIcon.Basket -> {
+                path.moveTo(3 * u, 10 * u); path.lineTo(21 * u, 10 * u); path.lineTo(19 * u, 20 * u); path.lineTo(5 * u, 20 * u); path.close()
+                path.moveTo(8 * u, 10 * u); path.lineTo(11 * u, 4 * u)
+                path.moveTo(16 * u, 10 * u); path.lineTo(13 * u, 4 * u)
+                path.moveTo(9 * u, 14 * u); path.lineTo(9.6f * u, 17 * u)
+                path.moveTo(15 * u, 14 * u); path.lineTo(14.4f * u, 17 * u)
+            }
+            FarmIcon.BarChart -> {
+                path.moveTo(4 * u, 20 * u); path.lineTo(20 * u, 20 * u)
+                path.addRect(androidx.compose.ui.geometry.Rect(6 * u, 12 * u, 9.5f * u, 20 * u))
+                path.addRect(androidx.compose.ui.geometry.Rect(10.5f * u, 6 * u, 14 * u, 20 * u))
+                path.addRect(androidx.compose.ui.geometry.Rect(15 * u, 9 * u, 18.5f * u, 20 * u))
+            }
+            FarmIcon.CheckList -> {
+                path.addRoundRect(androidx.compose.ui.geometry.RoundRect(4 * u, 3 * u, 20 * u, 21 * u, 2.5f * u, 2.5f * u))
+                path.moveTo(8 * u, 9 * u); path.lineTo(9.8f * u, 11 * u); path.lineTo(13 * u, 7.5f * u)
+                path.moveTo(8 * u, 16 * u); path.lineTo(16 * u, 16 * u)
+            }
+            FarmIcon.GreenhouseAdd -> {
+                path.moveTo(3 * u, 21 * u); path.lineTo(3 * u, 11 * u); path.lineTo(12 * u, 3 * u); path.lineTo(21 * u, 11 * u); path.lineTo(21 * u, 21 * u); path.close()
+                path.moveTo(12 * u, 10 * u); path.lineTo(12 * u, 18 * u)
+                path.moveTo(8 * u, 14 * u); path.lineTo(16 * u, 14 * u)
+            }
+            FarmIcon.Check -> {
+                path.moveTo(5 * u, 12.5f * u); path.lineTo(10 * u, 17.5f * u); path.lineTo(19 * u, 7 * u)
+            }
+            FarmIcon.Calendar -> {
+                path.addRoundRect(androidx.compose.ui.geometry.RoundRect(3.5f * u, 5 * u, 20.5f * u, 20.5f * u, 2.5f * u, 2.5f * u))
+                path.moveTo(3.5f * u, 10 * u); path.lineTo(20.5f * u, 10 * u)
+                path.moveTo(8 * u, 3 * u); path.lineTo(8 * u, 7 * u)
+                path.moveTo(16 * u, 3 * u); path.lineTo(16 * u, 7 * u)
+            }
+            FarmIcon.Trash -> {
+                path.moveTo(4 * u, 7 * u); path.lineTo(20 * u, 7 * u)
+                path.moveTo(9 * u, 7 * u); path.lineTo(9 * u, 4 * u); path.lineTo(15 * u, 4 * u); path.lineTo(15 * u, 7 * u)
+                path.moveTo(6 * u, 7 * u); path.lineTo(7 * u, 20 * u); path.lineTo(17 * u, 20 * u); path.lineTo(18 * u, 7 * u)
+                path.moveTo(10 * u, 11 * u); path.lineTo(10 * u, 16 * u)
+                path.moveTo(14 * u, 11 * u); path.lineTo(14 * u, 16 * u)
+            }
+            FarmIcon.Wallet -> {
+                path.addRoundRect(androidx.compose.ui.geometry.RoundRect(3 * u, 6 * u, 21 * u, 19 * u, 2.5f * u, 2.5f * u))
+                path.moveTo(3 * u, 10 * u); path.lineTo(21 * u, 10 * u)
+                path.moveTo(16 * u, 14.5f * u); path.lineTo(18 * u, 14.5f * u)
+            }
+            FarmIcon.TrendUp -> {
+                path.moveTo(3 * u, 17 * u); path.lineTo(9 * u, 11 * u); path.lineTo(13 * u, 15 * u); path.lineTo(21 * u, 6 * u)
+                path.moveTo(15 * u, 6 * u); path.lineTo(21 * u, 6 * u); path.lineTo(21 * u, 12 * u)
             }
             FarmIcon.Logout -> {
                 path.moveTo(12 * u, 4 * u); path.lineTo(4 * u, 4 * u); path.lineTo(4 * u, 20 * u); path.lineTo(12 * u, 20 * u)

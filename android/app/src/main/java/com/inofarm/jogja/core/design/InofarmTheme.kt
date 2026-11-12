@@ -8,10 +8,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.inofarm.jogja.R
 
 internal object FarmColors {
     val Brand = Color(0xFF2B503D)
@@ -48,6 +51,10 @@ internal object FarmShape {
     val Card = RoundedCornerShape(20.dp)
     val Hero = RoundedCornerShape(24.dp)
     val Navigation = RoundedCornerShape(20.dp)
+    val Sheet = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    val Tile = RoundedCornerShape(14.dp)
+    val Dock = RoundedCornerShape(26.dp)
+    val Chip = RoundedCornerShape(10.dp)
 }
 
 internal object FarmMotion {
@@ -56,6 +63,29 @@ internal object FarmMotion {
     const val Navigation = 220
     const val LoginEntrance = 240
     const val LoginFeedback = 160
+    const val Entrance = 280
+    const val Stagger = 40
+    const val LoginStagger = 60
+    const val PressScaleButton = 0.97f
+    const val PressScaleCard = 0.98f
+    fun <T> pressSpring(): androidx.compose.animation.core.SpringSpec<T> = androidx.compose.animation.core.spring(
+        dampingRatio = 0.7f, stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)
+}
+
+/** Plus Jakarta Sans (OFL), one variable file; weights 400 to 800 are variation axes. */
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+internal val FarmFamily = FontFamily(listOf(400, 500, 600, 700, 800).map { weight ->
+    Font(R.font.plus_jakarta_sans_variable, FontWeight(weight),
+        variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
+})
+
+internal object FarmType {
+    val HeroAmount = TextStyle(fontFamily = FarmFamily, fontSize = 22.sp, lineHeight = 28.sp,
+        fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
+    val HeroNumber = TextStyle(fontFamily = FarmFamily, fontSize = 26.sp, lineHeight = 30.sp,
+        fontWeight = FontWeight.ExtraBold, fontFeatureSettings = "tnum")
+    val Wordmark = TextStyle(fontFamily = FarmFamily, fontSize = 44.sp, lineHeight = 48.sp,
+        fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.2).sp)
 }
 
 internal object FarmDepth {
@@ -82,7 +112,7 @@ internal val ForestScheme = darkColorScheme(
 
 @Composable internal fun InofarmTheme(content: @Composable () -> Unit) {
     fun style(size: Int, line: Int, weight: FontWeight = FontWeight.Normal, tracking: Double = 0.0) =
-        TextStyle(fontFamily = FontFamily.SansSerif, fontSize = size.sp, lineHeight = line.sp,
+        TextStyle(fontFamily = FarmFamily, fontSize = size.sp, lineHeight = line.sp,
             fontWeight = weight, letterSpacing = tracking.sp)
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) ForestScheme else lightColorScheme(
