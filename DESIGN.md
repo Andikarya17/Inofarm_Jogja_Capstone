@@ -114,7 +114,7 @@ Amber menandai perhatian seperti musim tertutup atau antrean yang perlu ditinjau
 
 ## Typography
 
-Seluruh peran memakai `FontFamily.SansSerif` dengan ukuran dalam sp. Angka pengukuran dan nominal menggunakan fitur angka tabular `tnum`. `FarmAmount` memberi ruang pemenggalan pada pemisah ribuan dan menyimpan teks nominal utuh di semantik aksesibilitas.
+Seluruh peran memakai Plus Jakarta Sans (OFL, satu file variabel, `FarmFamily` di `InofarmTheme.kt`) dengan ukuran dalam sp; lisensi di `third_party/fonts/plus-jakarta-sans/OFL.txt`. Angka pengukuran dan nominal menggunakan fitur angka tabular `tnum`. `FarmAmount` memberi ruang pemenggalan pada pemisah ribuan dan menyimpan teks nominal utuh di semantik aksesibilitas.
 
 | Peran Compose | Ukuran / tinggi baris | Bobot dan pemakaian |
 | --- | --- | --- |
@@ -198,6 +198,10 @@ Panel login masuk selama 240 ms. Label tombol merespons status request selama 16
 Beranda pengelola memakai transisi singkat pada pilihan greenhouse, pembukaan sumber pengukuran, dan review periode. Pergantian cakupan segera mengikat isi ke pilihan baru. Pemutakhiran data pada cakupan yang sama mempertahankan daftar yang masih sah.
 
 Pada pekerja, panel greenhouse baru muncul dalam 230 ms. Perpindahan dua tab memakai perubahan indikator tonal dan masuk singkat 180 ms. Posisi gulir tab disimpan. Bagian opsional dan sumber berubah tinggi dalam 180–200 ms. Nilai buah dan kg tampil langsung. Batang capaian beralih antar-snapshot dalam 240 ms. Umpan balik draf dan antrean mengikuti status penyimpanan yang sudah terjadi dan dapat diumumkan sebagai live region. [Bukti dan matriks gerak pekerja](docs/context/WORKER_ALIGNMENT_EVIDENCE_20261110.md)
+
+### Canopy (12 November 2026)
+
+Arah Canopy memakai bidang forest sebagai kanopi di atas (hero login, hero Beranda, hero detail, bar navigasi pengelola) dan bidang solid di bawahnya. Tidak ada warna baru; semua warna berasal dari token di atas. Komponen bersama ada di `core/design/CanopyKit.kt`: `farmPressable` (skala tekan 0,97 atau 0,98 dengan spring, angkat 2 dp saat hover), `farmStaggerEntrance` (sekali per proses), `FarmLeafMotif` (garis daun sage), `FarmIconTile`, `FarmStatusChip` (teks tetap tertulis, warna hanya penanda), `FarmHeroCard`, `FarmQuickAction`, `FarmSegmentedTabs`, `FarmChoiceChips` (menggantikan dropdown untuk pilihan pendek; tag wadah ditaruh pada node 1 dp yang inert dan tiap chip bertag `$tag-option-$id`), dan `FarmDockNavigation`. Pengelola memakai dock lima slot: Beranda, Riwayat, Catat (lingkaran sage terangkat, tag `finance-record-fab`), Keuangan, Kelola. Pekerja tetap dua tab dan FAB. Angka tidak dianimasikan dan tidak ada gerak yang berulang. Isian tanggal dan jam pengelola memakai `FinanceDateField` dan `FinanceTimeField`: teks tetap bisa diketik, ikon membuka picker Android.
 
 ## Do's and Don'ts
 

@@ -127,7 +127,7 @@ private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:Inves
     }}
     item {Notice("Kosongkan isian yang belum diketahui. Isi kas neto tiap tahun sendiri, lengkap dengan sumber dan dasarnya.")}
     item {FinanceField("Nama skenario",draft.name,{v->vm.editScenario {it.copy(name=v)}},"investment-name",state.errors["name"])}
-    item {FinanceField("Tanggal dasar (contoh 2026-01-31)",draft.baseDate,{v->vm.editScenario {it.copy(baseDate=v)}},"investment-base-date",state.errors["base_date"])}
+    item {FinanceDateField("Tanggal dasar (contoh 2026-01-31)",draft.baseDate,{v->vm.editScenario {it.copy(baseDate=v)}},"investment-base-date",state.errors["base_date"])}
     item {FinanceField("Jumlah tahun (1–100)",draft.horizon,{v->vm.editScenario {it.withHorizon(v)}},"investment-horizon",state.errors["horizon"],hint="Tiap tahun dihitung dari tanggal dasar. Kas dicatat di akhir tahun.")}
     item {FinanceField("Investasi awal (IDR)",draft.initial,{v->vm.editScenario {it.copy(initial=v)}},"investment-initial",state.errors["initial"])}
     item {SourceChoice("Sumber investasi awal",draft.initialKind,"investment-initial-kind") {v->vm.editScenario {it.copy(initialKind=v)}}}

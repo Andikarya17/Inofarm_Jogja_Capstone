@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature.assets
 
+import com.inofarm.jogja.feature.FinanceDateField
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -46,7 +47,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
             }
             FarmSection("Masa pemakaian") {
             FinanceField("Umur pemakaian (tahun)",draft.lifeYears,{value -> vm.edit {it.copy(lifeYears=value)}},"asset-life",state.errors["depreciation"],KeyboardType.Number)
-            FinanceField("Mulai dipakai (YYYY-MM-DD)",draft.inServiceDate,{value -> vm.edit {it.copy(inServiceDate=value)}},"asset-start",state.errors["depreciation"])
+            FinanceDateField("Mulai dipakai (YYYY-MM-DD)",draft.inServiceDate,{value -> vm.edit {it.copy(inServiceDate=value)}},"asset-start",state.errors["depreciation"])
             runCatching {DepreciationAmounts.year(AssetDraft.money(draft.cost).toPlainString(),AssetDraft.money(draft.residual).toPlainString(),AssetDraft.year(draft.lifeYears),1,AssetDraft.date(draft.inServiceDate))}.getOrNull()?.let {
                 FarmFact("Perkiraan anggaran tahun pertama", moneyLabel(it.amount.toPlainString()))
                 Text("${it.start} hingga ${it.end}, akhir tidak termasuk.", style = MaterialTheme.typography.bodySmall)
@@ -65,8 +66,8 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
             if(draft.lockedParents) Text("Tahun ${draft.usageYear} · ${draft.periodStart} hingga ${draft.periodEnd} (akhir eksklusif)")
             else {
                 FinanceField("Tahun pemakaian ke",draft.usageYear,{value -> vm.edit {it.copy(usageYear=value)}},"asset-usage-year",state.errors["usage_year"],KeyboardType.Number)
-                FinanceField("Awal periode (YYYY-MM-DD)",draft.periodStart,{value -> vm.edit {it.copy(periodStart=value)}},"asset-period-start",state.errors["period"])
-                FinanceField("Akhir periode eksklusif (YYYY-MM-DD)",draft.periodEnd,{value -> vm.edit {it.copy(periodEnd=value)}},"asset-period-end",state.errors["period"])
+                FinanceDateField("Awal periode (YYYY-MM-DD)",draft.periodStart,{value -> vm.edit {it.copy(periodStart=value)}},"asset-period-start",state.errors["period"])
+                FinanceDateField("Akhir periode eksklusif (YYYY-MM-DD)",draft.periodEnd,{value -> vm.edit {it.copy(periodEnd=value)}},"asset-period-end",state.errors["period"])
             }
             if(draft.usageReference.isBlank()) OutlinedButton(onClick={vm.edit {it.copy(usageReference=UUID.randomUUID().toString())}},modifier=Modifier.testTag("asset-new-usage")) {Text("Buat referensi pemakaian baru")}
             else Text("Referensi pemakaian: ${draft.usageReference.take(8)}. Pastikan pemakaian ini belum dicatat sebelumnya.")

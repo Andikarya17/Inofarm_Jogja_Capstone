@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature.admin
 
+import com.inofarm.jogja.feature.FinanceDateField
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -260,12 +261,12 @@ fun GreenhouseWizardHost(
                             2 -> {
                                 Text("Mulai tanam", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
                                 FinanceField("Nama musim", season, { season = it }, "wizard-season", fieldErrors["season"], enabled = !busy && !seasonDone)
-                                FinanceField("Tanggal mulai musim", start, { start = it }, "wizard-start", fieldErrors["start"], hint = "contoh 2026-11-10", enabled = !busy && !seasonDone)
+                                FinanceDateField("Tanggal mulai musim", start, { start = it }, "wizard-start", fieldErrors["start"], hint = "contoh 2026-11-10", enabled = !busy && !seasonDone)
                                 FinanceField("Nama varietas", variety, { variety = it }, "wizard-variety", fieldErrors["variety"], enabled = !busy && !varietyDone)
                                 FinanceField("Nama kelompok tanam", group, { group = it }, "wizard-group", fieldErrors["group"], enabled = !busy && !groupDone)
                                 FinanceField("Jumlah tanaman", population, { population = it }, "wizard-population", fieldErrors["population"], KeyboardType.Number, enabled = !busy && !groupDone)
-                                FinanceField("Tanggal semai", sowing, { sowing = it }, "wizard-sowing", fieldErrors["sowing"], hint = "contoh 2026-11-10", enabled = !busy && !groupDone)
-                                FinanceField("Tanggal pindah tanam (opsional)", transplant, { transplant = it }, "wizard-transplant", fieldErrors["transplant"], hint = "contoh 2026-11-10", enabled = !busy && !groupDone)
+                                FinanceDateField("Tanggal semai", sowing, { sowing = it }, "wizard-sowing", fieldErrors["sowing"], hint = "contoh 2026-11-10", enabled = !busy && !groupDone)
+                                FinanceDateField("Tanggal pindah tanam (opsional)", transplant, { transplant = it }, "wizard-transplant", fieldErrors["transplant"], hint = "contoh 2026-11-10", enabled = !busy && !groupDone)
                                 Button(onClick = ::savePlanting, enabled = !busy, shape = FarmShape.Control,
                                     modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-next")) { Text("Simpan") }
                                 OutlinedButton(onClick = { step = 3 }, enabled = !busy, shape = FarmShape.Control,

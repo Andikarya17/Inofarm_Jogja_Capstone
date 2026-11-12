@@ -52,8 +52,8 @@ import java.math.BigDecimal
             } else {
                 if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
                 FarmFact("Kelompok tanam", group?.optString("name") ?: "Nama belum tersedia")
-                FinanceField("Tanggal panen WIB",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
-                FinanceField("Jam panen WIB",draft.time,{value -> vm.edit {it.copy(time=value)}},"harvest-time",state.errors["occurred_at"],hint="HH:mm; detik opsional")
+                FinanceDateField("Tanggal panen WIB",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
+                FinanceTimeField("Jam panen WIB",draft.time,{value -> vm.edit {it.copy(time=value)}},"harvest-time",state.errors["occurred_at"],hint="HH:mm; detik opsional")
             }
             FarmFact("Varietas", varietyName(context, group) ?: "Belum tersedia")
             group?.optJSONObject("harvest_target")?.let { FarmFact("Target buah", "${it.getInt("fruit_count")} buah") }

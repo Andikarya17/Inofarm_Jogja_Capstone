@@ -47,9 +47,13 @@ internal fun FinanceTestRule.openFinanceOutbox() {
 /** Sends whatever is still queued from the unsent sheet; does nothing when the queue already drained by itself. */
 internal fun FinanceTestRule.sendQueuedNow() {
     if (onAllNodesWithTag("finance-unsent").fetchSemanticsNodes().isEmpty()) return
-    openFinanceOutbox()
-    waitForIdle()
-    onNodeWithTag("queue-send-now").performClick()
+    // The queue can drain on its own between the check above and the tap, which is the outcome this call wants.
+    runCatching {
+        waitForIdle()
+        onNodeWithTag("finance-unsent").performClick()
+        waitUntil(5_000) { onAllNodesWithTag("queue-send-now").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("queue-send-now").performClick()
+    }
     if (onAllNodesWithTag("finance-queue-list").fetchSemanticsNodes().isNotEmpty()) androidx.test.espresso.Espresso.pressBack()
 }
 
