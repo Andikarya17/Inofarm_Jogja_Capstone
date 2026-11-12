@@ -1,5 +1,10 @@
 package com.inofarm.jogja.feature.admin
 
+import com.inofarm.jogja.feature.FarmFormBar
+import com.inofarm.jogja.feature.FarmFormSection
+import com.inofarm.jogja.feature.FarmInfoCard
+import com.inofarm.jogja.feature.FarmStepIndicator
+import com.inofarm.jogja.feature.LocalCanopyForm
 import com.inofarm.jogja.feature.FinanceDateField
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -230,6 +235,7 @@ fun GreenhouseWizardHost(
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false)) {
         BackHandler { if (!busy) { if (finished) onClose() else if (step > 1) step-- else close() } }
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            CompositionLocalProvider(LocalCanopyForm provides true) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(horizontal = FarmSpace.Page)) {
                 FarmSheetHeading("Tambah greenhouse", close, !busy)
                 HorizontalDivider()
@@ -247,65 +253,68 @@ fun GreenhouseWizardHost(
                         OutlinedButton(onClick = { onOpenGreenhouse(ghId) }, shape = FarmShape.Control,
                             modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-open")) { Text("Ke greenhouse") }
                     } else {
-                        Text("Langkah $step dari 3", Modifier.testTag("wizard-step").semantics { liveRegion = LiveRegionMode.Polite },
+                        FarmStepIndicator(step, listOf("Greenhouse", "Mulai tanam", "Pekerja"))
+                        Text(if (step == 1) "Langkah 1 dari 3" else "Langkah $step dari 3 · bisa dilewati",
+                            Modifier.testTag("wizard-step").semantics { liveRegion = LiveRegionMode.Polite },
                             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         progress?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                         error?.let { Notice(it, true) }
                         when (step) {
                             1 -> {
                                 Text("Greenhouse", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
-                                FinanceField("Nama greenhouse", name, { name = it }, "wizard-name", fieldErrors["name"], enabled = !busy && !ghDone)
-                                Button(onClick = ::saveGreenhouse, enabled = !busy, shape = FarmShape.Control,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-next")) { Text("Lanjut") }
+                                if (ghDone) FarmInfoCard { Text("Greenhouse ${name.trim()} sudah tersimpan.", style = MaterialTheme.typography.bodyMedium) }
+                                FarmFormSection("Data greenhouse") {
+                                    FinanceField("Nama greenhouse", name, { name = it }, "wizard-name", fieldErrors["name"], enabled = !busy && !ghDone)
+                                }
                             }
                             2 -> {
                                 Text("Mulai tanam", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
-                                FinanceField("Nama musim", season, { season = it }, "wizard-season", fieldErrors["season"], enabled = !busy && !seasonDone)
-                                FinanceDateField("Tanggal mulai musim", start, { start = it }, "wizard-start", fieldErrors["start"], hint = "contoh 2026-11-10", enabled = !busy && !seasonDone)
-                                FinanceField("Nama varietas", variety, { variety = it }, "wizard-variety", fieldErrors["variety"], enabled = !busy && !varietyDone)
-                                FinanceField("Nama kelompok tanam", group, { group = it }, "wizard-group", fieldErrors["group"], enabled = !busy && !groupDone)
-                                FinanceField("Jumlah tanaman", population, { population = it }, "wizard-population", fieldErrors["population"], KeyboardType.Number, enabled = !busy && !groupDone)
-                                FinanceDateField("Tanggal semai", sowing, { sowing = it }, "wizard-sowing", fieldErrors["sowing"], hint = "contoh 2026-11-10", enabled = !busy && !groupDone)
-                                FinanceDateField("Tanggal pindah tanam (opsional)", transplant, { transplant = it }, "wizard-transplant", fieldErrors["transplant"], hint = "contoh 2026-11-10", enabled = !busy && !groupDone)
-                                Button(onClick = ::savePlanting, enabled = !busy, shape = FarmShape.Control,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-next")) { Text("Simpan") }
-                                OutlinedButton(onClick = { step = 3 }, enabled = !busy, shape = FarmShape.Control,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-skip")) { Text("Lewati") }
+                                val saved = listOfNotNull(if (seasonDone) "musim" else null, if (varietyDone) "varietas" else null, if (groupDone) "kelompok tanam" else null)
+                                if (saved.isNotEmpty()) FarmInfoCard { Text(saved.joinToString(", ").replaceFirstChar { it.uppercase() } + " sudah tersimpan.", style = MaterialTheme.typography.bodyMedium) }
+                                FarmFormSection("Musim") {
+                                    FinanceField("Nama musim", season, { season = it }, "wizard-season", fieldErrors["season"], enabled = !busy && !seasonDone)
+                                    FinanceDateField("Tanggal mulai musim", start, { start = it }, "wizard-start", fieldErrors["start"], hint = "contoh 2026-11-10", enabled = !busy && !seasonDone)
+                                }
+                                FarmFormSection("Kelompok tanam") {
+                                    FinanceField("Nama varietas", variety, { variety = it }, "wizard-variety", fieldErrors["variety"], enabled = !busy && !varietyDone)
+                                    FinanceField("Nama kelompok tanam", group, { group = it }, "wizard-group", fieldErrors["group"], enabled = !busy && !groupDone)
+                                    FinanceField("Jumlah tanaman", population, { population = it }, "wizard-population", fieldErrors["population"], KeyboardType.Number, enabled = !busy && !groupDone, suffix = "tanaman")
+                                    FinanceDateField("Tanggal semai", sowing, { sowing = it }, "wizard-sowing", fieldErrors["sowing"], hint = "contoh 2026-11-10", enabled = !busy && !groupDone)
+                                    FinanceDateField("Tanggal pindah tanam (opsional)", transplant, { transplant = it }, "wizard-transplant", fieldErrors["transplant"], hint = "contoh 2026-11-10", enabled = !busy && !groupDone)
+                                }
+                                TextButton(onClick = { step = 3 }, enabled = !busy,
+                                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("wizard-skip")) { Text("Lewati langkah ini") }
                             }
                             else -> {
                                 Text("Pekerja", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
-                                if (workers.isNotEmpty()) FarmSection("Pekerja yang sudah ada") {
+                                if (workers.isNotEmpty()) FarmFormSection("Pekerja yang sudah ada") {
                                     workers.forEach { worker ->
                                         val id = worker.getString("id")
                                         FarmCheckbox(worker.optString("name").ifBlank { worker.optString("email") }, id in picked,
                                             { checked -> picked = if (checked) picked + id else picked - id }, Modifier.testTag("wizard-worker-$id"))
                                     }
                                 }
-                                FarmSection("Buat akun pekerja baru") {
+                                FarmFormSection("Buat akun pekerja baru") {
                                     FinanceField("Nama", newName, { newName = it }, "wizard-user-name", fieldErrors["name"])
-                                    FinanceField("Email", newEmail, { newEmail = it }, "wizard-user-email", fieldErrors["email"], KeyboardType.Email)
-                                    OutlinedTextField(newPassword, { newPassword = it }, label = { Text("Password (minimal 12 karakter)") },
-                                        visualTransformation = if (showPassword) androidx.compose.ui.text.input.VisualTransformation.None
+                                    FinanceField("Email", newEmail, { newEmail = it }, "wizard-user-email", fieldErrors["email"], KeyboardType.Email,
+                                        leadingIcon = { FarmControlIcon(FarmIcon.Mail, null) })
+                                    FinanceField("Password (minimal 12 karakter)", newPassword, { newPassword = it }, "wizard-user-password", fieldErrors["password"],
+                                        KeyboardType.Password, enabled = !busy, visual = if (showPassword) androidx.compose.ui.text.input.VisualTransformation.None
                                             else androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Password,
-                                            imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-                                        singleLine = true,
-                                        isError = fieldErrors["password"] != null, supportingText = fieldErrors["password"]?.let { m -> { Text(m) } },
-                                        modifier = Modifier.fillMaxWidth().testTag("wizard-user-password"), enabled = !busy)
+                                        leadingIcon = { FarmControlIcon(FarmIcon.Lock, null) })
                                     FarmCheckbox("Tampilkan password", showPassword, { showPassword = it }, Modifier.testTag("wizard-show-password"))
                                 }
-                                Button(onClick = ::saveWorkers, enabled = !busy, shape = FarmShape.Control,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-next")) { Text("Selesai") }
-                                OutlinedButton(onClick = { finished = true },
+                                TextButton(onClick = { finished = true },
                                     enabled = !busy && picked.isEmpty() && newName.isBlank() && newEmail.isBlank() && newPassword.isEmpty(),
-                                    shape = FarmShape.Control,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-skip")) { Text("Lewati") }
+                                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("wizard-skip")) { Text("Lewati langkah ini") }
                             }
                         }
-                        if (step > 1) TextButton(onClick = { step-- }, enabled = !busy,
-                            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("wizard-back")) { Text("Kembali") }
                     }
                 }
+                if (!finished) FarmFormBar("wizard-back", { step-- }, "wizard-next", if (step == 3) "Selesai" else "Simpan dan lanjut",
+                    { when (step) { 1 -> saveGreenhouse(); 2 -> savePlanting(); else -> saveWorkers() } },
+                    enabled = !busy, saveLabel = "Kembali", showSave = step > 1)
+            }
             }
         }
     }

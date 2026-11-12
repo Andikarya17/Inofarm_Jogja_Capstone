@@ -2,6 +2,10 @@ package com.inofarm.jogja.feature
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -95,14 +99,15 @@ internal fun FarmFormSection(title: String, content: @Composable ColumnScope.() 
 internal fun FarmFormBar(
     saveTag: String, onSave: () -> Unit, mainTag: String, mainLabel: String, onMain: () -> Unit,
     enabled: Boolean = true, mainIcon: Boolean = false, saveLabel: String = "Simpan draf",
+    mainEnabled: Boolean = enabled, showSave: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
     Surface(Modifier.fillMaxWidth(), color = colors.surface, shadowElevation = 4.dp, border = BorderStroke(1.dp, colors.outlineVariant)) {
         Row(Modifier.padding(horizontal = FarmSpace.Medium, vertical = FarmSpace.Small), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-            OutlinedButton(onClick = onSave, enabled = enabled, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            if (showSave) OutlinedButton(onClick = onSave, enabled = enabled, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
                 modifier = Modifier.weight(1f).heightIn(min = 52.dp).testTag(saveTag)) { Text(saveLabel, maxLines = 2) }
-            Button(onClick = onMain, enabled = enabled, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                modifier = Modifier.weight(1.4f).heightIn(min = 52.dp).testTag(mainTag)) {
+            Button(onClick = onMain, enabled = mainEnabled, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                modifier = Modifier.weight(if (showSave) 1.4f else 1f).heightIn(min = 52.dp).testTag(mainTag)) {
                 if (mainIcon) { FarmControlIcon(FarmIcon.Check, null); Spacer(Modifier.width(FarmSpace.Small)) }
                 Text(mainLabel, maxLines = 2)
             }
@@ -181,5 +186,54 @@ internal fun FarmInfoCard(content: @Composable ColumnScope.() -> Unit) {
     val colors = MaterialTheme.colorScheme
     Surface(Modifier.fillMaxWidth(), shape = FarmShape.Tile, color = colors.tertiaryContainer, contentColor = colors.onTertiaryContainer) {
         Column(Modifier.padding(FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(4.dp), content = content)
+    }
+}
+
+/** Three segments for the wizard: steps before [step] are done (check), [step] is the current one. */
+@Composable
+internal fun FarmStepIndicator(step: Int, labels: List<String>) {
+    val colors = MaterialTheme.colorScheme
+    Row(Modifier.fillMaxWidth().clearAndSetSemantics {}, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+        labels.forEachIndexed { index, label ->
+            val number = index + 1
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.fillMaxWidth().height(6.dp).background(if (number <= step) colors.primary else colors.outlineVariant, androidx.compose.foundation.shape.RoundedCornerShape(3.dp)))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (number < step) Box(Modifier.size(16.dp)) { androidx.compose.runtime.CompositionLocalProvider(LocalContentColor provides colors.primary) { FarmControlIcon(FarmIcon.Check, null) } }
+                    Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = if (number == step) FontWeight.Bold else FontWeight.Medium,
+                        color = if (number <= step) colors.onSurface else colors.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+/** Account role as two cards. The container is an inert tagged node and each card is "$tag-option-$id", like the chips. */
+@Composable
+internal fun FarmRoleCards(selected: String, roles: Map<String, String>, tag: String, onSelect: (String) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val about = mapOf(
+        "worker" to "Mencatat kegiatan dan panen di greenhouse yang ditugaskan.",
+        "manager" to "Mengelola semua greenhouse, akun, dan keuangan.",
+    )
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Peran", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+        Box(Modifier.size(1.dp).testTag(tag))
+        val cards: @Composable (Modifier) -> Unit = { modifier ->
+            roles.forEach { (id, name) ->
+                val on = id == selected
+                Surface(modifier.testTag("$tag-option-$id").selectable(on, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = { onSelect(id) }),
+                    shape = FarmShape.Tile, color = if (on) colors.primaryContainer else colors.surface,
+                    contentColor = if (on) colors.onPrimaryContainer else colors.onSurface,
+                    border = BorderStroke(if (on) 2.dp else 1.dp, if (on) colors.primary else colors.outlineVariant)) {
+                    Column(Modifier.padding(FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        about[id]?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    }
+                }
+            }
+        }
+        if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) { cards(Modifier.fillMaxWidth()) }
+        else Row(Modifier.selectableGroup().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) { cards(Modifier.weight(1f).fillMaxHeight()) }
     }
 }

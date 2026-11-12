@@ -1372,7 +1372,7 @@ class FinanceEntryUiTest {
         readyNode("admin-new").performScrollTo().performClick()
         readyNode("admin-name").assertExists()
         captureWindow("manager-walk-admin-editor")
-        readyNode("admin-submit").performScrollTo().assertExists()
+        readyNode("admin-submit").scrollIfScrollable().assertExists()
         Espresso.pressBack()
         assertEquals(0, posts.get() + financePosts.get() + harvestPosts.get())
     }
@@ -1433,7 +1433,7 @@ class FinanceEntryUiTest {
         readyNode("admin-effective_from").performScrollTo().performTextReplacement("2026-10-30T08:00:00+07:00")
         readyNode("admin-target_value").performScrollTo().performTextReplacement("1,3")
         hideKeyboard()
-        readyNode("admin-submit").performScrollTo().assertExists()
+        readyNode("admin-submit").scrollIfScrollable().assertExists()
         captureWindow("manager-ec-target-review")
         Espresso.pressBack()
     }

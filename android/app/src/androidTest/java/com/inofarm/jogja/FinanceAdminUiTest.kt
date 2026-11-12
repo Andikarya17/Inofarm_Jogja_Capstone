@@ -49,9 +49,9 @@ class FinanceAdminUiTest {
         rule.onNodeWithTag("admin-new").performScrollTo().performClick()
         rule.onNodeWithTag("admin-name").performScrollTo().performTextInput("GH draf sintetis")
         Espresso.closeSoftKeyboard()
-        rule.onNodeWithText("Simpan draf dan kembali").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Simpan draf dan kembali").scrollIfScrollable().assertIsDisplayed()
         captureWorkerRecordingEvidence("wr-admin-dark.png")
-        rule.onNodeWithText("Simpan draf dan kembali").performScrollTo().performClick()
+        rule.onNodeWithText("Simpan draf dan kembali").scrollIfScrollable().performClick()
         rule.onNodeWithTag("admin-resume").performScrollTo().performClick()
         rule.onNodeWithTag("admin-name").assertTextContains("GH draf sintetis")
         val saved=repository.read(session,vault.generation)
@@ -63,7 +63,7 @@ class FinanceAdminUiTest {
         rule.waitUntil(10000) {rule.onAllNodesWithTag("admin-new").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("admin-new").performScrollTo().performClick()
         rule.onNodeWithTag("admin-name").performScrollTo().performTextInput("GH diterima sintetis")
-        rule.onNodeWithTag("admin-submit").performScrollTo().performClick()
+        rule.onNodeWithTag("admin-submit").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {accepted==1}
         rule.waitForIdle();assertFalse(repository.read(session,vault.generation).has("pending"))
     }

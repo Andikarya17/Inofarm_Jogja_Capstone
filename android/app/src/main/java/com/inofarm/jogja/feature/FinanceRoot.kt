@@ -1301,7 +1301,7 @@ internal fun ExpiredSessionNotice() {
         modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }
     ) { Text(message, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium) }
 }
-@Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true,enabled:Boolean=true,suffix:String?=null,prominent:Boolean=false,trailingAction:(@Composable ()->Unit)?=null) {
+@Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true,enabled:Boolean=true,suffix:String?=null,prominent:Boolean=false,visual:androidx.compose.ui.text.input.VisualTransformation=androidx.compose.ui.text.input.VisualTransformation.None,leadingIcon:(@Composable ()->Unit)?=null,trailingAction:(@Composable ()->Unit)?=null) {
     val canopy = LocalCanopyForm.current
     val labelAbove = LocalDensity.current.fontScale > 1.5f || canopy
     val support = error ?: hint
@@ -1318,7 +1318,7 @@ internal fun ExpiredSessionNotice() {
             ),
             label = if (labelAbove) null else ({ Text(label) }),
             isError = error != null,
-            supportingText = support?.let { message -> { Text(message) } }, trailingIcon = trailingAction,
+            supportingText = support?.let { message -> { Text(message) } }, trailingIcon = trailingAction, leadingIcon = leadingIcon, visualTransformation = visual,
             singleLine = singleLine, enabled = enabled, keyboardOptions = KeyboardOptions(keyboardType = keyboard),
             modifier = Modifier.fillMaxWidth().testTag(tag).semantics { if (labelAbove) contentDescription = label }
         )

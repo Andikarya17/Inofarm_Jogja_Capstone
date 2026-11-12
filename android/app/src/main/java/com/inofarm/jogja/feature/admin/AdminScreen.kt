@@ -1,5 +1,14 @@
 package com.inofarm.jogja.feature.admin
 
+import com.inofarm.jogja.core.design.FarmChoiceChips
+import com.inofarm.jogja.core.design.FarmControlIcon
+import com.inofarm.jogja.core.design.FarmIcon
+import com.inofarm.jogja.feature.FarmFormFrame
+import com.inofarm.jogja.feature.FarmFormHeader
+import com.inofarm.jogja.feature.FarmFormBar
+import com.inofarm.jogja.feature.FarmFormSection
+import com.inofarm.jogja.feature.FarmRoleCards
+import com.inofarm.jogja.feature.FinanceDateField
 import com.inofarm.jogja.core.design.FarmCheckbox
 import com.inofarm.jogja.core.design.FarmDraftStatus
 import com.inofarm.jogja.core.design.FarmFact
@@ -78,15 +87,17 @@ import com.inofarm.jogja.feature.Notice
                     AdminResource.GREENHOUSE -> "Greenhouse"
                     else -> initialResource.label
                 }
-                FarmSheetHeading(title, close, !state.busy)
-                HorizontalDivider()
+                if (!state.editing) {
+                    FarmSheetHeading(title, close, !state.busy)
+                    HorizontalDivider()
+                }
                 CompositionLocalProvider(LocalFarmDialogPicker provides true) {
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = FarmSpace.Medium),
+                if (state.editing) Box(Modifier.weight(1f)) { AdminEditor(state,vm,onAccepted) }
+                else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = FarmSpace.Medium),
                     verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                 state.message?.let {Notice(it)}
                 if(state.busy) { Text("Memuat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                if(state.editing) AdminEditor(state,vm,onAccepted)
-                else if(state.detail!=null) {
+                if(state.detail!=null) {
                     val row=requireNotNull(state.detail)
                     val isGreenhouse=state.resource==AdminResource.GREENHOUSE
                     FarmPageTitle(row.optString("name"))
@@ -236,18 +247,36 @@ import com.inofarm.jogja.feature.Notice
             Triple("Reset password?", "Akun ini perlu masuk ulang.", "Reset password")
         else -> null
     }
-    FarmPageTitle("$action ${form.resource.label}")
-    FarmDraftStatus(state.saved, Modifier.testTag("admin-saved"))
+    var showPassword by remember {mutableStateOf(false)}
+    val passwordMatches=!confirmPassword || password.length>=12 && password==passwordConfirmation
+    val submitLabel = when {
+        state.pending -> "Kirim ulang"
+        form.action == "close" -> "Tutup musim"
+        form.action == "reopen" -> "Buka musim"
+        else -> "Simpan ${form.resource.label.lowercase()}"
+    }
+    val user = form.resource==AdminResource.USER
+    FarmFormFrame(
+        header = { FarmFormHeader("$action ${form.resource.label}", state.saved, "admin-saved", "admin-close", vm::back, !state.busy) },
+        bar = { FarmFormBar("admin-save-draft", vm::back, "admin-submit", submitLabel,
+            { if(confirmation!=null && !state.pending) confirm=true else vm.submit(password,onAccepted) },
+            enabled = !state.busy, mainEnabled = !state.busy && !state.rejected && passwordMatches, saveLabel = "Simpan draf dan kembali") }
+    ) {
+    state.message?.let {Notice(it)}
+    if(state.busy) { Text("Memuat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
     if(state.pending) Notice("Belum terkirim. Kirim ulang, isinya tetap sama.")
-    FarmSection("Isian ${form.resource.label.lowercase()}") {
+    FarmFormSection("Isian ${form.resource.label.lowercase()}") {
     form.fields.forEach {field ->
         val value=form.values[field.key].orEmpty()
         if(state.pending || state.busy || form.version!=null && field.key=="greenhouse_id") FarmFact(field.label, display(field))
         else when {
             field.type=="boolean" -> FarmCheckbox(field.label, value == "true", { vm.edit(field.key, it.toString()) })
+            user && field.key=="role" -> FarmRoleCards(value, field.choices, "admin-role") { vm.edit(field.key, it) }
             field.source!=null || field.choices.isNotEmpty() -> {
                 val options=if(field.source!=null) state.options[field.source].orEmpty().map {row -> org.json.JSONObject(row.toString()).put("name",row.optString("name").ifBlank {row.optString("id")})} else field.choices.map {(id,label) -> org.json.JSONObject().put("id",id).put("name",label)}
-                Choice(field.label,value,options,"admin-${field.key}",loading=state.optionsLoading) {vm.edit(field.key,it)}
+                if(field.choices.isNotEmpty() || user && field.key=="greenhouse_id")
+                    FarmChoiceChips(field.label,value,options,"admin-${field.key}",loading=state.optionsLoading) {vm.edit(field.key,it)}
+                else Choice(field.label,value,options,"admin-${field.key}",loading=state.optionsLoading) {vm.edit(field.key,it)}
                 if(field.source=="assignment-users" && !form.values["greenhouse_id"].isNullOrBlank()) {
                     if(options.isEmpty() && !state.optionsLoading && state.message==null)
                         Text("Belum ada pekerja lain. Cari akun pekerja dengan email lengkap.")
@@ -257,20 +286,30 @@ import com.inofarm.jogja.feature.Notice
                         modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("admin-find-unassigned")) {Text("Cari akun")}
                 }
             }
+            field.type=="date" -> FinanceDateField(field.label+(if(field.optional) " (opsional)" else ""),value,{vm.edit(field.key,it)},"admin-${field.key}",hint="YYYY-MM-DD")
             else -> FinanceField(field.label+(if(field.optional) " (opsional)" else ""),value,{vm.edit(field.key,it)},"admin-${field.key}",keyboard=when(field.type) {
                 "integer" -> KeyboardType.Number
                 "decimal" -> KeyboardType.Decimal
                 "email" -> KeyboardType.Email
                 else -> KeyboardType.Text
-            },hint=when(field.type) {"date" -> "YYYY-MM-DD";"timestamp" -> "YYYY-MM-DDTHH:mm:ss+07:00";else -> null})
+            },hint=when(field.type) {"timestamp" -> "YYYY-MM-DDTHH:mm:ss+07:00";else -> null},
+                leadingIcon = if(field.type=="email") ({ FarmControlIcon(FarmIcon.Mail, null) }) else null)
         }
     }
-    if(form.resource==AdminResource.USER && (!state.pending || state.needsPassword)) OutlinedTextField(password,{password=it},label={Text(if(state.pending) "Password yang sama seperti sebelumnya" else if(form.version==null) "Password akun baru (minimal 12 karakter)" else "Password baru (opsional)")},visualTransformation=PasswordVisualTransformation(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Password),modifier=Modifier.fillMaxWidth().testTag("admin-password"),enabled=!state.busy)
-    if(confirmPassword) OutlinedTextField(passwordConfirmation,{passwordConfirmation=it},label={Text("Ulangi password")},
-        visualTransformation=PasswordVisualTransformation(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Password),
-        modifier=Modifier.fillMaxWidth().testTag("admin-password-confirmation"),enabled=!state.busy,
-        isError=passwordConfirmation.isNotEmpty() && passwordConfirmation!=password)
-    if(form.resource==AdminResource.USER && state.pending) Text("Masukkan password yang sama untuk mengirim ulang.")
+    val passwordToggle: @Composable () -> Unit = {
+        IconButton(onClick={showPassword=!showPassword},modifier=Modifier.testTag("admin-password-toggle")) {
+            FarmControlIcon(if(showPassword) FarmIcon.EyeOff else FarmIcon.Eye, if(showPassword) "Sembunyikan password" else "Tampilkan password")
+        }
+    }
+    val passwordVisual = if(showPassword) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation()
+    if(user && (!state.pending || state.needsPassword)) FinanceField(
+        if(state.pending) "Password yang sama seperti sebelumnya" else if(form.version==null) "Password akun baru (minimal 12 karakter)" else "Password baru (opsional)",
+        password,{password=it},"admin-password",keyboard=KeyboardType.Password,enabled=!state.busy,visual=passwordVisual,
+        leadingIcon={FarmControlIcon(FarmIcon.Lock,null)},trailingAction=passwordToggle)
+    if(confirmPassword) FinanceField("Ulangi password",passwordConfirmation,{passwordConfirmation=it},"admin-password-confirmation",
+        error=if(passwordConfirmation.isNotEmpty() && passwordConfirmation!=password) "Isian harus sama dengan password di atas." else null,
+        keyboard=KeyboardType.Password,enabled=!state.busy,visual=passwordVisual,leadingIcon={FarmControlIcon(FarmIcon.Lock,null)})
+    if(user && state.pending) Text("Masukkan password yang sama untuk mengirim ulang.")
     }
     state.server?.let {row ->
         Notice("Data ini baru diubah di perangkat lain. Isian Anda tetap tersimpan.")
@@ -278,18 +317,9 @@ import com.inofarm.jogja.feature.Notice
         TextButton(onClick=vm::useServer,enabled=!state.busy) {Text("Pakai data terbaru")}
     }
     if(state.rejected) TextButton(onClick=vm::reviseRejected,enabled=!state.busy) {Text("Perbaiki draf yang ditolak")}
-    val passwordMatches=!confirmPassword || password.length>=12 && password==passwordConfirmation
     if(confirmPassword && !passwordMatches) Text("Isi password minimal 12 karakter dan ulangi dengan isian yang sama.")
-    val submitLabel = when {
-        state.pending -> "Kirim ulang"
-        form.action == "close" -> "Tutup musim"
-        form.action == "reopen" -> "Buka musim"
-        else -> "Simpan ${form.resource.label.lowercase()}"
-    }
-    Button(onClick={if(confirmation!=null && !state.pending) confirm=true else vm.submit(password,onAccepted)},enabled=!state.busy && !state.rejected && passwordMatches,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("admin-submit")) {Text(submitLabel)}
-    OutlinedButton(onClick=vm::back, enabled=!state.busy, shape=FarmShape.Control,
-        modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) { Text("Simpan draf dan kembali") }
     if(!state.pending) TextButton(onClick={discard=true},enabled=!state.busy) {Text("Hapus draf ini")}
+    }
     if(confirm && confirmation!=null) AlertDialog(onDismissRequest={confirm=false}, containerColor = MaterialTheme.colorScheme.surface,
         title={Text(confirmation.first)},text={Text(confirmation.second)},
         confirmButton={Button(onClick={confirm=false;vm.submit(password,onAccepted)}, shape=FarmShape.Control) {Text(confirmation.third)}},
