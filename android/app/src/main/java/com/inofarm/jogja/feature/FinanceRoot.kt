@@ -909,8 +909,8 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
     var accountOpen by rememberSaveable { mutableStateOf(false) }
     val manager = session.role == UserRole.MANAGER
     val largeFont = LocalDensity.current.fontScale > 1.3f
-    // At large fonts the worker's toolbar already holds two icons, so the unsent button moves to its own row.
-    val stackUnsent = largeFont && unsent > 0
+    // The worker's greeting needs the full row, so the unsent button always sits on its own row below it.
+    val stackUnsent = (largeFont || !manager) && unsent > 0
     val amber = farmToneColors(FarmTone.Amber).second
     val unsentButton: @Composable () -> Unit = {
         OutlinedButton(onClick = onUnsent, shape = FarmShape.Control,
