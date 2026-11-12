@@ -85,12 +85,12 @@ private val ForestTile = Color(0xFF203B30)
 private val playedEntrances = HashSet<Any>()
 
 /** Fade and rise 12 dp once per process; items past the sixth appear at once. */
-@Composable internal fun Modifier.farmStaggerEntrance(index: Int, key: Any = index): Modifier {
+@Composable internal fun Modifier.farmStaggerEntrance(index: Int, key: Any = index, step: Int = FarmMotion.Stagger): Modifier {
     val immediate = index > 5 || key in playedEntrances
     val progress = remember { Animatable(if (immediate) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (progress.value < 1f) {
-            delay(index * FarmMotion.Stagger.toLong())
+            delay(index * step.toLong())
             playedEntrances.add(key)
             progress.animateTo(1f, tween(FarmMotion.Entrance))
         } else playedEntrances.add(key)
