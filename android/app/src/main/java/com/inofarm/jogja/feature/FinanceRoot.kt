@@ -641,7 +641,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         tab == 5 -> ManagerBar("Riwayat", null, null)
         tab == 4 -> ManagerBar("Keuangan", null, null)
         tab == 6 -> ManagerBar("Kelola", null, null)
-        tab == 1 -> ManagerBar("Cek catatan pekerja", null, { reviewActivity = null; tab = 0 }, "Kembali ke Beranda")
+        tab == 1 -> ManagerBar("Cek catatan pekerja", null, { if (reviewActivity != null) reviewActivity = null else tab = 0 },
+            if (reviewActivity != null) "Kembali ke daftar" else "Kembali ke Beranda")
         else -> null
     }
     val snackbar = remember { SnackbarHostState() }

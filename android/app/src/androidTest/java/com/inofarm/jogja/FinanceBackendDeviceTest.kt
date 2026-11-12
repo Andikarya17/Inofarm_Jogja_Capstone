@@ -492,7 +492,7 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag(tag).performScrollTo().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("$tag-option-$id").fetchSemanticsNodes().size==1}
         rule.onNodeWithTag("$tag-option-$id").performScrollTo().performClick()
-        rule.waitUntil(10000) {rule.onAllNodesWithTag("$tag-option-$id").fetchSemanticsNodes().isEmpty()}
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("$tag-option-$id").fetchSemanticsNodes().let {nodes -> nodes.isEmpty() || nodes.all {node -> (node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Selected) && node.config[androidx.compose.ui.semantics.SemanticsProperties.Selected])}}}
         rule.finishChoice(tag)
     }
     private fun hideKeyboard() {rule.runOnIdle {(rule.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(rule.activity.window.decorView.windowToken,0)};rule.waitForIdle()}

@@ -516,6 +516,7 @@ private fun VerificationCard(kind: ReviewKind, entry: JSONObject, activity: JSON
     val context = listOfNotNull(names.text("greenhouse"), names.text("season"), names.text("group")).joinToString(" · ")
     val ec = activity.text("manual_ec")
     val ppm = activity.text("manual_ppm")
+    val large = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
     Surface(
         Modifier.fillMaxWidth().testTag(tag).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onOpen)
             .semantics(mergeDescendants = true) {
@@ -531,8 +532,9 @@ private fun VerificationCard(kind: ReviewKind, entry: JSONObject, activity: JSON
                     Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                     Text(who, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 }
-                FarmStatusChip(chip, tone = tone)
+                if (!large) FarmStatusChip(chip, tone = tone)
             }
+            if (large) FarmStatusChip(chip, tone = tone)
             if (ec != null || ppm != null) Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                 MeasureBox("EC", ec?.let { "$it mS/cm" } ?: "belum ada", Modifier.weight(1f))
                 MeasureBox("PPM", ppm?.let { "$it ppm" } ?: "belum ada", Modifier.weight(1f))

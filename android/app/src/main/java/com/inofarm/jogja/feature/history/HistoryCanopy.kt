@@ -7,6 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -46,7 +48,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 internal fun CanopyTypeChips(selected: String, onSelect: (String) -> Unit) {
     val colors = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small),
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small),
         verticalAlignment = Alignment.CenterVertically) {
         listOf("activity" to "Kegiatan", "measurement" to "Pengukuran", "harvest" to "Panen").forEach { (id, label) ->
             val on = selected == id
@@ -64,6 +66,7 @@ internal fun CanopyTypeChips(selected: String, onSelect: (String) -> Unit) {
         val dash = colors.outline
         listOf("expense" to "Biaya", "sale" to "Penjualan", "asset" to "Aset").forEach { (id, label) ->
             Row(Modifier.heightIn(min = FarmSpace.Touch).testTag("history-chip-$id").clip10()
+                .semantics { contentDescription = "$label, buka di Keuangan" }
                 .clickable(role = Role.Button) { onSelect(id) }
                 .drawBehind {
                     drawRoundRect(dash, cornerRadius = CornerRadius(10.dp.toPx()),
@@ -93,7 +96,8 @@ private fun recordInstant(data: org.json.JSONObject): OffsetDateTime? =
 
 /** Day heading for a record: "Hari ini · Kamis, 12 Nov 2026", "Kemarin · ..." or the date alone; null when the time is unknown. */
 internal fun dayHeading(record: LocalRecord, today: LocalDate): String {
-    val day = recordInstant(record.body)?.atZoneSameInstant(ActivityDraft.WIB)?.toLocalDate() ?: return "Waktu belum tersedia"
+    val day = recordInstant(record.body)?.atZoneSameInstant(ActivityDraft.WIB)?.toLocalDate()
+        ?: return if (record.syncState == SyncState.LOCAL || record.syncState == SyncState.QUEUED) "Draf dan belum terkirim" else "Waktu belum tersedia"
     return when (day) {
         today -> "Hari ini · ${dateLabel(day)}"
         today.minusDays(1) -> "Kemarin · ${dateLabel(day)}"
@@ -170,7 +174,7 @@ internal fun CanopyRecordRow(
     val cancelled = data.optString("record_state") == "cancelled"
     val skipped = kind == OperationalKind.ACTIVITY && (local?.optBoolean("skipped") ?: (data.optString("work_state") == "skipped"))
     val checkDecision = if (record.syncState == SyncState.ACCEPTED && kind in setOf(OperationalKind.ACTIVITY, OperationalKind.HARVEST) &&
-        record.recorderId().isNotBlank() && record.recorderId() != ownAccount)
+        data.optString("recorded_by_role") == "worker")
         record.serverVersion?.let { checks["${record.id}#$it"] ?: "pending" } else null
     val (chipText, chipTone) = when {
         cancelled -> "Dibatalkan" to FarmTone.Neutral
@@ -184,10 +188,9 @@ internal fun CanopyRecordRow(
     }
     val meta = listOfNotNull(greenhouse, group, recorder).joinToString(" · ")
     val summary = listOfNotNull(title, spoken ?: grades.firstOrNull() ?: notes, meta.ifBlank { null }, clock, chipText).joinToString(", ")
-    val shape = RoundedCornerShape(topStart = if (first) 20.dp else 0.dp, topEnd = if (first) 20.dp else 0.dp,
-        bottomStart = if (last) 20.dp else 0.dp, bottomEnd = if (last) 20.dp else 0.dp)
+    val large = LocalDensity.current.fontScale > 1.3f
     val (icon, tone) = tileFor(kind, type)
-    Column(Modifier.fillMaxWidth().background(colors.surface, shape).clickable(role = Role.Button, onClick = onOpen)
+    Column(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpen)
         .testTag("finance-record-${record.id}").semantics(mergeDescendants = true) { contentDescription = summary }) {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = FarmSpace.Medium, vertical = FarmSpace.Medium),
             horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.Top) {
@@ -202,8 +205,12 @@ internal fun CanopyRecordRow(
                 if (meta.isNotBlank()) Text(meta, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2)
                 if (skipped) Text("Kegiatan dilewati", style = MaterialTheme.typography.labelMedium)
                 if (clock == null) Text("Waktu belum tersedia", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                if (large) {
+                    clock?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant) }
+                    FarmStatusChip(chipText, tone = chipTone)
+                }
             }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (!large) Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 clock?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant) }
                 FarmStatusChip(chipText, tone = chipTone)
             }

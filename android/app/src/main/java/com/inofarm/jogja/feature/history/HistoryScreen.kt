@@ -7,7 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.rememberScrollState
@@ -19,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -77,7 +79,7 @@ import java.util.Locale
                         Text(historyScope(context, state, kind), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         HistoryFilters(context, state.filter, state.filterSeason, vm::filter, kind, pickDates = false,
-                            badge = activeFilterCount(state.filter, state.filterSeason))
+                            badge = activeFilterCount(state.filter, state.filterSeason), keepType = state.filter.type)
                     }
                     context.lastSyncedAt?.let {
                         Text("Diperbarui ${java.time.Instant.ofEpochMilli(it).atZone(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH.mm 'WIB'"))}",
@@ -115,7 +117,7 @@ import java.util.Locale
                 }
             }
             state.message?.let { item("history-message") { Notice(it,true) } }
-            val filtered = state.filter != LocalHistoryFilter()
+            val filtered = (if (canopy) state.filter.copy(type = null) else state.filter) != LocalHistoryFilter()
             when {
                 state.loading || !state.loaded && state.loadError == null -> item("history-loading") {
                     FarmRecordCard { Text("Memuat riwayat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
@@ -130,7 +132,7 @@ import java.util.Locale
                 state.records.isEmpty() -> item("history-empty") {
                     FarmPanel(title=if (filtered) "Belum ada catatan yang cocok dengan filter ini."
                         else "Belum ada catatan ${kind.label}.") {
-                        if (filtered) TextButton(onClick={vm.filter(LocalHistoryFilter())},
+                        if (filtered) TextButton(onClick={vm.filter(LocalHistoryFilter(type = state.filter.type.takeIf { canopy }))},
                             modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Hapus filter") }
                         else if (onSync != null && !session.expired()) TextButton(onClick=onSync,enabled=!context.loading,
                             modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Perbarui") }
@@ -146,8 +148,13 @@ import java.util.Locale
                 }
                 days.forEach { (heading, rows) ->
                     stickyHeader(key = "day-$heading-${rows.first().id}") { CanopyDayHeader(heading) }
-                    itemsIndexed(rows, key = { _, r -> r.id }) { i, r ->
-                        CanopyRecordRow(r, kind, context, session.scope.accountId, state.checks, i == 0, i == rows.lastIndex) { vm.select(r.id) }
+                    item(key = "day-rows-$heading-${rows.first().id}") {
+                        Column(Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+                            .background(MaterialTheme.colorScheme.surface)) {
+                            rows.forEachIndexed { i, r ->
+                                CanopyRecordRow(r, kind, context, session.scope.accountId, state.checks, i == 0, i == rows.lastIndex) { vm.select(r.id) }
+                            }
+                        }
                     }
                 }
             } else items(state.records, key = { it.id }) { record ->
@@ -246,7 +253,7 @@ private fun WorkerRecordStatus(record: LocalRecord, account: String, checks: Map
 }
 
 private fun activeFilterCount(filter: LocalHistoryFilter, season: String?): Int =
-    listOfNotNull(filter.greenhouseId, season ?: filter.seasonId, filter.groupId, filter.type, filter.from, filter.until, filter.recordState).size
+    listOfNotNull(filter.greenhouseId, season ?: filter.seasonId, filter.groupId, filter.from, filter.until, filter.recordState).size
 
 private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:OperationalKind):String {
     val filter=state.filter
@@ -269,7 +276,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun HistoryFilters(context:CultivationUiState,filter:LocalHistoryFilter,filterSeason:String?,onApply:(LocalHistoryFilter,String?)->Unit,kind:OperationalKind,pickDates:Boolean,badge:Int?=null) {
+@Composable private fun HistoryFilters(context:CultivationUiState,filter:LocalHistoryFilter,filterSeason:String?,onApply:(LocalHistoryFilter,String?)->Unit,kind:OperationalKind,pickDates:Boolean,badge:Int?=null,keepType:String?=null) {
     var expanded by rememberSaveable {mutableStateOf(false)}
     var gh by rememberSaveable {mutableStateOf(filter.greenhouseId.orEmpty())};var season by rememberSaveable {mutableStateOf(filter.seasonId.orEmpty())};var group by rememberSaveable {mutableStateOf(filter.groupId.orEmpty())}
     var type by rememberSaveable {mutableStateOf(filter.type.orEmpty())};var status by rememberSaveable {mutableStateOf(filter.recordState.orEmpty())}
@@ -278,7 +285,8 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
         gh=filter.greenhouseId.orEmpty();season=filterSeason.orEmpty();group=filter.groupId.orEmpty()
         type=filter.type.orEmpty();status=filter.recordState.orEmpty()
         from=filter.from.orEmpty();until=filter.until.orEmpty();error=null;expanded=true
-    },shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-history-filters")) {
+    },shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("finance-history-filters")
+        .semantics { if (badge != null && badge > 0) contentDescription = "Filter riwayat, $badge aktif" }) {
         Text(if (badge != null) (if (badge > 0) "Filter · $badge" else "Filter") else if (filter == LocalHistoryFilter()) "Filter riwayat" else "Ubah filter")
     }
     if(expanded) CompositionLocalProvider(LocalFarmDialogPicker provides true) { ModalBottomSheet(onDismissRequest={expanded=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
@@ -295,7 +303,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
             if(!kind.financial) Choice("Kelompok tanam",group,choices(groups),"history-group") {group=it}
         }
         FarmSection(if (kind == OperationalKind.ACTIVITY) "Jenis dan status" else "Status") {
-            if(kind==OperationalKind.ACTIVITY) Choice("Jenis kegiatan",type,choices(ActivityType.entries.map {JSONObject().put("id",it.wire).put("name",it.label)}),"history-type") {type=it}
+            if(kind==OperationalKind.ACTIVITY && badge==null) Choice("Jenis kegiatan",type,choices(ActivityType.entries.map {JSONObject().put("id",it.wire).put("name",it.label)}),"history-type") {type=it}
             Choice("Status catatan",status,choices(listOf(JSONObject().put("id","active").put("name","Aktif"),JSONObject().put("id","cancelled").put("name","Dibatalkan"))),"history-state") {status=it}
         }
         FarmSection("Periode WIB") {
@@ -326,7 +334,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
                 expanded=false
             }
         },shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("history-apply")) {Text("Terapkan filter")}
-        TextButton(onClick={onApply(LocalHistoryFilter(),null);expanded=false},
+        TextButton(onClick={onApply(LocalHistoryFilter(type = keepType),null);expanded=false},
             modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Hapus semua filter")}
         }
         }

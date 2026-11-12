@@ -585,7 +585,7 @@ class FinanceEntryUiTest {
         val option="$tag-option-$id"
         rule.waitUntil(10000) {rule.onAllNodesWithTag(option).fetchSemanticsNodes().size==1}
         rule.onNodeWithTag(option).performScrollTo().performClick()
-        rule.waitUntil(10000) {rule.onAllNodesWithTag(option).fetchSemanticsNodes().isEmpty()}
+        rule.waitUntil(10000) {rule.onAllNodesWithTag(option).fetchSemanticsNodes().let {nodes -> nodes.isEmpty() || nodes.all {node -> (node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Selected) && node.config[androidx.compose.ui.semantics.SemanticsProperties.Selected])}}}
         if(!keepContextOpen) rule.finishChoice(tag)
     }
     private fun hideKeyboard() {

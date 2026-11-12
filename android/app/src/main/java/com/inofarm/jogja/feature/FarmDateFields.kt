@@ -34,7 +34,7 @@ internal fun FinanceDateField(
                 onChange(LocalDate.of(year, month + 1, dayOfMonth).toString())
             }, initial.year, initial.monthValue - 1, initial.dayOfMonth).show()
         }, enabled = enabled, modifier = Modifier.testTag("$tag-picker")) {
-            FarmControlIcon(FarmIcon.Calendar, "Pilih tanggal")
+            FarmControlIcon(FarmIcon.Calendar, "Pilih tanggal ${label.substringBefore(" (")}")
         }
     }
 }
@@ -47,7 +47,7 @@ internal fun FinanceTimeField(
 ) {
     val context = LocalContext.current
     val time = runCatching { LocalTime.parse(value.trim()) }.getOrNull()
-    FinanceField(label, value, onChange, tag, error = error, hint = hint, keyboard = KeyboardType.Number, enabled = enabled) {
+    FinanceField(label, value, onChange, tag, error = error, hint = hint, keyboard = KeyboardType.Text, enabled = enabled) {
         IconButton(onClick = {
             val initial = time ?: LocalTime.now(ActivityDraft.WIB)
             TimePickerDialog(context, { _, hour, minute ->
@@ -55,7 +55,7 @@ internal fun FinanceTimeField(
                 onChange("%02d:%02d%s".format(hour, minute, seconds))
             }, initial.hour, initial.minute, true).show()
         }, enabled = enabled, modifier = Modifier.testTag("$tag-picker")) {
-            FarmControlIcon(FarmIcon.Schedule, "Pilih jam")
+            FarmControlIcon(FarmIcon.Schedule, "Pilih jam ${label.substringBefore(" (")}")
         }
     }
 }
