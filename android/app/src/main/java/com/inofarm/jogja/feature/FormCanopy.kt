@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -65,13 +66,13 @@ internal fun FarmFormHeader(title: String, saved: Boolean, statusTag: String, cl
 
 /** Forest strip with the greenhouse and planting the form is for; [age] sits on the right when known. */
 @Composable
-internal fun FarmContextStrip(greenhouse: String, planting: String?, age: String?) {
+internal fun FarmContextStrip(greenhouse: String, planting: String?, age: String?, icon: FarmIcon = FarmIcon.Greenhouse) {
     MaterialTheme(colorScheme = ForestScheme, typography = MaterialTheme.typography) {
         Surface(Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
             color = ForestScheme.background, contentColor = ForestScheme.onBackground) {
             Row(Modifier.padding(FarmSpace.Medium), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium),
                 verticalAlignment = Alignment.CenterVertically) {
-                FarmIconTile(FarmIcon.Greenhouse, tone = FarmTone.Forest, size = 40.dp)
+                FarmIconTile(icon, tone = FarmTone.Forest, size = 40.dp)
                 Column(Modifier.weight(1f)) {
                     Text(greenhouse, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     planting?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = ForestScheme.onSurfaceVariant) }
@@ -102,8 +103,10 @@ internal fun FarmFormBar(
     mainEnabled: Boolean = enabled, showSave: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
-    Surface(Modifier.fillMaxWidth(), color = colors.surface, shadowElevation = 4.dp, border = BorderStroke(1.dp, colors.outlineVariant)) {
-        Row(Modifier.padding(horizontal = FarmSpace.Medium, vertical = FarmSpace.Small), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+    Surface(Modifier.fullBleed(FarmSpace.Page), color = colors.surface, shadowElevation = 4.dp) {
+        Column {
+        HorizontalDivider(color = colors.outlineVariant)
+        Row(Modifier.padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Small), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
             if (showSave) OutlinedButton(onClick = onSave, enabled = enabled, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
                 modifier = Modifier.weight(1f).heightIn(min = 52.dp).testTag(saveTag)) { Text(saveLabel, maxLines = 2) }
             Button(onClick = onMain, enabled = mainEnabled, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
@@ -112,7 +115,21 @@ internal fun FarmFormBar(
                 Text(mainLabel, maxLines = 2)
             }
         }
+        }
     }
+}
+
+/** The shell and the wizard pad the page horizontally; the sticky bar cancels that padding so it meets the screen edges. */
+private fun Modifier.fullBleed(inset: androidx.compose.ui.unit.Dp): Modifier = layout { measurable, constraints ->
+    val extra = inset.roundToPx() * 2
+    val placeable = measurable.measure(constraints.copy(minWidth = constraints.maxWidth + extra, maxWidth = constraints.maxWidth + extra))
+    layout(constraints.maxWidth, placeable.height) { placeable.place(-extra / 2, 0) }
+}
+
+/** "Kamis, 12 Nov 2026 · 21:13 WIB" for a valid date, otherwise the typed values as they are. */
+internal fun whenLabel(date: String, time: String): String {
+    val day = runCatching { java.time.LocalDate.parse(date.trim()) }.getOrNull()
+    return if (day != null && time.isNotBlank()) "${dateLabel(day)} · ${time.trim().take(5)} WIB" else "$date $time".trim().ifBlank { "Waktu belum diisi" }
 }
 
 /** Step "Periksa": a forest header for what is being saved, the details as cards, and Ubah isian / Simpan. */
@@ -124,7 +141,7 @@ internal fun FarmReviewFrame(
     FarmFormFrame(
         header = {
             FarmPageTitle("Periksa $title", "Pastikan isinya benar. Setelah disimpan, catatan dikirim saat ada koneksi.")
-            FarmContextStrip(title.replaceFirstChar { it.uppercase() }, subtitle, null)
+            FarmContextStrip(title.replaceFirstChar { it.uppercase() }, subtitle, null, icon)
         },
         bar = { FarmFormBar(backTag, onBack, queueTag, "Simpan", onQueue, enabled = !busy, mainIcon = true, saveLabel = "Ubah isian") },
         content = content
@@ -136,8 +153,7 @@ internal fun FarmReviewFrame(
 internal fun FarmWhenCard(date: String, time: String, editTag: String, forceOpen: Boolean, fields: @Composable ColumnScope.() -> Unit) {
     var open by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     val shown = open || forceOpen
-    val day = runCatching { java.time.LocalDate.parse(date.trim()) }.getOrNull()
-    val line = if (day != null && time.isNotBlank()) "${dateLabel(day)} · ${time.trim().take(5)} WIB" else "$date $time".trim().ifBlank { "Waktu belum diisi" }
+    val line = whenLabel(date, time)
     Column(Modifier.fillMaxWidth().animateContentSize(androidx.compose.animation.core.tween(190)), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
             FarmIconTile(FarmIcon.Schedule, tone = FarmTone.Neutral)

@@ -1044,7 +1044,7 @@ internal fun ExpiredSessionNotice() {
 /** The form fields shared by the worker and manager layouts. Only the manager layout (canopy) changes shape; the worker body is as before. */
 @Composable private fun ColumnScope.ActivityFormBody(state:ActivityUiState,context:CultivationUiState,vm:ActivityViewModel,draft:ActivityDraft,worker:Boolean) {
     val canopy = !worker
-    ActivityFormGroup(canopy, "Waktu dan kelompok") {
+    ActivityFormGroup(canopy, if (canopy) "Jenis dan waktu" else "Waktu dan kelompok") {
         // A schedule, a correction or a measurement fixes the type; a worker's plain activity never offers Pengukuran.
         val typeLocked = worker && (draft.scheduleId != null || draft.baseVersion != null || draft.type == ActivityType.MEASUREMENT)
         val typeOptions = ActivityType.entries.filter { !worker || it != ActivityType.MEASUREMENT }.map { JSONObject().put("id",it.wire).put("name",it.label) }
@@ -1070,11 +1070,15 @@ internal fun ExpiredSessionNotice() {
             } else { dateField(); timeField() }
         }
     }
-    ActivityFormGroup(canopy, "Pelaksanaan") {
-        FarmCheckbox("Kegiatan dilewati", draft.skipped, { value -> vm.edit { it.copy(skipped = value) } },
-            Modifier.testTag("finance-skipped"))
-        if(draft.skipped) FinanceField("Alasan kegiatan dilewati",draft.skippedReason,{value -> vm.edit {it.copy(skippedReason=value)}},"finance-skipped-reason",state.errors["skipped_reason"],singleLine=false)
+    // Managers see the results first; the skip toggle follows the details.
+    val skippedGroup: @Composable () -> Unit = {
+        ActivityFormGroup(canopy, "Pelaksanaan") {
+            FarmCheckbox("Kegiatan dilewati", draft.skipped, { value -> vm.edit { it.copy(skipped = value) } },
+                Modifier.testTag("finance-skipped"))
+            if(draft.skipped) FinanceField("Alasan kegiatan dilewati",draft.skippedReason,{value -> vm.edit {it.copy(skippedReason=value)}},"finance-skipped-reason",state.errors["skipped_reason"],singleLine=false)
+        }
     }
+    if (worker) skippedGroup()
     if(draft.type in setOf(ActivityType.MEASUREMENT,ActivityType.NUTRITION) || draft.ec.isNotBlank() || draft.ppm.isNotBlank() || draft.ph.isNotBlank()) {
         ActivityFormGroup(canopy, "Hasil ukur aktual") {
             val ecField: @Composable () -> Unit = {
@@ -1119,6 +1123,7 @@ internal fun ExpiredSessionNotice() {
         state.errors["materials"]?.let { Notice(it,true) }
         }
     }
+    if (canopy) skippedGroup()
     var observationsOpen by rememberSaveable(draft.id) { mutableStateOf(draft.observations.values.any { it.isNotBlank() }) }
     ActivityFormGroup(canopy, "Catatan lapangan") {
         if(draft.type==ActivityType.GENERAL) Text(
@@ -1161,10 +1166,10 @@ internal fun ExpiredSessionNotice() {
 @Composable private fun ActivityReview(draft:ActivityDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit,worker:Boolean=false) {
     if (!worker) {
         val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
-        FarmReviewFrame(if (draft.type == ActivityType.MEASUREMENT) "pengukuran" else "kegiatan", "$greenhouse · ${draft.date} ${draft.time} WIB",
+        FarmReviewFrame(if (draft.type == ActivityType.MEASUREMENT) "pengukuran" else "kegiatan", "$greenhouse · ${whenLabel(draft.date, draft.time)}",
             FarmIcon.CheckList, busy, "finance-queue", "finance-back", onBack, onQueue) {
             if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat dan tidak dikirim ulang.")
-            FarmFormSection(draft.type.label) { ActivityReviewFacts(draft, context) }
+            FarmFormSection("Rincian") { ActivityReviewFacts(draft, context, readable = true) }
         }
         return
     }
@@ -1177,10 +1182,10 @@ internal fun ExpiredSessionNotice() {
     }
 }
 
-@Composable private fun ColumnScope.ActivityReviewFacts(draft:ActivityDraft,context:CultivationUiState) {
+@Composable private fun ColumnScope.ActivityReviewFacts(draft:ActivityDraft,context:CultivationUiState,readable:Boolean=false) {
             if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
             FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
-            FarmFact("Waktu kejadian", "${draft.date} ${draft.time} WIB")
+            FarmFact("Waktu kejadian", if (readable) whenLabel(draft.date, draft.time) else "${draft.date} ${draft.time} WIB")
             if (draft.skipped) FarmFact("Alasan kegiatan dilewati", draft.skippedReason)
             else Text("Kegiatan selesai",style=MaterialTheme.typography.labelMedium)
             if(draft.ec.isNotBlank()) FarmFact("EC manual", "${draft.ec} mS/cm", prominent = true)

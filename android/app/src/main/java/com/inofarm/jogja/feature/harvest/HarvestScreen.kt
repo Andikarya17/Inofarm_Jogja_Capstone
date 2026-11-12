@@ -161,8 +161,8 @@ import java.math.BigDecimal
 @Composable internal fun HarvestReview(draft:HarvestDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit,worker:Boolean) {
     if (!worker) {
         val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
-        FarmReviewFrame("panen", "$greenhouse · ${draft.date} ${draft.time} WIB", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue) {
-            FarmFormSection("Waktu dan kelompok") { HarvestReviewTime(draft, context) }
+        FarmReviewFrame("panen", "$greenhouse · ${whenLabel(draft.date, draft.time)}", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue) {
+            FarmFormSection("Waktu dan kelompok") { HarvestReviewTime(draft, context, readable = true) }
             FarmFormSection("Hasil per grade") { HarvestReviewResults(draft, context) }
             if(draft.replaceValidationRejected) Notice("Panen yang ditolak diganti dengan catatan ini. Catatan lama tetap ada di riwayat.")
         }
@@ -179,9 +179,9 @@ import java.math.BigDecimal
     }
 }
 
-@Composable private fun ColumnScope.HarvestReviewTime(draft:HarvestDraft,context:CultivationUiState) {
+@Composable private fun ColumnScope.HarvestReviewTime(draft:HarvestDraft,context:CultivationUiState,readable:Boolean=false) {
     if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
-    FarmFact("Waktu panen", "${draft.date} ${draft.time} WIB")
+    FarmFact("Waktu panen", if (readable) whenLabel(draft.date, draft.time) else "${draft.date} ${draft.time} WIB")
     FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
     FarmFact("Varietas", varietyName(context, context.groups.find { it.optString("id") == draft.groupId }) ?: "Belum tersedia")
 }

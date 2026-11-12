@@ -248,7 +248,9 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
 ) {
     val colors = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+        val canopyForm = com.inofarm.jogja.feature.LocalCanopyForm.current
+        Text(label, style = MaterialTheme.typography.labelLarge, color = if (canopyForm) colors.onSurface else colors.onSurfaceVariant,
+            fontWeight = if (canopyForm) FontWeight.SemiBold else null)
         Box(Modifier.size(1.dp).testTag(tag))
         val chips: @Composable () -> Unit = {
             options.forEach { option ->

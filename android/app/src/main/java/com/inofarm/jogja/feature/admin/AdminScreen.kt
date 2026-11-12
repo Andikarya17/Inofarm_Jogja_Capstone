@@ -265,17 +265,19 @@ import com.inofarm.jogja.feature.Notice
     state.message?.let {Notice(it)}
     if(state.busy) { Text("Memuat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
     if(state.pending) Notice("Belum terkirim. Kirim ulang, isinya tetap sama.")
-    FarmFormSection("Isian ${form.resource.label.lowercase()}") {
-    form.fields.forEach {field ->
+    val renderField: @Composable ColumnScope.(AdminField) -> Unit = {field ->
         val value=form.values[field.key].orEmpty()
         if(state.pending || state.busy || form.version!=null && field.key=="greenhouse_id") FarmFact(field.label, display(field))
         else when {
             field.type=="boolean" -> FarmCheckbox(field.label, value == "true", { vm.edit(field.key, it.toString()) })
-            user && field.key=="role" -> FarmRoleCards(value, field.choices, "admin-role") { vm.edit(field.key, it) }
+            user && field.key=="role" -> {
+                FarmRoleCards(value, field.choices, "admin-role") { vm.edit(field.key, it) }
+                if(value.isBlank()) Text("Pilih peran akun untuk melanjutkan.", style = MaterialTheme.typography.bodySmall)
+            }
             field.source!=null || field.choices.isNotEmpty() -> {
                 val options=if(field.source!=null) state.options[field.source].orEmpty().map {row -> org.json.JSONObject(row.toString()).put("name",row.optString("name").ifBlank {row.optString("id")})} else field.choices.map {(id,label) -> org.json.JSONObject().put("id",id).put("name",label)}
                 if(field.choices.isNotEmpty() || user && field.key=="greenhouse_id")
-                    FarmChoiceChips(field.label,value,options,"admin-${field.key}",loading=state.optionsLoading) {vm.edit(field.key,it)}
+                    FarmChoiceChips(if(user && field.key=="greenhouse_id") "Pilih satu greenhouse" else field.label,value,options,"admin-${field.key}",loading=state.optionsLoading) {vm.edit(field.key,it)}
                 else Choice(field.label,value,options,"admin-${field.key}",loading=state.optionsLoading) {vm.edit(field.key,it)}
                 if(field.source=="assignment-users" && !form.values["greenhouse_id"].isNullOrBlank()) {
                     if(options.isEmpty() && !state.optionsLoading && state.message==null)
@@ -296,6 +298,7 @@ import com.inofarm.jogja.feature.Notice
                 leadingIcon = if(field.type=="email") ({ FarmControlIcon(FarmIcon.Mail, null) }) else null)
         }
     }
+    val passwordFields: @Composable ColumnScope.() -> Unit = {
     val passwordToggle: @Composable () -> Unit = {
         IconButton(onClick={showPassword=!showPassword},modifier=Modifier.testTag("admin-password-toggle")) {
             FarmControlIcon(if(showPassword) FarmIcon.EyeOff else FarmIcon.Eye, if(showPassword) "Sembunyikan password" else "Tampilkan password")
@@ -303,14 +306,21 @@ import com.inofarm.jogja.feature.Notice
     }
     val passwordVisual = if(showPassword) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation()
     if(user && (!state.pending || state.needsPassword)) FinanceField(
-        if(state.pending) "Password yang sama seperti sebelumnya" else if(form.version==null) "Password akun baru (minimal 12 karakter)" else "Password baru (opsional)",
-        password,{password=it},"admin-password",keyboard=KeyboardType.Password,enabled=!state.busy,visual=passwordVisual,
+        if(state.pending) "Password yang sama seperti sebelumnya" else if(form.version==null) "Password awal" else "Password baru (opsional)",
+        password,{password=it},"admin-password",hint=if(!state.pending && form.version==null) "Minimal 12 karakter." else null,
+        keyboard=KeyboardType.Password,enabled=!state.busy,visual=passwordVisual,
         leadingIcon={FarmControlIcon(FarmIcon.Lock,null)},trailingAction=passwordToggle)
     if(confirmPassword) FinanceField("Ulangi password",passwordConfirmation,{passwordConfirmation=it},"admin-password-confirmation",
         error=if(passwordConfirmation.isNotEmpty() && passwordConfirmation!=password) "Isian harus sama dengan password di atas." else null,
         keyboard=KeyboardType.Password,enabled=!state.busy,visual=passwordVisual,leadingIcon={FarmControlIcon(FarmIcon.Lock,null)})
     if(user && state.pending) Text("Masukkan password yang sama untuk mengirim ulang.")
     }
+    val dataFields = form.fields.filter { !(user && (it.key=="role" || it.key=="greenhouse_id")) }
+    if(user) {
+        form.fields.filter { it.key=="role" }.forEach { renderField(it) }
+        FarmFormSection("Data akun") { dataFields.forEach { renderField(it) }; passwordFields() }
+        form.fields.filter { it.key=="greenhouse_id" }.forEach { FarmFormSection("Greenhouse tempat bekerja") { renderField(it) } }
+    } else FarmFormSection("Isian ${form.resource.label.lowercase()}") { dataFields.forEach { renderField(it) } }
     state.server?.let {row ->
         Notice("Data ini baru diubah di perangkat lain. Isian Anda tetap tersimpan.")
         form.fields.forEach {field -> Text("Terbaru · ${field.label}: ${if(row.isNull(field.key)) "Belum diisi" else row.optString(field.key)}")}

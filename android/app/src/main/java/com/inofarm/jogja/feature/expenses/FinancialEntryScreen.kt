@@ -232,7 +232,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} �
 
 @Composable fun FinancialReview(draft:FinancialDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     val greenhouse=context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse terakhir tersimpan"
-    FarmReviewFrame(draft.kind.label, if(draft.kind==RecordKind.EXPENSE) "$greenhouse · ${draft.date} ${draft.time} WIB" else greenhouse,
+    FarmReviewFrame(draft.kind.label, if(draft.kind==RecordKind.EXPENSE) "$greenhouse · ${whenLabel(draft.date, draft.time)}" else greenhouse,
         FarmIcon.Wallet, busy, "expense-queue", "expense-back", onBack, onQueue) {
         FarmFormSection("Ringkasan ${draft.kind.label}") { FinancialDraftFacts(draft,context) }
         if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat.")

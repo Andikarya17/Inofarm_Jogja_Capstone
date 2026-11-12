@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature.sales
 
+import com.inofarm.jogja.feature.whenLabel
 import com.inofarm.jogja.feature.FarmFormFrame
 import com.inofarm.jogja.feature.FarmFormHeader
 import com.inofarm.jogja.feature.FarmFormBar
@@ -37,7 +38,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
     .flatMap {harvest -> val rows=harvest.optJSONArray("items");(0 until (rows?.length() ?: 0)).map {index ->
         val item=rows!!.getJSONObject(index);val balance=context.harvestBalances.find {it.optString("id")==item.optString("id") && it.optLong("harvest_version")==harvest.optLong("version")}
         val grade = item.optString("grade_name").ifBlank { "Grade belum tersedia" }
-        val detail = "${timeLabel(harvest.optString("occurred_at"))} · ${balance?.optString("available_weight_kg")?.let { "sisa $it kg" } ?: "saldo belum tersedia"}"
+        val detail = "${timeLabel(harvest.optString("occurred_at"))} · ${balance?.optString("available_weight_kg")?.let { kg -> "sisa ${runCatching { java.math.BigDecimal(kg).stripTrailingZeros().toPlainString().replace('.', ',') }.getOrDefault(kg)} kg" } ?: "saldo belum tersedia"}"
         JSONObject().put("id", item.getString("id")).put("name", "$grade · $detail")
             .put("choice_label", grade).put("choice_detail", detail)
     }}
@@ -79,7 +80,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
     }
 }
 @Composable fun SaleReview(draft:SaleDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
-    FarmReviewFrame("penjualan lunas", "${draft.date} ${draft.time} WIB", FarmIcon.TrendUp, busy, "sale-queue", "sale-back", onBack, onQueue) {
+    FarmReviewFrame("penjualan lunas", whenLabel(draft.date, draft.time), FarmIcon.TrendUp, busy, "sale-queue", "sale-back", onBack, onQueue) {
         FarmFormSection("Rincian transaksi") { SaleDraftFacts(draft,context) }
         if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat.")
     }
