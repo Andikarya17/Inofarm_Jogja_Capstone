@@ -921,6 +921,7 @@ class FinanceEntryUiTest {
         offline.set(false)
         rule.waitUntil(10000) {rule.onNodeWithTag("finance-sync").fetchSemanticsNode().config.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled).not()}
         rule.onNodeWithTag("finance-sync").performClick()
+        rule.waitUntil(10000) {posts.get()==1}
         rule.waitUntil(10000) {rule.onAllNodesWithText("Terkirim", substring = true).fetchSemanticsNodes().isNotEmpty()}
         assertEquals(1,posts.get())
         rule.logoutFromAccount();login("manager@example.invalid")

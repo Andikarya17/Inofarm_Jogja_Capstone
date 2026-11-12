@@ -15,6 +15,9 @@ import com.inofarm.jogja.core.cultivation.PlantAge
 import com.inofarm.jogja.core.contracts.UserRole
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.design.FarmDraftStatus
+import com.inofarm.jogja.core.design.FarmChoiceChips
+import com.inofarm.jogja.core.design.FarmIcon
+import com.inofarm.jogja.core.design.ageFigure
 import com.inofarm.jogja.core.design.FarmFact
 import com.inofarm.jogja.core.design.FarmPanel
 import com.inofarm.jogja.core.design.FarmSection
@@ -34,95 +37,165 @@ import java.math.BigDecimal
 
 @Composable internal fun HarvestForm(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel,worker:Boolean) {
     val draft=state.draft ?: return
-    val grades=context.grades.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optBoolean("active",true)}
     val group = context.groups.find { it.optString("id") == draft.groupId }
     if (worker && draft.baseVersion != null) {
         val policy = CorrectionReference.policy(draft.date, draft.time, state.records.find { it.id == draft.id }?.serverBody?.optString("occurred_at"))
         LaunchedEffect(policy, draft.referencePolicy) { if (draft.referencePolicy != policy) vm.edit { it.copy(referencePolicy = policy) } }
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        com.inofarm.jogja.core.design.FarmPageTitle(if (draft.baseVersion == null) "Catat panen" else "Koreksi panen")
-        FarmDraftStatus(state.saved)
-        FarmSection(title = "Waktu dan kelompok") {
-            if (worker) {
-                WorkerEventTime(context, draft.greenhouseId, draft.groupId, draft.date, draft.time,
-                    { value -> vm.edit { it.copy(date = value) } }, { value -> vm.edit { it.copy(time = value) } },
-                    "harvest", state.errors["occurred_at"], draft.baseVersion != null && draft.referencePolicy == "preserve",
-                    state.records.find { it.id == draft.id }?.serverBody?.optJSONObject("reference_snapshot")?.optJSONObject("age"))
-            } else {
-                if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
-                FarmFact("Kelompok tanam", group?.optString("name") ?: "Nama belum tersedia")
+    val title = if (draft.baseVersion == null) "Catat panen" else "Koreksi panen"
+    if (worker) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+            com.inofarm.jogja.core.design.FarmPageTitle(title)
+            FarmDraftStatus(state.saved)
+            HarvestFormBody(state, context, vm, draft, group, worker = true)
+            Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("harvest-review")) {Text("Periksa panen")}
+            OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,
+                modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("harvest-save-draft")) {Text("Simpan sebagai draf")}
+        }
+    } else {
+        val age = runCatching {
+            if (group == null) null else PlantAge.calculate(group.getString("sowing_date"),
+                if (group.isNull("transplant_date")) null else group.getString("transplant_date"), draft.occurredAt())
+        }.getOrNull()
+        val figure = ageFigure(age?.hst?.toString()?.toIntOrNull(), age?.hss?.toString()?.toIntOrNull())
+        FarmFormFrame(
+            header = { FarmFormHeader(title, state.saved, "harvest-draft-status", "harvest-close", vm::saveAndClose, !state.busy) },
+            bar = { FarmFormBar("harvest-save-draft", vm::saveAndClose, "harvest-review", "Periksa", vm::review, enabled = !state.busy) }
+        ) {
+            FarmContextStrip(context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan",
+                group?.optString("name"), figure?.let { (value, unit) -> "$unit $value" })
+            HarvestFormBody(state, context, vm, draft, group, worker = false)
+        }
+    }
+}
+
+@Composable private fun HarvestFormGroup(canopy:Boolean,title:String,content:@Composable ColumnScope.()->Unit) {
+    if (canopy) FarmFormSection(title, content) else FarmSection(title = title, content = content)
+}
+
+/** Fields shared by the worker and manager layouts. Only the manager layout (canopy) changes shape; the worker body is as before. */
+@Composable private fun ColumnScope.HarvestFormBody(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel,draft:HarvestDraft,group:JSONObject?,worker:Boolean) {
+    val canopy = !worker
+    val grades=context.grades.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optBoolean("active",true)}
+    HarvestFormGroup(canopy, "Waktu dan kelompok") {
+        if (worker) {
+            WorkerEventTime(context, draft.greenhouseId, draft.groupId, draft.date, draft.time,
+                { value -> vm.edit { it.copy(date = value) } }, { value -> vm.edit { it.copy(time = value) } },
+                "harvest", state.errors["occurred_at"], draft.baseVersion != null && draft.referencePolicy == "preserve",
+                state.records.find { it.id == draft.id }?.serverBody?.optJSONObject("reference_snapshot")?.optJSONObject("age"))
+        } else {
+            FarmWhenCard(draft.date, draft.time, "harvest-time-edit", forceOpen = state.errors["occurred_at"] != null) {
                 FinanceDateField("Tanggal panen WIB",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
                 FinanceTimeField("Jam panen WIB",draft.time,{value -> vm.edit {it.copy(time=value)}},"harvest-time",state.errors["occurred_at"],hint="HH:mm; detik opsional")
             }
-            FarmFact("Varietas", varietyName(context, group) ?: "Belum tersedia")
-            group?.optJSONObject("harvest_target")?.let { FarmFact("Target buah", "${it.getInt("fruit_count")} buah") }
         }
-        if(grades.isEmpty() && !context.loading) Notice("Grade aktif belum tersedia di perangkat untuk greenhouse ini. Perbarui atau minta pengelola menambahkan grade.")
-        draft.items.forEachIndexed {index,line -> key(line.id) { FarmPanel(title = "Rincian grade ${index+1}") {
+        FarmFact("Varietas", varietyName(context, group) ?: "Belum tersedia")
+        group?.optJSONObject("harvest_target")?.let { FarmFact("Target buah", "${it.getInt("fruit_count")} buah") }
+    }
+    if(grades.isEmpty() && !context.loading) Notice("Grade aktif belum tersedia di perangkat untuk greenhouse ini. Perbarui atau minta pengelola menambahkan grade.")
+    draft.items.forEachIndexed {index,line -> key(line.id) {
+        val lineContent: @Composable ColumnScope.() -> Unit = {
+            if (canopy) Text("Rincian grade ${index+1}", style = MaterialTheme.typography.titleSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             if(line.id in draft.lockedItems) {
                 Text("Grade: ${line.gradeName.ifBlank {context.grades.find {it.optString("id")==line.gradeId}?.optString("name") ?: "belum tersedia"}}")
                 Text("Untuk mengganti grade, hapus rincian ini dan tambahkan rincian baru.",style=MaterialTheme.typography.bodySmall)
             } else Choice("Grade",line.gradeId,grades,"harvest-grade-$index",loading=context.loading) {value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(gradeId=value,gradeName=grades.find {grade -> grade.optString("id")==value}?.optString("name").orEmpty()) else row})}}
             state.errors["items.$index.grade"]?.let {Notice(it,true)}
-            Choice("Kondisi buah", line.quality?.wire, HarvestQuality.entries.map {
-                JSONObject().put("id", it.wire).put("name", it.label)
-            }, "harvest-quality-$index") { value ->
+            val qualityOptions = HarvestQuality.entries.map { JSONObject().put("id", it.wire).put("name", it.label) }
+            val pickQuality = { value: String ->
                 vm.edit { it.copy(items = it.items.map { row ->
                     if (row.id == line.id) row.copy(quality = HarvestQuality.entries.single { it.wire == value }) else row
                 }) }
             }
+            if (canopy) FarmChoiceChips("Kondisi buah", line.quality?.wire, qualityOptions, "harvest-quality-$index",
+                warningId = HarvestQuality.DEFECTIVE.wire, onSelect = pickQuality)
+            else Choice("Kondisi buah", line.quality?.wire, qualityOptions, "harvest-quality-$index") { value -> pickQuality(value) }
             state.errors["items.$index.quality"]?.let { Notice(it, true) }
-            FinanceField("Jumlah (buah)",line.fruitCount,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(fruitCount=value) else row})}},"harvest-count-$index",state.errors["items.$index.count"],KeyboardType.Number,"Isi 0 bila tidak ada buah")
-            FinanceField("Bobot panen (kg)",line.weightKg,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(weightKg=value) else row})}},"harvest-weight-$index",state.errors["items.$index.weight"],KeyboardType.Decimal,"Contoh 15,25 tanpa pemisah ribuan")
-            TextButton(onClick={vm.edit {it.copy(items=it.items.filterIndexed {i,_ -> i!=index})}},
-                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("harvest-remove-$index")) {Text("Hapus rincian ${index+1}")}
-        }}}
-        OutlinedButton(onClick={vm.edit {it.copy(items=it.items+HarvestLine())}},enabled=draft.items.size<30,
-            shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("harvest-add-item")) {Text("Tambah grade panen")}
+            val countField: @Composable () -> Unit = {
+                FinanceField("Jumlah (buah)",line.fruitCount,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(fruitCount=value) else row})}},"harvest-count-$index",state.errors["items.$index.count"],KeyboardType.Number,"Isi 0 bila tidak ada buah",
+                    suffix = if (canopy) "buah" else null, prominent = canopy)
+            }
+            val weightField: @Composable () -> Unit = {
+                FinanceField("Bobot panen (kg)",line.weightKg,{value -> vm.edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(weightKg=value) else row})}},"harvest-weight-$index",state.errors["items.$index.weight"],KeyboardType.Decimal,"Contoh 15,25 tanpa pemisah ribuan",
+                    suffix = if (canopy) "kg" else null, prominent = canopy)
+            }
+            if (canopy) FarmFieldPair(countField, weightField) else { countField(); weightField() }
+        }
+        val remove = { vm.edit {it.copy(items=it.items.filterIndexed {i,_ -> i!=index})} }
+        if (canopy) FarmDetailCard("Hapus rincian ${index+1}", remove, "harvest-remove-$index", lineContent)
+        else FarmPanel(title = "Rincian grade ${index+1}") {
+            lineContent()
+            TextButton(onClick=remove, modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("harvest-remove-$index")) {Text("Hapus rincian ${index+1}")}
+        }
+    }}
+    OutlinedButton(onClick={vm.edit {it.copy(items=it.items+HarvestLine())}},enabled=draft.items.size<30,
+        shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("harvest-add-item")) {Text("Tambah grade panen")}
+    if (canopy) HarvestTotalCard(draft)
+    val notes: @Composable () -> Unit = {
         FinanceField("Keterangan panen",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"harvest-notes",state.errors["notes"],singleLine=false)
-        if(draft.baseVersion!=null) {
-            FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"harvest-reason",state.errors["reason"],singleLine=false)
-            if(!worker) Choice("Acuan koreksi",draft.referencePolicy,listOf(org.json.JSONObject().put("id","preserve").put("name","Pertahankan tanggal/grade historis"),org.json.JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"harvest-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
-        }
-        if(!worker && (draft.baseVersion==null || draft.referencePolicy=="refresh")) {
-            val age=runCatching {if(group==null) null else PlantAge.calculate(group.getString("sowing_date"),if(group.isNull("transplant_date")) null else group.getString("transplant_date"),draft.occurredAt())}.getOrNull()
-            if(age!=null) {Text("HSS ${age.hss ?: "belum tersedia"} · HST ${age.hst ?: "belum berlaku"}");age.reasons.forEach {Text(it,style=MaterialTheme.typography.bodySmall)}}
-        } else if (!worker && draft.baseVersion != null && draft.referencePolicy == "preserve") {
-            Notice("Perubahan waktu panen memerlukan pilihan nilai ulang.")
-        }
-        state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
-        Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("harvest-review")) {Text("Periksa panen")}
-        OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,
-            modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("harvest-save-draft")) {Text(if(worker) "Simpan sebagai draf" else "Simpan draf dan kembali")}
+    }
+    if (canopy) FarmFormSection("Keterangan") { notes() } else notes()
+    if(draft.baseVersion!=null) {
+        FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"harvest-reason",state.errors["reason"],singleLine=false)
+        if(!worker) Choice("Acuan koreksi",draft.referencePolicy,listOf(org.json.JSONObject().put("id","preserve").put("name","Pertahankan tanggal/grade historis"),org.json.JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"harvest-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
+    }
+    if(!worker && (draft.baseVersion==null || draft.referencePolicy=="refresh")) {
+        val age=runCatching {if(group==null) null else PlantAge.calculate(group.getString("sowing_date"),if(group.isNull("transplant_date")) null else group.getString("transplant_date"),draft.occurredAt())}.getOrNull()
+        if(age!=null) FarmInfoCard {Text("HSS ${age.hss ?: "belum tersedia"} · HST ${age.hst ?: "belum berlaku"}");age.reasons.forEach {Text(it,style=MaterialTheme.typography.bodySmall)}}
+    } else if (!worker && draft.baseVersion != null && draft.referencePolicy == "preserve") {
+        Notice("Perubahan waktu panen memerlukan pilihan nilai ulang.")
+    }
+    state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
+}
+
+/** Preview only: the sums of what is typed so far. Blank or invalid lines count as zero until the review validates them. */
+@Composable private fun HarvestTotalCard(draft:HarvestDraft) {
+    val fruit = draft.items.sumOf { runCatching { HarvestDraft.count(it.fruitCount)?.toLong() }.getOrNull() ?: 0L }
+    val weight = draft.items.fold(BigDecimal.ZERO) { total, line -> total + (runCatching { HarvestDraft.number(line.weightKg) }.getOrNull() ?: BigDecimal.ZERO) }
+    FarmInfoCard {
+        Text("Total isian", style = MaterialTheme.typography.labelLarge)
+        Text("$fruit buah · ${weight.stripTrailingZeros().toPlainString().replace('.', ',')} kg", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
     }
 }
 
 @Composable internal fun HarvestReview(draft:HarvestDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit,worker:Boolean) {
+    if (!worker) {
+        val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
+        FarmReviewFrame("panen", "$greenhouse · ${draft.date} ${draft.time} WIB", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue) {
+            FarmFormSection("Waktu dan kelompok") { HarvestReviewTime(draft, context) }
+            FarmFormSection("Hasil per grade") { HarvestReviewResults(draft, context) }
+            if(draft.replaceValidationRejected) Notice("Panen yang ditolak diganti dengan catatan ini. Catatan lama tetap ada di riwayat.")
+        }
+        return
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         com.inofarm.jogja.core.design.FarmPageTitle("Periksa panen")
-        FarmSection(title = "Waktu dan kelompok") {
-            if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
-            FarmFact("Waktu panen", "${draft.date} ${draft.time} WIB")
-            FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
-            FarmFact("Varietas", varietyName(context, context.groups.find { it.optString("id") == draft.groupId }) ?: "Belum tersedia")
-        }
-        FarmPanel(title = "Hasil per grade") {
-            draft.items.forEachIndexed { index, line ->
-                if (index > 0) HorizontalDivider()
-                FarmFact(gradeName(line, context), "${line.fruitCount} buah · ${line.weightKg} kg · ${line.quality?.label ?: "Kondisi belum diketahui"}", prominent = true)
-            }
-            val fruit = draft.items.sumOf { HarvestDraft.count(it.fruitCount)?.toLong() ?: 0L }
-            val weight = draft.items.fold(BigDecimal.ZERO) { total, line -> total + HarvestDraft.number(line.weightKg) }
-            FarmFact("Total panen", "$fruit buah · ${weight.stripTrailingZeros().toPlainString()} kg")
-            if(draft.notes.isNotBlank()) FarmFact("Keterangan", draft.notes)
-            if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi", draft.reason)
-        }
+        FarmSection(title = "Waktu dan kelompok") { HarvestReviewTime(draft, context) }
+        FarmPanel(title = "Hasil per grade") { HarvestReviewResults(draft, context) }
         if(draft.replaceValidationRejected) Notice("Panen yang ditolak diganti dengan catatan ini. Catatan lama tetap ada di riwayat.")
         if (worker && draft.baseVersion != null) Notice("Hasil panen yang sudah dijual perlu dicek pengelola sebelum diubah.")
         Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("harvest-queue")) {Text(if(busy) "Menyimpan…" else if(worker) "Kirim" else "Simpan")}
         OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Kembali ke isian")}
     }
+}
+
+@Composable private fun ColumnScope.HarvestReviewTime(draft:HarvestDraft,context:CultivationUiState) {
+    if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
+    FarmFact("Waktu panen", "${draft.date} ${draft.time} WIB")
+    FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
+    FarmFact("Varietas", varietyName(context, context.groups.find { it.optString("id") == draft.groupId }) ?: "Belum tersedia")
+}
+
+@Composable private fun ColumnScope.HarvestReviewResults(draft:HarvestDraft,context:CultivationUiState) {
+    draft.items.forEachIndexed { index, line ->
+        if (index > 0) HorizontalDivider()
+        FarmFact(gradeName(line, context), "${line.fruitCount} buah · ${line.weightKg} kg · ${line.quality?.label ?: "Kondisi belum diketahui"}", prominent = true)
+    }
+    val fruit = draft.items.sumOf { HarvestDraft.count(it.fruitCount)?.toLong() ?: 0L }
+    val weight = draft.items.fold(BigDecimal.ZERO) { total, line -> total + HarvestDraft.number(line.weightKg) }
+    FarmFact("Total panen", "$fruit buah · ${weight.stripTrailingZeros().toPlainString()} kg")
+    if(draft.notes.isNotBlank()) FarmFact("Keterangan", draft.notes)
+    if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi", draft.reason)
 }
 
 @Composable fun HarvestFacts(record:LocalRecord,session:FinanceSession,context:CultivationUiState) {

@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -8,6 +9,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -116,9 +119,67 @@ internal fun FarmReviewFrame(
     FarmFormFrame(
         header = {
             FarmPageTitle("Periksa $title", "Pastikan isinya benar. Setelah disimpan, catatan dikirim saat ada koneksi.")
-            FarmContextStrip(title, subtitle, null)
+            FarmContextStrip(title.replaceFirstChar { it.uppercase() }, subtitle, null)
         },
         bar = { FarmFormBar(backTag, onBack, queueTag, "Simpan", onQueue, enabled = !busy, mainIcon = true, saveLabel = "Ubah isian") },
         content = content
     )
+}
+
+/** Event time as one readable line with "Ubah", which opens the date and time fields. Measurement and harvest forms use it. */
+@Composable
+internal fun FarmWhenCard(date: String, time: String, editTag: String, forceOpen: Boolean, fields: @Composable ColumnScope.() -> Unit) {
+    var open by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    val shown = open || forceOpen
+    val day = runCatching { java.time.LocalDate.parse(date.trim()) }.getOrNull()
+    val line = if (day != null && time.isNotBlank()) "${dateLabel(day)} · ${time.trim().take(5)} WIB" else "$date $time".trim().ifBlank { "Waktu belum diisi" }
+    Column(Modifier.fillMaxWidth().animateContentSize(androidx.compose.animation.core.tween(190)), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+            FarmIconTile(FarmIcon.Schedule, tone = FarmTone.Neutral)
+            Column(Modifier.weight(1f)) {
+                Text("Waktu kejadian", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(line, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            }
+            TextButton(onClick = { open = !open }, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag(editTag)) {
+                Text(if (shown) "Tutup" else "Ubah")
+            }
+        }
+        if (shown) fields()
+    }
+}
+
+/** Two number fields side by side; they stack once the font is large enough that half a row no longer fits a value. */
+@Composable
+internal fun FarmFieldPair(first: @Composable () -> Unit, second: @Composable () -> Unit) {
+    if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) {
+        Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) { first(); second() }
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+            Box(Modifier.weight(1f)) { first() }
+            Box(Modifier.weight(1f)) { second() }
+        }
+    }
+}
+
+/** One repeated detail (a material, a grade) as a bordered card with a red delete icon at the right of the first row. */
+@Composable
+internal fun FarmDetailCard(deleteLabel: String, onDelete: () -> Unit, deleteTag: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(Modifier.fillMaxWidth(), shape = FarmShape.Tile, color = colors.surfaceVariant.copy(alpha = 0.35f), border = BorderStroke(1.dp, colors.outlineVariant)) {
+        Box {
+            Column(Modifier.padding(FarmSpace.Medium).padding(end = 40.dp), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) { content() }
+            IconButton(onClick = onDelete, modifier = Modifier.align(Alignment.TopEnd).then(if (deleteTag != null) Modifier.testTag(deleteTag) else Modifier)) {
+                androidx.compose.runtime.CompositionLocalProvider(LocalContentColor provides colors.error) { FarmControlIcon(FarmIcon.Trash, deleteLabel) }
+            }
+        }
+    }
+}
+
+/** Reference and age notes at the end of a form: the info tone, no border. */
+@Composable
+internal fun FarmInfoCard(content: @Composable ColumnScope.() -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(Modifier.fillMaxWidth(), shape = FarmShape.Tile, color = colors.tertiaryContainer, contentColor = colors.onTertiaryContainer) {
+        Column(Modifier.padding(FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(4.dp), content = content)
+    }
 }

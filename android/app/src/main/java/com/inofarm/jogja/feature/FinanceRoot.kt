@@ -662,7 +662,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .padding(horizontal=FarmSpace.Page)
         ) {
-        if((attachment.parent!=null && (ime || LocalDensity.current.fontScale>1.5f || LocalConfiguration.current.screenHeightDp<400)) || (ime && (investments.state.scenarioDraft!=null || investments.state.reportDraft!=null || investments.state.cancelReason!=null || reports.state.draft!=null || asset.entry.draft!=null || sale.draft!=null || activity.draft!=null || harvest.draft!=null || financial.draft!=null))) {
+        if((attachment.parent!=null && (ime || LocalDensity.current.fontScale>1.5f || LocalConfiguration.current.screenHeightDp<400)) || (ime && (investments.state.scenarioDraft!=null || investments.state.reportDraft!=null || investments.state.cancelReason!=null || reports.state.draft!=null || (!manager && (asset.entry.draft!=null || sale.draft!=null || activity.draft!=null || harvest.draft!=null || financial.draft!=null))))) {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(if(attachment.parent!=null) "Lampiran" else if(investments.state.active) "Investasi" else if(reports.state.draft!=null) "Evaluasi" else if(asset.entry.draft!=null) "Aset" else if(sale.draft!=null) "Penjualan" else if(financial.draft!=null && LocalDensity.current.fontScale>1.5f) "Isian" else if(financial.draft!=null) "Catat ${financial.draft.kind.label}" else if(harvest.draft!=null) "Catat panen" else "Catat kegiatan",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={keyboard?.hide();if(attachment.parent!=null) {if(attachment.selected!=null) attachmentVm.closeSelected() else attachmentVm.close()} else if(investments.state.active) investments.vm.back() else if(reports.state.draft!=null) reports.vm.back() else if(asset.entry.draft!=null) asset.vm.saveAndClose() else if(sale.draft!=null) saleVm.saveAndClose() else if(financial.draft!=null) financialVm.saveAndClose() else if(harvest.draft!=null) harvestVm.saveAndClose() else vm.saveAndClose()},enabled=!writing) {Text(if(attachment.parent!=null) "Kembali" else "Simpan draf")} }
         } else {
             FinanceToolbar(session, context.loading, writing, sessionExpired, onSync, onLogout, onAdmin,
@@ -1005,51 +1005,99 @@ internal fun ExpiredSessionNotice() {
         val policy = CorrectionReference.policy(draft.date, draft.time, state.records.find { it.id == draft.id }?.serverBody?.optString("occurred_at"))
         LaunchedEffect(policy, draft.referencePolicy) { if (draft.referencePolicy != policy) vm.edit { it.copy(referencePolicy = policy) } }
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        val title = when {
-            draft.baseVersion != null -> "Koreksi kegiatan"
-            draft.type == ActivityType.MEASUREMENT -> "Catat pengukuran"
-            else -> "Catat kegiatan"
+    val title = when {
+        draft.baseVersion != null -> "Koreksi kegiatan"
+        draft.type == ActivityType.MEASUREMENT -> "Catat pengukuran"
+        else -> "Catat kegiatan"
+    }
+    if (worker) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+            FarmPageTitle(title)
+            FarmDraftStatus(state.saved, Modifier.testTag("finance-draft-status"))
+            ActivityFormBody(state, context, vm, draft, worker = true)
+            Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-review")) {Text("Periksa catatan")}
+            OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-save-draft")) {Text("Simpan sebagai draf")}
+            Spacer(Modifier.height(16.dp))
         }
-        FarmPageTitle(title)
-        FarmDraftStatus(state.saved, Modifier.testTag("finance-draft-status"))
-        FarmSection(title = "Waktu dan kelompok") {
-            // A schedule, a correction or a measurement fixes the type; a worker's plain activity never offers Pengukuran.
-            val typeLocked = worker && (draft.scheduleId != null || draft.baseVersion != null || draft.type == ActivityType.MEASUREMENT)
-            if (!typeLocked) Choice("Jenis kegiatan",draft.type.wire,ActivityType.entries.filter { !worker || it != ActivityType.MEASUREMENT }.map { JSONObject().put("id",it.wire).put("name",it.label) },"finance-type") { value -> vm.edit { it.copy(type=ActivityType.entries.single { type -> type.wire==value }) } }
-            else Text(draft.type.label, style = MaterialTheme.typography.titleMedium)
-            if (worker) {
-                WorkerEventTime(context, draft.greenhouseId, draft.groupId, draft.date, draft.time,
-                    { value -> vm.edit { it.copy(date = value) } }, { value -> vm.edit { it.copy(time = value) } },
-                    "finance", state.errors["occurred_at"], draft.baseVersion != null && draft.referencePolicy == "preserve",
-                    state.records.find { it.id == draft.id }?.serverBody?.optJSONObject("reference_snapshot")?.optJSONObject("age"))
-            } else {
-                if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
-                context.groups.find { it.optString("id") == draft.groupId }?.let { Text(it.optString("name")) }
+    } else {
+        val groupData = context.groups.find { it.optString("id") == draft.groupId }
+        val age = runCatching {
+            if (groupData == null) null else PlantAge.calculate(groupData.getString("sowing_date"),
+                if (groupData.isNull("transplant_date")) null else groupData.getString("transplant_date"), draft.occurredAt())
+        }.getOrNull()
+        val figure = ageFigure(age?.hst?.toString()?.toIntOrNull(), age?.hss?.toString()?.toIntOrNull())
+        FarmFormFrame(
+            header = { FarmFormHeader(title, state.saved, "finance-draft-status", "finance-close", vm::saveAndClose, !state.busy) },
+            bar = { FarmFormBar("finance-save-draft", vm::saveAndClose, "finance-review", "Periksa", vm::review, enabled = !state.busy) }
+        ) {
+            FarmContextStrip(context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan",
+                groupData?.optString("name"), figure?.let { (value, unit) -> "$unit $value" })
+            ActivityFormBody(state, context, vm, draft, worker = false)
+        }
+    }
+}
+
+@Composable private fun ActivityFormGroup(canopy:Boolean,title:String,content:@Composable ColumnScope.()->Unit) {
+    if (canopy) FarmFormSection(title, content) else FarmSection(title = title, content = content)
+}
+
+/** The form fields shared by the worker and manager layouts. Only the manager layout (canopy) changes shape; the worker body is as before. */
+@Composable private fun ColumnScope.ActivityFormBody(state:ActivityUiState,context:CultivationUiState,vm:ActivityViewModel,draft:ActivityDraft,worker:Boolean) {
+    val canopy = !worker
+    ActivityFormGroup(canopy, "Waktu dan kelompok") {
+        // A schedule, a correction or a measurement fixes the type; a worker's plain activity never offers Pengukuran.
+        val typeLocked = worker && (draft.scheduleId != null || draft.baseVersion != null || draft.type == ActivityType.MEASUREMENT)
+        val typeOptions = ActivityType.entries.filter { !worker || it != ActivityType.MEASUREMENT }.map { JSONObject().put("id",it.wire).put("name",it.label) }
+        val pickType = { value: String -> vm.edit { it.copy(type=ActivityType.entries.single { type -> type.wire==value }) } }
+        if (!typeLocked) {
+            if (canopy) FarmChoiceChips("Jenis kegiatan", draft.type.wire, typeOptions, "finance-type", onSelect = pickType)
+            else Choice("Jenis kegiatan",draft.type.wire,typeOptions,"finance-type") { value -> pickType(value) }
+        } else Text(draft.type.label, style = MaterialTheme.typography.titleMedium)
+        if (worker) {
+            WorkerEventTime(context, draft.greenhouseId, draft.groupId, draft.date, draft.time,
+                { value -> vm.edit { it.copy(date = value) } }, { value -> vm.edit { it.copy(time = value) } },
+                "finance", state.errors["occurred_at"], draft.baseVersion != null && draft.referencePolicy == "preserve",
+                state.records.find { it.id == draft.id }?.serverBody?.optJSONObject("reference_snapshot")?.optJSONObject("age"))
+        } else {
+            val dateField: @Composable () -> Unit = {
                 FinanceDateField("Tanggal kejadian (YYYY-MM-DD)",draft.date,{value -> vm.edit {it.copy(date=value)}},"finance-date",state.errors["occurred_at"])
+            }
+            val timeField: @Composable () -> Unit = {
                 FinanceTimeField("Jam kejadian WIB (HH:mm)",draft.time,{value -> vm.edit {it.copy(time=value)}},"finance-time",hint="Detik boleh ditulis HH:mm:ss dan tetap dipertahankan.")
             }
+            if (draft.type == ActivityType.MEASUREMENT) {
+                FarmWhenCard(draft.date, draft.time, "finance-time-edit", forceOpen = state.errors["occurred_at"] != null) { dateField(); timeField() }
+            } else { dateField(); timeField() }
         }
-        FarmSection(title = "Pelaksanaan") {
-            FarmCheckbox("Kegiatan dilewati", draft.skipped, { value -> vm.edit { it.copy(skipped = value) } },
-                Modifier.testTag("finance-skipped"))
-            if(draft.skipped) FinanceField("Alasan kegiatan dilewati",draft.skippedReason,{value -> vm.edit {it.copy(skippedReason=value)}},"finance-skipped-reason",state.errors["skipped_reason"],singleLine=false)
-        }
-        if(draft.type in setOf(ActivityType.MEASUREMENT,ActivityType.NUTRITION) || draft.ec.isNotBlank() || draft.ppm.isNotBlank() || draft.ph.isNotBlank()) {
-            FarmSection(title = "Hasil ukur aktual") {
-                FinanceField("EC manual (mS/cm)",draft.ec,{value -> vm.edit {it.copy(ec=value)}},"finance-ec",state.errors["manual_ec"],keyboard=KeyboardType.Decimal)
-                FinanceField("PPM manual (ppm)",draft.ppm,{value -> vm.edit {it.copy(ppm=value)}},"finance-ppm",state.errors["manual_ppm"],KeyboardType.Decimal)
-                FinanceField("pH manual (0–14)",draft.ph,{value -> vm.edit {it.copy(ph=value)}},"finance-ph",state.errors["manual_ph"],KeyboardType.Decimal)
+    }
+    ActivityFormGroup(canopy, "Pelaksanaan") {
+        FarmCheckbox("Kegiatan dilewati", draft.skipped, { value -> vm.edit { it.copy(skipped = value) } },
+            Modifier.testTag("finance-skipped"))
+        if(draft.skipped) FinanceField("Alasan kegiatan dilewati",draft.skippedReason,{value -> vm.edit {it.copy(skippedReason=value)}},"finance-skipped-reason",state.errors["skipped_reason"],singleLine=false)
+    }
+    if(draft.type in setOf(ActivityType.MEASUREMENT,ActivityType.NUTRITION) || draft.ec.isNotBlank() || draft.ppm.isNotBlank() || draft.ph.isNotBlank()) {
+        ActivityFormGroup(canopy, "Hasil ukur aktual") {
+            val ecField: @Composable () -> Unit = {
+                FinanceField("EC manual (mS/cm)",draft.ec,{value -> vm.edit {it.copy(ec=value)}},"finance-ec",state.errors["manual_ec"],keyboard=KeyboardType.Decimal,
+                    suffix = if (canopy) "mS/cm" else null, prominent = canopy)
             }
+            val ppmField: @Composable () -> Unit = {
+                FinanceField("PPM manual (ppm)",draft.ppm,{value -> vm.edit {it.copy(ppm=value)}},"finance-ppm",state.errors["manual_ppm"],KeyboardType.Decimal,
+                    suffix = if (canopy) "ppm" else null, prominent = canopy)
+            }
+            if (canopy) FarmFieldPair(ecField, ppmField) else { ecField(); ppmField() }
+            FinanceField("pH manual (0–14)",draft.ph,{value -> vm.edit {it.copy(ph=value)}},"finance-ph",state.errors["manual_ph"],KeyboardType.Decimal)
         }
-        if(draft.type==ActivityType.STAGE || draft.stage.isNotBlank()) FinanceField("Kondisi stadia aktual",draft.stage,{value -> vm.edit {it.copy(stage=value)}},"finance-stage",state.errors["actual_stage"],hint="Dipilih dari kondisi aktual, bukan umur")
-        if(draft.type in setOf(ActivityType.NUTRITION,ActivityType.SPRAY) || draft.materials.isNotEmpty()) {
-            val materials=context.materials.filter {it.optString("greenhouse_id")==draft.greenhouseId}
-            val units=context.units.filter {it.optString("greenhouse_id")==draft.greenhouseId}
-            FarmSection(title = "Bahan aktual") {
-            if(!draft.skipped && !context.loading && (materials.none {it.optBoolean("active",true)} || units.none {it.optBoolean("active",true)}))
-                Notice("Bahan atau satuan belum tersedia untuk greenhouse ini. Perbarui, atau tambahkan di Kelola.")
-            draft.materials.forEachIndexed { index,row -> FarmPanel {
+    }
+    if(draft.type==ActivityType.STAGE || draft.stage.isNotBlank()) FinanceField("Kondisi stadia aktual",draft.stage,{value -> vm.edit {it.copy(stage=value)}},"finance-stage",state.errors["actual_stage"],hint="Dipilih dari kondisi aktual, bukan umur")
+    if(draft.type in setOf(ActivityType.NUTRITION,ActivityType.SPRAY) || draft.materials.isNotEmpty()) {
+        val materials=context.materials.filter {it.optString("greenhouse_id")==draft.greenhouseId}
+        val units=context.units.filter {it.optString("greenhouse_id")==draft.greenhouseId}
+        ActivityFormGroup(canopy, "Bahan aktual") {
+        if(!draft.skipped && !context.loading && (materials.none {it.optBoolean("active",true)} || units.none {it.optBoolean("active",true)}))
+            Notice("Bahan atau satuan belum tersedia untuk greenhouse ini. Perbarui, atau tambahkan di Kelola.")
+        draft.materials.forEachIndexed { index,row ->
+            val rowContent: @Composable ColumnScope.() -> Unit = {
                 fun change(updated:MaterialDraft) { vm.edit {it.copy(materials=it.materials.toMutableList().apply {set(index,updated)})} }
                 val material=materials.find {it.optString("id")==row.materialId}
                 val compatibleUnits=units.filter {it.optString("dimension")==material?.optString("dimension") && (it.optBoolean("active",true) || it.optString("id")==row.unitId)}
@@ -1058,62 +1106,78 @@ internal fun ExpiredSessionNotice() {
                 if(material!=null && compatibleUnits.isEmpty() && !context.loading)
                     Text("Belum ada satuan aktif dengan dimensi yang sesuai. Minta pengelola menambahkannya.")
                 FinanceField("Jumlah ${index+1}",row.quantity,{change(row.copy(quantity=it))},"finance-quantity-$index",state.errors["materials.$index"],KeyboardType.Decimal,hint="Desimal boleh koma; tanpa pemisah ribuan")
-                TextButton(onClick={vm.edit {it.copy(materials=it.materials.filterIndexed { i,_ -> i!=index })}},
-                    modifier=Modifier.heightIn(min=FarmSpace.Touch)) {Text("Hapus bahan ${index+1}")}
-            } }
-            OutlinedButton(onClick={vm.edit {it.copy(materials=it.materials+MaterialDraft())}},enabled=draft.materials.size<30,
-                shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("finance-add-material")) {Text("Tambah bahan")}
-            state.errors["materials"]?.let { Notice(it,true) }
+            }
+            val remove = { vm.edit {it.copy(materials=it.materials.filterIndexed { i,_ -> i!=index })} }
+            if (canopy) FarmDetailCard("Hapus bahan ${index+1}", remove, "finance-material-remove-$index", rowContent)
+            else FarmPanel {
+                rowContent()
+                TextButton(onClick=remove, modifier=Modifier.heightIn(min=FarmSpace.Touch)) {Text("Hapus bahan ${index+1}")}
             }
         }
-        var observationsOpen by rememberSaveable(draft.id) { mutableStateOf(draft.observations.values.any { it.isNotBlank() }) }
-        FarmSection(title = "Catatan lapangan") {
-            if(draft.type==ActivityType.GENERAL) Text(
-                "Jelaskan pekerjaan seperti persemaian, kebersihan, polinasi, seleksi buah, atau penanganan hama.",
-                style=MaterialTheme.typography.bodySmall
-            )
-            TextButton(onClick = { observationsOpen = !observationsOpen }, modifier = Modifier.heightIn(min = FarmSpace.Touch)
-                .testTag("activity-observations")) {
-                Text(if (observationsOpen) "Tutup isian pengamatan" else "Tambah pengamatan (opsional)")
-            }
-            Column(Modifier.animateContentSize(tween(190)), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
-            if (observationsOpen) ObservationField.entries.forEach { field ->
-                val label = if (field.unit.isBlank()) field.label else "${field.label} (${field.unit})"
-                val keyboard = when (field) {
-                    ObservationField.LEAF_COUNT -> KeyboardType.Number
-                    ObservationField.SAMPLE_BASIS -> KeyboardType.Text
-                    else -> KeyboardType.Decimal
-                }
-                FinanceField(label, draft.observations[field].orEmpty(),
-                    { value -> vm.edit { it.copy(observations = it.observations + (field to value)) } },
-                    "activity-${field.wire}", state.errors["observations.${field.wire}"], keyboard)
-            }
-            }
-            FinanceField("Keterangan pekerjaan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"finance-notes",state.errors["notes"],singleLine=false)
+        OutlinedButton(onClick={vm.edit {it.copy(materials=it.materials+MaterialDraft())}},enabled=draft.materials.size<30,
+            shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("finance-add-material")) {Text("Tambah bahan")}
+        state.errors["materials"]?.let { Notice(it,true) }
         }
-        if(draft.baseVersion!=null) {
-            FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"finance-reason",state.errors["reason"])
-            if(!worker) Choice("Acuan koreksi",draft.referencePolicy,listOf(JSONObject().put("id","preserve").put("name","Pertahankan tanggal/target historis"),JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"finance-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
-        }
-        if(worker) ReferenceCards(context,draft.groupId,draft,worker=true)
-        else if(draft.baseVersion!=null && draft.referencePolicy=="preserve") {
-            Notice("Koreksi mempertahankan tanggal dan target historis. Pilih nilai ulang bila acuan memang perlu diperbarui.")
-            val historical=state.records.find {it.id==draft.id}?.serverBody?.optJSONObject("reference_snapshot")
-            historical?.optJSONObject("age")?.let { age -> Text("HSS acuan: ${if(age.isNull("hss")) "belum tersedia" else age.optString("hss")} · HST acuan: ${if(age.isNull("hst")) "belum berlaku" else age.optString("hst")}") }
-        } else ReferenceCards(context,draft.groupId,draft)
-        state.message?.let { Notice(it,true) }
-        state.errors.values.distinct().forEach { Notice(it,true) }
-        Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-review")) {Text("Periksa catatan")}
-        OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-save-draft")) {Text(if(worker) "Simpan sebagai draf" else "Simpan draf dan kembali")}
-        Spacer(Modifier.height(16.dp))
     }
+    var observationsOpen by rememberSaveable(draft.id) { mutableStateOf(draft.observations.values.any { it.isNotBlank() }) }
+    ActivityFormGroup(canopy, "Catatan lapangan") {
+        if(draft.type==ActivityType.GENERAL) Text(
+            "Jelaskan pekerjaan seperti persemaian, kebersihan, polinasi, seleksi buah, atau penanganan hama.",
+            style=MaterialTheme.typography.bodySmall
+        )
+        TextButton(onClick = { observationsOpen = !observationsOpen }, modifier = Modifier.heightIn(min = FarmSpace.Touch)
+            .testTag("activity-observations")) {
+            Text(if (observationsOpen) "Tutup isian pengamatan" else "Tambah pengamatan (opsional)")
+        }
+        Column(Modifier.animateContentSize(tween(190)), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+        if (observationsOpen) ObservationField.entries.forEach { field ->
+            val label = if (field.unit.isBlank()) field.label else "${field.label} (${field.unit})"
+            val keyboard = when (field) {
+                ObservationField.LEAF_COUNT -> KeyboardType.Number
+                ObservationField.SAMPLE_BASIS -> KeyboardType.Text
+                else -> KeyboardType.Decimal
+            }
+            FinanceField(label, draft.observations[field].orEmpty(),
+                { value -> vm.edit { it.copy(observations = it.observations + (field to value)) } },
+                "activity-${field.wire}", state.errors["observations.${field.wire}"], keyboard)
+        }
+        }
+        FinanceField("Keterangan pekerjaan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"finance-notes",state.errors["notes"],singleLine=false)
+    }
+    if(draft.baseVersion!=null) {
+        FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"finance-reason",state.errors["reason"])
+        if(!worker) Choice("Acuan koreksi",draft.referencePolicy,listOf(JSONObject().put("id","preserve").put("name","Pertahankan tanggal/target historis"),JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"finance-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
+    }
+    if(worker) ReferenceCards(context,draft.groupId,draft,worker=true)
+    else if(draft.baseVersion!=null && draft.referencePolicy=="preserve") {
+        Notice("Koreksi mempertahankan tanggal dan target historis. Pilih nilai ulang bila acuan memang perlu diperbarui.")
+        val historical=state.records.find {it.id==draft.id}?.serverBody?.optJSONObject("reference_snapshot")
+        historical?.optJSONObject("age")?.let { age -> Text("HSS acuan: ${if(age.isNull("hss")) "belum tersedia" else age.optString("hss")} · HST acuan: ${if(age.isNull("hst")) "belum berlaku" else age.optString("hst")}") }
+    } else ReferenceCards(context,draft.groupId,draft)
+    state.message?.let { Notice(it,true) }
+    state.errors.values.distinct().forEach { Notice(it,true) }
 }
 
 @Composable private fun ActivityReview(draft:ActivityDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit,worker:Boolean=false) {
+    if (!worker) {
+        val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
+        FarmReviewFrame(if (draft.type == ActivityType.MEASUREMENT) "pengukuran" else "kegiatan", "$greenhouse · ${draft.date} ${draft.time} WIB",
+            FarmIcon.CheckList, busy, "finance-queue", "finance-back", onBack, onQueue) {
+            if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat dan tidak dikirim ulang.")
+            FarmFormSection(draft.type.label) { ActivityReviewFacts(draft, context) }
+        }
+        return
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         FarmPageTitle("Periksa catatan")
         if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat dan tidak dikirim ulang.")
-        FarmPanel(title = draft.type.label) {
+        FarmPanel(title = draft.type.label) { ActivityReviewFacts(draft, context) }
+        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-queue")) {Text(if(busy) "Menyimpan…" else if(worker) "Kirim" else "Simpan")}
+        OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke isian")}
+    }
+}
+
+@Composable private fun ColumnScope.ActivityReviewFacts(draft:ActivityDraft,context:CultivationUiState) {
             if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
             FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
             FarmFact("Waktu kejadian", "${draft.date} ${draft.time} WIB")
@@ -1131,10 +1195,6 @@ internal fun ExpiredSessionNotice() {
             ObservationFacts(draft)
             if (draft.notes.isNotBlank()) FarmFact("Keterangan", draft.notes)
             if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi", draft.reason)
-        }
-        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-queue")) {Text(if(busy) "Menyimpan…" else if(worker) "Kirim" else "Simpan")}
-        OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke isian")}
-    }
 }
 
 @Composable internal fun RecordDetail(record:LocalRecord,session:FinanceSession,context:CultivationUiState,onClose:()->Unit,onEdit:()->Unit,kind:OperationalKind=OperationalKind.ACTIVITY,returnToQueue:Boolean=false,actions:@Composable ()->Unit={}) {
@@ -1209,13 +1269,18 @@ internal fun ExpiredSessionNotice() {
         return
     }
     if(targets.isEmpty()) Notice("Belum ada target untuk waktu ini. Nilai aktual tetap dicatat.")
-    targets.forEach { target -> OutlinedCard { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+    targets.forEach { target -> ReferenceCard {
         Text("Acuan ${if(target.optString("parameter")=="manual_ppm") "PPM" else "pH"} · versi ${target.optInt("version")}",fontWeight=FontWeight.SemiBold)
         val single=if(target.isNull("target_value")) null else target.optString("target_value")
         Text(if(single!=null) "$single ${target.optString("unit")}" else if(!target.isNull("minimum") && !target.isNull("maximum")) "${target.optString("minimum")} – ${target.optString("maximum")} ${target.optString("unit")}" else "Aturan acuan belum lengkap")
         if(single!=null && target.isNull("tolerance")) Text("Tanpa toleransi: hanya selisih, belum dapat menyimpulkan kesesuaian.",style=MaterialTheme.typography.bodySmall)
         Text("Aktual tidak diisi dari target.",style=MaterialTheme.typography.bodySmall)
-    } } }
+    } }
+}
+
+@Composable private fun ReferenceCard(content:@Composable ColumnScope.()->Unit) {
+    if (LocalCanopyForm.current) FarmInfoCard(content)
+    else OutlinedCard { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp),content=content) }
 }
 
 @Composable internal fun ErrorReasons(error:JSONObject) {

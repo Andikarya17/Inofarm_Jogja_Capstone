@@ -244,7 +244,7 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
  */
 @Composable internal fun FarmChoiceChips(
     label: String, selected: String?, options: List<JSONObject>, tag: String,
-    loading: Boolean = false, scroll: Boolean = false, onSelect: (String) -> Unit
+    loading: Boolean = false, scroll: Boolean = false, warningId: String? = null, onSelect: (String) -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -259,8 +259,8 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
                     Modifier.heightIn(min = FarmSpace.Touch).testTag("$tag-option-$id")
                         .selectable(on, enabled = !loading, role = Role.RadioButton, onClick = { onSelect(id) }),
                     shape = FarmShape.Control,
-                    color = if (on) colors.primary else colors.surface,
-                    contentColor = if (on) colors.onPrimary else colors.onSurface,
+                    color = if (on) (if (id == warningId) FarmColors.Warning else colors.primary) else colors.surface,
+                    contentColor = if (on) (if (id == warningId) Color.White else colors.onPrimary) else colors.onSurface,
                     border = if (on) null else BorderStroke(1.dp, colors.outline)
                 ) {
                     Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
