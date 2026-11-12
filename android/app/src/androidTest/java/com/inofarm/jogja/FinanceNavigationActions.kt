@@ -43,6 +43,14 @@ internal fun FinanceTestRule.openFinanceOutbox() {
     waitUntil(10_000) { onAllNodesWithTag("finance-queue-list").fetchSemanticsNodes().isNotEmpty() }
 }
 
+/** Sends whatever is still queued from the unsent sheet; does nothing when the queue already drained by itself. */
+internal fun FinanceTestRule.sendQueuedNow() {
+    if (onAllNodesWithTag("finance-unsent").fetchSemanticsNodes().isEmpty()) return
+    openFinanceOutbox()
+    onNodeWithTag("queue-send-now").performClick()
+    if (onAllNodesWithTag("finance-queue-list").fetchSemanticsNodes().isNotEmpty()) androidx.test.espresso.Espresso.pressBack()
+}
+
 internal fun FinanceTestRule.logoutFromAccount() {
     val rejected = onAllNodesWithTag("manager-home-relogin")
     waitUntil(10_000) {

@@ -1606,7 +1606,7 @@ class FinanceEntryUiTest {
         val session=runtime().vault.current!!
         rule.waitUntil(10000) {runtime().store.outbox(session.scope.key).any {it.envelope.optString("entity_type")=="sale"}}
         val op=runtime().store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="sale"};assertEquals("QUEUED",op.state)
-        offline.set(false);rule.openFinanceOutbox();rule.onNodeWithTag("queue-send-now").performClick();Espresso.pressBack();val id=acceptedFinancial("sale")
+        offline.set(false);rule.sendQueuedNow();val id=acceptedFinancial("sale")
         assertEquals("0.01",runtime().store.record(session.scope.key,id)!!.body.getString("total_amount"));assertEquals(op.hash,runtime().store.outbox(session.scope.key).single {it.id==op.id}.hash)
         rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","sale")
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
@@ -1665,7 +1665,7 @@ class FinanceEntryUiTest {
         val session=runtime().vault.current!!;val original=runtime().store.outbox(session.scope.key).single()
         assertEquals(0,financePosts.get());rule.activityRule.scenario.recreate()
         assertEquals(original.hash,runtime().store.outbox(session.scope.key).single().hash)
-        offline.set(false);Thread.sleep(1200);rule.openFinanceOutbox();rule.onNodeWithTag("queue-send-now").performClick();Espresso.pressBack()
+        offline.set(false);Thread.sleep(1200);rule.sendQueuedNow()
         val source=acceptedFinancial("expense");assertEquals("100.01",runtime().store.record(session.scope.key,source)!!.body.getString("amount"))
         rule.onNodeWithTag("finance-tab-2").performClick();awaitRecord("finance-record-$source")
         captureSecondary("finance-records")

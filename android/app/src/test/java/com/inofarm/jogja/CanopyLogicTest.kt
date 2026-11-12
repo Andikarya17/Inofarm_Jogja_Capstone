@@ -3,7 +3,9 @@ package com.inofarm.jogja
 import com.inofarm.jogja.core.design.ageFigure
 import com.inofarm.jogja.core.design.badgeText
 import com.inofarm.jogja.core.design.cashShare
+import com.inofarm.jogja.core.design.dateLabel
 import com.inofarm.jogja.core.design.greetingForWib
+import com.inofarm.jogja.core.design.initialsOf
 import java.math.BigDecimal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -46,5 +48,17 @@ class CanopyLogicTest {
         assertEquals("49", badgeText(49))
         assertEquals("50+", badgeText(50))
         assertEquals("50+", badgeText(300))
+    }
+
+    @Test fun initialsUseFirstTwoWords() {
+        assertEquals("PS", initialsOf("Pengelola sintetis"))
+        assertEquals("A", initialsOf("  andika "))
+        assertEquals("AB", initialsOf("Ani Budi Cahya"))
+        assertEquals("?", initialsOf("   "))
+    }
+
+    @Test fun dateLabelIsIndonesian() {
+        assertEquals("Rabu, 11 Nov 2026", dateLabel(java.time.LocalDate.of(2026, 11, 11)))
+        assertEquals("Minggu, 1 Mar 2026", dateLabel(java.time.LocalDate.of(2026, 3, 1)))
     }
 }

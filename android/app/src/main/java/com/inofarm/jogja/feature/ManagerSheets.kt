@@ -1,6 +1,9 @@
 package com.inofarm.jogja.feature
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.Alignment
@@ -9,6 +12,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.inofarm.jogja.core.design.*
@@ -17,14 +25,15 @@ private typealias Admin = com.inofarm.jogja.feature.admin.AdminResource
 
 /** What the manager can record from the "Catat" button. */
 internal enum class RecordChoice(val label: String, val detail: String, val icon: FarmIcon) {
-    ACTIVITY("Kegiatan", "Pekerjaan harian di greenhouse", FarmIcon.Schedule),
-    MEASUREMENT("Pengukuran", "EC dan PPM yang diukur", FarmIcon.Report),
-    HARVEST("Panen", "Hasil panen per grade", FarmIcon.Greenhouse),
-    EXPENSE("Biaya", "Pembayaran yang keluar", FarmIcon.Payment),
-    SALE("Penjualan", "Penjualan yang sudah lunas", FarmIcon.Allocate),
+    ACTIVITY("Kegiatan", "Pekerjaan harian", FarmIcon.Schedule),
+    MEASUREMENT("Pengukuran", "EC dan PPM", FarmIcon.Droplet),
+    HARVEST("Panen", "Hasil per grade", FarmIcon.Basket),
+    EXPENSE("Biaya", "Uang keluar", FarmIcon.Wallet),
+    SALE("Penjualan", "Sudah lunas", FarmIcon.TrendUp),
 }
 
 internal val WorkerRecordChoices = listOf(RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST)
+private val FieldChoices = setOf(RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +42,7 @@ internal fun RecordSheet(
     onStartPlanting: (() -> Unit)?,
     onDismiss: () -> Unit,
     choices: List<RecordChoice> = RecordChoice.entries,
+    contextLine: String? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -42,19 +52,72 @@ internal fun RecordSheet(
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = FarmSpace.Page).padding(bottom = FarmSpace.Large)) {
             FarmSheetHeading("Catat", onDismiss)
-            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                if (onStartPlanting != null) {
-                    FarmActionRow("Mulai tanam", "Greenhouse ini belum punya tanam saat ini", FarmIcon.Add,
-                        Modifier.testTag("record-start-planting"), onClick = onStartPlanting)
-                    FarmRowDivider()
-                }
-                choices.forEachIndexed { index, choice ->
-                    FarmActionRow(choice.label, choice.detail, choice.icon,
-                        Modifier.testTag("record-${choice.name.lowercase()}")) { onPick(choice) }
-                    if (index < choices.lastIndex) FarmRowDivider()
-                }
+            contextLine?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                Spacer(Modifier.height(FarmSpace.Tiny))
+                if (onStartPlanting != null) StartPlantingCard(onStartPlanting)
+                val field = choices.filter { it in FieldChoices }
+                val money = choices.filterNot { it in FieldChoices }
+                if (field.isNotEmpty()) RecordGroup("Di greenhouse", field, 3, 0, onPick)
+                if (money.isNotEmpty()) RecordGroup("Uang", money, 2, field.size, onPick)
+                if (money.isNotEmpty()) Text(
+                    "Greenhouse lain? Pilih dulu di Beranda, atau biaya dan penjualan akan menanyakan greenhouse-nya.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+@Composable
+private fun StartPlantingCard(onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Row(Modifier.fillMaxWidth().farmPressable(interaction).clip(FarmShape.Card)
+        .background(MaterialTheme.colorScheme.primaryContainer)
+        .clickable(interaction, null, role = Role.Button, onClick = onClick).testTag("record-start-planting")
+        .padding(FarmSpace.Medium), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium),
+        verticalAlignment = Alignment.CenterVertically) {
+        FarmIconTile(FarmIcon.Add, tone = FarmTone.Forest)
+        Column(Modifier.weight(1f)) {
+            Text("Mulai tanam", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text("Greenhouse ini belum punya tanam saat ini", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onPrimaryContainer) { FarmControlIcon(FarmIcon.ChevronRight, null) }
+    }
+}
+
+@Composable
+private fun RecordGroup(title: String, items: List<RecordChoice>, columns: Int, offset: Int, onPick: (RecordChoice) -> Unit) {
+    val perRow = if (LocalDensity.current.fontScale > 1.3f) 1 else columns
+    Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+        FarmSectionHeading(title)
+        items.chunked(perRow).forEachIndexed { row, rowItems ->
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                rowItems.forEachIndexed { col, choice ->
+                    RecordTile(choice, offset + row * perRow + col, Modifier.weight(1f).fillMaxHeight(), onPick)
+                }
+                repeat(perRow - rowItems.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordTile(choice: RecordChoice, index: Int, modifier: Modifier, onPick: (RecordChoice) -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Column(
+        modifier.farmStaggerEntrance(index, "record-tile-${choice.name}", 30)
+            .farmPressable(interaction, 0.96f).clip(FarmShape.Card)
+            .background(MaterialTheme.colorScheme.surface, FarmShape.Card)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, FarmShape.Card)
+            .clickable(interaction, null, role = Role.Button) { onPick(choice) }
+            .testTag("record-${choice.name.lowercase()}").padding(FarmSpace.Medium),
+        verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)
+    ) {
+        FarmIconTile(choice.icon, tone = FarmTone.Neutral)
+        Text(choice.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(choice.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

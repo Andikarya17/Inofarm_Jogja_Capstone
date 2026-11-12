@@ -269,11 +269,12 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
     val target = positions[selected]
     val x by animateIntAsState(target?.first ?: 0, FarmMotion.pressSpring(), label = "Pill dock")
     val density = LocalDensity.current
-    Box(modifier.widthIn(max = 560.dp).fillMaxWidth().padding(top = 26.dp)) {
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+    Box(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(top = 26.dp)) {
         Surface(Modifier.fillMaxWidth(), shape = FarmShape.Dock, color = bar, contentColor = ForestScheme.onSurface, shadowElevation = FarmDepth.Navigation) {
             Box(Modifier.heightIn(min = 72.dp)) {
                 if (target != null) Box(Modifier.offset { IntOffset(x, 0) }.width(with(density) { target.second.toDp() })
-                    .padding(vertical = 8.dp, horizontal = 4.dp).fillMaxHeight().background(pill, FarmShape.Control))
+                    .height(72.dp).padding(vertical = 8.dp, horizontal = 4.dp).background(pill, FarmShape.Control))
                 Row(Modifier.fillMaxWidth().selectableGroup().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     for (slot in 0..4) {
                         if (slot == 2) { Spacer(Modifier.weight(1f)); continue }
@@ -313,5 +314,6 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
                     color = FarmColors.Sage.copy(alpha = if (recordEnabled) 1f else 0.5f))
             }
         }
+    }
     }
 }
