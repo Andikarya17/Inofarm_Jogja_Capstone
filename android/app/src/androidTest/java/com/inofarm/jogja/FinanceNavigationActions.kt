@@ -39,6 +39,7 @@ internal fun FinanceTestRule.openRecord(choice: String) {
 /** The "N belum terkirim" button in the top bar opens the outbox sheet; it only exists while something is unsent. */
 internal fun FinanceTestRule.openFinanceOutbox() {
     waitUntil(10_000) { onAllNodesWithTag("finance-unsent").fetchSemanticsNodes().isNotEmpty() }
+    waitForIdle()
     onNodeWithTag("finance-unsent").performClick()
     waitUntil(10_000) { onAllNodesWithTag("finance-queue-list").fetchSemanticsNodes().isNotEmpty() }
 }

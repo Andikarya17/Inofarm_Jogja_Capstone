@@ -162,21 +162,46 @@ internal fun ManageScreen(
     enabled: Boolean,
     onAddGreenhouse: () -> Unit,
 ) {
+    val colors = MaterialTheme.colorScheme
     FarmMenuList(Modifier.testTag("manage-list")) {
-        item("manage-title") { FarmMenuHeader("Kelola", "") }
+        item("manage-title") {
+            FarmHeroCard {
+                Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(56.dp).background(FarmColors.Sage, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+                        Text(initialsOf(name), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = FarmColors.Ink)
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Pengelola · semua greenhouse dan akun", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        item("manage-main-title") { FarmSectionHeading("Greenhouse dan orang") }
         item("manage-main") {
             FarmRecordCard {
-                FarmActionRow("Tambah greenhouse", "Greenhouse baru, tanam pertama dan pekerja", FarmIcon.Add,
-                    Modifier.testTag("manage-add-greenhouse"), enabled, onClick = onAddGreenhouse)
+                ManageRow("Tambah greenhouse", "Greenhouse baru, tanam pertama dan pekerja", FarmIcon.GreenhouseAdd, FarmTone.Brand,
+                    Modifier.testTag("manage-add-greenhouse"), enabled, onAddGreenhouse)
                 FarmRowDivider()
-                FarmActionRow("Greenhouse", "Tambah dan atur greenhouse", FarmIcon.Greenhouse,
+                ManageRow("Greenhouse", "Tambah dan atur greenhouse", FarmIcon.Greenhouse, FarmTone.Neutral,
                     Modifier.testTag("manage-greenhouse"), enabled) { onOpen(Admin.GREENHOUSE) }
                 FarmRowDivider()
-                FarmActionRow("Pekerja dan akun", "Buat akun, ubah peran, reset password", FarmIcon.Account,
+                ManageRow("Pekerja dan akun", "Buat akun, ubah peran, reset password", FarmIcon.Account, FarmTone.Neutral,
                     Modifier.testTag("manage-users"), enabled) { onOpen(Admin.USER) }
             }
         }
-        item("manage-master-title") { Text("Data master", Modifier.padding(top = FarmSpace.Small), style = MaterialTheme.typography.titleMedium) }
+        item("manage-plan-title") { FarmSectionHeading("Jadwal dan target") }
+        item("manage-plan") {
+            val stack = LocalDensity.current.fontScale > 1.3f
+            val boxes: @Composable (Modifier) -> Unit = { m ->
+                ManageBox("Jadwal", "Kegiatan yang direncanakan", FarmIcon.Schedule, Modifier.testTag("manage-schedule").then(m), enabled) { onOpen(Admin.SCHEDULE) }
+                ManageBox("Target", "Acuan EC, PPM dan pH", FarmIcon.Report, Modifier.testTag("manage-target").then(m), enabled) { onOpen(Admin.TARGET) }
+            }
+            if (stack) Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) { boxes(Modifier.fillMaxWidth()) }
+            else Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) { boxes(Modifier.weight(1f).fillMaxHeight()) }
+        }
+        item("manage-master-title") { FarmSectionHeading("Data master") }
         item("manage-master") {
             FarmRecordCard {
                 listOf(Admin.VARIETY to "Jenis melon", Admin.MATERIAL to "Pupuk dan bahan lain", Admin.UNIT to "Gram, liter, buah",
@@ -186,21 +211,41 @@ internal fun ManageScreen(
                 }
             }
         }
-        item("manage-plan-title") { Text("Jadwal dan target", Modifier.padding(top = FarmSpace.Small), style = MaterialTheme.typography.titleMedium) }
-        item("manage-plan") {
-            FarmRecordCard {
-                FarmActionRow("Jadwal", "Kegiatan yang direncanakan", FarmIcon.Schedule, Modifier.testTag("manage-schedule"), enabled) { onOpen(Admin.SCHEDULE) }
-                FarmRowDivider()
-                FarmActionRow("Target", "Acuan EC, PPM dan pH", FarmIcon.Report, Modifier.testTag("manage-target"), enabled) { onOpen(Admin.TARGET) }
-            }
-        }
         item("manage-account") {
-            FarmRecordCard {
-                Text("Akun saya", style = MaterialTheme.typography.titleMedium)
-                Text("$name · Pengelola", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                 OutlinedButton(onClick = onLogout, enabled = enabled, shape = FarmShape.Control,
-                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manage-logout")) { Text("Keluar") }
+                    modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("manage-logout")) {
+                    FarmControlIcon(FarmIcon.Logout, null)
+                    Spacer(Modifier.width(FarmSpace.Small))
+                    Text("Keluar")
+                }
+                Text("Draf yang belum terkirim tetap tersimpan di perangkat.", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             }
         }
+    }
+}
+
+@Composable
+private fun ManageRow(label: String, detail: String, icon: FarmIcon, tone: FarmTone, modifier: Modifier, enabled: Boolean, onClick: () -> Unit) {
+    Row(modifier.fillMaxWidth().heightIn(min = 60.dp).clip(FarmShape.Control).clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+        .padding(vertical = FarmSpace.Small), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.CenterVertically) {
+        FarmIconTile(icon, tone = tone)
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.titleMedium)
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (enabled) FarmControlIcon(FarmIcon.ChevronRight, null)
+    }
+}
+
+@Composable
+private fun ManageBox(label: String, detail: String, icon: FarmIcon, modifier: Modifier, enabled: Boolean, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Column(modifier.clip(FarmShape.Card).background(colors.surface, FarmShape.Card)
+        .border(1.dp, colors.outlineVariant, FarmShape.Card).clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+        .padding(FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+        FarmIconTile(icon)
+        Text(label, style = MaterialTheme.typography.titleMedium)
+        Text(detail, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
     }
 }
