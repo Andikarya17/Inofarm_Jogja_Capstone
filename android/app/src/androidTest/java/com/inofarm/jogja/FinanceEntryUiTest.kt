@@ -559,7 +559,7 @@ class FinanceEntryUiTest {
             runCatching { rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("manager-greenhouse-$id")) }.isSuccess
         }
         readyNode("manager-greenhouse-$id").performClick()
-        readyNode("manager-home-all")
+        readyNode("manager-back")
     }
     private fun readyText(text:String,substring:Boolean=false):SemanticsNodeInteraction {
         rule.waitUntil(10000) {rule.onAllNodesWithText(text,substring=substring).fetchSemanticsNodes().size==1}
@@ -1150,7 +1150,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-new").assertDoesNotExist()
         captureWindow("no-active")
         home.performScrollToIndex(0)
-        readyNode("manager-home-all").performClick()
+        readyNode("manager-back").performClick()
         selectManagerGreenhouse(gh)
         home.performScrollToNode(hasTestTag("measurement-card-ec"))
         readyNode("measurement-card-ppm").assertExists()
@@ -1244,7 +1244,7 @@ class FinanceEntryUiTest {
         selectManagerGreenhouse(old)
         assertTrue(delayedScopeArrived.await(5, java.util.concurrent.TimeUnit.SECONDS))
         try {
-            readyNode("manager-home-all").performScrollTo().performClick()
+            readyNode("manager-back").performClick()
             selectManagerGreenhouse()
             readyText("GH UI sintetis").assertIsDisplayed()
         } finally {

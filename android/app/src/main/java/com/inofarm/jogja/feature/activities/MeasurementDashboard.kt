@@ -74,9 +74,9 @@ import java.time.LocalDate
     }
 }
 
-@Composable internal fun MeasurementCards(pair: ManualMeasurement?, loading: Boolean = false, unavailable: Boolean = false) {
+@Composable internal fun MeasurementCards(pair: ManualMeasurement?, loading: Boolean = false, unavailable: Boolean = false, showTitle: Boolean = true) {
     Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-        Surface(color = MaterialTheme.colorScheme.background, shape = FarmShape.Control) {
+        if (showTitle) Surface(color = MaterialTheme.colorScheme.background, shape = FarmShape.Control) {
             Text("Pengukuran manual", Modifier.padding(horizontal = FarmSpace.Small, vertical = FarmSpace.Tiny)
                 .semantics { heading() }, style = MaterialTheme.typography.titleMedium)
         }

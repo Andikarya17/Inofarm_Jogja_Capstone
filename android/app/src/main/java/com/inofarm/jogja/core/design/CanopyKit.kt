@@ -5,7 +5,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -27,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
@@ -81,6 +84,10 @@ private val ForestTile = Color(0xFF203B30)
     return this.hoverable(interaction).shadow(lift, shape, clip = false)
         .graphicsLayer { scaleX = factor; scaleY = factor }
 }
+
+/** A calmer spring for sliding pills so the label never turns light before the pill arrives. */
+private fun <T> pillSpring() = androidx.compose.animation.core.spring<T>(
+    dampingRatio = 0.9f, stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)
 
 private val playedEntrances = HashSet<Any>()
 
@@ -196,10 +203,23 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
     val colors = MaterialTheme.colorScheme
     val positions = remember { mutableStateMapOf<String, Pair<Int, Int>>() }
     val target = positions[selected]
-    val x by animateIntAsState(target?.first ?: 0, FarmMotion.pressSpring(), label = "Pill x")
-    val w by animateIntAsState(target?.second ?: 0, FarmMotion.pressSpring(), label = "Pill lebar")
-    Box(modifier.fillMaxWidth().background(colors.secondaryContainer, androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
-        .horizontalScroll(rememberScrollState()).padding(4.dp)) {
+    var settled by remember { mutableStateOf(false) }
+    LaunchedEffect(target != null) { if (target != null) settled = true }
+    val x by animateIntAsState(target?.first ?: 0, if (settled) pillSpring() else snap(), label = "Pill x")
+    val w by animateIntAsState(target?.second ?: 0, if (settled) pillSpring() else snap(), label = "Pill lebar")
+    val scroll = rememberScrollState()
+    val margin = with(LocalDensity.current) { 16.dp.roundToPx() }
+    LaunchedEffect(selected, target) { if (target != null) scroll.animateScrollTo((target.first - margin).coerceAtLeast(0)) }
+    val track = colors.secondaryContainer
+    Box(modifier.fillMaxWidth().background(track, androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
+        .drawWithContent {
+            drawContent()
+            if (scroll.canScrollForward) {
+                val edge = 24.dp.toPx()
+                drawRect(Brush.horizontalGradient(listOf(Color.Transparent, track), startX = size.width - edge, endX = size.width),
+                    topLeft = Offset(size.width - edge, 0f), size = androidx.compose.ui.geometry.Size(edge, size.height))
+            }
+        }.horizontalScroll(scroll).padding(4.dp)) {
         if (target != null) Box(Modifier.offset { IntOffset(x, 0) }.width(with(LocalDensity.current) { w.toDp() })
             .height(FarmSpace.Touch - 4.dp).background(colors.primary, androidx.compose.foundation.shape.RoundedCornerShape(14.dp)))
         Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -267,7 +287,9 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
     val pill = Color(0xFF385442)
     val positions = remember { mutableStateMapOf<Int, Pair<Int, Int>>() }
     val target = positions[selected]
-    val x by animateIntAsState(target?.first ?: 0, FarmMotion.pressSpring(), label = "Pill dock")
+    var dockSettled by remember { mutableStateOf(false) }
+    LaunchedEffect(target != null) { if (target != null) dockSettled = true }
+    val x by animateIntAsState(target?.first ?: 0, if (dockSettled) pillSpring() else snap(), label = "Pill dock")
     val density = LocalDensity.current
     Box(modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
     Box(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(top = 26.dp)) {
