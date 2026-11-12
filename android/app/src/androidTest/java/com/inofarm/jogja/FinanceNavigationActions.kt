@@ -1,5 +1,6 @@
 package com.inofarm.jogja
 
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.lifecycle.ViewModelProvider
@@ -78,6 +79,15 @@ internal fun FinanceTestRule.logoutFromAccount() {
 }
 
 internal fun FinanceTestRule.openHomeContext() {
+    // The overview lists greenhouse cards; the context button lives on the selected greenhouse's panel.
+    if (onAllNodesWithTag("finance-context-open").fetchSemanticsNodes().isEmpty()) {
+        val card = androidx.compose.ui.test.SemanticsMatcher("kartu greenhouse pekerja") {
+            val tag = it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)
+            tag != null && tag.startsWith("worker-greenhouse-") && tag != "worker-greenhouse-overview"
+        }
+        onNodeWithTag("finance-home-list").performScrollToNode(card)
+        onAllNodes(card).onFirst().performClick()
+    }
     onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("finance-context-open"))
     onNodeWithTag("finance-context-open").performClick()
 }

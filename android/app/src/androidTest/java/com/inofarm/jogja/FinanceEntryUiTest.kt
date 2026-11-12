@@ -414,9 +414,10 @@ class FinanceEntryUiTest {
         agenda.set(true)
         readyNode("finance-sync").performClick()
         val home = rule.onNodeWithTag("finance-home-list")
-        home.performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
-        rule.waitUntil(15_000) { rule.onAllNodesWithText("1 dari 1 jadwal tercatat").fetchSemanticsNodes().isNotEmpty() }
-        readyText("Belum ada pengukuran").assertExists()
+        // Cards appear once the device cache has been read, so wait for the first one.
+        rule.waitUntil(15_000) { runCatching { home.performScrollToNode(hasTestTag("worker-greenhouse-$gh")) }.isSuccess }
+        rule.waitUntil(15_000) { rule.onAllNodesWithText("1 dari 1 tugas").fetchSemanticsNodes().isNotEmpty() }
+        readyText("Nutrisi belum dicek").assertExists()
         rule.onAllNodesWithText("Pembaruan data").assertCountEquals(0)
         home.performScrollToIndex(0)
         captureSecondary("worker-home-cards")
@@ -443,7 +444,9 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-overview"))
         readyNode("worker-greenhouse-overview").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-$gh"))
-        rule.waitUntil(10_000) { rule.onAllNodesWithText("EC 1,25 mS/cm, PPM 625,5 ppm", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        // The card now shows the check as a status chip; the EC and PPM values live on the greenhouse page.
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Nutrisi dicek", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.onAllNodesWithText("1 belum terkirim", substring = true).onFirst().assertExists()
         captureSecondary("worker-home-after-record")
     }
 
@@ -537,7 +540,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-password").performScrollTo().performTextReplacement("synthetic-ui-password")
         hideKeyboard();rule.onNodeWithTag("finance-login").performScrollTo().performClick()
         val managerLogin = email.startsWith("manager")
-        if (managerLogin) readyListNode("manager-add-greenhouse") else readyNode("finance-context-open")
+        if (managerLogin) readyListNode("manager-add-greenhouse") else readyNode("worker-home-summary")
         if (waitForSync) {
             if (managerLogin) {
                 rule.waitUntil(10_000) { runtime().store.lastSyncedAt(runtime().vault.current!!.scope.key) != null }
@@ -668,7 +671,7 @@ class FinanceEntryUiTest {
         readyNode("finance-login").performScrollTo()
         captureWindow("login-ready")
         readyNode("finance-password").performScrollTo().performClick().performImeAction()
-        readyNode("finance-context-open").assertIsDisplayed()
+        readyNode("worker-home-summary").assertIsDisplayed()
         offline.set(true)
         rule.logoutFromAccount()
         readyText("Pencabutan sesi server belum terkonfirmasi.", true).assertIsDisplayed()
@@ -807,7 +810,7 @@ class FinanceEntryUiTest {
     @Test fun defaultLauncherOpensFinanceWithExistingApplicationIdentity() {
         assertEquals("com.inofarm.jogja.finance",rule.activity.packageName)
         assertEquals(MainActivity::class.java.name,rule.activity.packageManager.getLaunchIntentForPackage(rule.activity.packageName)!!.component!!.className)
-        rule.onNodeWithTag("finance-context-open").assertExists()
+        rule.onNodeWithTag("worker-home-summary").assertExists()
         rule.onNodeWithTag("finance-tab-1").assertExists()
     }
 
@@ -836,7 +839,7 @@ class FinanceEntryUiTest {
         rule.openWorkerHarvestHistory()
         readyNode("finance-history-list").assertIsDisplayed()
         rule.selectFinanceTab(0)
-        readyNode("finance-context-open").assertIsDisplayed()
+        readyNode("worker-home-summary").assertIsDisplayed()
 
         rule.logoutFromAccount()
         login("manager@example.invalid")

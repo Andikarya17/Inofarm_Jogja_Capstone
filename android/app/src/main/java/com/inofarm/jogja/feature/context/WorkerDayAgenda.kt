@@ -72,8 +72,14 @@ private fun readWorkerDay(
     return WorkerDay(synchronizedActivities, notes, corrections, held)
 }
 
+/** An own record the manager marked "Perlu diperbaiki", with the reviewer's reason for it. */
+internal data class WorkerCorrection(val row: LocalRecord, val reason: String)
+
 /** Own accepted records whose current revision the manager marked "Perlu diperbaiki", optionally limited to one greenhouse or group. */
-internal fun workerCorrections(store: LocalFinanceStore, session: FinanceSession, greenhouse: String? = null, group: String? = null): List<LocalRecord> {
+internal fun workerCorrections(store: LocalFinanceStore, session: FinanceSession, greenhouse: String? = null, group: String? = null): List<LocalRecord> =
+    workerCorrectionItems(store, session, greenhouse, group).map { it.row }
+
+internal fun workerCorrectionItems(store: LocalFinanceStore, session: FinanceSession, greenhouse: String? = null, group: String? = null): List<WorkerCorrection> {
     val scope = session.scope.key
     val visible = store.visibleGreenhouses(scope)
     return listOf("activity", "harvest").flatMap { kind ->
@@ -85,9 +91,9 @@ internal fun workerCorrections(store: LocalFinanceStore, session: FinanceSession
                     it.greenhouseId in visible && it.recorderId() == session.scope.accountId && accepted.optString("record_state", "active") == "active" &&
                         (group == null || accepted.optString("planting_group_id") == group) &&
                         it.serverVersion == review.optLong("${kind}_version")
-                }
+                }?.let { WorkerCorrection(it, review.optString("reason")) }
             }
-    }.distinctBy { it.id }
+    }.distinctBy { it.row.id }
 }
 
 @Composable

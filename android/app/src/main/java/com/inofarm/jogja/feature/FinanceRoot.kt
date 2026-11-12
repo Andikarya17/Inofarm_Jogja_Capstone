@@ -74,8 +74,10 @@ import com.inofarm.jogja.feature.context.HomeContext
 import com.inofarm.jogja.feature.context.HomeContextCard
 import com.inofarm.jogja.feature.context.WorkerContextSheet
 import com.inofarm.jogja.feature.context.WorkerCorrectionsCard
+import com.inofarm.jogja.feature.context.WorkerGreenhouseList
+import com.inofarm.jogja.feature.context.WorkerSummaryCard
+import com.inofarm.jogja.feature.context.rememberWorkerHome
 import com.inofarm.jogja.feature.context.WorkerCorrectionsScreen
-import com.inofarm.jogja.feature.context.WorkerGreenhouseCards
 import com.inofarm.jogja.feature.context.rememberWorkerCorrections
 import com.inofarm.jogja.feature.context.WorkerEventTime
 import com.inofarm.jogja.feature.context.WorkerDayAgenda
@@ -636,6 +638,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val managerBar: ManagerBar? = if (!manager) when {
         tab == 0 && !correctionsOpen && !harvestProgressOpen -> ManagerBar("${greetingForWib(wibNow.hour, wibNow.minute)}, ${session.name.trim().substringBefore(' ')}",
             dateLabel(wibNow.toLocalDate()), null)
+        tab == 0 && correctionsOpen -> ManagerBar("Perlu diperbaiki", null, { correctionsOpen = false }, "Kembali ke Beranda")
         tab == 5 && history.selected == null && harvestHistory.selected == null -> ManagerBar("Riwayat", null, null)
         else -> null
     } else when {
@@ -757,8 +760,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 }
                 tab==0 && correctionsOpen -> WorkerCorrectionsScreen(workerCorrections, context, onOpen = { row ->
                     if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
-                }, onClose = { correctionsOpen = false })
-                tab==0 && !harvestProgressOpen -> tabState.SaveableStateProvider("worker-home-${selectedGreenhouse?.optString("id").orEmpty()}") { LazyColumn(
+                })
+                tab==0 && !harvestProgressOpen -> tabState.SaveableStateProvider("worker-home-${selectedGreenhouse?.optString("id").orEmpty()}") {
+                val homeState = if (selectedGreenhouse == null) rememberWorkerHome(runtime, session, context, workerToday,
+                    Triple(activity.records, harvest.records, activity.queue), syncUpdates) else null
+                LazyColumn(
                     modifier=Modifier.fillMaxSize().testTag("finance-home-list"),
                     verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium),
                     contentPadding=PaddingValues(
@@ -768,18 +774,18 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         } else 0.dp
                     )
                 ) {
-                    item("context") {
-                        HomeContextCard(context, if (selectedGreenhouse == null) HomeContext() else HomeContext(gh, season, group), workerToday,
+                    if (homeState != null) item("summary") { WorkerSummaryCard(homeState, context) }
+                    if (selectedGreenhouse != null) item("context") {
+                        HomeContextCard(context, HomeContext(gh, season, group), workerToday,
                             onOverview = { setWorkerContext(HomeContext()) }) {
                             contextSheet = "context"
                         }
                     }
-                    if (selectedGreenhouse == null) item("corrections") {
+                    if (homeState != null && workerCorrections.isNotEmpty()) item("corrections") {
                         WorkerCorrectionsCard(workerCorrections.size) { correctionsOpen = true }
                     }
-                    if (selectedGreenhouse == null) item("greenhouses") {
-                        WorkerGreenhouseCards(runtime, session, context, workerToday,
-                            Triple(activity.records, harvest.records, activity.queue), syncUpdates) { greenhouse ->
+                    if (homeState != null) item("greenhouses") {
+                        WorkerGreenhouseList(homeState, context) { greenhouse ->
                             setWorkerContext(context.workerDefault(greenhouse, workerToday))
                         }
                     }
@@ -937,8 +943,8 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
                 }
             }
             Column(Modifier.weight(1f).padding(vertical = FarmSpace.Small)) {
-                Text(bar.title, Modifier.semantics { heading() }, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titleLarge)
+                Text(bar.title, Modifier.semantics { heading() }, maxLines = if (!manager && largeFont) 2 else 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.titleLarge)
                 bar.subtitle?.let { Text(it, maxLines = 1, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         } else Text("Inofarm", Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
