@@ -34,34 +34,51 @@ colors:
   white: "#FFFFFF"
 typography:
   display-small:
-    fontFamily: sans-serif
+    fontFamily: "Plus Jakarta Sans"
     fontSize: "32px"
     fontWeight: 600
   headline-large:
-    fontFamily: sans-serif
+    fontFamily: "Plus Jakarta Sans"
     fontSize: "34px"
     fontWeight: 700
   headline-small:
-    fontFamily: sans-serif
+    fontFamily: "Plus Jakarta Sans"
     fontSize: "24px"
     fontWeight: 600
   title-medium:
-    fontFamily: sans-serif
+    fontFamily: "Plus Jakarta Sans"
     fontSize: "16px"
     fontWeight: 600
   body-medium:
-    fontFamily: sans-serif
+    fontFamily: "Plus Jakarta Sans"
     fontSize: "14px"
     fontWeight: 400
   label-large:
-    fontFamily: sans-serif
+    fontFamily: "Plus Jakarta Sans"
     fontSize: "14px"
     fontWeight: 500
+  hero-amount:
+    fontFamily: "Plus Jakarta Sans"
+    fontSize: "22px"
+    fontWeight: 700
+  hero-number:
+    fontFamily: "Plus Jakarta Sans"
+    fontSize: "26px"
+    fontWeight: 800
+  wordmark:
+    fontFamily: "Plus Jakarta Sans"
+    fontSize: "44px"
+    fontWeight: 800
+    letterSpacing: "-1.2px"
 rounded:
   control: "12px"
   card: "20px"
   hero: "24px"
   navigation: "20px"
+  sheet: "28px"
+  tile: "14px"
+  dock: "26px"
+  chip: "10px"
 spacing:
   tiny: "4px"
   small: "8px"
@@ -96,6 +113,47 @@ components:
     textColor: "{colors.ink}"
     rounded: "{rounded.card}"
     padding: "{spacing.large}"
+  dock:
+    backgroundColor: "{colors.forest-navigation}"
+    textColor: "{colors.forest-muted}"
+    rounded: "{rounded.dock}"
+    height: "72px"
+  dock-record-button:
+    backgroundColor: "{colors.sage}"
+    textColor: "{colors.ink}"
+    size: "56px"
+  form-section:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.card}"
+    padding: "{spacing.large}"
+  form-bar:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "16px"
+    height: "52px"
+  choice-chip:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.control}"
+    height: "{spacing.touch}"
+  choice-chip-selected:
+    backgroundColor: "{colors.brand}"
+    textColor: "{colors.white}"
+    rounded: "{rounded.control}"
+  choice-chip-defective-selected:
+    backgroundColor: "{colors.warning}"
+    textColor: "{colors.white}"
+    rounded: "{rounded.control}"
+  detail-card:
+    backgroundColor: "{colors.soft}"
+    rounded: "{rounded.tile}"
+    padding: "{spacing.medium}"
+  info-card:
+    backgroundColor: "{colors.info-surface}"
+    textColor: "{colors.info}"
+    rounded: "{rounded.tile}"
+    padding: "{spacing.medium}"
 ---
 
 # Sistem visual Android Inofarm
@@ -127,7 +185,7 @@ Seluruh peran memakai Plus Jakarta Sans (OFL, satu file variabel, `FarmFamily` d
 
 ## Layout
 
-Gunakan 4 dp untuk hubungan label dengan nilai, 8 dan 12 dp dalam kelompok, 16 dp untuk tepi halaman dan isi panel kerja, serta 24 dp untuk pemisah bagian. Aksi utama dan tujuan navigasi punya tinggi minimum 48 dp. Login memiliki margin horizontal 24 dp dan batas lebar isi 420 dp. Shell layar kerja memusatkan isi dengan batas 900 dp dan mengikuti inset sistem serta keyboard. Ukuran `px` di YAML menyimpan nilai nominal untuk alat pembaca DESIGN.md. Aplikasi memakai dp untuk dimensi dan sp untuk teks.
+Gunakan 4 dp untuk hubungan label dengan nilai, 8 dan 12 dp dalam kelompok, 16 dp untuk tepi halaman dan isi panel kerja, serta 24 dp untuk pemisah bagian. Aksi utama dan tujuan navigasi punya tinggi minimum 48 dp. Login memiliki margin horizontal 24 dp dan batas lebar isi 420 dp. Shell layar kerja memusatkan isi dengan batas 720 dp dan mengikuti inset sistem serta keyboard. Ukuran `px` di YAML menyimpan nilai nominal untuk alat pembaca DESIGN.md. Aplikasi memakai dp untuk dimensi dan sp untuk teks.
 
 Kartu EC dan PPM berjajar pada ruang cukup dan menumpuk ketika lebar konten kurang dari 268 dp atau skala font di atas 1,3. Label tab bawah berhenti membesar setelah skala font 1,3, sedangkan nama lengkap tetap ada di semantik. Daftar menu memberi ruang akhir tambahan 80 dp saat tombol Catat tampil (`LocalFarmListBottomInset`) agar baris terakhir tidak tertutup. Pada skala yang sama, ringkasan sumber menempatkan tombol sumber pada baris sendiri. Login dan `FinanceField` memindahkan label ke atas isian ketika skala font di atas 1,5. Pertahankan ruang tumbuh untuk nama greenhouse, nominal, label, dan pesan. Gunakan area gulir untuk menjaga isian dan tindakan tetap dapat dijangkau saat tinggi berkurang atau keyboard tampil.
 
@@ -139,7 +197,7 @@ Login, konteks, metrik, form, dan panel review memakai bidang solid. Lapisan kac
 
 ## Shapes
 
-Radius 12 dp untuk kontrol, 20 dp untuk kartu dan bingkai navigasi, serta 24 dp untuk panel login. Garis tepi tipis membatasi panel ringkasan dan metrik. Bagian form menggunakan judul dan pemisah, dengan panel untuk ringkasan, konteks, atau perbandingan versi.
+Radius 12 dp untuk kontrol, 20 dp untuk kartu dan bingkai navigasi, serta 24 dp untuk panel login dan hero. Canopy menambah 14 dp untuk ubin, isian form pengelola, kartu rincian dan kartu info (`FarmShape.Tile`), 10 dp untuk chip status, 26 dp untuk dock, dan 28 dp pada sudut atas sheet. Tombol bar form memakai 16 dp dan strip konteks 16 dp. Garis tepi tipis membatasi panel ringkasan dan metrik. Form pengelola memakai kartu bergaris tipis (`FarmFormSection`, radius 20 dp, garis `outlineVariant` 1 dp) sebagai pengganti judul dan pemisah. Form pekerja tetap memakai judul dan pemisah.
 
 ## Components
 
@@ -191,6 +249,28 @@ Keuangan memisahkan konteks dan tombol `Catat pengeluaran` pada blok Catatan bar
 
 **Wizard Tambah greenhouse.** Dialog layar penuh berlatar `background` dengan judul sheet dan tombol tutup. Tiga langkah: Greenhouse, Mulai tanam (opsional, dapat `Lewati`), dan Pekerja (opsional, dapat `Lewati`). Teks `Langkah N dari 3` berada di atas judul langkah. Selama menyimpan, teks progres per tahap (misalnya `Menyimpan musim…`) diumumkan sebagai live region disertai indikator linear. Kesalahan isian tampil sebagai pesan pendukung di bawah isian terkait, dan pesan kegagalan umum tampil sebagai pemberitahuan di atas langkah. Setiap langkah tersimpan saat pengguna melanjutkan. Isian yang sudah tersimpan dikunci, dan `Kembali` hanya mundur satu langkah. Layar akhir berjudul `Greenhouse siap dicatat` memuat nama, ringkasan tanam dan pekerja, tombol `Catat kegiatan` bila tanam sudah ditetapkan, dan tombol bergaris `Ke greenhouse`. [GreenhouseWizard.kt](android/app/src/main/java/com/inofarm/jogja/feature/admin/GreenhouseWizard.kt)
 
+### Form pengelola Canopy (Fase 8)
+
+Berlaku untuk pengeluaran, alokasi, penjualan, aset, penyusutan, kegiatan, pengukuran, panen, form admin, form akun, wizard Tambah greenhouse, dan semua langkah Periksa. Kode ada di [FormCanopy.kt](android/app/src/main/java/com/inofarm/jogja/feature/FormCanopy.kt). Form **pekerja tidak berubah** (K8): cabang `worker` memakai tata letak lama dan tag yang sama; yang berubah bagi pekerja hanya font, gaya sheet Catat, dan login.
+
+- **`FarmFormFrame`** menyediakan `LocalCanopyForm = true`, area gulir (jarak vertikal 12 dp, antarblok 12 dp) di atas, dan bar yang tetap di atas keyboard. Di dalam bingkai, `FinanceField` menaruh label di atas isian (semibold) dan memakai radius 14 dp.
+- **`FarmFormHeader`**: tombol X (menyimpan draf lalu kembali, deskripsi `Simpan draf dan kembali`), judul `titleLarge` bold, dan status draf.
+- **`FarmContextStrip`**: strip forest radius 16 dp berisi ubin ikon 40 dp, greenhouse (`titleSmall` bold), tanam, dan umur di kanan bila ada.
+- **`FarmFormSection`**: kartu `surface` dengan garis 1 dp, padding 16 dp, judul `titleSmall` bold sebagai heading.
+- **`FarmFormBar`**: bar `surface` penuh lebar (menetralkan padding halaman 16 dp lewat `fullBleed`), garis atas `HorizontalDivider` `outlineVariant`, bayangan 4 dp, tombol radius 16 dp tinggi minimum 52 dp. Kiri `Simpan draf` (bergaris, bobot 1), kanan aksi utama (bobot 1,4). Tag mengikuti form, misalnya `expense-save-draft`. Bar berada di luar area gulir, sehingga tes memakai `scrollIfScrollable()`.
+- **`FarmReviewFrame`** (langkah Periksa): judul `Periksa {jenis}`, strip konteks, kartu rincian, dan bar `Ubah isian` / `Simpan` berikon centang.
+- **`FarmWhenCard`**: waktu kejadian sebagai satu baris terbaca lewat `whenLabel` (`Kamis, 12 Nov 2026 · 21:13 WIB`; nilai ketikan dipertahankan bila tanggal tidak valid), tombol `Ubah` membuka isian tanggal dan jam, tinggi berubah 190 ms. Dipakai form pengukuran dan panen.
+- **`FarmFieldPair`**: dua isian angka berdampingan, bertumpuk bila skala font di atas 1,3.
+- **`FarmDetailCard`**: satu rincian berulang (bahan, grade) sebagai kartu radius 14 dp, ikon hapus merah di kanan atas.
+- **`FarmInfoCard`**: catatan acuan dan umur di akhir form, nada info tanpa garis.
+- **`FarmStepIndicator`**: tiga segmen setebal 6 dp untuk wizard; langkah selesai bercentang. Disembunyikan dari semantik karena teks `Langkah N dari 3` sudah dibaca.
+- **`FarmRoleCards`**: peran akun sebagai dua kartu (radius 14 dp, terpilih berisi `primaryContainer` dengan garis 2 dp `primary`), bertumpuk bila skala font di atas 1,3.
+
+**Aturan chip dan segmen.** Pilihan pendek memakai `FarmChoiceChips` (menggantikan dropdown `Choice`, tanda tangan sama). Wadah diberi tag pada node inert 1 dp, sehingga tes yang menyentuh wadah lebih dulu tidak berbuat apa-apa, dan setiap chip bertag `$tag-option-$id`. `FarmRoleCards` mengikuti aturan yang sama. Aturan ini dipertahankan agar tes lama kompatibel. Chip: tinggi minimum 48 dp, radius 12 dp, terpilih `primary` dengan teks `onPrimary`, tak terpilih `surface` dengan garis `outline` 1 dp, peran radio, `FlowRow` atau gulir horizontal bila `scroll = true`. Pilihan panjang tetap memakai `FarmPicker`. `FarmSegmentedTabs` dipakai untuk bagian greenhouse dengan tag `hub-section-$id`.
+
+**Chip Cacat amber.** Pada pilihan kondisi panen, chip `Cacat` terpilih memakai `warning` (#805016) dengan teks putih (kontras 6,83:1) lewat `warningId = HarvestQuality.DEFECTIVE.wire` di `HarvestScreen.kt`. Pasangan ini khusus chip terpilih; status teks tetap tertulis.
+
+
 ### Motion dan umpan balik
 
 Panel login masuk selama 240 ms. Label tombol merespons status request selama 160 ms, dan ruang pesan dapat berubah tinggi selama 200 ms. Shell baru muncul dengan fade 220 ms setelah sesi tersedia. Indikator tab dan warna status draf bertransisi selama 200 ms. Review memakai fade dan pergeseran 12 dp selama 220 ms. Kartu audit dan baris rumus berubah tinggi saat rincian dibuka. Sheet mengikuti transisi Material. Compose memakai skala animasi sistem. Angka pengukuran dan nominal langsung menampilkan nilai tersedia, dan ilustrasi tetap diam.
@@ -201,7 +281,9 @@ Pada pekerja, panel greenhouse baru muncul dalam 230 ms. Perpindahan dua tab mem
 
 ### Canopy (12 November 2026)
 
-Arah Canopy memakai bidang forest sebagai kanopi di atas (hero login, hero Beranda, hero detail, bar navigasi pengelola) dan bidang solid di bawahnya. Tidak ada warna baru; semua warna berasal dari token di atas. Komponen bersama ada di `core/design/CanopyKit.kt`: `farmPressable` (skala tekan 0,97 atau 0,98 dengan spring, angkat 2 dp saat hover), `farmStaggerEntrance` (sekali per proses), `FarmLeafMotif` (garis daun sage), `FarmIconTile`, `FarmStatusChip` (teks tetap tertulis, warna hanya penanda), `FarmHeroCard`, `FarmQuickAction`, `FarmSegmentedTabs`, `FarmChoiceChips` (menggantikan dropdown untuk pilihan pendek; tag wadah ditaruh pada node 1 dp yang inert dan tiap chip bertag `$tag-option-$id`), dan `FarmDockNavigation`. Pengelola memakai dock lima slot: Beranda, Riwayat, Catat (lingkaran sage terangkat, tag `finance-record-fab`), Keuangan, Kelola. Pekerja tetap dua tab dan FAB. Angka tidak dianimasikan dan tidak ada gerak yang berulang. Isian tanggal dan jam pengelola memakai `FinanceDateField` dan `FinanceTimeField`: teks tetap bisa diketik, ikon membuka picker Android.
+Token tambahan Canopy di `InofarmTheme.kt`: `FarmShape` (Tile 14, Dock 26, Chip 10, Sheet 28 dp), `FarmType.HeroAmount` (22/28 bold), `HeroNumber` (26/30 extrabold) dan `Wordmark` (44/48 extrabold, jarak huruf -1,2 sp); dua yang pertama memakai `tnum`. Nada status (`FarmTone`) memetakan ke peran yang ada: Neutral, Good, Info, Amber (`warning` pada `warning-surface`, gelap `#DCC28C` pada `#493519`), Error, Forest, Brand.
+
+Arah Canopy memakai bidang forest sebagai kanopi di atas (hero login, hero Beranda, hero detail, bar navigasi pengelola) dan bidang solid di bawahnya. Tidak ada warna baru; semua warna berasal dari token di atas. Komponen bersama ada di `core/design/CanopyKit.kt`: `farmPressable` (skala tekan 0,97 atau 0,98 dengan spring, angkat 2 dp saat hover), `farmStaggerEntrance` (sekali per proses), `FarmLeafMotif` (garis daun sage), `FarmIconTile`, `FarmStatusChip` (teks tetap tertulis, warna hanya penanda), `FarmHeroCard`, `FarmQuickAction`, `FarmSegmentedTabs`, `FarmChoiceChips` (menggantikan dropdown untuk pilihan pendek; tag wadah ditaruh pada node 1 dp yang inert dan tiap chip bertag `$tag-option-$id`), dan `FarmDockNavigation`. Pengelola memakai dock lima slot: Beranda, Riwayat, Catat (lingkaran sage terangkat, tag `finance-record-fab`), Keuangan, Kelola. Dock berbentuk kapsul 26 dp (`#263F34`, bayangan 2 dp, tinggi minimum 72 dp) dengan pil terpilih `#385442`; tombol Catat 56 dp di dalam cincin 66 dp, naik 26 dp dari bar, dan label dock berhenti membesar setelah skala font 1,3. Pekerja tetap dua tab dan FAB. Angka tidak dianimasikan dan tidak ada animasi tak berhingga. Gerak masuk (`farmStaggerEntrance`: fade dan naik 12 dp, 280 ms, jeda 40 ms per item, item ke-7 dan seterusnya langsung tampil) hanya berjalan sekali per proses per kunci. Tekan memakai spring (redaman 0,7) dengan skala 0,97 untuk tombol dan 0,98 untuk kartu, angkat 2 dp saat hover. Pil tab dan dock bergeser dengan spring lebih tenang (redaman 0,9) dan tidak beranimasi pada tata letak pertama. Konstanta ada di `FarmMotion` (tekan 120 ms, status 200 ms, navigasi 220 ms). Isian tanggal dan jam pengelola memakai `FinanceDateField` dan `FinanceTimeField`: teks tetap bisa diketik, ikon membuka picker Android.
 
 ## Do's and Don'ts
 
@@ -210,3 +292,16 @@ Arah Canopy memakai bidang forest sebagai kanopi di atas (hero login, hero Beran
 - Tampilkan sumber, waktu WIB, dan alasan yang relevan. Gunakan keterangan belum tersedia untuk data kosong dan label penerimaan server untuk operasi yang sudah diterima.
 - Pertahankan skala font pengguna, urutan fokus, inset sistem, dan ruang gulir. Jaga navigasi pekerja tetap dua tab. Jaga navigasi pengelola tetap empat tab dan jangan menambah warna baru untuk aksi Catat atau penanda belum terkirim.
 - Gunakan status dan hasil dari kontrak operasional. Catat hasil render dan verifikasi per perangkat serta konfigurasi di [context frontend](docs/context/README.md).
+- Pertahankan form Canopy pengelola pada `FarmFormFrame`, `FarmFormSection` dan `FarmFormBar` penuh lebar dengan garis atas. Jangan memberi pekerja bingkai itu tanpa keputusan baru (K8).
+- Ganti dropdown pendek dengan `FarmChoiceChips` dan pertahankan tag wadah serta `$tag-option-$id`.
+- Jangan menambah animasi tak berhingga. Gerak masuk berjalan sekali per proses.
+
+## Celah terbuka
+
+Bukti berasal dari emulator API 30 (411 dp) dengan fixture, bukan perangkat fisik ([bukti](docs/context/FRONTEND_CANOPY_EVIDENCE_20261112.md)). Belum ada atau belum terbukti:
+
+- Isian nominal belum menampilkan pemisah ribuan (butuh keputusan karena menyentuh tampilan nilai yang divalidasi); kartu forest 34 sp untuk nominal pengeluaran belum ada.
+- Wizard langkah 2 dan 3 belum terlihat di layar; hanya langkah 1.
+- Form pada mode gelap dan 200% hanya sebagian (pengukuran dan panen 200% ada). Chip Cacat amber pada permukaan gelap belum dilihat. Lebar 360 dp belum diperiksa.
+- Dialog (wizard, admin) memakai bilah sistem gelap pada mode terang (sudah demikian sebelum Canopy). Picker greenhouse dari hero Keuangan berupa dialog forest bahkan pada mode terang.
+- Tombol `Tambah ...` masih garis penuh, bukan garis putus. Baris rincian penjualan masih memakai tombol teks `Hapus rincian N`, bukan `FarmDetailCard`. Tanggal dan jam form kegiatan bertumpuk. Langkah Periksa belum punya baris angka utama dua kolom.

@@ -15,7 +15,7 @@ Rencana: [MASTER_PROMPT_FRONTEND_CANOPY.md](MASTER_PROMPT_FRONTEND_CANOPY.md). B
 | 6 Riwayat dan Cek catatan | `codex/canopy-history` | Selesai, ditinjau reviewer; baris pengelola dengan data terbukti di `mhist-manager-rows.png` (terang, gelap, 200%) |
 | 7 Keuangan dan Kelola | `codex/canopy-finance-manage` | Selesai: hero kas per greenhouse, chip, sheet Alat keuangan bergrup, kartu identitas Kelola |
 | 8 Form | `codex/canopy-forms` | Selesai di kode; bukti layar sebagian (lihat bawah). Ditinjau reviewer; perbaikan di `251a7d7` |
-| 9 Polish | belum | Hanya dokumen ini, `CLAUDE.md` dan `DESIGN.md` |
+| 9 Polish | `codex/canopy-polish` | Sebagian: pemeriksaan kontras (semua pasangan baru lulus, 6,08 sampai 8,56:1), tanpa animasi berulang, `DESIGN.md` diperbarui dari source, uji penuh tanpa regresi. Audit native, TalkBack nyata dan 360 dp tidak dikerjakan |
 
 ## Form pengelola (Fase 8)
 
@@ -39,7 +39,7 @@ Temuan yang diperbaiki saat pengujian: hero kas memotong nominal panjang pada 20
 ## Hasil pemeriksaan (sesi ini)
 
 - Build debug dan test APK, 104 tes JVM, lint: 0 error, 18 warning, 1 hint (baseline 16 warning; sebagian berasal dari peringatan versi dependensi). `python scripts/check-finance-context.py`: tanpa error.
-- `FinanceEntryUiTest` penuh pada `6019e72`: 64 tes, **17 gagal**. Baseline Fase 0b: 15 gagal. Lima belas yang sama masih gagal dengan sebab yang sama. Dua tambahan, keduanya diperbaiki di `251a7d7` dan lulus saat dijalankan sendiri: `workerScheduleEntryHasNoTypeChoice` (guliran terjadi sebelum panel hari ini selesai dimuat; kini menunggu barisnya) dan `glassFrontend…` (menegaskan judul "Penjualan dan penerimaan" yang hilang saat sheet Alat keuangan dibagi grup; kini "Catat dan alokasi"). Setelah `251a7d7` kelas penuh belum dijalankan ulang.
+- `FinanceEntryUiTest` penuh pada pohon final (setelah `701ee5b`): 64 tes, **15 gagal**, persis 15 nama yang sama dengan baseline Fase 0b, sebab yang sama; tidak ada kegagalan baru. Sebelumnya, pada `6019e72`, ada 17 gagal; dua tambahan (`workerScheduleEntryHasNoTypeChoice`: guliran sebelum panel hari ini dimuat, kini menunggu barisnya; `glassFrontend…`: judul "Penjualan dan penerimaan" yang hilang saat sheet dibagi grup, kini "Catat dan alokasi") diperbaiki di `251a7d7`.
 - `FinanceAdminUiTest` (2 tes) lulus. Kelas backend device dilewati (butuh backend dan `devicePhase`).
 
 ## Perubahan pada tes (setara, tidak ada assertion dihapus)
