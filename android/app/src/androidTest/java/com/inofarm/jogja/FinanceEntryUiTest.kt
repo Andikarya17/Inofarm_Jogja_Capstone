@@ -537,11 +537,11 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-password").performScrollTo().performTextReplacement("synthetic-ui-password")
         hideKeyboard();rule.onNodeWithTag("finance-login").performScrollTo().performClick()
         val managerLogin = email.startsWith("manager")
-        readyNode(if (managerLogin) "manager-home-picker" else "finance-context-open")
+        if (managerLogin) readyListNode("manager-add-greenhouse") else readyNode("finance-context-open")
         if (waitForSync) {
             if (managerLogin) {
                 rule.waitUntil(10_000) { runtime().store.lastSyncedAt(runtime().vault.current!!.scope.key) != null }
-                readyNode("manager-greenhouse-$gh")
+                readyListNode("manager-greenhouse-$gh")
                 return
             }
             rule.waitUntil(10_000) { runtime().store.lastSyncedAt(runtime().vault.current!!.scope.key) != null }
@@ -569,6 +569,11 @@ class FinanceEntryUiTest {
         rule.waitUntil(10000) {
             runCatching {rule.onNodeWithTag("finance-history-list").performScrollToNode(hasTestTag(tag))}.isSuccess
         }
+    }
+    /** The Beranda list is lazy, so a node below the fold is composed only after scrolling to it. */
+    private fun readyListNode(tag:String):SemanticsNodeInteraction {
+        rule.waitUntil(15000) {runCatching {rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag(tag))}.isSuccess}
+        return readyNode(tag)
     }
     private fun readyNode(tag:String):SemanticsNodeInteraction {
         rule.waitUntil(10000) {rule.onAllNodesWithTag(tag).fetchSemanticsNodes().size==1}
@@ -684,7 +689,7 @@ class FinanceEntryUiTest {
         readyNode("finance-email").assertTextContains("manager@example.invalid")
         captureWindow("manager-login-error")
         submit.performScrollTo().performClick()
-        readyNode("manager-home-picker").assertIsDisplayed()
+        readyListNode("manager-add-greenhouse").assertIsDisplayed()
         assertEquals(2, managerLogins.get())
         captureWindow("manager-login-success")
     }
@@ -838,7 +843,7 @@ class FinanceEntryUiTest {
         for (index in 0..3) readyNode("finance-tab-$index").assertIsDisplayed()
         rule.onNodeWithTag("finance-tab-4").assertDoesNotExist()
         captureWindow("manager-compact-navigation")
-        readyNode("manager-home-picker").assertIsDisplayed()
+        readyListNode("manager-add-greenhouse").assertIsDisplayed()
     }
 
     @Test fun twoManualCardsKeepLegacyEcUnavailableAtNarrowLargeFont() {
@@ -1145,8 +1150,8 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-new").assertDoesNotExist()
         captureWindow("no-active")
         home.performScrollToIndex(0)
-        readyNode("manager-home-picker").performClick()
-        readyNode("manager-picker-$gh").performScrollTo().performClick()
+        readyNode("manager-home-all").performClick()
+        selectManagerGreenhouse(gh)
         home.performScrollToNode(hasTestTag("measurement-card-ec"))
         readyNode("measurement-card-ppm").assertExists()
         readyText("Belum dicek").assertExists()
@@ -1200,9 +1205,7 @@ class FinanceEntryUiTest {
         }
         readyText("Ringkasan kebun").assertIsDisplayed()
         rule.onNodeWithText("Greenhouse sintetis 2").assertDoesNotExist()
-        readyNode("manager-home-picker").performClick()
-        rule.onNodeWithTag("manager-picker-$id").assertDoesNotExist()
-        Espresso.pressBack()
+        rule.onNodeWithTag("manager-greenhouse-$id").assertDoesNotExist()
         rejectManagerSession.set(true)
         val sync = readyNode("finance-sync")
         rule.waitUntil(10_000) { runCatching { sync.assertIsEnabled() }.isSuccess }
@@ -1296,10 +1299,7 @@ class FinanceEntryUiTest {
         overviewFixture.set(true)
         managerLogin()
         captureWindow("manager-walk-overview")
-        readyNode("manager-home-picker").performClick()
-        readyNode("manager-picker-all").assertIsSelected()
-        captureWindow("manager-walk-picker")
-        readyNode("manager-picker-$gh").performScrollTo().performClick()
+        selectManagerGreenhouse(gh)
         val home = readyNode("finance-home-list")
         home.performScrollToNode(hasTestTag("manager-period-history"))
         captureWindow("manager-walk-greenhouse")
@@ -1459,6 +1459,7 @@ class FinanceEntryUiTest {
         captureSecondary("harvest-review")
         rule.onNodeWithTag("harvest-queue").performScrollTo().performClick()
         rule.openWorkerHarvestHistory()
+        rule.waitForIdle()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Belum terkirim").fetchSemanticsNodes().isNotEmpty()};assertEquals(0,harvestPosts.get())
         rule.onNodeWithText("10 buah · 15,25 kg", substring=true).assertIsDisplayed()
         captureSecondary("harvest")

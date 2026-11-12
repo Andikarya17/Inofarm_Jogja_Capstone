@@ -89,11 +89,11 @@ private val playedEntrances = HashSet<Any>()
     val immediate = index > 5 || key in playedEntrances
     val progress = remember { Animatable(if (immediate) 1f else 0f) }
     LaunchedEffect(Unit) {
+        playedEntrances.add(key)
         if (progress.value < 1f) {
             delay(index * step.toLong())
-            playedEntrances.add(key)
             progress.animateTo(1f, tween(FarmMotion.Entrance))
-        } else playedEntrances.add(key)
+        }
     }
     return graphicsLayer {
         alpha = progress.value
@@ -145,7 +145,7 @@ private val playedEntrances = HashSet<Any>()
 
 /** Forest surface with the leaf motif in a corner. Content is drawn with the forest colour scheme in both themes. */
 @Composable internal fun FarmHeroCard(
-    modifier: Modifier = Modifier, motifShift: Float = 0f, content: @Composable ColumnScope.() -> Unit
+    modifier: Modifier = Modifier, motifShift: Float = 0f, motifAlpha: Float = 0.28f, content: @Composable ColumnScope.() -> Unit
 ) {
     val dark = isSystemInDarkTheme()
     MaterialTheme(colorScheme = ForestScheme, typography = MaterialTheme.typography) {
@@ -153,7 +153,7 @@ private val playedEntrances = HashSet<Any>()
             color = if (dark) ForestTile else ForestScheme.background, contentColor = ForestScheme.onBackground,
             border = if (dark) BorderStroke(1.dp, ForestScheme.outlineVariant) else null) {
             Box {
-                FarmLeafMotif(Modifier.matchParentSize(), shift = motifShift)
+                FarmLeafMotif(Modifier.matchParentSize(), shift = motifShift, alpha = motifAlpha)
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium), content = content)
             }
         }
@@ -162,10 +162,10 @@ private val playedEntrances = HashSet<Any>()
 
 @Composable internal fun FarmQuickAction(
     icon: FarmIcon, label: String, onClick: () -> Unit, modifier: Modifier = Modifier,
-    badge: Int? = null, enabled: Boolean = true
+    badge: Int? = null, badgeNote: String = "", enabled: Boolean = true
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val described = if (badge != null && badge > 0) "$label, $badge" else label
+    val described = if (badge != null && badge > 0) "$label, ${badgeText(badge)} $badgeNote".trim() else label
     Column(
         modifier.farmPressable(interaction, FarmMotion.PressScaleCard, FarmShape.Card)
             .clickable(interaction, null, enabled = enabled, role = Role.Button, onClick = onClick)

@@ -29,7 +29,7 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("finance-email").performScrollTo().performTextReplacement(f.getString("${role}_email"))
         rule.onNodeWithTag("finance-password").performScrollTo().performTextReplacement(f.getString("password"))
         hideKeyboard();rule.onNodeWithTag("finance-login").performScrollTo().performClick()
-        val landing = if (role == "manager") "manager-home-picker" else "finance-context-open"
+        val landing = if (role == "manager") "manager-add-greenhouse" else "finance-context-open"
         rule.waitUntil(15000) {rule.onAllNodesWithTag(landing).fetchSemanticsNodes().isNotEmpty()}
         rule.waitForFinanceMasterPull()
     }

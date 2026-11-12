@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -64,6 +66,8 @@ internal fun ManagerHomeScreen(
     onReviewInbox: () -> Unit = {},
     onAddGreenhouse: () -> Unit = {},
     onAdminFor: (AdminResource, Boolean) -> Unit = { _, _ -> },
+    onHarvestProgress: () -> Unit = {},
+    onSeasonReport: () -> Unit = {},
 ) {
     val snapshot = state.snapshot
     val selected = snapshot?.selected
@@ -82,12 +86,15 @@ internal fun ManagerHomeScreen(
     val periodId = period?.text("season_id")
     val queued = queue.firstOrNull { it.state in setOf("CONFLICT", "REJECTED", "AUTH_REQUIRED", "SCOPE_REVOKED", "EPOCH_REVIEW") }
 
+    var pulled by remember { mutableStateOf(false) }
+    LaunchedEffect(state.loading) { if (!state.loading) pulled = false }
+    PullToRefreshBox(isRefreshing = pulled && state.loading, onRefresh = { pulled = true; onRefresh() }, modifier = Modifier.fillMaxSize()) {
     LazyColumn(
         Modifier.fillMaxSize().graphicsLayer { alpha = appearance.value }.testTag("finance-home-list"),
         state = if (snapshot == null) placeholderList else list,
         contentPadding = padding, verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium),
     ) {
-        item("scope") {
+        if (selection != null) item("scope") {
             FarmMenuHeader(if (selection == null) "Semua greenhouse" else selected?.text("name") ?: "Greenhouse",
                 dateLabel((snapshot?.day ?: today).toString()) + " WIB", contextual = true) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
@@ -97,12 +104,6 @@ internal fun ManagerHomeScreen(
                     }
                     if (selection != null) TextButton(onClick = { onSelect(null) }, shape = FarmShape.Control,
                         modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-home-all")) { Text("Semua greenhouse") }
-                    if (selection == null) OutlinedButton(onClick = onAddGreenhouse, shape = FarmShape.Control,
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-add-greenhouse")) {
-                        FarmControlIcon(FarmIcon.Add, null)
-                        Spacer(Modifier.width(FarmSpace.Small))
-                        Text("Tambah greenhouse")
-                    }
                 }
                 if (snapshot != null) Text(
                     if (state.cached) "Data tersimpan · ${timeLabel(snapshot.asOf.toString())}"
@@ -127,40 +128,32 @@ internal fun ManagerHomeScreen(
                 TextButton(onClick = onRefresh, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Perbarui") }
             }
         }
+        if (selection == null) {
+            if (snapshot != null) item("cash-hero") {
+                CashHero(snapshot, when {
+                    state.cached -> "Data tersimpan · ${timeLabel(snapshot.asOf.toString())}"
+                    else -> "Diperbarui ${snapshot.asOf.atZone(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH:mm 'WIB'"))}"
+                }, state.loading, onOpen)
+            }
+            item("shortcuts") { HomeShortcuts(reviewCount, onReviewInbox, onAddGreenhouse, onHarvestProgress, onSeasonReport) }
+        }
         if (snapshot == null) {
             if (state.loading) item("loading") { FarmPanel { Text("Memuat ringkasan greenhouse…") } }
         } else if (selection == null) {
-            if (reviewCount == null) item("review-inbox") {
-                OutlinedButton(onClick = onReviewInbox, shape = FarmShape.Control,
-                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-review-inbox")) { Text("Cek catatan pekerja") }
-            } else if (reviewCount > 0) item("review-inbox") {
-                FarmPanel {
-                    Text("${if (reviewCount >= 50) "50+" else reviewCount.toString()} catatan pekerja perlu dicek",
-                        Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
-                    Button(onClick = onReviewInbox, shape = FarmShape.Control,
-                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("manager-review-inbox")) { Text("Buka daftar") }
+            if (reviewCount != null && reviewCount > 0) item("review-inbox") { ReviewCard(reviewCount, onReviewInbox) }
+            item("greenhouse-title") {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { SectionTitle("Greenhouse") }
+                    Text("${snapshot.cards.size} greenhouse", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            item("greenhouse-title") { SectionTitle("Greenhouse") }
             if (snapshot.cards.isEmpty()) item("empty") { FarmPanel { Text("Belum ada greenhouse. Tambah greenhouse pertama.") } }
-            items(snapshot.cards, key = { it.getString("id") }) { card ->
-                FarmRecordCard(Modifier.testTag("manager-greenhouse-${card.getString("id")}"), onOpen = { onSelect(card.getString("id")) }) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                        Text(card.getString("name"), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                        FarmControlIcon(FarmIcon.ChevronRight, null)
-                    }
-                    PeriodFacts(card.getJSONObject("period"), expanded = false)
-                    Caption(card.text("last_operational_at")?.let { "Catatan terakhir ${timeLabel(it)}" } ?: "Belum ada catatan operasional")
-                    card.optJSONObject("harvest")?.let { harvest ->
-                        val kg = harvest.getString("weight_kg").toBigDecimal().stripTrailingZeros().toPlainString()
-                        Caption("Panen tanam saat ini ·${harvest.getLong("fruit_count")} buah · $kg kg")
-                    }
-                }
-            }
-            if (snapshot.cards.any { it.optBoolean("active") }) item("record-scope") {
-                OutlinedButton(onClick = { picker = true }, shape = FarmShape.Control,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch)) { Text("Pilih greenhouse untuk mencatat") }
+            val outsideFor = snapshot.json.rows("attention").filter {
+                !state.cached && validToday && it.text("type") == "measurement_outside_range"
+            }.map { it.getString("greenhouse_id") }.toSet()
+            itemsIndexed(snapshot.cards, key = { _, card -> card.getString("id") }) { index, card ->
+                GreenhouseCard(card, index, card.getString("id") in outsideFor) { onSelect(card.getString("id")) }
             }
         } else if (selected != null) {
             item("hub-sections") { HubSections(section) { section = it } }
@@ -262,7 +255,7 @@ internal fun ManagerHomeScreen(
         if ((findings.isNotEmpty() || queued != null) && (selection == null || section == "summary")) {
             item("attention") { SectionTitle("Perlu perhatian") }
             if (queued != null) item("local-queue") {
-                FarmPanel(title = "Belum terkirim") {
+                AttentionCard("Belum terkirim") {
                     Caption(queued.error?.text("message") ?: "Ada catatan yang perlu dicek.")
                     TextButton(onClick = { onQueue(queued) }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat rinciannya") }
                 }
@@ -276,7 +269,7 @@ internal fun ManagerHomeScreen(
                     outside -> "PPM di luar acuan"
                     else -> "Belum ada pengukuran tercatat hari ini"
                 }
-                FarmPanel(title = title) {
+                AttentionCard(title) {
                     Caption("${finding.getString("greenhouse_name")} · ${timeLabel(finding.getString("checked_at"))}")
                     if (outside) {
                         val target = finding.getJSONObject("target")
@@ -303,47 +296,24 @@ internal fun ManagerHomeScreen(
         }
         if (snapshot != null) {
             if (selection == null || section in setOf("activity", "harvest")) item("recent") {
-                FarmPanel(title = "Catatan terbaru") {
-                    val recent = snapshot.json.rows("recent").filter {
-                        selection == null || (section == "harvest") == (it.text("kind") == "harvest")
-                    }
-                    if (snapshot.json.isNull("recent")) Caption("Catatan terbaru belum dapat dibaca lengkap.")
-                    else if (recent.isEmpty()) Caption("Belum ada catatan.")
-                    recent.forEach { record ->
-                        val type = record.text("activity_type")
-                        val kind = if (record.text("kind") == "harvest") OperationalKind.HARVEST else OperationalKind.ACTIVITY
-                        val gh = record.getString("greenhouse_id")
-                        val at = record.getString("occurred_at")
-                        val received = record.getString("received_at")
-                        val label = if (kind == OperationalKind.HARVEST) "Panen" else ActivityType.entries.find { it.wire == type }?.label ?: "Kegiatan"
-                        TextButton(onClick = {
-                            val date = Instant.parse(at).atZone(ActivityDraft.WIB).toLocalDate().toString()
-                            onOpen(HomeDestination(kind, LocalHistoryFilter(greenhouseId = gh, groupId = record.text("group_id"),
-                                type = type, from = date, until = date, recordState = "active"), record.getString("id"), record.text("season_id")))
-                        }, modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch), shape = FarmShape.Control,
-                            contentPadding = PaddingValues(horizontal = FarmSpace.Small, vertical = FarmSpace.Small)) {
-                            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
-                                Text(label, style = MaterialTheme.typography.titleMedium)
-                                Caption(listOfNotNull(names[gh], record.text("recorded_by_name") ?: "Pencatat belum tersedia").joinToString(" · "))
-                                Caption(timeLabel(at))
-                                if (java.time.Duration.between(Instant.parse(at), Instant.parse(received)).toHours() >= 1)
-                                    Caption("Terkirim ${timeLabel(received)}")
-                            }
-                        }
-                        HorizontalDivider()
-                    }
-                    if (selection == null) FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                        TextButton(onClick = { onOpen(HomeDestination(OperationalKind.ACTIVITY, activities, seasonLabelId = periodId)) },
-                            modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat semua kegiatan") }
-                        TextButton(onClick = { onOpen(HomeDestination(OperationalKind.HARVEST, activities, seasonLabelId = periodId)) },
-                            modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat semua panen") }
-                    }
+                val recent = snapshot.json.rows("recent").filter {
+                    selection == null || (section == "harvest") == (it.text("kind") == "harvest")
                 }
+                RecentRecords(recent, snapshot.json.isNull("recent"), names, selection == null, onOpen = { record ->
+                    val type = record.text("activity_type")
+                    val kind = if (record.text("kind") == "harvest") OperationalKind.HARVEST else OperationalKind.ACTIVITY
+                    val date = Instant.parse(record.getString("occurred_at")).atZone(ActivityDraft.WIB).toLocalDate().toString()
+                    onOpen(HomeDestination(kind, LocalHistoryFilter(greenhouseId = record.getString("greenhouse_id"),
+                        groupId = record.text("group_id"), type = type, from = date, until = date, recordState = "active"),
+                        record.getString("id"), record.text("season_id")))
+                }, onAllActivities = { onOpen(HomeDestination(OperationalKind.ACTIVITY, activities, seasonLabelId = periodId)) },
+                    onAllHarvests = { onOpen(HomeDestination(OperationalKind.HARVEST, activities, seasonLabelId = periodId)) })
             }
-            if (selection == null || section in setOf("summary", "finance")) item("cash") { CashSummary(snapshot, onOpen) }
+            if (selection != null && section in setOf("summary", "finance")) item("cash") { CashSummary(snapshot, onOpen) }
         }
     }
 
+    }
     if (picker) FarmPicker(
         title = "Pilih greenhouse",
         options = listOf(FarmOption("", "Semua greenhouse")) + snapshot?.choices.orEmpty().map {

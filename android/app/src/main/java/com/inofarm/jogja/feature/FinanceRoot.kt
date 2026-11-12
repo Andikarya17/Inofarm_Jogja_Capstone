@@ -693,7 +693,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         }
     }) { padding ->
         val menuViewport = showNavigation && !writing
-        if (menuViewport && tab == 0 && manager) BotanicalBackdrop(R.drawable.background_dashboard, accentHeight = 152.dp)
         val systemBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val contentPadding = if (translucentNavigation) {
             PaddingValues(start = padding.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current),
@@ -752,7 +751,13 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         reviewCount = reviewCount,
                         onReviewInbox = { reviewActivity = null; tab = 1 },
                         onAddGreenhouse = onAddGreenhouse,
-                        onAdminFor = { resource, edit -> onAdmin(resource); onAdminGreenhouse(gh, edit) })
+                        onAdminFor = { resource, edit -> onAdmin(resource); onAdminGreenhouse(gh, edit) },
+                        onHarvestProgress = {
+                            harvestProgressGreenhouse = gh
+                            harvestProgressGroup = runningGroup
+                            harvestProgressOpen = true
+                        },
+                        onSeasonReport = { reports.vm.show("") })
                 }
                 tab==0 && correctionsOpen -> WorkerCorrectionsScreen(workerCorrections, context, onOpen = { row ->
                     if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
@@ -907,7 +912,7 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
     val manager = session.role == UserRole.MANAGER
     val largeFont = LocalDensity.current.fontScale > 1.3f
     // At large fonts the worker's toolbar already holds two icons, so the unsent button moves to its own row.
-    val stackUnsent = !manager && largeFont && unsent > 0
+    val stackUnsent = largeFont && unsent > 0
     val amber = farmToneColors(FarmTone.Amber).second
     val unsentButton: @Composable () -> Unit = {
         if (manager) OutlinedButton(onClick = onUnsent, shape = FarmShape.Control,

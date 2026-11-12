@@ -6,6 +6,7 @@ import com.inofarm.jogja.core.design.cashShare
 import com.inofarm.jogja.core.design.dateLabel
 import com.inofarm.jogja.core.design.greetingForWib
 import com.inofarm.jogja.core.design.initialsOf
+import com.inofarm.jogja.core.design.wholeRupiah
 import java.math.BigDecimal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -60,5 +61,10 @@ class CanopyLogicTest {
     @Test fun dateLabelIsIndonesian() {
         assertEquals("Rabu, 11 Nov 2026", dateLabel(java.time.LocalDate.of(2026, 11, 11)))
         assertEquals("Minggu, 1 Mar 2026", dateLabel(java.time.LocalDate.of(2026, 3, 1)))
+    }
+
+    @Test fun wholeRupiahOnlyDropsZeroFraction() {
+        assertEquals("Rp300.000", wholeRupiah("Rp300.000,00"))
+        assertEquals("Rp1.250,50", wholeRupiah("Rp1.250,50"))
     }
 }

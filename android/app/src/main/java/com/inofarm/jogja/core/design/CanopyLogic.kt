@@ -27,6 +27,9 @@ internal fun ageFigure(hst: Int?, hss: Int?): Pair<Int, String>? = when {
     else -> null
 }
 
+/** Hero amounts drop a ",00" fraction; any other fraction stays exact. Display only. */
+internal fun wholeRupiah(label: String): String = label.removeSuffix(",00")
+
 /** Badge text for the quick-action count; counts of 50 or more read "50+". */
 internal fun badgeText(count: Int): String = if (count >= 50) "50+" else count.toString()
 

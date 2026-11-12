@@ -47,6 +47,7 @@ internal fun FinanceTestRule.openFinanceOutbox() {
 internal fun FinanceTestRule.sendQueuedNow() {
     if (onAllNodesWithTag("finance-unsent").fetchSemanticsNodes().isEmpty()) return
     openFinanceOutbox()
+    waitForIdle()
     onNodeWithTag("queue-send-now").performClick()
     if (onAllNodesWithTag("finance-queue-list").fetchSemanticsNodes().isNotEmpty()) androidx.test.espresso.Espresso.pressBack()
 }
