@@ -85,7 +85,7 @@ internal fun FinanceTestRule.openHomeContext() {
             val tag = it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)
             tag != null && tag.startsWith("worker-greenhouse-") && tag != "worker-greenhouse-overview"
         }
-        onNodeWithTag("finance-home-list").performScrollToNode(card)
+        waitUntil(15_000) { runCatching { onNodeWithTag("finance-home-list").performScrollToNode(card) }.isSuccess }
         onAllNodes(card).onFirst().performClick()
     }
     onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("finance-context-open"))

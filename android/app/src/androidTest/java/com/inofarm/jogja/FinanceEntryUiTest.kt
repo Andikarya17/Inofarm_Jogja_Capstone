@@ -364,7 +364,7 @@ class FinanceEntryUiTest {
         }
         readyNode("finance-time").performScrollTo().assertTextContains("07:26:41")
         readyNode("finance-ec").performScrollTo().assertTextContains("1,25")
-        readyNode("finance-save-draft").performScrollTo().assertIsEnabled().performClick()
+        readyNode("finance-save-draft").scrollIfScrollable().assertIsEnabled().performClick()
         rule.onNodeWithTag("finance-unsent").assertDoesNotExist()
         rule.selectFinanceTab(1)
         readyText("Draf · tersimpan di perangkat").assertExists()
@@ -482,10 +482,12 @@ class FinanceEntryUiTest {
     @Test fun workerActivityFormNeverOffersMeasurementAndScheduleLocksTheType() {
         chooseContext()
         captureSecondary("worker-form-activity")
-        readyNode("finance-type").performClick()
+        // The type is a row of chips now, so the options are on screen without opening anything.
+        readyNode("finance-type")
+        rule.onNodeWithTag("finance-type-option-nutrition").assertExists()
+        rule.onAllNodesWithTag("finance-type-option-measurement").assertCountEquals(0)
         rule.onAllNodesWithText("Pengukuran manual").assertCountEquals(0)
-        Espresso.pressBack()
-        readyNode("finance-save-draft").performScrollTo().assertTextContains("Simpan sebagai draf")
+        readyNode("finance-save-draft").scrollIfScrollable().assertTextContains("Simpan sebagai draf")
         Espresso.pressBack()
         rule.activityRule.scenario.recreate()
     }
@@ -514,11 +516,11 @@ class FinanceEntryUiTest {
         captureSecondary("worker-form-correction")
         rule.onNodeWithTag("finance-reference-policy").assertDoesNotExist()
         rule.onNodeWithTag("finance-type").assertDoesNotExist()
-        readyNode("finance-save-draft").performScrollTo().assertTextContains("Simpan sebagai draf")
+        readyNode("finance-save-draft").scrollIfScrollable().assertTextContains("Simpan sebagai draf")
         readyNode("finance-reason").performScrollTo().performTextReplacement("Salah ketik keterangan")
         hideKeyboard()
         rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
-        readyNode("finance-queue").performScrollTo().assertTextContains("Kirim")
+        readyNode("finance-queue").scrollIfScrollable().assertTextContains("Kirim")
         rule.onAllNodesWithText("Acuan", substring = true).assertCountEquals(0)
         rule.onAllNodesWithText("versi", substring = true, ignoreCase = true).assertCountEquals(0)
     }
@@ -760,9 +762,9 @@ class FinanceEntryUiTest {
         Espresso.pressBack()
         capture("worker-home")
         gfxInfo("reset")
+        // The context sheet opens from a greenhouse card now, so the greenhouse is already chosen and its season and group are listed.
         rule.openHomeContext()
-        rule.onNodeWithTag("finance-season").assertDoesNotExist()
-        rule.onNodeWithTag("finance-group").assertDoesNotExist()
+        rule.onNodeWithTag("finance-season").assertExists()
         choose("finance-gh", gh)
         rule.openHomeContext()
         rule.onNodeWithTag("finance-season").assertTextContains("Musim UI sintetis", substring = true)
@@ -1518,7 +1520,7 @@ class FinanceEntryUiTest {
         fun content(narrow:Boolean) {rule.runOnUiThread {val runtime=ViewModelProvider(rule.activity)[FinanceRuntime::class.java];val density=rule.activity.resources.displayMetrics.density
             rule.activity.setContent {CompositionLocalProvider(LocalDensity provides Density(density,2f)) {InofarmTheme {Box(Modifier.fillMaxSize()) {Box((if(narrow) Modifier.width(320.dp) else Modifier.fillMaxWidth()).fillMaxHeight()) {FinanceRoot(runtime)}}}}}
         };rule.waitForIdle()}
-        fun capture(name:String) {val bitmap=rule.onRoot().captureToImage().asAndroidBitmap();File(rule.activity.getExternalFilesDir(null),name).outputStream().use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}}
+        fun capture(name:String) {val bitmap=rule.onAllNodes(isRoot()).onFirst().captureToImage().asAndroidBitmap();File(rule.activity.getExternalFilesDir(null),name).outputStream().use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}}
         content(true);rule.onNodeWithTag("harvest-weight-0").performScrollTo().performTextReplacement("belum selesai")
         Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("harvest-save-draft").scrollIfScrollable();capture("finance-harvest-narrow-ime.png")
         rule.onNodeWithTag("harvest-save-draft").assertIsDisplayed();hideKeyboard()

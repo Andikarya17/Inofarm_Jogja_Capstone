@@ -4,6 +4,7 @@ import com.inofarm.jogja.feature.context.HomeRank
 import com.inofarm.jogja.feature.context.PpmPosition
 import com.inofarm.jogja.feature.context.daySession
 import com.inofarm.jogja.feature.context.orderForHome
+import com.inofarm.jogja.feature.context.ppmBounds
 import com.inofarm.jogja.feature.context.ppmPosition
 import com.inofarm.jogja.feature.context.taskTitle
 import org.junit.Assert.assertEquals
@@ -44,5 +45,11 @@ class WorkerHomeLogicTest {
             HomeRank(true, true, 0, false, "alfa"),
         )
         assertEquals(listOf("alfa", "Zeta", "Selesai A", "Tanpa tanam", "Nonaktif"), orderForHome(rows) { it }.map { it.name })
+    }
+
+    @Test fun boundsComeFromARangeOrASingleValueWithToleranceOnly() {
+        assertEquals(java.math.BigDecimal("1300") to java.math.BigDecimal("1500"), ppmBounds("1300", "1500", null, null))
+        assertEquals(java.math.BigDecimal("1350") to java.math.BigDecimal("1450"), ppmBounds(null, null, "1400", "50"))
+        assertEquals(null, ppmBounds(null, null, "1400", null))
     }
 }

@@ -58,15 +58,18 @@ internal data class WorkerHomeState(val days: List<GreenhouseDay>?, val failed: 
 
 private val clockFormat = DateTimeFormatter.ofPattern("HH.mm")
 
+/** The target for [parameter] that applies to [group] at [at], or null when the manager set none for that time. */
+internal fun applicableTarget(targets: List<JSONObject>, group: String, parameter: String, at: Instant): JSONObject? = targets.firstOrNull { t ->
+    t.optString("planting_group_id") == group && t.optBoolean("active", true) &&
+        t.optString("parameter") == parameter && t.optString("activity_type") == ActivityType.MEASUREMENT.wire &&
+        runCatching {
+            !at.isBefore(OffsetDateTime.parse(t.getString("effective_from")).toInstant()) &&
+                (t.isNull("effective_until") || at.isBefore(OffsetDateTime.parse(t.getString("effective_until")).toInstant()))
+        }.getOrDefault(false)
+}
+
 private fun measurementPosition(targets: List<JSONObject>, group: String, m: ManualMeasurement): PpmPosition {
-    val target = targets.firstOrNull { t ->
-        t.optString("planting_group_id") == group && t.optBoolean("active", true) &&
-            t.optString("parameter") == "manual_ppm" && t.optString("activity_type") == ActivityType.MEASUREMENT.wire &&
-            runCatching {
-                !m.at.isBefore(OffsetDateTime.parse(t.getString("effective_from")).toInstant()) &&
-                    (t.isNull("effective_until") || m.at.isBefore(OffsetDateTime.parse(t.getString("effective_until")).toInstant()))
-            }.getOrDefault(false)
-    } ?: return PpmPosition.UNKNOWN
+    val target = applicableTarget(targets, group, "manual_ppm", m.at) ?: return PpmPosition.UNKNOWN
     fun text(key: String) = target.takeUnless { it.isNull(key) }?.optString(key)
     return ppmPosition(text("minimum"), text("maximum"), text("target_value"), text("tolerance"), m.ppm)
 }

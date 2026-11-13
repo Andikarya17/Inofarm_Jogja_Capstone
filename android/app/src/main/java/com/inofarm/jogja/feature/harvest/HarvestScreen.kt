@@ -43,16 +43,7 @@ import java.math.BigDecimal
         LaunchedEffect(policy, draft.referencePolicy) { if (draft.referencePolicy != policy) vm.edit { it.copy(referencePolicy = policy) } }
     }
     val title = if (draft.baseVersion == null) "Catat panen" else "Koreksi panen"
-    if (worker) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-            com.inofarm.jogja.core.design.FarmPageTitle(title)
-            FarmDraftStatus(state.saved)
-            HarvestFormBody(state, context, vm, draft, group, worker = true)
-            Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("harvest-review")) {Text("Periksa panen")}
-            OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,
-                modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("harvest-save-draft")) {Text("Simpan sebagai draf")}
-        }
-    } else {
+    run {
         val age = runCatching {
             if (group == null) null else PlantAge.calculate(group.getString("sowing_date"),
                 if (group.isNull("transplant_date")) null else group.getString("transplant_date"), draft.occurredAt())
@@ -60,11 +51,12 @@ import java.math.BigDecimal
         val figure = ageFigure(age?.hst?.toString()?.toIntOrNull(), age?.hss?.toString()?.toIntOrNull())
         FarmFormFrame(
             header = { FarmFormHeader(title, state.saved, "harvest-draft-status", "harvest-close", vm::saveAndClose, !state.busy) },
-            bar = { FarmFormBar("harvest-save-draft", vm::saveAndClose, "harvest-review", "Periksa", vm::review, enabled = !state.busy) }
+            bar = { FarmFormBar("harvest-save-draft", vm::saveAndClose, "harvest-review", "Periksa", vm::review, enabled = !state.busy,
+                saveLabel = if (worker) "Simpan sebagai draf" else "Simpan draf") }
         ) {
             FarmContextStrip(context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan",
                 group?.optString("name"), figure?.let { (value, unit) -> "$unit $value" })
-            HarvestFormBody(state, context, vm, draft, group, worker = false)
+            HarvestFormBody(state, context, vm, draft, group, worker = worker)
         }
     }
 }
@@ -75,8 +67,15 @@ import java.math.BigDecimal
 
 /** Fields shared by the worker and manager layouts. Only the manager layout (canopy) changes shape; the worker body is as before. */
 @Composable private fun ColumnScope.HarvestFormBody(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel,draft:HarvestDraft,group:JSONObject?,worker:Boolean) {
-    val canopy = !worker
+    val canopy = true
     val grades=context.grades.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optBoolean("active",true)}
+    if (worker && draft.baseVersion != null) {
+        // The correction reason comes first so nobody scrolls past it.
+        HarvestFormGroup(canopy, "Alasan koreksi") {
+            FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"harvest-reason",state.errors["reason"],singleLine=false)
+            if (draft.referencePolicy == "preserve") FarmInfoCard { Text("Waktu panen tidak berubah, acuan lama dipakai otomatis.") }
+        }
+    }
     HarvestFormGroup(canopy, "Waktu dan kelompok") {
         if (worker) {
             WorkerEventTime(context, draft.greenhouseId, draft.groupId, draft.date, draft.time,
@@ -136,7 +135,7 @@ import java.math.BigDecimal
     }
     if (canopy) FarmFormSection("Keterangan") { notes() } else notes()
     if(draft.baseVersion!=null) {
-        FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"harvest-reason",state.errors["reason"],singleLine=false)
+        if (!worker) FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"harvest-reason",state.errors["reason"],singleLine=false)
         if(!worker) Choice("Acuan koreksi",draft.referencePolicy,listOf(org.json.JSONObject().put("id","preserve").put("name","Pertahankan tanggal/grade historis"),org.json.JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"harvest-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
     }
     if(!worker && (draft.baseVersion==null || draft.referencePolicy=="refresh")) {
@@ -168,14 +167,14 @@ import java.math.BigDecimal
         }
         return
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        com.inofarm.jogja.core.design.FarmPageTitle("Periksa panen")
-        FarmSection(title = "Waktu dan kelompok") { HarvestReviewTime(draft, context) }
-        FarmPanel(title = "Hasil per grade") { HarvestReviewResults(draft, context) }
+    val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
+    FarmReviewFrame("panen", "$greenhouse · ${whenLabel(draft.date, draft.time)}", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue,
+        mainLabel = "Kirim", hint = "Pastikan isinya benar. Setelah dikirim, catatan terkirim otomatis saat ada internet.") {
+        FarmFormSection("Waktu dan kelompok") { HarvestReviewTime(draft, context, readable = true) }
+        FarmFormSection("Hasil per grade") { HarvestReviewResults(draft, context) }
         if(draft.replaceValidationRejected) Notice("Panen yang ditolak diganti dengan catatan ini. Catatan lama tetap ada di riwayat.")
-        if (worker && draft.baseVersion != null) Notice("Hasil panen yang sudah dijual perlu dicek pengelola sebelum diubah.")
-        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("harvest-queue")) {Text(if(busy) "Menyimpan…" else if(worker) "Kirim" else "Simpan")}
-        OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {Text("Kembali ke isian")}
+        if (draft.baseVersion != null) Notice("Hasil panen yang sudah dijual perlu dicek pengelola sebelum diubah.")
+        FarmInfoCard { Text("Muncul di Riwayat dengan label Belum terkirim sampai diterima, lalu menunggu cek pengelola.") }
     }
 }
 

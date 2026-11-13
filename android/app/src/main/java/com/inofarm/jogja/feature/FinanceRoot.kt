@@ -661,6 +661,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val translucentNavigation = false
     val wibNow = remember { java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Jakarta")) }
     val managerBar: ManagerBar? = if (!manager) when {
+        activity.draft != null || harvest.draft != null -> null
         tab == 0 && !correctionsOpen && !harvestProgressOpen && selectedGreenhouse == null -> ManagerBar("${greetingForWib(wibNow.hour, wibNow.minute)}, ${session.name.trim().substringBefore(' ')}",
             dateLabel(wibNow.toLocalDate()), null)
         tab == 0 && correctionsOpen -> ManagerBar("Perlu diperbaiki", null, { correctionsOpen = false }, "Kembali ke Beranda")
@@ -1043,16 +1044,7 @@ internal fun ExpiredSessionNotice() {
         draft.type == ActivityType.MEASUREMENT -> "Catat pengukuran"
         else -> "Catat kegiatan"
     }
-    if (worker) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-            FarmPageTitle(title)
-            FarmDraftStatus(state.saved, Modifier.testTag("finance-draft-status"))
-            ActivityFormBody(state, context, vm, draft, worker = true)
-            Button(onClick=vm::review,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-review")) {Text("Periksa catatan")}
-            OutlinedButton(onClick=vm::saveAndClose,enabled=!state.busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-save-draft")) {Text("Simpan sebagai draf")}
-            Spacer(Modifier.height(16.dp))
-        }
-    } else {
+    run {
         val groupData = context.groups.find { it.optString("id") == draft.groupId }
         val age = runCatching {
             if (groupData == null) null else PlantAge.calculate(groupData.getString("sowing_date"),
@@ -1061,11 +1053,12 @@ internal fun ExpiredSessionNotice() {
         val figure = ageFigure(age?.hst?.toString()?.toIntOrNull(), age?.hss?.toString()?.toIntOrNull())
         FarmFormFrame(
             header = { FarmFormHeader(title, state.saved, "finance-draft-status", "finance-close", vm::saveAndClose, !state.busy) },
-            bar = { FarmFormBar("finance-save-draft", vm::saveAndClose, "finance-review", "Periksa", vm::review, enabled = !state.busy) }
+            bar = { FarmFormBar("finance-save-draft", vm::saveAndClose, "finance-review", "Periksa", vm::review, enabled = !state.busy,
+                saveLabel = if (worker) "Simpan sebagai draf" else "Simpan draf") }
         ) {
             FarmContextStrip(context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan",
                 groupData?.optString("name"), figure?.let { (value, unit) -> "$unit $value" })
-            ActivityFormBody(state, context, vm, draft, worker = false)
+            ActivityFormBody(state, context, vm, draft, worker = worker)
         }
     }
 }
@@ -1076,8 +1069,15 @@ internal fun ExpiredSessionNotice() {
 
 /** The form fields shared by the worker and manager layouts. Only the manager layout (canopy) changes shape; the worker body is as before. */
 @Composable private fun ColumnScope.ActivityFormBody(state:ActivityUiState,context:CultivationUiState,vm:ActivityViewModel,draft:ActivityDraft,worker:Boolean) {
-    val canopy = !worker
-    ActivityFormGroup(canopy, if (canopy) "Jenis dan waktu" else "Waktu dan kelompok") {
+    val canopy = true
+    if (worker && draft.baseVersion != null) {
+        // The correction reason comes first so nobody scrolls past it.
+        ActivityFormGroup(canopy, "Alasan koreksi") {
+            FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"finance-reason",state.errors["reason"])
+            if (draft.referencePolicy == "preserve") FarmInfoCard { Text("Waktu kejadian tidak berubah, acuan lama dipakai otomatis.") }
+        }
+    }
+    ActivityFormGroup(canopy, "Jenis dan waktu") {
         // A schedule, a correction or a measurement fixes the type; a worker's plain activity never offers Pengukuran.
         val typeLocked = worker && (draft.scheduleId != null || draft.baseVersion != null || draft.type == ActivityType.MEASUREMENT)
         val typeOptions = ActivityType.entries.filter { !worker || it != ActivityType.MEASUREMENT }.map { JSONObject().put("id",it.wire).put("name",it.label) }
@@ -1113,7 +1113,7 @@ internal fun ExpiredSessionNotice() {
     }
     if (worker) skippedGroup()
     if(draft.type in setOf(ActivityType.MEASUREMENT,ActivityType.NUTRITION) || draft.ec.isNotBlank() || draft.ppm.isNotBlank() || draft.ph.isNotBlank()) {
-        ActivityFormGroup(canopy, "Hasil ukur aktual") {
+        ActivityFormGroup(canopy, if (worker) "Hasil ukur" else "Hasil ukur aktual") {
             val ecField: @Composable () -> Unit = {
                 FinanceField("EC manual (mS/cm)",draft.ec,{value -> vm.edit {it.copy(ec=value)}},"finance-ec",state.errors["manual_ec"],keyboard=KeyboardType.Decimal,
                     suffix = if (canopy) "mS/cm" else null, prominent = canopy)
@@ -1123,7 +1123,10 @@ internal fun ExpiredSessionNotice() {
                     suffix = if (canopy) "ppm" else null, prominent = canopy)
             }
             if (canopy) FarmFieldPair(ecField, ppmField) else { ecField(); ppmField() }
+            if (worker && draft.type == ActivityType.MEASUREMENT) PpmReferenceWarning(context, draft)
             FinanceField("pH manual (0–14)",draft.ph,{value -> vm.edit {it.copy(ph=value)}},"finance-ph",state.errors["manual_ph"],KeyboardType.Decimal)
+            if (worker && draft.type == ActivityType.MEASUREMENT) Text("EC dan PPM wajib diisi dan tidak dikonversi satu sama lain. Desimal pakai koma.",
+                style = MaterialTheme.typography.bodySmall)
         }
     }
     if(draft.type==ActivityType.STAGE || draft.stage.isNotBlank()) FinanceField("Kondisi stadia aktual",draft.stage,{value -> vm.edit {it.copy(stage=value)}},"finance-stage",state.errors["actual_stage"],hint="Dipilih dari kondisi aktual, bukan umur")
@@ -1156,7 +1159,7 @@ internal fun ExpiredSessionNotice() {
         state.errors["materials"]?.let { Notice(it,true) }
         }
     }
-    if (canopy) skippedGroup()
+    if (!worker) skippedGroup()
     var observationsOpen by rememberSaveable(draft.id) { mutableStateOf(draft.observations.values.any { it.isNotBlank() }) }
     ActivityFormGroup(canopy, "Catatan lapangan") {
         if(draft.type==ActivityType.GENERAL) Text(
@@ -1177,17 +1180,22 @@ internal fun ExpiredSessionNotice() {
             }
             FinanceField(label, draft.observations[field].orEmpty(),
                 { value -> vm.edit { it.copy(observations = it.observations + (field to value)) } },
-                "activity-${field.wire}", state.errors["observations.${field.wire}"], keyboard)
+                "activity-${field.wire}", state.errors["observations.${field.wire}"], keyboard,
+                hint = if (worker && field == ObservationField.SAMPLE_BASIS) "Misalnya 5 tanaman baris tengah, pohon tak berbuah 0" else null)
         }
         }
         FinanceField("Keterangan pekerjaan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"finance-notes",state.errors["notes"],singleLine=false)
     }
     if(draft.baseVersion!=null) {
-        FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"finance-reason",state.errors["reason"])
+        if (!worker) FinanceField(vm.reasonLabel,draft.reason,{value -> vm.edit {it.copy(reason=value)}},"finance-reason",state.errors["reason"])
         if(!worker) Choice("Acuan koreksi",draft.referencePolicy,listOf(JSONObject().put("id","preserve").put("name","Pertahankan tanggal/target historis"),JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"finance-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
     }
-    if(worker) ReferenceCards(context,draft.groupId,draft,worker=true)
-    else if(draft.baseVersion!=null && draft.referencePolicy=="preserve") {
+    if(worker) {
+        if (draft.type in setOf(ActivityType.NUTRITION, ActivityType.SPRAY, ActivityType.MEASUREMENT)) FarmInfoCard {
+            ReferenceCards(context,draft.groupId,draft,worker=true)
+            if (draft.type != ActivityType.MEASUREMENT) Text("Isi jumlah yang benar-benar dipakai, bukan angka anjuran.")
+        }
+    } else if(draft.baseVersion!=null && draft.referencePolicy=="preserve") {
         Notice("Koreksi mempertahankan tanggal dan target historis. Pilih nilai ulang bila acuan memang perlu diperbarui.")
         val historical=state.records.find {it.id==draft.id}?.serverBody?.optJSONObject("reference_snapshot")
         historical?.optJSONObject("age")?.let { age -> Text("HSS acuan: ${if(age.isNull("hss")) "belum tersedia" else age.optString("hss")} · HST acuan: ${if(age.isNull("hst")) "belum berlaku" else age.optString("hst")}") }
@@ -1206,12 +1214,13 @@ internal fun ExpiredSessionNotice() {
         }
         return
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        FarmPageTitle("Periksa catatan")
+    val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
+    FarmReviewFrame(if (draft.type == ActivityType.MEASUREMENT) "pengukuran" else "kegiatan", "$greenhouse · ${whenLabel(draft.date, draft.time)}",
+        FarmIcon.CheckList, busy, "finance-queue", "finance-back", onBack, onQueue, mainLabel = "Kirim",
+        hint = "Pastikan isinya benar. Setelah dikirim, catatan terkirim otomatis saat ada internet.") {
         if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat dan tidak dikirim ulang.")
-        FarmPanel(title = draft.type.label) { ActivityReviewFacts(draft, context) }
-        Button(onClick=onQueue,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("finance-queue")) {Text(if(busy) "Menyimpan…" else if(worker) "Kirim" else "Simpan")}
-        OutlinedButton(onClick=onBack,enabled=!busy,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth()) {Text("Kembali ke isian")}
+        FarmFormSection(draft.type.label) { ActivityReviewFacts(draft, context, readable = true) }
+        FarmInfoCard { Text("Muncul di Riwayat dengan label Belum terkirim sampai diterima, lalu menunggu cek pengelola.") }
     }
 }
 
@@ -1411,4 +1420,27 @@ internal fun ExpiredSessionNotice() {
         sheet = sheet && !dialogOnly,
         loading = loading
     )
+}
+
+
+/** Amber note under the PPM field when the typed value sits outside the reference that applies at the chosen time. */
+@Composable private fun PpmReferenceWarning(context: CultivationUiState, draft: ActivityDraft) {
+    val at = runCatching { OffsetDateTime.parse(draft.occurredAt()).toInstant() }.getOrNull() ?: return
+    val target = com.inofarm.jogja.feature.context.applicableTarget(context.targets, draft.groupId, "manual_ppm", at) ?: return
+    fun text(key: String) = target.takeUnless { it.isNull(key) }?.optString(key)
+    val ppm = draft.ppm.replace(',', '.')
+    val position = com.inofarm.jogja.feature.context.ppmPosition(text("minimum"), text("maximum"), text("target_value"), text("tolerance"), ppm)
+    val bounds = com.inofarm.jogja.feature.context.ppmBounds(text("minimum"), text("maximum"), text("target_value"), text("tolerance")) ?: return
+    val format = java.text.DecimalFormat("#,##0.##", java.text.DecimalFormatSymbols(Locale.forLanguageTag("id-ID")))
+    val message = when (position) {
+        com.inofarm.jogja.feature.context.PpmPosition.BELOW -> "PPM di bawah acuan ${format.format(bounds.first)} ppm. Tetap bisa dikirim."
+        com.inofarm.jogja.feature.context.PpmPosition.ABOVE -> "PPM di atas acuan ${format.format(bounds.second)} ppm. Tetap bisa dikirim."
+        else -> return
+    }
+    val (container, content) = farmToneColors(FarmTone.Amber)
+    Row(Modifier.fillMaxWidth().background(container, FarmShape.Tile).padding(FarmSpace.Medium).semantics { liveRegion = LiveRegionMode.Polite },
+        horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small), verticalAlignment = Alignment.CenterVertically) {
+        CompositionLocalProvider(LocalContentColor provides content) { FarmControlIcon(FarmIcon.AlertTriangle, null) }
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = content)
+    }
 }

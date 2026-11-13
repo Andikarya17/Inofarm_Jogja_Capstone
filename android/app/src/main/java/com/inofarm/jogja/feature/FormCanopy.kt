@@ -136,14 +136,16 @@ internal fun whenLabel(date: String, time: String): String {
 @Composable
 internal fun FarmReviewFrame(
     title: String, subtitle: String, icon: FarmIcon, busy: Boolean, queueTag: String, backTag: String,
-    onBack: () -> Unit, onQueue: () -> Unit, content: @Composable ColumnScope.() -> Unit,
+    onBack: () -> Unit, onQueue: () -> Unit, mainLabel: String = "Simpan",
+    hint: String = "Pastikan isinya benar. Setelah disimpan, catatan dikirim saat ada koneksi.",
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     FarmFormFrame(
         header = {
-            FarmPageTitle("Periksa $title", "Pastikan isinya benar. Setelah disimpan, catatan dikirim saat ada koneksi.")
+            FarmPageTitle("Periksa $title", hint)
             FarmContextStrip(title.replaceFirstChar { it.uppercase() }, subtitle, null, icon)
         },
-        bar = { FarmFormBar(backTag, onBack, queueTag, "Simpan", onQueue, enabled = !busy, mainIcon = true, saveLabel = "Ubah isian") },
+        bar = { FarmFormBar(backTag, onBack, queueTag, mainLabel, onQueue, enabled = !busy, mainIcon = true, saveLabel = "Ubah isian") },
         content = content
     )
 }

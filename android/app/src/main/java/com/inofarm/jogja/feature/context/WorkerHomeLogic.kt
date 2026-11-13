@@ -3,25 +3,19 @@ package com.inofarm.jogja.feature.context
 /** Where the last PPM reading sits against the reference that applied when it was taken. */
 internal enum class PpmPosition { BELOW, ABOVE, WITHIN, UNKNOWN }
 
-/**
- * A range (minimum and maximum) wins. A single value needs a tolerance to say anything;
- * without one the position is unknown, never "within".
- */
-internal fun ppmPosition(minimum: String?, maximum: String?, single: String?, tolerance: String?, ppm: String): PpmPosition {
-    val value = ppm.toBigDecimalOrNull() ?: return PpmPosition.UNKNOWN
+/** Lowest and highest accepted PPM: a range wins; a single value needs a tolerance, otherwise there is no bound. */
+internal fun ppmBounds(minimum: String?, maximum: String?, single: String?, tolerance: String?): Pair<java.math.BigDecimal, java.math.BigDecimal>? {
     val min = minimum?.toBigDecimalOrNull()
     val max = maximum?.toBigDecimalOrNull()
-    val low: java.math.BigDecimal
-    val high: java.math.BigDecimal
-    if (min != null && max != null) {
-        low = min
-        high = max
-    } else {
-        val target = single?.toBigDecimalOrNull() ?: return PpmPosition.UNKNOWN
-        val spread = tolerance?.toBigDecimalOrNull() ?: return PpmPosition.UNKNOWN
-        low = target - spread
-        high = target + spread
-    }
+    if (min != null && max != null) return min to max
+    val target = single?.toBigDecimalOrNull() ?: return null
+    val spread = tolerance?.toBigDecimalOrNull() ?: return null
+    return (target - spread) to (target + spread)
+}
+
+internal fun ppmPosition(minimum: String?, maximum: String?, single: String?, tolerance: String?, ppm: String): PpmPosition {
+    val value = ppm.toBigDecimalOrNull() ?: return PpmPosition.UNKNOWN
+    val (low, high) = ppmBounds(minimum, maximum, single, tolerance) ?: return PpmPosition.UNKNOWN
     return when {
         value < low -> PpmPosition.BELOW
         value > high -> PpmPosition.ABOVE
