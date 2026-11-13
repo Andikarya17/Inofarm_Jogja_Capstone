@@ -892,7 +892,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         kind=if (isActivity) OperationalKind.ACTIVITY else OperationalKind.HARVEST,
                         recordScope=if (manager && canRecordFromHome) listOfNotNull(homeSnapshot?.selected?.text("name"),homeSnapshot?.period?.text("season_name")).joinToString(" · ")
                         else null,
-                        onSync=onSync, canopy = manager,
+                        onSync=onSync, canopy = true,
                         historyKindPicker = if (tab == 5) ({
                             val choose: (String) -> Unit = { id ->
                                 when (id) {
@@ -910,7 +910,13 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 }
                             }
                             if (manager) com.inofarm.jogja.feature.history.CanopyTypeChips(historyChip, choose)
-                            else RecordTypeChips(historyChip, manager, history.mine, choose)
+                            else Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                                RecordTypeChips(historyChip, manager, history.mine, choose)
+                                com.inofarm.jogja.feature.history.WorkerGreenhouseChips(context, history.filter.greenhouseId) { picked ->
+                                    historyVm.filter(history.filter.copy(greenhouseId = picked), history.filterSeason)
+                                    harvestHistoryVm.filter(harvestHistory.filter.copy(greenhouseId = picked), harvestHistory.filterSeason)
+                                }
+                            }
                         }) else null,
                         header = {
                             if (manager && !isActivity) item("harvest-progress-link") {
@@ -1248,12 +1254,23 @@ internal fun ExpiredSessionNotice() {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         FarmPageTitle("Detail ${kind.label}")
         FarmPanel {
-            RecordStatus(record.syncState)
+            if (session.role == UserRole.WORKER) FarmStatusChip(record.syncState.label(), tone = when {
+                record.syncState.needsReview -> FarmTone.Error
+                record.syncState == SyncState.ACCEPTED -> FarmTone.Good
+                else -> FarmTone.Amber
+            }) else RecordStatus(record.syncState)
             RecordFacts(record,session,context,kind)
             record.error?.let { ErrorReasons(it) }
         }
         val own=record.recorderId().let {it.isBlank() || it==session.scope.accountId}
-        if(record.body.optString("record_state")!="cancelled" && (own || session.role==UserRole.MANAGER)) OutlinedButton(onClick=onEdit,modifier=Modifier.fillMaxWidth().testTag("finance-edit")) {Text(if(record.serverVersion==null) "Lanjutkan draf" else "Koreksi catatan")}
+        if(record.body.optString("record_state")!="cancelled" && (own || session.role==UserRole.MANAGER)) {
+            val editLabel = if(record.serverVersion==null) "Lanjutkan draf" else "Koreksi catatan"
+            if (session.role == UserRole.WORKER) {
+                Button(onClick=onEdit,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp).testTag("finance-edit")) {Text(editLabel)}
+                if (record.serverVersion != null) Text("Koreksi membuat revisi baru dan dicek ulang oleh pengelola. Alasan koreksi wajib. Pembatalan hanya bisa dilakukan pengelola.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else OutlinedButton(onClick=onEdit,modifier=Modifier.fillMaxWidth().testTag("finance-edit")) {Text(editLabel)}
+        }
         actions()
         OutlinedButton(onClick=onClose,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch)) {
             Text(if (returnToQueue) "Kembali ke belum terkirim" else "Kembali ke riwayat")

@@ -68,6 +68,8 @@ import java.util.Locale
         state.comparison!=null -> ConflictReview(state.comparison,session,context,state.busy,state.message,vm::resolve,vm::closeComparison,kind)
         state.selected!=null -> HistoryDetail(state.selected,session,context,state,vm,queue,onEdit,kind,returnToQueue)
         else -> FarmMenuList(Modifier.testTag("finance-history-list")) {
+            // A worker picks "Pengukuran" with a chip but other kinds in the filter sheet, so only the chip's type is left out of "filtered".
+            val chipType = canopy && (session.role != UserRole.WORKER || state.filter.type == ActivityType.MEASUREMENT.wire)
             if (!kind.financial && !canopy) item("history-heading") {
                 FarmMenuHeader(kind.label.replaceFirstChar { it.uppercaseChar() }, "")
             }
@@ -78,8 +80,8 @@ import java.util.Locale
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                         Text(historyScope(context, state, kind), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        HistoryFilters(context, state.filter, state.filterSeason, vm::filter, kind, pickDates = false,
-                            badge = activeFilterCount(state.filter, state.filterSeason), keepType = state.filter.type)
+                        HistoryFilters(context, state.filter, state.filterSeason, vm::filter, kind, pickDates = session.role == UserRole.WORKER,
+                            badge = activeFilterCount(state.filter, state.filterSeason), keepType = state.filter.type.takeIf { chipType })
                     }
                     context.lastSyncedAt?.let {
                         Text("Diperbarui ${java.time.Instant.ofEpochMilli(it).atZone(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH.mm 'WIB'"))}",
@@ -117,7 +119,7 @@ import java.util.Locale
                 }
             }
             state.message?.let { item("history-message") { Notice(it,true) } }
-            val filtered = (if (canopy) state.filter.copy(type = null) else state.filter) != LocalHistoryFilter()
+            val filtered = (if (chipType) state.filter.copy(type = null) else state.filter) != LocalHistoryFilter()
             when {
                 state.loading || !state.loaded && state.loadError == null -> item("history-loading") {
                     FarmRecordCard { Text("Memuat riwayat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
@@ -132,7 +134,7 @@ import java.util.Locale
                 state.records.isEmpty() -> item("history-empty") {
                     FarmPanel(title=if (filtered) "Belum ada catatan yang cocok dengan filter ini."
                         else "Belum ada catatan ${kind.label}.") {
-                        if (filtered) TextButton(onClick={vm.filter(LocalHistoryFilter(type = state.filter.type.takeIf { canopy }))},
+                        if (filtered) TextButton(onClick={vm.filter(LocalHistoryFilter(type = state.filter.type.takeIf { chipType }))},
                             modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Hapus filter") }
                         else if (onSync != null && !session.expired()) TextButton(onClick=onSync,enabled=!context.loading,
                             modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Perbarui") }
@@ -303,7 +305,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
             if(!kind.financial) Choice("Kelompok tanam",group,choices(groups),"history-group") {group=it}
         }
         FarmSection(if (kind == OperationalKind.ACTIVITY) "Jenis dan status" else "Status") {
-            if(kind==OperationalKind.ACTIVITY && badge==null) Choice("Jenis kegiatan",type,choices(ActivityType.entries.map {JSONObject().put("id",it.wire).put("name",it.label)}),"history-type") {type=it}
+            if(kind==OperationalKind.ACTIVITY && (badge==null || pickDates)) Choice("Jenis kegiatan",type,choices(ActivityType.entries.map {JSONObject().put("id",it.wire).put("name",it.label)}),"history-type") {type=it}
             Choice("Status catatan",status,choices(listOf(JSONObject().put("id","active").put("name","Aktif"),JSONObject().put("id","cancelled").put("name","Dibatalkan"))),"history-state") {status=it}
         }
         FarmSection("Periode WIB") {

@@ -367,7 +367,7 @@ class FinanceEntryUiTest {
         readyNode("finance-save-draft").scrollIfScrollable().assertIsEnabled().performClick()
         rule.onNodeWithTag("finance-unsent").assertDoesNotExist()
         rule.selectFinanceTab(1)
-        readyText("Draf · tersimpan di perangkat").assertExists()
+        readyText("Draf").assertExists()
         rule.selectFinanceTab(0)
         readyNode("manager-back").performClick()
         rule.waitUntil(15_000) { runCatching { home.performScrollToNode(hasTestTag("worker-greenhouse-$gh")) }.isSuccess }
@@ -458,7 +458,7 @@ class FinanceEntryUiTest {
         rule.selectFinanceTab(1)
         val list = rule.onNodeWithTag("finance-history-list")
         fun listed(text: String) = runCatching { list.performScrollToNode(hasText(text)) }.isSuccess
-        rule.waitUntil(15_000) { listed("Terkirim · Belum dicek") && listed("Terkirim · Perlu diperbaiki") }
+        rule.waitUntil(15_000) { listed("Belum dicek") && listed("Perlu diperbaiki") }
         list.performScrollToIndex(0)
         captureSecondary("worker-history-rows")
         fun listed() = listed("Catatan orang lain sintetis")

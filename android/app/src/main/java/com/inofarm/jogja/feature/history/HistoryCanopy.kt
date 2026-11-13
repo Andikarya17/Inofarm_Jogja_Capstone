@@ -218,3 +218,24 @@ internal fun CanopyRecordRow(
         if (!last) HorizontalDivider(Modifier.padding(start = 68.dp, end = FarmSpace.Medium), color = colors.outlineVariant)
     }
 }
+
+/** One row of greenhouse chips for the worker's Riwayat: all greenhouses, then one chip per assigned greenhouse. Tags are history-gh-*. */
+@Composable
+internal fun WorkerGreenhouseChips(context: CultivationUiState, selected: String?, onSelect: (String?) -> Unit) {
+    val greenhouses = context.greenhouses.filter { it.optBoolean("active", true) }
+    if (greenhouses.size < 2) return
+    val colors = MaterialTheme.colorScheme
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+        (listOf<String?>(null) + greenhouses.map { it.optString("id") }).forEach { id ->
+            val on = selected == id
+            val label = if (id == null) "Semua greenhouse" else greenhouses.first { it.optString("id") == id }.optString("name")
+            Surface(Modifier.heightIn(min = FarmSpace.Touch).testTag("history-gh-${id ?: "all"}").selectable(on, role = Role.RadioButton) { onSelect(id) },
+                shape = FarmShape.Control, color = if (on) colors.primary else colors.surface,
+                contentColor = if (on) colors.onPrimary else colors.onSurface, border = if (on) null else BorderStroke(1.dp, colors.outline)) {
+                Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                    Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
+                }
+            }
+        }
+    }
+}
