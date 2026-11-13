@@ -1,6 +1,6 @@
 # Bukti alur pekerja, 11 November 2026
 
-Dasar: master prompt [MASTER_PROMPT_WORKER_FLOW.md](MASTER_PROMPT_WORKER_FLOW.md), baseline `f7fe26f`. Lima cabang `codex/`, masing-masing dari ujung cabang sebelumnya, tanpa push. Tidak ada perubahan backend, API, kontrak atau migration. Perilaku dan izin pengelola tidak berubah, kecuali dua salinan teks yang dijelaskan di bagian "Perubahan yang menyentuh pengelola".
+Dasar: master prompt `MASTER_PROMPT_WORKER_FLOW.md` (berkas sudah tidak ada di repo), baseline `f7fe26f`. Lima cabang `codex/`, masing-masing dari ujung cabang sebelumnya, tanpa push. Tidak ada perubahan backend, API, kontrak atau migration. Perilaku dan izin pengelola tidak berubah, kecuali dua salinan teks yang dijelaskan di bagian "Perubahan yang menyentuh pengelola".
 
 | Fase | Cabang | Commit | Isi |
 |---|---|---|---|

@@ -37,7 +37,7 @@ Setiap fase dibuat dari ujung fase sebelumnya. Tidak ada yang di-push atau di-me
 | `build-android.ps1` (assembleDebug, testDebugUnitTest, lintDebug), JDK `jdk-25.0.2` | Lulus pada tiap fase |
 | Tes JVM | 104 pada baseline, 112 pada akhir, 0 gagal. Delapan tes baru: `FarmDockSlotsTest` (2), `WorkerHomeLogicTest` (6) |
 | Lint | 0 error, 18 warning, 1 hint, sama dengan baseline |
-| `python scripts/check-finance-context.py` | Gagal pada dua tautan rusak yang sudah ada di `origin/main`: `MASTER_PROMPT_MANAGER_SUPERADMIN.md` dan `MASTER_PROMPT_WORKER_FLOW.md`. Tidak ada tautan baru yang rusak. Keduanya belum diperbaiki karena menunggu keputusan pengguna |
+| `python scripts/check-finance-context.py` | Gagal pada dua tautan rusak yang sudah ada di `origin/main`: `MASTER_PROMPT_MANAGER_SUPERADMIN.md` dan `MASTER_PROMPT_WORKER_FLOW.md`. Tidak ada tautan baru yang rusak. Keduanya kemudian diperbaiki dengan mengubah tautan menjadi teks biasa, karena berkas tujuannya tidak ada di repo |
 | `FinanceAdminUiTest` | 2 dari 2 lulus |
 | `FinanceEntryUiTest` penuh pada baseline | 20 dari 64 gagal (daftar di bawah) |
 | `FinanceEntryUiTest` penuh pada akhir | 17 dari 65 gagal. Satu kegagalan baru dibanding baseline (`assetHubRemainsScrollableWithFont200Percent`) lulus 3 dari 3 saat dijalankan sendiri, jadi dicatat sebagai flake |
@@ -97,6 +97,5 @@ Dijalankan sebagai pemeriksaan kode dan screenshot emulator. Klik menyeluruh pad
 
 ## Pertanyaan terbuka
 
-- Apakah dua tautan lama yang rusak (`MASTER_PROMPT_MANAGER_SUPERADMIN.md`, `MASTER_PROMPT_WORKER_FLOW.md`) diarahkan ke dokumen yang ada atau dibiarkan?
 - Apakah bagian spesifikasi yang belum dikerjakan perlu fase lanjutan, terutama baris lipat 7 hari dan bentuk Periksa dua kolom?
 - Perlu keputusan soal total panen bertitik desimal di langkah Periksa: mengubahnya menyentuh tampilan pengelola.
