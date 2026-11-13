@@ -48,6 +48,10 @@ class FinanceEntryUiTest {
     private val harvestReceipts=ConcurrentHashMap<String,JSONObject>();private val harvestPosts=AtomicInteger();private val harvestConflictNext=AtomicBoolean(false);private val harvestUseNext=AtomicBoolean(false)
     private val gradeA=UUID.randomUUID().toString();private val gradeB=UUID.randomUUID().toString()
     private val agenda = AtomicBoolean(false)
+    private val secondGreenhouse = AtomicBoolean(false)
+    private val gh2 = UUID.randomUUID().toString()
+    private val season2 = UUID.randomUUID().toString()
+    private val group2 = UUID.randomUUID().toString()
     private val agendaSchedule = UUID.randomUUID().toString()
     private val agendaNotes = List(3) { UUID.randomUUID().toString() }
     private val seasonState=java.util.concurrent.atomic.AtomicReference("open");private val seasonVersion=AtomicInteger(1)
@@ -212,10 +216,16 @@ class FinanceEntryUiTest {
 
     private fun page(managerAccess:Boolean=false):JSONObject {
         val rows=JSONArray()
-        fun row(kind:String,id:String,data:JSONObject) { rows.put(JSONObject().put("sequence",rows.length()+1).put("entity_type",kind).put("entity_id",id).put("greenhouse_id",gh).put("version",data.optInt("version",1)).put("tombstone",false).put("data",data.put("id",id).put("version",data.optInt("version",1)))) }
+        fun row(kind:String,id:String,data:JSONObject,greenhouseId:String=gh) { rows.put(JSONObject().put("sequence",rows.length()+1).put("entity_type",kind).put("entity_id",id).put("greenhouse_id",greenhouseId).put("version",data.optInt("version",1)).put("tombstone",false).put("data",data.put("id",id).put("version",data.optInt("version",1)))) }
         row("greenhouses",gh,JSONObject().put("name",if (longNames.get()) longGreenhouseName else "GH UI sintetis").put("active",true))
         row("seasons",season,JSONObject().put("greenhouse_id",gh).put("name","Musim UI sintetis").put("status",seasonState.get()).put("version",seasonVersion.get()))
         row("planting_groups",group,JSONObject().put("season_id",season).put("name","Kelompok UI sintetis").put("active",true).put("sowing_date","2026-10-01").put("transplant_date",JSONObject.NULL))
+        if (secondGreenhouse.get()) {
+            row("greenhouses", gh2, JSONObject().put("name", "Greenhouse kedua sintetis").put("active", true), gh2)
+            row("seasons", season2, JSONObject().put("greenhouse_id", gh2).put("name", "Musim kedua sintetis").put("status", "open").put("version", 1), gh2)
+            row("planting_groups", group2, JSONObject().put("season_id", season2).put("name", "Kelompok kedua sintetis").put("active", true)
+                .put("sowing_date", "2026-10-05").put("transplant_date", JSONObject.NULL), gh2)
+        }
         if (agenda.get()) {
             val at = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Jakarta")).toString() + "T08:00:00+07:00"
             row("schedules", agendaSchedule, JSONObject().put("planting_group_id", group).put("activity_type", "general")
@@ -253,7 +263,7 @@ class FinanceEntryUiTest {
                 val sold=financeReceipts.values.filter {financeKinds[it.getString("entity_id")]=="sale"}.groupBy {it.getString("entity_id")}.values.map {it.maxBy {r -> r.getInt("version")}.getJSONObject("data")}.filter {it.optString("record_state")=="active"}.fold(java.math.BigDecimal.ZERO) {sum,sale -> val lines=sale.getJSONArray("items");sum+(0 until lines.length()).map {lines.getJSONObject(it)}.filter {it.getString("harvest_item_id")==item.getString("id")}.fold(java.math.BigDecimal.ZERO) {subtotal,line -> subtotal+java.math.BigDecimal(line.getString("quantity_kg"))}}
                 row("harvest_balance",item.getString("id"),JSONObject().put("version",receipt.getInt("version")+financeReceipts.values.count {financeKinds[it.getString("entity_id")]=="sale"}).put("harvest_id",receipt.getString("entity_id")).put("harvest_version",receipt.getInt("version")).put("active",active).put("weight_kg",item.getString("weight_kg")).put("sold_weight_kg",sold.setScale(6).toPlainString()).put("available_weight_kg",if(active) (java.math.BigDecimal(item.getString("weight_kg"))-sold).setScale(6).toPlainString() else "0.000000"))}
         }
-        val scope = if (managerAccess) JSONArray(managerGreenhouses()) else JSONArray().put(JSONObject().put("id",gh).put("active",true))
+        val scope = if (managerAccess) JSONArray(managerGreenhouses()) else JSONArray().put(JSONObject().put("id",gh).put("active",true)).also { if (secondGreenhouse.get()) it.put(JSONObject().put("id",gh2).put("active",true)) }
         return JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("scope",scope).put("data",rows).put("next_cursor","fixture").put("has_more",false)
     }
     private fun financeMutation(request:RecordedRequest,response:MockResponse):MockResponse {
@@ -523,6 +533,43 @@ class FinanceEntryUiTest {
         readyNode("finance-queue").scrollIfScrollable().assertTextContains("Kirim")
         rule.onAllNodesWithText("Acuan", substring = true).assertCountEquals(0)
         rule.onAllNodesWithText("versi", substring = true, ignoreCase = true).assertCountEquals(0)
+    }
+
+    @Test fun nutritionRunSavesOneMeasurementPerGreenhouseSkipsOneAndSendsSeparately() {
+        secondGreenhouse.set(true)
+        readyNode("finance-sync").performClick()
+        val home = rule.onNodeWithTag("finance-home-list")
+        rule.waitUntil(30_000) {
+            runCatching { home.performScrollToNode(hasTestTag("worker-greenhouse-$gh2")) }.isSuccess ||
+                run { runCatching { rule.onNodeWithTag("finance-sync").performClick() }; false }
+        }
+        readyNode("finance-record-fab").performClick()
+        captureSecondary("worker-nutrition-run-sheet")
+        readyNode("record-nutrition-run").performScrollTo().performClick()
+        // Greenhouses are listed by name, so the first step is "GH UI sintetis".
+        readyNode("finance-ec").performTextReplacement("2,4")
+        readyNode("finance-ppm").performTextReplacement("1250")
+        hideKeyboard()
+        captureSecondary("worker-nutrition-run-step1")
+        rule.onNodeWithTag("nutrition-run-next").assertTextContains("Simpan dan lanjut ke Greenhouse kedua sintetis")
+        rule.onNodeWithTag("nutrition-run-next").scrollIfScrollable().performClick()
+        // Second greenhouse: skip it.
+        rule.waitUntil(10_000) { rule.onAllNodesWithTag("nutrition-run-skip").fetchSemanticsNodes().isNotEmpty() &&
+            rule.onAllNodesWithText("Greenhouse 2 dari 2").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("nutrition-run-next").assertTextContains("Simpan dan periksa semua")
+        captureSecondary("worker-nutrition-run-step2")
+        rule.onNodeWithTag("nutrition-run-skip").scrollIfScrollable().performClick()
+        readyNode("nutrition-run-send").assertIsDisplayed()
+        rule.onAllNodesWithTag("nutrition-run-item").assertCountEquals(1)
+        readyText("Greenhouse kedua sintetis dilewati.").assertExists()
+        captureSecondary("worker-nutrition-run-review")
+        // The run and the saved draft survive the activity being recreated.
+        rule.activityRule.scenario.recreate()
+        readyNode("nutrition-run-send").assertIsDisplayed()
+        rule.onAllNodesWithTag("nutrition-run-item").assertCountEquals(1)
+        readyNode("nutrition-run-send").performClick()
+        rule.waitUntil(20_000) { posts.get() == 1 }
+        rule.waitUntil(10_000) { rule.onAllNodesWithTag("nutrition-run-send").fetchSemanticsNodes().isEmpty() }
     }
 
     @Test fun workerAgendaDistinguishesRealizationsAndSkippedRecords() {

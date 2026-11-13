@@ -39,7 +39,7 @@ internal enum class RecordChoice(val label: String, val detail: String, val icon
 /** The greenhouse choice a worker makes inside the Catat sheet; [onPick] gets the chosen greenhouse id. */
 internal class WorkerRecordTarget(
     val greenhouses: List<org.json.JSONObject>, val chosen: String?, val caption: (String?) -> String?,
-    val onPick: (RecordChoice, String?) -> Unit,
+    val onPick: (RecordChoice, String?) -> Unit, val onNutritionRun: (() -> Unit)? = null,
 )
 
 private val WorkerRecordDetails = mapOf(
@@ -87,12 +87,29 @@ internal fun RecordSheet(
                 val pick: (RecordChoice) -> Unit = if (worker != null) { choice -> worker.onPick(choice, chosen) } else onPick
                 if (field.isNotEmpty()) RecordGroup(if (worker != null) null else "Di greenhouse", field, 3, 0, pick,
                     if (worker != null) WorkerRecordDetails else emptyMap())
+                worker?.onNutritionRun?.let { NutritionRunRow(it) }
                 if (money.isNotEmpty()) RecordGroup("Uang", money, 2, field.size, onPick)
                 if (money.isNotEmpty()) Text(
                     "Greenhouse lain? Pilih dulu di Beranda, atau biaya dan penjualan akan menanyakan greenhouse-nya.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+/** Sage row that starts the greenhouse-by-greenhouse nutrition check. */
+@Composable
+private fun NutritionRunRow(onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Row(Modifier.fillMaxWidth().farmPressable(interaction).clip(FarmShape.Card).background(FarmColors.Sage)
+        .clickable(interaction, null, role = Role.Button, onClick = onClick).testTag("record-nutrition-run").padding(FarmSpace.Medium),
+        horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.CenterVertically) {
+        FarmIconTile(FarmIcon.Droplet, tone = FarmTone.Forest)
+        Column(Modifier.weight(1f)) {
+            Text("Cek nutrisi semua greenhouse", style = MaterialTheme.typography.titleMedium, color = FarmColors.Ink, fontWeight = FontWeight.Bold)
+            Text("Isi berurutan, satu catatan per greenhouse", style = MaterialTheme.typography.bodySmall, color = FarmColors.Ink)
+        }
+        CompositionLocalProvider(LocalContentColor provides FarmColors.Ink) { FarmControlIcon(FarmIcon.ChevronRight, null) }
     }
 }
 

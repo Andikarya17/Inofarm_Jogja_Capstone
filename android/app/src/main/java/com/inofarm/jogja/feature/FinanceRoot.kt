@@ -74,6 +74,12 @@ import com.inofarm.jogja.feature.context.HomeContext
 import com.inofarm.jogja.feature.context.HomeContextCard
 import com.inofarm.jogja.feature.context.WorkerContextSheet
 import com.inofarm.jogja.feature.context.WorkerCorrectionsCard
+import com.inofarm.jogja.feature.context.NutritionRunForm
+import com.inofarm.jogja.feature.context.NutritionRunItem
+import com.inofarm.jogja.feature.context.NutritionRunReview
+import com.inofarm.jogja.feature.context.nutritionMainLabel
+import com.inofarm.jogja.feature.context.nutritionRunTargets
+import kotlinx.coroutines.flow.first
 import com.inofarm.jogja.feature.context.WorkerGreenhouseHero
 import com.inofarm.jogja.feature.context.WorkerGreenhouseList
 import com.inofarm.jogja.feature.context.WorkerGroupChips
@@ -410,6 +416,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var managerRecording by rememberSaveable { mutableStateOf<String?>(null) }
     var harvestProgressOpen by rememberSaveable { mutableStateOf(false) }
     var correctionsOpen by rememberSaveable { mutableStateOf(false) }
+    // Nutrition run: 0 off, 1 filling a greenhouse, 2 saving it, 3 reviewing all, 4 sending. Ids are kept as text so the run survives recreation.
+    var runPhase by rememberSaveable { mutableIntStateOf(0) }
+    var runIds by rememberSaveable { mutableStateOf("") }
+    var runIndex by rememberSaveable { mutableIntStateOf(0) }
+    var runSaved by rememberSaveable { mutableStateOf("") }
+    var runSkipped by rememberSaveable { mutableStateOf("") }
+    var runNotReady by rememberSaveable { mutableStateOf("") }
+    var runPendingId by rememberSaveable { mutableStateOf("") }
     var detailFromOutbox by rememberSaveable { mutableStateOf(false) }
     var harvestProgressGroup by rememberSaveable { mutableStateOf<String?>(null) }
     var harvestProgressGreenhouse by rememberSaveable { mutableStateOf<String?>(null) }
@@ -496,7 +510,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             else -> tab=0
         }
     }
-    val showNavigation = !harvestProgressOpen && !(tab == 1 && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
+    val showNavigation = runPhase != 3 && !harvestProgressOpen && !(tab == 1 && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
     val sessionExpired = session.expired()
     val detailOpen = history.selected != null || harvestHistory.selected != null
     val formOpen = activity.draft != null || harvest.draft != null
@@ -546,6 +560,75 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         else vm.new(row.getString("id"), pickedGroup.getString("id"),
             if (destination == "measurement") ActivityType.MEASUREMENT else ActivityType.GENERAL, runningPeriodVersion = version)
     }
+    // --- Nutrition run: one measurement draft per ready greenhouse, then a review of all of them.
+    val runList = runIds.split(',').filter { it.isNotBlank() }
+    fun runOpen(greenhouseId: String) {
+        val row = context.greenhouses.find { it.optString("id") == greenhouseId } ?: return
+        val ctx = context.workerDefault(row, workerToday)
+        val grp = context.groups.find { it.optString("id") == ctx.group } ?: return
+        val version = row.takeIf { it.optString("running_group_id") == grp.getString("id") }?.optLong("version")?.takeIf { it > 0 }
+        vm.new(greenhouseId, grp.getString("id"), ActivityType.MEASUREMENT, runningPeriodVersion = version)
+    }
+    fun runEnd() { runPhase = 0; runIds = ""; runSaved = ""; runSkipped = ""; runNotReady = ""; runIndex = 0; runPendingId = "" }
+    fun runAdvance() {
+        val next = runIndex + 1
+        if (next < runList.size) {
+            runIndex = next
+            runPhase = 1
+            runOpen(runList[next])
+        } else runPhase = 3
+    }
+    fun runStart() {
+        val (ready, notReady) = nutritionRunTargets(context, workerToday)
+        if (ready.isEmpty()) return
+        recordSheet = false
+        runIds = ready.joinToString(",") { it.getString("id") }
+        runNotReady = notReady.joinToString("|") { it.optString("name") }
+        runSaved = ""
+        runSkipped = ""
+        runIndex = 0
+        runPhase = 1
+        runOpen(ready.first().getString("id"))
+    }
+    LaunchedEffect(runPhase, activity.draft == null) {
+        val live = vm.state.value
+        if (runPhase == 2 && live.draft == null && !live.busy) {
+            runSaved = listOf(runSaved, runPendingId).filter { it.isNotBlank() }.joinToString(",")
+            runAdvance()
+        } else if (runPhase == 1 && live.draft == null && !live.busy) runEnd() // the worker left the form
+    }
+    LaunchedEffect(runPhase) {
+        if (runPhase == 4) {
+            for (id in runSaved.split(',').filter { it.isNotBlank() }) {
+                val row = vm.state.value.records.find { it.id == id } ?: continue
+                vm.open(row)
+                vm.queue()
+                kotlinx.coroutines.withTimeoutOrNull(15_000) { vm.state.first { it.draft == null } } ?: vm.discard()
+            }
+            runEnd()
+        }
+    }
+    BackHandler(enabled = runPhase == 3) { runEnd() }
+    val nutritionForm: NutritionRunForm? = if (runPhase == 1 && runList.isNotEmpty()) {
+        val names = runList.map { id -> context.greenhouses.find { it.optString("id") == id }?.optString("name").orEmpty() }
+        NutritionRunForm(runIndex + 1, names, nutritionMainLabel(runIndex + 1, names),
+            onSkip = {
+                runSkipped = listOf(runSkipped, names[runIndex]).filter { it.isNotBlank() }.joinToString("|")
+                vm.discard()
+                runAdvance()
+            },
+            onMain = {
+                val draft = vm.state.value.draft
+                if (draft != null) {
+                    if (draft.validation().isNotEmpty()) vm.review()
+                    else {
+                        runPendingId = draft.id
+                        runPhase = 2
+                        vm.saveAndClose()
+                    }
+                }
+            })
+    } else null
     if (!manager) contextSheet?.let { destination ->
         WorkerContextSheet(context, HomeContext(gh, season, group), when (destination) {
             "harvest" -> "Catat panen"
@@ -649,7 +732,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 val grp = context.groups.find { it.optString("id") == ctx?.group }
                 if (grp == null) row?.let { "Tanam saat ini belum dipilih pengelola" }
                 else listOf(grp.optString("name"), workerAge(grp, workerToday).substringAfter(" · ")).joinToString(" · ")
-            }, onPick = { choice, id -> startRecord(choice, id) }),
+            }, onPick = { choice, id -> startRecord(choice, id) },
+            onNutritionRun = if (nutritionRunTargets(context, workerToday).first.isNotEmpty()) ({ runStart() }) else null),
         contextLine = if (manager && gh != null) listOfNotNull(homeSnapshot?.selected?.text("name"),
             homeSnapshot?.period?.text("group_name")?.let { "Kelompok $it" }).joinToString(" · ").ifBlank { null } else null)
     if (showOutbox) ModalBottomSheet(
@@ -661,7 +745,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val translucentNavigation = false
     val wibNow = remember { java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Jakarta")) }
     val managerBar: ManagerBar? = if (!manager) when {
-        activity.draft != null || harvest.draft != null -> null
+        activity.draft != null || harvest.draft != null || runPhase >= 3 -> null
         tab == 0 && !correctionsOpen && !harvestProgressOpen && selectedGreenhouse == null -> ManagerBar("${greetingForWib(wibNow.hour, wibNow.minute)}, ${session.name.trim().substringBefore(' ')}",
             dateLabel(wibNow.toLocalDate()), null)
         tab == 0 && correctionsOpen -> ManagerBar("Perlu diperbaiki", null, { correctionsOpen = false }, "Kembali ke Beranda")
@@ -740,11 +824,25 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 session.role==UserRole.MANAGER && investments.state.active -> InvestmentScreen(investments,context,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && reports.state.active -> SeasonReportScreen(reports,context,returnToQueue=tab==1)
                 attachment.parent!=null -> AttachmentScreen(session,context,attachment,attachmentVm,ticket)
+                runPhase == 3 -> NutritionRunReview(
+                    saved = runSaved.split(',').filter { it.isNotBlank() }.mapNotNull { id ->
+                        activity.records.find { it.id == id }?.let { record ->
+                            val draft = ActivityDraft.from(record.id, record.greenhouseId, record.body, record.baseVersion ?: record.serverVersion)
+                            fun value(text: String) = text.replace('.', ',')
+                            NutritionRunItem(context.greenhouses.find { it.optString("id") == record.greenhouseId }?.optString("name") ?: "Greenhouse",
+                                listOfNotNull(draft.ec.takeIf { it.isNotBlank() }?.let { "EC ${value(it)} mS/cm" },
+                                    draft.ppm.takeIf { it.isNotBlank() }?.let { "PPM ${value(it)} ppm" },
+                                    draft.ph.takeIf { it.isNotBlank() }?.let { "pH ${value(it)}" }).joinToString(" · "))
+                        }
+                    },
+                    skipped = runSkipped.split('|').filter { it.isNotBlank() }, notReady = runNotReady.split('|').filter { it.isNotBlank() },
+                    busy = activity.busy, onExit = { runEnd() }, onSend = { runPhase = 4 })
+                runPhase == 4 -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) { CircularProgressIndicator(); Text("Mengirim catatan…") }
                 asset.entry.busy || sale.busy || activity.busy || harvest.busy || financial.busy -> Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Text("Menyimpan isian ke perangkat…")}
                 session.role==UserRole.MANAGER && asset.entry.draft!=null -> if(asset.entry.reviewing) FarmReviewEntrance { AssetReview(asset.entry.draft,context,asset.entry.busy,asset.vm::backToForm,asset.vm::queue) } else AssetForm(asset.entry,context,asset.vm)
                 session.role==UserRole.MANAGER && asset.history.selected!=null -> HistoryScreen(session,context,asset.history,asset.historyVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.historyVm.close()},kind=OperationalKind.ASSET,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && asset.depreciation.selected!=null -> HistoryScreen(session,context,asset.depreciation,asset.depreciationVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.depreciationVm.close()},kind=OperationalKind.DEPRECIATION,returnToQueue=tab==1)
-                activity.draft!=null -> if(activity.reviewing) FarmReviewEntrance { ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue,worker = !manager) } else ActivityForm(activity,context,vm,worker = !manager)
+                activity.draft!=null -> if(activity.reviewing) FarmReviewEntrance { ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue,worker = !manager) } else ActivityForm(activity,context,vm,worker = !manager,run = nutritionForm)
                 harvest.draft!=null -> if(harvest.reviewing) FarmReviewEntrance { HarvestReview(harvest.draft,context,harvest.busy,harvestVm::backToForm,harvestVm::queue,worker = !manager) } else HarvestForm(harvest,context,harvestVm,worker = !manager)
                 session.role==UserRole.MANAGER && sale.draft!=null -> if(sale.reviewing) FarmReviewEntrance { SaleReview(sale.draft,context,sale.busy,saleVm::backToForm,saleVm::queue) } else SaleForm(sale,context,saleVm)
                 session.role==UserRole.MANAGER && saleHistory.selected!=null -> HistoryScreen(session,context,saleHistory,saleHistoryVm,activity.queue,onEdit={record,replace -> saleVm.open(record,replace);saleHistoryVm.close()},kind=OperationalKind.SALE,returnToQueue=tab==1)
@@ -1039,13 +1137,14 @@ internal fun ExpiredSessionNotice() {
     Notice("Sesi berakhir. Masuk lagi untuk mengirim catatan. Draf tetap bisa disimpan.", true)
 }
 
-@Composable private fun ActivityForm(state:ActivityUiState,context:CultivationUiState,vm:ActivityViewModel,worker:Boolean) {
+@Composable private fun ActivityForm(state:ActivityUiState,context:CultivationUiState,vm:ActivityViewModel,worker:Boolean,run:NutritionRunForm?=null) {
     val draft=state.draft ?: return
     if (worker && draft.baseVersion != null) {
         val policy = CorrectionReference.policy(draft.date, draft.time, state.records.find { it.id == draft.id }?.serverBody?.optString("occurred_at"))
         LaunchedEffect(policy, draft.referencePolicy) { if (draft.referencePolicy != policy) vm.edit { it.copy(referencePolicy = policy) } }
     }
     val title = when {
+        run != null -> "Cek nutrisi semua greenhouse"
         draft.baseVersion != null -> "Koreksi kegiatan"
         draft.type == ActivityType.MEASUREMENT -> "Catat pengukuran"
         else -> "Catat kegiatan"
@@ -1059,9 +1158,16 @@ internal fun ExpiredSessionNotice() {
         val figure = ageFigure(age?.hst?.toString()?.toIntOrNull(), age?.hss?.toString()?.toIntOrNull())
         FarmFormFrame(
             header = { FarmFormHeader(title, state.saved, "finance-draft-status", "finance-close", vm::saveAndClose, !state.busy) },
-            bar = { FarmFormBar("finance-save-draft", vm::saveAndClose, "finance-review", "Periksa", vm::review, enabled = !state.busy,
-                saveLabel = if (worker) "Simpan sebagai draf" else "Simpan draf") }
+            bar = {
+                if (run != null) FarmFormBar("nutrition-run-skip", run.onSkip, "nutrition-run-next", run.mainLabel, run.onMain, enabled = !state.busy, saveLabel = "Lewati")
+                else FarmFormBar("finance-save-draft", vm::saveAndClose, "finance-review", "Periksa", vm::review, enabled = !state.busy,
+                    saveLabel = if (worker) "Simpan sebagai draf" else "Simpan draf")
+            }
         ) {
+            if (run != null) {
+                Text("Greenhouse ${run.step} dari ${run.names.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.semantics { heading() })
+                FarmStepIndicator(run.step, run.names)
+            }
             FarmContextStrip(context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan",
                 groupData?.optString("name"), figure?.let { (value, unit) -> "$unit $value" })
             ActivityFormBody(state, context, vm, draft, worker = worker)
