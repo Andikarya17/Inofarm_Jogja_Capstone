@@ -40,6 +40,7 @@ Build type `release` tidak punya `signingConfig`, dan `inofarmFinanceApiUrl` kos
 **P0-4. Dependency backend punya advisory keamanan.**
 `symfony/http-foundation` (4 advisory, termasuk trusted proxy dan URL yang host-nya bisa dipilih klien), `symfony/http-kernel` (forwarded header), `symfony/routing` (bypass akses berbasis path), dan `laravel/framework` (low). Versi terpasang: Symfony 8.1.8/8.1.10.
 *Saran:* `composer update "symfony/*" laravel/framework --with-dependencies` dalam batas constraint yang ada, jalankan ulang `test-backend.ps1`, lalu `composer audit` sampai bersih atau tiap sisa advisory dicatat beserta alasannya. Setel `TrustProxies` sesuai reverse proxy server.
+*Status 14 November 2026:* advisory selesai. `composer audit --locked` menghasilkan 0 advisory setelah Symfony naik ke 8.1.11 dan Laravel ke 13.42.0; suite backend 159 tes lulus. `TrustProxies` belum disetel karena bergantung pada server pilot. [Bukti D2](DEPLOYMENT_DEPENDENCY_EVIDENCE_20261114.md).
 
 **P0-5. Belum ada cadangan dan jadwal operasional.**
 `routes/console.php` hanya berisi perintah contoh: tidak ada jadwal backup, tidak ada `sanctum:prune-expired` (sudah ada 3 token kedaluwarsa di database lokal), tidak ada cron `schedule:run`. Keputusan Q08 (jadwal, retensi, RPO/RTO, operator) dan Q07 (batas lampiran) masih terbuka.
