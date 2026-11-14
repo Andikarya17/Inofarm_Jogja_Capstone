@@ -272,3 +272,28 @@ internal fun FinanceLogin(
 private fun LoginFieldLabel(label: String) {
     Text(label, Modifier.clearAndSetSemantics {}, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
 }
+
+/**
+ * After a login in this process, the forest canopy stays where the login drew it and folds up to the top edge while the
+ * Beranda appears underneath: the same plane, carried into the shell. Drawing only (scale and alpha), no layout per
+ * frame, no touch handling, hidden from TalkBack. With animations off it ends at once.
+ */
+@Composable
+internal fun LoginCanopyHandoff(onDone: () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize().clearAndSetSemantics {}) {
+        val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val start = if (maxHeight >= 600.dp) (maxHeight * 0.47f).coerceIn(300.dp, 420.dp) else 72.dp + statusTop
+        val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+        LaunchedEffect(Unit) {
+            // Linear in time; the fold eases in the draw step, so solid and fading each get a fair share of the 400 ms.
+            progress.animateTo(1f, tween(FarmMotion.Focal, easing = androidx.compose.animation.core.LinearEasing))
+            onDone()
+        }
+        Box(Modifier.fillMaxWidth().height(start).graphicsLayer {
+            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+            scaleY = 1f - androidx.compose.animation.core.FastOutSlowInEasing.transform(progress.value)
+            // Solid for the first half, so the plane reads as the same canopy, then it fades as it reaches the bar.
+            alpha = ((1f - progress.value) * 2f).coerceAtMost(1f)
+        }.background(ForestScheme.background))
+    }
+}
