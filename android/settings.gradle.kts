@@ -5,3 +5,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "InofarmJogja"
 include(":app")
+include(":baselineprofile")
