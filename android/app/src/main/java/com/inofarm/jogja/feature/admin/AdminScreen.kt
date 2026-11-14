@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -92,12 +93,18 @@ import com.inofarm.jogja.feature.Notice
                     HorizontalDivider()
                 }
                 CompositionLocalProvider(LocalFarmDialogPicker provides true) {
+                // Filtered once per list and query, so typing in the search field does not re-filter on every recomposition.
+                val searchable=state.resource in setOf(AdminResource.GREENHOUSE,AdminResource.USER)
+                val visibleRows=remember(state.rows,state.resource,search) { state.rows.filter { !searchable || it.optString("name").contains(search.trim(),true) ||
+                    state.resource==AdminResource.USER && it.optString("email").contains(search.trim(),true) } }
+                // Ids keep rows stable while scrolling; a page without unique ids falls back to positions rather than crash.
+                val rowKeys=remember(visibleRows) { visibleRows.map { it.optString("id") }.let { ids -> if (ids.none(String::isBlank) && ids.toSet().size==ids.size) ids else ids.indices.map { "row-$it" } } }
                 if (state.editing) Box(Modifier.weight(1f)) { AdminEditor(state,vm,onAccepted) }
-                else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = FarmSpace.Medium),
+                else LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(vertical = FarmSpace.Medium),
                     verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
-                state.message?.let {Notice(it)}
-                if(state.busy) { Text("Memuat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                if(state.detail!=null) {
+                state.message?.let { item("message") { Notice(it) } }
+                if(state.busy) item("busy") { Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) { Text("Memuat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) } }
+                if(state.detail!=null) item("detail") { Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                     val row=requireNotNull(state.detail)
                     val isGreenhouse=state.resource==AdminResource.GREENHOUSE
                     FarmPageTitle(row.optString("name"))
@@ -150,8 +157,9 @@ import com.inofarm.jogja.feature.Notice
                     }
                     OutlinedButton(onClick=vm::closeDetail,enabled=!state.busy,
                         modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Kembali ke daftar") }
-                }
+                } }
                 else {
+                    item("controls") { Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                     state.setupGreenhouse?.let { greenhouse ->
                         TextButton(onClick = vm::returnToGreenhouse, enabled = !state.busy,
                             modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kembali ke ${greenhouse.getString("name")}") }
@@ -174,12 +182,11 @@ import com.inofarm.jogja.feature.Notice
                     FarmSectionHeading("Daftar ${state.resource.label.lowercase()}")
                     if(state.resource!=AdminResource.GREENHOUSE && state.greenhouse==null) Text("Pilih greenhouse untuk melihat dan menambah data.")
                     if(state.rows.isEmpty() && state.listChecked) Text("Belum ada ${state.resource.label.lowercase()}.")
-                    val searchable=state.resource in setOf(AdminResource.GREENHOUSE,AdminResource.USER)
                     if(searchable && state.rows.isNotEmpty()) FinanceField("Cari ${state.resource.label.lowercase()}",search,{search=it},"admin-search")
-                    val visibleRows=state.rows.filter { !searchable || it.optString("name").contains(search.trim(),true) ||
-                        state.resource==AdminResource.USER && it.optString("email").contains(search.trim(),true) }
                     if(visibleRows.isEmpty() && state.rows.isNotEmpty()) Text("Tidak ada kecocokan dalam daftar yang dimuat.")
-                    visibleRows.forEach {row ->
+                    } }
+                    items(visibleRows.size, key = { rowKeys[it] }) { index ->
+                        val row = visibleRows[index]
                         FarmPanel(title = row.optString("name").ifBlank {
                             row.optString("activity_type").ifBlank {row.optString("user_name").ifBlank {row.optString("user_id")}}
                         }) {
@@ -201,7 +208,7 @@ import com.inofarm.jogja.feature.Notice
                             }
                         }
                     }
-                    if(state.cursor!=null) TextButton(onClick={vm.reload(true)},enabled=!state.busy) {Text("Muat berikutnya")}
+                    if(state.cursor!=null) item("more") { TextButton(onClick={vm.reload(true)},enabled=!state.busy) {Text("Muat berikutnya")} }
                 }
                 }
                 }
