@@ -386,23 +386,26 @@ internal fun WorkerCorrectionsScreen(rows: List<WorkerCorrection>, data: Cultiva
             Text("Tidak ada catatan yang perlu diperbaiki.", style = MaterialTheme.typography.titleMedium)
         }
         items(rows, key = { it.row.id }) { item ->
-            val row = item.row
-            val body = row.serverBody ?: row.body
-            val greenhouse = data.greenhouses.find { it.optString("id") == row.greenhouseId }?.optString("name")
-            val group = data.groups.find { it.optString("id") == body.optString("planting_group_id") }?.optString("name")
-            val day = dateWib(body.optString("occurred_at"))?.format(DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("id-ID")))
-            Surface(Modifier.fillMaxWidth(), shape = FarmShape.Card, color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)) {
-                Column(Modifier.padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.Top) {
-                        Text(correctionSummary(row), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        day?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
-                    }
-                    Text(listOfNotNull(greenhouse, group).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                    if (item.reason.isNotBlank()) Text(item.reason, Modifier.fillMaxWidth().background(reasonContainer, FarmShape.Tile).padding(FarmSpace.Medium),
-                        style = MaterialTheme.typography.bodyMedium, color = reasonContent)
-                    Button(onClick = { onOpen(row) }, shape = FarmShape.Control,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("worker-correction-open-${row.id}")) {
-                        Text("Buka dan koreksi")
+            // Rows fade and slide into place when the list changes, instead of jumping.
+            Column(Modifier.animateItem()) {
+                val row = item.row
+                val body = row.serverBody ?: row.body
+                val greenhouse = data.greenhouses.find { it.optString("id") == row.greenhouseId }?.optString("name")
+                val group = data.groups.find { it.optString("id") == body.optString("planting_group_id") }?.optString("name")
+                val day = dateWib(body.optString("occurred_at"))?.format(DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("id-ID")))
+                Surface(Modifier.fillMaxWidth(), shape = FarmShape.Card, color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)) {
+                    Column(Modifier.padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.Top) {
+                            Text(correctionSummary(row), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            day?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
+                        }
+                        Text(listOfNotNull(greenhouse, group).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                        if (item.reason.isNotBlank()) Text(item.reason, Modifier.fillMaxWidth().background(reasonContainer, FarmShape.Tile).padding(FarmSpace.Medium),
+                            style = MaterialTheme.typography.bodyMedium, color = reasonContent)
+                        Button(onClick = { onOpen(row) }, shape = FarmShape.Control,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("worker-correction-open-${row.id}")) {
+                            Text("Buka dan koreksi")
+                        }
                     }
                 }
             }

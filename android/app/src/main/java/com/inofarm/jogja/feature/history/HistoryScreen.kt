@@ -160,7 +160,10 @@ import java.util.Locale
                     }
                 }
             } else items(state.records, key = { it.id }) { record ->
-                HistoryRecordRow(record, kind, context, session.scope.accountId.takeIf { session.role == UserRole.WORKER }, state.checks) { vm.select(record.id) }
+                // Rows fade and slide into place when the list changes, instead of jumping.
+                Column(Modifier.animateItem()) {
+                    HistoryRecordRow(record, kind, context, session.scope.accountId.takeIf { session.role == UserRole.WORKER }, state.checks) { vm.select(record.id) }
+                }
             }
             if(state.hasMore) item {
                 if (canopy) OutlinedButton(onClick=vm::more,enabled=!state.loading,shape=FarmShape.Control,

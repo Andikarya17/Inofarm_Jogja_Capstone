@@ -131,7 +131,10 @@ internal fun ManagerHomeScreen(
                 !state.cached && validToday && it.text("type") == "measurement_outside_range"
             }.map { it.getString("greenhouse_id") }.toSet()
             itemsIndexed(snapshot.cards, key = { _, card -> card.getString("id") }) { index, card ->
-                GreenhouseCard(card, index, card.getString("id") in outsideFor) { onSelect(card.getString("id")) }
+                // Cards slide into place when a greenhouse is added or leaves the list.
+                Column(Modifier.animateItem()) {
+                    GreenhouseCard(card, index, card.getString("id") in outsideFor) { onSelect(card.getString("id")) }
+                }
             }
         } else if (selected != null) {
             item("hub-sections") {

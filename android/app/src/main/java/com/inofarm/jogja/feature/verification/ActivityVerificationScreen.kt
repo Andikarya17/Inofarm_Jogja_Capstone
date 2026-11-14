@@ -185,9 +185,12 @@ internal fun ActivityVerificationScreen(
                 }
             }
             items(rows, key = { it.getJSONObject(kind.wire).getString("id") }) { entry ->
-                val activity = entry.getJSONObject(kind.wire)
-                val id = activity.getString("id")
-                VerificationCard(kind, entry, activity, "verification-${kind.wire}-$id") { onSelect(id) }
+                // Rows fade and slide into place when the list changes, instead of jumping.
+                Column(Modifier.animateItem()) {
+                    val activity = entry.getJSONObject(kind.wire)
+                    val id = activity.getString("id")
+                    VerificationCard(kind, entry, activity, "verification-${kind.wire}-$id") { onSelect(id) }
+                }
             }
             if (cursor != null && !loading && failure == null) item {
                 OutlinedButton(onClick = { loadPage++ }) { Text("Muat ${kind.label} berikutnya") }
@@ -330,13 +333,16 @@ private fun VerificationDetail(
             }
             if (history.isNotEmpty()) item { FarmSectionHeading("Riwayat keputusan") }
             items(history, key = { it.getString("id") }) { review ->
-                FarmRecordCard(onOpen = {
-                    val requested = review.getLong(kind.versionKey)
-                    if (requested != version) { detail = null; reviewedVersion = requested }
-                }.takeIf { review.getLong(kind.versionKey) != version }) {
-                    Text("Revisi ${review.getLong(kind.versionKey)} · ${verificationLabel(review.getString("decision"))}",
-                        style = MaterialTheme.typography.titleMedium)
-                    DecisionFacts(review)
+                // Rows fade and slide into place when the list changes, instead of jumping.
+                Column(Modifier.animateItem()) {
+                    FarmRecordCard(onOpen = {
+                        val requested = review.getLong(kind.versionKey)
+                        if (requested != version) { detail = null; reviewedVersion = requested }
+                    }.takeIf { review.getLong(kind.versionKey) != version }) {
+                        Text("Revisi ${review.getLong(kind.versionKey)} · ${verificationLabel(review.getString("decision"))}",
+                            style = MaterialTheme.typography.titleMedium)
+                        DecisionFacts(review)
+                    }
                 }
             }
             if (cursor != null) item {

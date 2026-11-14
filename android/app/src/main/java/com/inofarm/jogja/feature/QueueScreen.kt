@@ -143,15 +143,20 @@ internal fun QueueScreen(
                 }
             }
         }
-        items(displayOrder, key = { it.id }) { operation ->
-            if (worker && queue.isNotEmpty()) {
-                val first = displayOrder.first { (it.syncState()?.needsReview == true) == (operation.syncState()?.needsReview == true) }
-                if (first.id == operation.id) FarmSectionHeading(
-                    if (operation.syncState()?.needsReview == true) "Ditolak, perlu dicek" else "Menunggu dikirim",
-                    Modifier.padding(bottom = FarmSpace.Small))
+        // Each heading is its own keyed row, so sending the first record of a group does not fade its heading with it.
+        val groups = if (worker && queue.isNotEmpty())
+            displayOrder.groupBy<_, Boolean?> { it.syncState()?.needsReview == true } else mapOf<Boolean?, _>(null to displayOrder)
+        groups.forEach { (needsReview, operations) ->
+            if (needsReview != null) item("queue-heading-$needsReview") {
+                FarmSectionHeading(if (needsReview) "Ditolak, perlu dicek" else "Menunggu dikirim", Modifier.animateItem())
             }
-            QueueRecord(operation, opening, reviewError.takeIf { reviewOperation == operation.id },
-                if (canReview(operation)) ({ onReview(operation) }) else null, operation.id == focusOperation, worker)
+            items(operations, key = { it.id }) { operation ->
+                // Rows fade and slide into place when the list changes, instead of jumping.
+                Column(Modifier.animateItem()) {
+                    QueueRecord(operation, opening, reviewError.takeIf { reviewOperation == operation.id },
+                        if (canReview(operation)) ({ onReview(operation) }) else null, operation.id == focusOperation, worker)
+                }
+            }
         }
         if (worker && activity.queueLoaded && queue.isNotEmpty()) item("queue-footnote") {
             Text("Catatan dikirim otomatis saat ada internet.", style = MaterialTheme.typography.bodySmall,
