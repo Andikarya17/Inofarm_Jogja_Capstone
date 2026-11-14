@@ -45,6 +45,7 @@ Build type `release` tidak punya `signingConfig`, dan `inofarmFinanceApiUrl` kos
 **P0-5. Belum ada cadangan dan jadwal operasional.**
 `routes/console.php` hanya berisi perintah contoh: tidak ada jadwal backup, tidak ada `sanctum:prune-expired` (sudah ada 3 token kedaluwarsa di database lokal), tidak ada cron `schedule:run`. Keputusan Q08 (jadwal, retensi, RPO/RTO, operator) dan Q07 (batas lampiran) masih terbuka.
 *Saran:* untuk pilot, cukup `mysqldump` harian terenkripsi ke lokasi lain plus satu kali uji restore ke database terpisah. Jadwalkan `sanctum:prune-expired --hours=24`. Putuskan Q07 dan Q08 bersama pengelola Inofarm, minimal untuk masa pilot.
+*Status 14 November 2026:* sebagian. Jadwal `sanctum:prune-expired --hours=24`, skrip `scripts/backup-mysql.ps1` dan `.sh`, serta nilai pilot Q07/Q08 di `backend/.env.production.example` sudah ada dan diuji pada `inofarm_test`. Belum: cron di server, jadwal backup terpasang, dan uji restore ke database terpisah (akun aplikasi tidak punya hak `CREATE DATABASE`). [Bukti D3](DEPLOYMENT_HARDENING_EVIDENCE_20261114.md).
 
 ### P1: sebaiknya selesai sebelum atau di awal pilot
 
@@ -61,6 +62,7 @@ Build type `release` tidak punya `signingConfig`, dan `inofarmFinanceApiUrl` kos
 **P2-1. Sisa penugasan untuk akun pengelola.** Ada 1 baris `greenhouse_assignments` aktif milik pengelola. Setelah keputusan super admin, penugasan hanya untuk pekerja. Baris ini tidak berbahaya karena pengelola melihat semua greenhouse lewat role, tetapi bisa membingungkan daftar "pekerja di greenhouse ini". *Saran:* nonaktifkan lewat API (bukan hard delete), atau pastikan layar penugasan menyaring role pekerja.
 
 **P2-2. Masa sesi 24 jam.** `FINANCE_SESSION_SECONDS` bawaan 86.400. Pekerja lapangan akan diminta login ulang tiap hari. Outbox tetap tersimpan, jadi data tidak hilang. *Saran:* bicarakan dengan Inofarm: 24 jam lebih aman, tetapi 7 hari lebih nyaman. Nilainya bisa diubah lewat env tanpa ubah kode.
+*Status 14 November 2026:* pemilik memilih 7 hari untuk pilot; nilainya ada di `backend/.env.production.example`. Env laptop belum diubah. [Bukti D3](DEPLOYMENT_HARDENING_EVIDENCE_20261114.md).
 
 **P2-3. Bagian spesifikasi pekerja yang belum dikerjakan** (dari bukti PR #58): baris lipat "Belum dicatat dari 7 hari terakhir", chip greenhouse nonaktif di sheet Catat, angka utama dua kolom di langkah Periksa, chip "Diubah" pada koreksi, peringatan pH/EC di luar acuan, dan total panen bertitik desimal di langkah Periksa. Tidak ada yang memblokir pilot.
 
@@ -69,6 +71,7 @@ Build type `release` tidak punya `signingConfig`, dan `inofarmFinanceApiUrl` kos
 ### P3: kecil
 
 **P3-1. Validasi berjalan sebelum otorisasi pada tulis khusus pengelola.** Pekerja yang memanggil `POST expenses`, `sales`, `users`, `season-reports/preview` dan sejenisnya dengan payload tidak lengkap menerima 422 beserta daftar field, bukan 403. Dengan payload valid, tes yang ada membuktikan hasilnya 403 (misalnya `POST greenhouses`). Tidak ada data yang bocor, tetapi bentuk payload jadi terbuka dan perilakunya tidak seragam dengan GET (403). *Saran:* panggil pengecekan role pengelola sebelum `OperationInput::read`/validasi pada controller khusus pengelola, lalu tambahkan tes "pekerja + payload kosong = 403".
+*Status 14 November 2026:* selesai. Middleware `finance-manager` pada 31 rute tulis khusus pengelola; 56 permintaan pekerja dengan payload kosong menghasilkan 403. [Bukti D3](DEPLOYMENT_HARDENING_EVIDENCE_20261114.md).
 
 **P3-2. Lint 18 warning** (naik dari 16 pada baseline lama). Tidak ada error.
 
