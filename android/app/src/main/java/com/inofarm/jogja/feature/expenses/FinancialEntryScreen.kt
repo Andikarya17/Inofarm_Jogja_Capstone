@@ -192,7 +192,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
     val greenhouse=context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse terakhir tersimpan"
     FarmFormFrame(
         header = { FarmFormHeader("${if(draft.baseVersion==null) "Catat" else "Koreksi"} ${draft.kind.label}", state.saved, "expense-draft-status", "expense-close", vm::saveAndClose, !state.busy) },
-        bar = { FarmFormBar("expense-save-draft", vm::saveAndClose, "expense-review", "Periksa", vm::review, enabled = !state.busy) }
+        bar = { FarmFormBar("expense-save-draft", vm::saveAndClose, "expense-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy) }
     ) {
         FarmContextStrip(greenhouse, null, null)
         FarmFormSection(if (draft.kind == RecordKind.EXPENSE) "Nominal pembayaran" else "Nominal alokasi") {

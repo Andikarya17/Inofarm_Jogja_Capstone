@@ -1,6 +1,17 @@
 package com.inofarm.jogja.feature
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.selectable
@@ -95,24 +106,47 @@ internal fun FarmFormSection(title: String, content: @Composable ColumnScope.() 
     }
 }
 
-/** Sticky bar: draft on the left, the main action on the right. Tags follow the form, for example expense-save-draft. */
+/**
+ * Sticky bar: draft on the left, the main action on the right. Tags follow the form, for example expense-save-draft.
+ * While [busy], the form stays on screen and the main button carries the status in place, the way the Masuk button does.
+ */
 @Composable
 internal fun FarmFormBar(
     saveTag: String, onSave: () -> Unit, mainTag: String, mainLabel: String, onMain: () -> Unit,
     enabled: Boolean = true, mainIcon: Boolean = false, saveLabel: String = "Simpan draf",
     mainEnabled: Boolean = enabled, showSave: Boolean = true,
+    busy: Boolean = false, busyLabel: String = "Menyimpan…",
 ) {
     val colors = MaterialTheme.colorScheme
+    // A local save usually ends within a frame or two; the status only appears when it does not.
+    var showBusy by remember { mutableStateOf(false) }
+    // At large font sizes the status word needs the whole button, so the indicator and some padding give way to it.
+    val largeFont = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
+    LaunchedEffect(busy) {
+        if (busy) { delay(FarmMotion.BusyReveal); showBusy = true } else showBusy = false
+    }
     Surface(Modifier.fullBleed(FarmSpace.Page), color = colors.surface, shadowElevation = 4.dp) {
         Column {
         HorizontalDivider(color = colors.outlineVariant)
-        Row(Modifier.padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Small), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-            if (showSave) OutlinedButton(onClick = onSave, enabled = enabled, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                modifier = Modifier.weight(1f).heightIn(min = 52.dp).testTag(saveTag)) { Text(saveLabel, maxLines = 2) }
-            Button(onClick = onMain, enabled = mainEnabled, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                modifier = Modifier.weight(if (showSave) 1.4f else 1f).heightIn(min = 52.dp).testTag(mainTag)) {
-                if (mainIcon) { FarmControlIcon(FarmIcon.Check, null); Spacer(Modifier.width(FarmSpace.Small)) }
-                Text(mainLabel, maxLines = 2)
+        // Both buttons take the taller one's height, so a label that wraps at large font sizes does not leave them uneven.
+        Row(Modifier.padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Small).height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+            if (showSave) OutlinedButton(onClick = onSave, enabled = enabled && !busy, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 52.dp).testTag(saveTag)) { Text(saveLabel, maxLines = 2) }
+            Button(onClick = onMain, enabled = mainEnabled && !busy, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                // The working button keeps its filled colour, so it reads as in progress, not as unavailable.
+                colors = if (showBusy) ButtonDefaults.buttonColors(disabledContainerColor = colors.primary, disabledContentColor = colors.onPrimary)
+                    else ButtonDefaults.buttonColors(),
+                contentPadding = if (largeFont) PaddingValues(horizontal = FarmSpace.Medium, vertical = FarmSpace.Small) else ButtonDefaults.ContentPadding,
+                modifier = Modifier.weight(if (showSave) 1.4f else 1f).fillMaxHeight().heightIn(min = 52.dp).testTag(mainTag)) {
+                AnimatedContent(showBusy, transitionSpec = { fadeIn(tween(FarmMotion.LoginFeedback)) togetherWith fadeOut(tween(FarmMotion.LoginFeedback)) },
+                    label = "Status simpan") { working ->
+                    Row(Modifier.semantics { if (working) liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                        if (working && !largeFont) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
+                        else if (!working && mainIcon) FarmControlIcon(FarmIcon.Check, null)
+                        Text(if (working) busyLabel else mainLabel, maxLines = 2)
+                    }
+                }
             }
         }
         }
@@ -145,7 +179,8 @@ internal fun FarmReviewFrame(
             FarmPageTitle("Periksa $title", hint)
             FarmContextStrip(title.replaceFirstChar { it.uppercase() }, subtitle, null, icon)
         },
-        bar = { FarmFormBar(backTag, onBack, queueTag, mainLabel, onQueue, enabled = !busy, mainIcon = true, saveLabel = "Ubah isian") },
+        bar = { FarmFormBar(backTag, onBack, queueTag, mainLabel, onQueue, enabled = !busy, mainIcon = true, saveLabel = "Ubah isian",
+            busy = busy, busyLabel = if (mainLabel.startsWith("Kirim")) "Mengirim…" else "Menyimpan…") },
         content = content
     )
 }

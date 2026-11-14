@@ -38,7 +38,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
 
 @Composable fun AssetForm(state:AssetEntryState,context:CultivationUiState,vm:AssetEntryViewModel) {
     val draft=state.draft ?: return
-    FarmFormFrame(header = { FarmFormHeader(if(draft.kind==AssetKind.ASSET) "Catat aset" else "Alokasikan penyusutan", state.saved, "asset-draft-status", "asset-close", vm::saveAndClose, !state.busy) }, bar = { FarmFormBar("asset-save-draft", vm::saveAndClose, "asset-review", "Periksa", vm::review, enabled = !state.busy) }) {
+    FarmFormFrame(header = { FarmFormHeader(if(draft.kind==AssetKind.ASSET) "Catat aset" else "Alokasikan penyusutan", state.saved, "asset-draft-status", "asset-close", vm::saveAndClose, !state.busy) }, bar = { FarmFormBar("asset-save-draft", vm::saveAndClose, "asset-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy) }) {
         if(draft.kind==AssetKind.ASSET) {
             FarmFormSection("Identitas dan nilai aset") {
                 FinanceField("Nama aset",draft.name,{value -> vm.edit {it.copy(name=value)}},"asset-name",state.errors["name"])

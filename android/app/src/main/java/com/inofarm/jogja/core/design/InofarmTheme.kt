@@ -66,6 +66,10 @@ internal object FarmMotion {
     const val Entrance = 280
     const val Stagger = 40
     const val LoginStagger = 60
+    /** A save that finishes sooner than this never shows its busy indicator, so quick local saves do not flicker. */
+    const val BusyReveal = 300L
+    /** A cache read that finishes sooner than this never shows the placeholder cards. */
+    const val PlaceholderReveal = 150L
     const val PressScaleButton = 0.97f
     const val PressScaleCard = 0.98f
     fun <T> pressSpring(): androidx.compose.animation.core.SpringSpec<T> = androidx.compose.animation.core.spring(

@@ -260,7 +260,7 @@ import com.inofarm.jogja.feature.Notice
         header = { FarmFormHeader("$action ${form.resource.label}", state.saved, "admin-saved", "admin-close", vm::back, !state.busy) },
         bar = { FarmFormBar("admin-save-draft", vm::back, "admin-submit", submitLabel,
             { if(confirmation!=null && !state.pending) confirm=true else vm.submit(password,onAccepted) },
-            enabled = !state.busy, mainEnabled = !state.busy && !state.rejected && passwordMatches, saveLabel = "Simpan draf dan kembali") }
+            enabled = !state.busy, busy = state.busy, mainEnabled = !state.busy && !state.rejected && passwordMatches, saveLabel = "Simpan draf dan kembali") }
     ) {
     state.message?.let {Notice(it)}
     if(state.busy) { Text("Memuat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }

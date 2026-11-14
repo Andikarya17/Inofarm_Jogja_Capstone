@@ -313,7 +313,7 @@ fun GreenhouseWizardHost(
                 }
                 if (!finished) FarmFormBar("wizard-back", { step-- }, "wizard-next", if (step == 3) "Selesai" else "Simpan dan lanjut",
                     { when (step) { 1 -> saveGreenhouse(); 2 -> savePlanting(); else -> saveWorkers() } },
-                    enabled = !busy, saveLabel = "Kembali", showSave = step > 1)
+                    enabled = !busy, busy = busy, saveLabel = "Kembali", showSave = step > 1)
             }
             }
         }

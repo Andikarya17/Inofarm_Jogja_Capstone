@@ -1,6 +1,7 @@
 package com.inofarm.jogja.feature
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -617,6 +618,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         }
     }
     BackHandler(enabled = runPhase == 3) { runEnd() }
+    BackHandler(enabled = runPhase == 4) { /* Each queued record is being saved; wait for the local persistence boundary. */ }
     val nutritionForm: NutritionRunForm? = if (runPhase == 1 && runList.isNotEmpty()) {
         val names = runList.map { id -> context.greenhouses.find { it.optString("id") == id }?.optString("name").orEmpty() }
         NutritionRunForm(runIndex + 1, names, nutritionMainLabel(runIndex + 1, names),
@@ -827,12 +829,17 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         // The Catat button grows with the font, so a worker's list keeps more room behind it at large sizes.
         val recordInset = 8.dp
         CompositionLocalProvider(LocalFarmListBottomInset provides recordInset) {
-        Box(Modifier.widthIn(max = 900.dp).fillMaxSize().then(workerTabMotion)) {
+        // A form stays visible while its save runs, so touches are held until the save has settled.
+        val saving = asset.entry.busy || sale.busy || activity.busy || harvest.busy || financial.busy || runPhase == 4
+        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+        LaunchedEffect(saving) { if (saving) focusManager.clearFocus() }
+        Box(Modifier.widthIn(max = 900.dp).fillMaxSize().then(workerTabMotion).holdTouches(saving)) {
             when {
                 session.role==UserRole.MANAGER && investments.state.active -> InvestmentScreen(investments,context,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && reports.state.active -> SeasonReportScreen(reports,context,returnToQueue=tab==1)
                 attachment.parent!=null -> AttachmentScreen(session,context,attachment,attachmentVm,ticket)
-                runPhase == 3 -> NutritionRunReview(
+                // Phase 4 keeps the review on screen; its main button reports the sending in place.
+                runPhase == 3 || runPhase == 4 -> NutritionRunReview(
                     saved = runSaved.split(',').filter { it.isNotBlank() }.mapNotNull { id ->
                         activity.records.find { it.id == id }?.let { record ->
                             val draft = ActivityDraft.from(record.id, record.greenhouseId, record.body, record.baseVersion ?: record.serverVersion)
@@ -844,9 +851,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         }
                     },
                     skipped = runSkipped.split('|').filter { it.isNotBlank() }, notReady = runNotReady.split('|').filter { it.isNotBlank() },
-                    busy = activity.busy, onExit = { runEnd() }, onSend = { runPhase = 4 })
-                runPhase == 4 -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) { CircularProgressIndicator(); Text("Mengirim catatan…") }
-                asset.entry.busy || sale.busy || activity.busy || harvest.busy || financial.busy -> Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Text("Menyimpan isian ke perangkat…")}
+                    busy = activity.busy || runPhase == 4, onExit = { runEnd() }, onSend = { runPhase = 4 })
                 session.role==UserRole.MANAGER && asset.entry.draft!=null -> if(asset.entry.reviewing) FarmReviewEntrance { AssetReview(asset.entry.draft,context,asset.entry.busy,asset.vm::backToForm,asset.vm::queue) } else AssetForm(asset.entry,context,asset.vm)
                 session.role==UserRole.MANAGER && asset.history.selected!=null -> HistoryScreen(session,context,asset.history,asset.historyVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.historyVm.close()},kind=OperationalKind.ASSET,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && asset.depreciation.selected!=null -> HistoryScreen(session,context,asset.depreciation,asset.depreciationVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.depreciationVm.close()},kind=OperationalKind.DEPRECIATION,returnToQueue=tab==1)
@@ -1167,8 +1172,8 @@ internal fun ExpiredSessionNotice() {
         FarmFormFrame(
             header = { FarmFormHeader(title, state.saved, "finance-draft-status", "finance-close", vm::saveAndClose, !state.busy) },
             bar = {
-                if (run != null) FarmFormBar("nutrition-run-skip", run.onSkip, "nutrition-run-next", run.mainLabel, run.onMain, enabled = !state.busy, saveLabel = "Lewati")
-                else FarmFormBar("finance-save-draft", vm::saveAndClose, "finance-review", "Periksa", vm::review, enabled = !state.busy,
+                if (run != null) FarmFormBar("nutrition-run-skip", run.onSkip, "nutrition-run-next", run.mainLabel, run.onMain, enabled = !state.busy, busy = state.busy, saveLabel = "Lewati")
+                else FarmFormBar("finance-save-draft", vm::saveAndClose, "finance-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy,
                     saveLabel = if (worker) "Simpan sebagai draf" else "Simpan draf")
             }
         ) {
@@ -1573,5 +1578,12 @@ internal fun ExpiredSessionNotice() {
         horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small), verticalAlignment = Alignment.CenterVertically) {
         CompositionLocalProvider(LocalContentColor provides content) { FarmControlIcon(FarmIcon.AlertTriangle, null) }
         Text(message, style = MaterialTheme.typography.bodyMedium, color = content)
+    }
+}
+
+/** Swallows every touch while [hold] is true. The controls underneath stay visible and keep their own disabled state. */
+private fun Modifier.holdTouches(hold: Boolean): Modifier = if (!hold) this else pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial).changes.forEach { it.consume() }
     }
 }

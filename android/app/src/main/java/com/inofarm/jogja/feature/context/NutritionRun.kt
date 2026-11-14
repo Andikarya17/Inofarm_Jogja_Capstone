@@ -56,7 +56,7 @@ internal fun NutritionRunReview(
             FarmPageTitle("Periksa semua greenhouse", "Pastikan isinya benar. Setelah dikirim, tiap catatan terkirim otomatis saat ada internet.")
         },
         bar = {
-            FarmFormBar("nutrition-run-exit", onExit, "nutrition-run-send", "Kirim semua", onSend, enabled = !busy, mainEnabled = !busy && saved.isNotEmpty(),
+            FarmFormBar("nutrition-run-exit", onExit, "nutrition-run-send", "Kirim semua", onSend, enabled = !busy, busy = busy, busyLabel = "Mengirim…", mainEnabled = saved.isNotEmpty(),
                 mainIcon = true, saveLabel = "Simpan sebagai draf")
         }
     ) {
