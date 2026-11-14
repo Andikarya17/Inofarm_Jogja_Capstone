@@ -442,6 +442,13 @@ private fun DecisionEditor(
     }
     FarmPanel(title = "Keputusan untuk revisi $version") {
         val submitted = draft?.syncState?.takeUnless { it == SyncState.LOCAL }
+        // Felt once, when a "Sesuai" decision is accepted by the server in front of the manager, not when an old one is reopened.
+        val haptics = com.inofarm.jogja.core.design.rememberFarmHaptics()
+        var seenState by remember(draft?.id) { mutableStateOf(submitted) }
+        LaunchedEffect(submitted) {
+            if (submitted == SyncState.ACCEPTED && seenState != SyncState.ACCEPTED && draft?.body?.text("decision") == "valid") haptics.confirm()
+            seenState = submitted
+        }
         if (submitted != null) {
             Text(when (submitted) {
                 SyncState.ACCEPTED -> "Keputusan terkirim."

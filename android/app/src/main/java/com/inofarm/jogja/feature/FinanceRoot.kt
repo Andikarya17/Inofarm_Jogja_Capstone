@@ -5,6 +5,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import com.inofarm.jogja.core.design.*
@@ -21,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
+import com.inofarm.jogja.core.design.farmSpinning
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
@@ -553,6 +555,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val backScope = rememberCoroutineScope()
     var backSettle by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     LaunchedEffect(destination, previewBack) { backSettle?.cancel(); backPreview = 0f }
+    val haptics = com.inofarm.jogja.core.design.rememberFarmHaptics()
+    // A tick when the dock tab changes, never on the first composition.
+    var tickedTab by remember { mutableIntStateOf(tab) }
+    LaunchedEffect(tab) { if (tab != tickedTab) { tickedTab = tab; haptics.segmentTick() } }
+    // Validation refused a form when its review produced field errors.
+    val formRejected = activity.errors.isNotEmpty() || harvest.errors.isNotEmpty() || sale.errors.isNotEmpty() ||
+        financial.errors.isNotEmpty() || asset.entry.errors.isNotEmpty()
+    LaunchedEffect(formRejected) { if (formRejected) haptics.reject() }
     androidx.activity.compose.PredictiveBackHandler(enabled = previewBack) { events ->
         backSettle?.cancel()
         try {
@@ -1119,6 +1129,8 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
     var accountOpen by rememberSaveable { mutableStateOf(false) }
     val manager = session.role == UserRole.MANAGER
     val largeFont = LocalDensity.current.fontScale > 1.3f
+    val haptics = com.inofarm.jogja.core.design.rememberFarmHaptics()
+    val allSent = rememberAllSent(unsent, haptics::confirm)
     // The worker's greeting needs the full row, so the unsent button always sits on its own row below it.
     val stackUnsent = (largeFont || !manager) && unsent > 0
     val amber = farmToneColors(FarmTone.Amber).second
@@ -1133,7 +1145,22 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
                 FarmControlIcon(FarmIcon.Sync, null)
                 Spacer(Modifier.width(FarmSpace.Small))
             }
-            Text("$unsent belum terkirim", style = MaterialTheme.typography.labelLarge)
+            // The count changes by crossfade, never by counting up or down.
+            androidx.compose.animation.AnimatedContent(unsent, transitionSpec = {
+                androidx.compose.animation.fadeIn(tween(FarmMotion.State)) togetherWith androidx.compose.animation.fadeOut(tween(FarmMotion.State))
+            }, label = "Jumlah belum terkirim") { count -> Text("$count belum terkirim", style = MaterialTheme.typography.labelLarge) }
+        }
+    }
+    val allSentChip: @Composable () -> Unit = {
+        androidx.compose.animation.AnimatedVisibility(allSent, enter = androidx.compose.animation.fadeIn(tween(FarmMotion.State)),
+            exit = androidx.compose.animation.fadeOut(tween(FarmMotion.State))) {
+            Row(Modifier.heightIn(min = FarmSpace.Touch).background(FarmColors.Sage, FarmShape.Control)
+                .padding(horizontal = FarmSpace.Medium).testTag("finance-all-sent")
+                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite; contentDescription = "Semua catatan terkirim" },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                CompositionLocalProvider(LocalContentColor provides FarmColors.Ink) { FarmControlIcon(FarmIcon.Check, null) }
+                Text("Semua terkirim", style = MaterialTheme.typography.labelLarge, color = FarmColors.Ink)
+            }
         }
     }
     Row(
@@ -1154,11 +1181,13 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
         } else Text("Inofarm", Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             style = MaterialTheme.typography.titleLarge)
         if (unsent > 0) { if (!stackUnsent) unsentButton() }
+        else if (allSent) { if (!largeFont && manager) allSentChip() }
         else if (syncing && (manager || !largeFont)) Text("Memperbarui",
             Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.labelMedium)
         // The worker has no manual refresh on Beranda, so the toolbar keeps its button.
         if (!manager) IconButton(onClick = onSync, enabled = !syncing, modifier = Modifier.testTag("finance-sync")) {
-            FarmControlIcon(FarmIcon.Sync, if (syncing) "Memperbarui" else "Perbarui")
+            // The icon turns only while a sync is really running.
+            Box(if (syncing) Modifier.farmSpinning() else Modifier) { FarmControlIcon(FarmIcon.Sync, if (syncing) "Memperbarui" else "Perbarui") }
         }
         Box {
             Box(Modifier.size(FarmSpace.Touch).clickable(role = androidx.compose.ui.semantics.Role.Button) { accountOpen = true }
@@ -1188,6 +1217,7 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
         }
     }
     if (stackUnsent) unsentButton()
+    if (allSent && (largeFont || !manager)) allSentChip()
     if (sessionExpired) Text(
         "Sesi berakhir",
         Modifier.padding(bottom = FarmSpace.Tiny).semantics { liveRegion = LiveRegionMode.Polite },
@@ -1636,4 +1666,26 @@ private fun Modifier.holdTouches(hold: Boolean): Modifier = if (!hold) this else
     awaitPointerEventScope {
         while (true) awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial).changes.forEach { it.consume() }
     }
+}
+
+/**
+ * True for [FarmMotion.AllSentHold] after the unsent count falls from above zero to zero in front of the user; a count
+ * that starts at zero, or only goes down to another positive number, never shows it. [onAllSent] fires once per moment.
+ */
+@Composable
+internal fun rememberAllSent(unsent: Int, onAllSent: () -> Unit): Boolean {
+    var lastUnsent by remember { mutableIntStateOf(unsent) }
+    var allSent by remember { mutableStateOf(false) }
+    LaunchedEffect(unsent) {
+        val before = lastUnsent
+        lastUnsent = unsent
+        if (unsent > 0) allSent = false
+        else if (before > 0) {
+            allSent = true
+            onAllSent()
+            kotlinx.coroutines.delay(FarmMotion.AllSentHold)
+            allSent = false
+        }
+    }
+    return allSent
 }

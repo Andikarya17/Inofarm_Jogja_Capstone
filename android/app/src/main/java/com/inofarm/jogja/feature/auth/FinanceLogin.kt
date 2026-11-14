@@ -109,8 +109,11 @@ internal fun FinanceLogin(
         }
     }
     val shake = remember { Animatable(0f) }
+    val haptics = com.inofarm.jogja.core.design.rememberFarmHaptics()
     LaunchedEffect(state.error) {
         if (state.error != null) {
+            // The refusal is felt together with the shake, once per message.
+            haptics.reject()
             repeat(3) { shake.animateTo(6f, tween(50)); shake.animateTo(-6f, tween(50)) }
             shake.animateTo(0f, tween(50))
         }
