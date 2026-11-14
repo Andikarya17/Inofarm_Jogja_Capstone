@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
@@ -223,6 +224,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     BackHandler(authState.loading && authState.session!=null) { /* Wait for the bounded local persistence boundary. */ }
     // The email is remembered only after the server accepted the login, never the password.
     var pendingLoginEmail by remember { mutableStateOf<String?>(null) }
+    // Set by a login in this process, so a stored session on cold start opens without the canopy moment.
+    var canopyHandoff by remember { mutableStateOf(false) }
     val loginContext = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(authState.session?.scope?.key) {
         val accepted = pendingLoginEmail
@@ -232,7 +235,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         if(authState.session==null) {
             val configured = runtime.configuredLoginEndpoint.value
             val endpoint = remember(configured) { runCatching { runtime.api.validateBase(configured) }.getOrNull() }
-            FinanceLogin(authState, endpoint) { base, email, password -> pendingLoginEmail = email; auth.login(base, email, password) }
+            FinanceLogin(authState, endpoint) { base, email, password -> pendingLoginEmail = email; canopyHandoff = true; auth.login(base, email, password) }
         }
         else if(authState.loading) Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Spacer(Modifier.height(16.dp));Text("Menyimpan isian terakhir sebelum keluar…")}
         else {
@@ -254,6 +257,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         }
                     }
                 }
+                if (canopyHandoff) com.inofarm.jogja.feature.auth.LoginCanopyHandoff { canopyHandoff = false }
             }
         }
     }
@@ -296,15 +300,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var reviewKind by rememberSaveable { mutableStateOf(ReviewKind.ACTIVITY) }
     val verification = remember(runtime) { ActivityVerificationRepository(runtime.api, runtime.store, runtime.vault) }
     val manager = session.role == UserRole.MANAGER
-    val tabEntrance = remember { Animatable(1f) }
-    var previousWorkerTab by remember { mutableIntStateOf(tab) }
-    LaunchedEffect(tab, manager) {
-        if (!manager && tab != previousWorkerTab) {
-            previousWorkerTab = tab
-            tabEntrance.snapTo(0f)
-            tabEntrance.animateTo(1f, tween(180))
-        }
-    }
     var managerRefresh by remember { mutableLongStateOf(0L) }
     var periodReview by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(adminPeriodRequest, manager) {
@@ -479,7 +474,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             if (season == null || selectedGroup == null) group = null
         }
     }
-    BackHandler(harvestProgressOpen || correctionsOpen || !manager && selectedGreenhouse != null || investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
+    val backEnabled = harvestProgressOpen || correctionsOpen || !manager && selectedGreenhouse != null || investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0
+    // One back action for the system Back button, the gesture and the predictive preview below.
+    val handleBack: () -> Unit = {
         when {
             writing || queueOpening -> Unit
             ime -> keyboard?.hide()
@@ -517,6 +514,60 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             tab == 1 && reviewActivity != null -> reviewActivity = null
             tab == 0 && !manager && selectedGreenhouse != null -> { gh = null; season = null; group = null }
             else -> tab=0
+        }
+    }
+    BackHandler(backEnabled, handleBack)
+    // The shell's place, in the same order as the screen chain below; it drives the transition between screens.
+    val destination: FinanceDestination = when {
+        manager && investments.state.active -> FinanceDestination.Page("investment")
+        manager && reports.state.active -> FinanceDestination.Page("report")
+        attachment.parent != null -> FinanceDestination.Page("attachment")
+        runPhase == 3 || runPhase == 4 -> FinanceDestination.Review("nutrition")
+        manager && asset.entry.draft != null -> if (asset.entry.reviewing) FinanceDestination.Review("asset") else FinanceDestination.Form("asset")
+        manager && asset.history.selected != null -> FinanceDestination.Detail("asset")
+        manager && asset.depreciation.selected != null -> FinanceDestination.Detail("depreciation")
+        activity.draft != null -> if (activity.reviewing) FinanceDestination.Review("activity") else FinanceDestination.Form("activity")
+        harvest.draft != null -> if (harvest.reviewing) FinanceDestination.Review("harvest") else FinanceDestination.Form("harvest")
+        manager && sale.draft != null -> if (sale.reviewing) FinanceDestination.Review("sale") else FinanceDestination.Form("sale")
+        manager && saleHistory.selected != null -> FinanceDestination.Detail("sale")
+        manager && financial.draft != null -> if (financial.reviewing) FinanceDestination.Review("financial") else FinanceDestination.Form("financial")
+        manager && expenseHistory.selected != null -> FinanceDestination.Detail("expense")
+        manager && allocationHistory.selected != null -> FinanceDestination.Detail("allocation")
+        history.selected != null -> FinanceDestination.Detail("activity")
+        harvestHistory.selected != null -> FinanceDestination.Detail("harvest")
+        tab == 0 && manager -> FinanceDestination.Tab(0)
+        tab == 0 && correctionsOpen -> FinanceDestination.Page("corrections")
+        tab == 0 && !harvestProgressOpen -> if (selectedGreenhouse != null) FinanceDestination.Page("greenhouse") else FinanceDestination.Tab(0)
+        harvestProgressOpen -> FinanceDestination.Page("harvest-progress")
+        tab == 1 && manager && reviewActivity != null -> FinanceDestination.Detail("verification")
+        else -> FinanceDestination.Tab(tab)
+    }
+    // Predictive Back previews only screens that leave without losing input: the greenhouse page and record details.
+    val comparing = history.comparison != null || harvestHistory.comparison != null || saleHistory.comparison != null ||
+        expenseHistory.comparison != null || allocationHistory.comparison != null || asset.history.comparison != null || asset.depreciation.comparison != null
+    // The verification detail keeps its own Back handling, and Back with the keyboard open only hides the keyboard.
+    val previewBack = !writing && !comparing && !ime && !queueOpening && destination != FinanceDestination.Detail("verification") &&
+        (destination == FinanceDestination.Page("greenhouse") || destination is FinanceDestination.Detail)
+    var backPreview by remember { mutableFloatStateOf(0f) }
+    var backFromLeft by remember { mutableStateOf(true) }
+    val backScope = rememberCoroutineScope()
+    var backSettle by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    LaunchedEffect(destination, previewBack) { backSettle?.cancel(); backPreview = 0f }
+    androidx.activity.compose.PredictiveBackHandler(enabled = previewBack) { events ->
+        backSettle?.cancel()
+        try {
+            events.collect { event ->
+                backPreview = event.progress
+                backFromLeft = event.swipeEdge == androidx.activity.BackEventCompat.EDGE_LEFT
+            }
+            handleBack()
+            // The shell reads the preview once more when it swaps screens; after that frame the preview is cleared either way.
+            androidx.compose.runtime.withFrameNanos { }
+            androidx.compose.runtime.withFrameNanos { }
+            backPreview = 0f
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            backSettle = backScope.launch { androidx.compose.animation.core.animate(backPreview, 0f, animationSpec = backCancelSpring()) { value, _ -> backPreview = value } }
+            throw cancelled
         }
     }
     val showNavigation = runPhase != 3 && !harvestProgressOpen && !(tab == 1 && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
@@ -813,7 +864,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 modifier = Modifier.padding(horizontal = 12.dp).navigationBarsPadding())
         }
     }) { padding ->
-        val menuViewport = showNavigation && !writing
         val systemBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val contentPadding = if (translucentNavigation) {
             PaddingValues(start = padding.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current),
@@ -822,10 +872,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         } else padding
         Box(Modifier.fillMaxSize().padding(contentPadding).consumeWindowInsets(padding).imePadding().padding(horizontal=FarmSpace.Page),
             contentAlignment = Alignment.TopCenter) {
-        val workerTabMotion = if (!manager && menuViewport) Modifier.graphicsLayer {
-            alpha = .74f + .26f * tabEntrance.value
-            translationY = 5.dp.toPx() * (1f - tabEntrance.value)
-        } else Modifier
         // The Catat button grows with the font, so a worker's list keeps more room behind it at large sizes.
         val recordInset = 8.dp
         CompositionLocalProvider(LocalFarmListBottomInset provides recordInset) {
@@ -846,7 +892,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         val saving = asset.entry.busy || sale.busy || activity.busy || harvest.busy || financial.busy || runPhase == 4
         val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
         LaunchedEffect(saving) { if (saving) focusManager.clearFocus() }
-        Box(Modifier.widthIn(max = 900.dp).fillMaxSize().then(workerTabMotion).holdTouches(saving)) {
+        FarmDestinationMotion(destination, tab, Modifier.widthIn(max = 900.dp).fillMaxSize().holdTouches(saving), { backPreview }, { backFromLeft }) {
             when {
                 session.role==UserRole.MANAGER && investments.state.active -> InvestmentScreen(investments,context,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && reports.state.active -> SeasonReportScreen(reports,context,returnToQueue=tab==1)

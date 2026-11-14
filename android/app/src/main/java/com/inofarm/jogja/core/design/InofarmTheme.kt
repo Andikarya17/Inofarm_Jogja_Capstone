@@ -70,6 +70,20 @@ internal object FarmMotion {
     const val BusyReveal = 300L
     /** A cache read that finishes sooner than this never shows the placeholder cards. */
     const val PlaceholderReveal = 150L
+    /** Shell destination change (shared axis X and fade-through), in ms. The leaving screen is gone after [DepthExitShare] of it. */
+    const val Depth = 300
+    const val DepthExitShare = 250f / 300f
+    /** Fade-through: the old tab fades out in this many ms, the new tab enters from this scale. */
+    /** The one authored moment: the login canopy handing over to the Beranda. */
+    const val Focal = 400
+    const val TabExit = 90
+    const val TabEnterScale = 0.92f
+    /** Predictive Back preview at full gesture progress. */
+    const val BackPreviewScale = 0.92f
+    val BackPreviewShift = 8.dp
+    /** Material 3 emphasized easing: decelerate for what arrives, accelerate for what leaves. */
+    val EmphasizedDecelerate = androidx.compose.animation.core.CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+    val EmphasizedAccelerate = androidx.compose.animation.core.CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
     const val PressScaleButton = 0.97f
     const val PressScaleCard = 0.98f
     fun <T> pressSpring(): androidx.compose.animation.core.SpringSpec<T> = androidx.compose.animation.core.spring(
