@@ -27,8 +27,8 @@ Kerjakan per fase (bagian 7), satu branch per fase, dan berhenti di setiap gerba
 
 ## 1. Mulai dari sumber yang benar
 
-1. `git fetch` ke remote GitHub. Di laptop pemilik, remote GitHub bernama `github`; di clone lain biasanya `origin`. Keduanya repo yang sama (`Andikarya17/Inofarm_Jogja_Capstone`). Pastikan `main` memuat `Merge pull request #58 from Andikarya17/codex/worker-canopy-docs` (`9da7308`) atau lebih baru.
-2. Periksa `git status`. Working tree pemilik bisa berisi perubahan yang belum di-commit (skill, catatan desain, folder inspirasi). **Jangan reset, stash, hapus, atau stage berkas yang bukan milik fase ini.** Bila branch saat ini bukan `main` dan kotor, kerjakan di `git worktree` baru dari `main` remote.
+1. Jalankan `git remote -v`. **Di laptop pemilik, remote GitHub bernama `github` (`Andikarya17/Inofarm_Jogja_Capstone`), sedangkan `origin` adalah GitLab kampus (`student-git.umy.ac.id`). Fetch dan push hanya ke `github`; jangan push ke `origin`.** Di clone lain, pakai remote yang URL-nya GitHub. Pastikan `main` sama dengan `github/main` dan memuat `Merge pull request #59` (`540bf10`) atau lebih baru.
+2. Periksa `git status`. Working tree pemilik berisi perubahan yang belum di-commit (skill di `.agents/`, `android/.run/…`, dua dokumen di `docs/context/`, folder inspirasi). **Jangan reset, stash, hapus, atau stage berkas yang bukan milik fase ini.** Kerjakan langsung di checkout ini: buat branch fase dengan `git switch -c codex/<fase> github/main` (perubahan pemilik ikut terbawa tanpa di-stage). Jangan memakai `git worktree`, karena worktree tidak membawa `.tools/`, `backend/vendor`, `backend/.env`, `android/local.properties`, `.runtime/` maupun skill di `.claude/skills/`. Bila `git switch` menolak karena bentrok dengan perubahan pemilik, berhenti dan tanya pengguna.
 3. Baca berurutan sebelum menulis kode:
    - `CLAUDE.md`, `AGENTS.md`, `backend/AGENTS.md`, `PRODUCT.md`, `DESIGN.md` (token, `FarmMotion`, `FarmShape`, `FarmSpace`, bagian *Motion dan umpan balik*, *Canopy*, *Pekerja Canopy*, *Celah terbuka*).
    - Kedua audit di atas, lengkap.
@@ -72,7 +72,7 @@ Bila pengguna belum menjawab sebuah gerbang, kerjakan fase yang tidak bergantung
 - **Tes hanya pada database `inofarm_test`.** Jalankan `./scripts/test-backend.ps1`, yang menjalankan guard lebih dulu. Jangan menjalankan `migrate:fresh`, `migrate:reset`, `db:seed`, atau restore pada database pengguna (`inofarm_local`, `inofarm_finance_local`, atau database lain milik pengguna).
 - Migration pada database pengguna hanya setelah **G1 disetujui**, dengan urutan: `migrate:status` → backup `mysqldump` ke folder di luar Git (misalnya `outputs/rollout-<tanggal>/`, jangan di-stage) → `migrate --pretend` → `migrate` → verifikasi read-only → catat hash backup di bukti.
 - `scripts/local-database.ps1` adalah alat provisioning, bukan alat audit. Jangan dijalankan untuk memeriksa data.
-- MySQL proyek berjalan di `127.0.0.1:3307` dengan datadir `.runtime/mysql/data`. Bila kamu menyalakannya untuk tes, matikan lagi di akhir sesi bila sebelumnya mati.
+- MySQL proyek berjalan di `127.0.0.1:3307` dengan datadir `.runtime/mysql/data`. Cek dulu apakah port 3307 sudah terbuka. Bila belum, nyalakan hanya server-nya dengan argumen yang sama seperti `scripts/local-database.ps1` baris 15–16 (`mysqld.exe --no-defaults --basedir=… --datadir=.runtime/mysql/data --port=3307 --bind-address=127.0.0.1 --log-error=.runtime/mysql/mysql.log`, biner di `C:/laragon/bin/mysql/mysql-8.0.30-winx64/bin`), **tanpa** menjalankan skrip provisioning itu. Bila kamu yang menyalakannya, beri tahu pengguna di akhir sesi supaya bisa dimatikan; akun root punya password yang tidak boleh kamu cari.
 - Jangan membaca, mencetak, atau menyalin isi `.env`, kredensial, token, atau keystore ke chat, commit, atau dokumen. Jangan menimpa `JAVA_HOME` atau SDK pengguna; set variabel hanya di dalam proses perintah.
 - Runner HTTP fixture/perangkat dan PHPUnit tidak boleh menulis database uji bersamaan.
 - Jangan pernah membuat data produksi palsu (nilai target, dosis, harga, contoh makalah) sebagai seed/default.
@@ -255,7 +255,7 @@ python scripts/check-finance-context.py
 
 - Branch `codex/<fase>` dari `main` remote. Commit kecil per perubahan logis, pesan konvensional (`feat(motion): …`, `fix(api): …`, `docs(deploy): …`), dan akhiri pesan dengan baris atribusi yang diminta sistem.
 - Stage hanya file fase ini. Jangan stage `.env*` (kecuali `.example` tanpa rahasia), dump, log, `outputs/`, `.runtime/`, `build/`, keystore, folder inspirasi UI, atau skill lokal.
-- `git fetch` sebelum push. Push hanya branch fase, tanpa force-push. **Jangan merge ke `main` dan jangan membuat PR tanpa izin pengguna.** Bila pengguna meminta PR, pastikan tidak ada konflik (`git merge-tree`) dan pemeriksaan bagian 8 lulus pada ujung branch.
+- `git fetch github` sebelum push, lalu `git push -u github codex/<fase>`. Push hanya branch fase ke remote `github`, tanpa force-push. **Jangan merge ke `main` dan jangan membuat PR tanpa izin pengguna.** Bila pengguna meminta PR, pastikan tidak ada konflik (`git merge-tree`) dan pemeriksaan bagian 8 lulus pada ujung branch.
 
 ## 10. Laporan di akhir setiap fase
 
