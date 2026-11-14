@@ -60,6 +60,8 @@ class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
         saveJob?.cancel();saveJob=viewModelScope.launch { delay(350);save(updated,false,false) }
     }
     fun review() { val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty()) }
+    /** Drops the open draft without saving it again; anything already autosaved stays on the device as a draft. */
+    fun discard() { saveJob?.cancel(); mutable.value = state.value.copy(draft = null, reviewing = false, errors = emptyMap(), message = null) }
     fun backToForm() { mutable.value=state.value.copy(reviewing=false) }
     fun pauseAutosave() {saveJob?.cancel();saveJob=null}
     fun saveAndClose() { val draft=state.value.draft ?: return;saveJob?.cancel();viewModelScope.launch { save(draft,false,true) } }

@@ -1,6 +1,14 @@
 package com.inofarm.jogja.feature.context
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -72,8 +80,14 @@ private fun readWorkerDay(
     return WorkerDay(synchronizedActivities, notes, corrections, held)
 }
 
+/** An own record the manager marked "Perlu diperbaiki", with the reviewer's reason for it. */
+internal data class WorkerCorrection(val row: LocalRecord, val reason: String)
+
 /** Own accepted records whose current revision the manager marked "Perlu diperbaiki", optionally limited to one greenhouse or group. */
-internal fun workerCorrections(store: LocalFinanceStore, session: FinanceSession, greenhouse: String? = null, group: String? = null): List<LocalRecord> {
+internal fun workerCorrections(store: LocalFinanceStore, session: FinanceSession, greenhouse: String? = null, group: String? = null): List<LocalRecord> =
+    workerCorrectionItems(store, session, greenhouse, group).map { it.row }
+
+internal fun workerCorrectionItems(store: LocalFinanceStore, session: FinanceSession, greenhouse: String? = null, group: String? = null): List<WorkerCorrection> {
     val scope = session.scope.key
     val visible = store.visibleGreenhouses(scope)
     return listOf("activity", "harvest").flatMap { kind ->
@@ -85,9 +99,9 @@ internal fun workerCorrections(store: LocalFinanceStore, session: FinanceSession
                     it.greenhouseId in visible && it.recorderId() == session.scope.accountId && accepted.optString("record_state", "active") == "active" &&
                         (group == null || accepted.optString("planting_group_id") == group) &&
                         it.serverVersion == review.optLong("${kind}_version")
-                }
+                }?.let { WorkerCorrection(it, review.optString("reason")) }
             }
-    }.distinctBy { it.id }
+    }.distinctBy { it.row.id }
 }
 
 @Composable
@@ -112,50 +126,114 @@ internal fun WorkerDayAgenda(
             if (runtime.vault.matches(generation, session.scope)) failed = true
         }
     }
-    FarmPanel(title = "Pekerjaan hari ini") {
-        Text("Jadwal kelompok · catatan akun ini · WIB", style = MaterialTheme.typography.bodySmall)
-        val day = snapshot
+    val day = snapshot
+    Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
         if (failed) Text("Catatan tersimpan gagal dibaca kembali.")
         if (day == null) {
             if (!failed) Text("Memeriksa catatan tersimpan…")
-            return@FarmPanel
+            return@Column
         }
-        FarmSectionHeading("Jadwal kelompok")
         val due = schedules.filter {
             it.optString("planting_group_id") == group && it.optBoolean("active", true) &&
                 dateWib(it.optString("planned_at")) == today
         }.sortedBy { it.optString("planned_at") }
-        if (due.isEmpty()) Text("Belum ada jadwal hari ini. Kegiatan spontan tetap dapat dicatat.")
-        due.forEach { schedule ->
-            val id = schedule.getString("id")
-            val type = ActivityType.entries.find { it.wire == schedule.optString("activity_type") }
-            val accepted = day.synchronizedActivities.filter { it.optString("schedule_id") == id }
-            val completed = accepted.count { it.optString("work_state") == "completed" }
-            val skipped = accepted.count { it.optString("work_state") == "skipped" }
-            val status = listOfNotNull("Ada $completed catatan hasil terkirim".takeIf { completed > 0 },
-                "$skipped dilewati dengan alasan".takeIf { skipped > 0 }).joinToString(" · ")
-                .ifBlank { "Belum ada catatan terkirim hari ini" }
-            FarmActionRow(type?.let { "Catat hasil · ${it.label}" } ?: "Kegiatan", "${timeLabel(schedule.optString("planned_at"))}\n$status",
-                FarmIcon.Schedule, Modifier.testTag("worker-schedule-$id"), enabled = canRecord && type != null) {
-                type?.let { onSchedule(it, id) }
+        TodayScheduleCard(due, day, canRecord, onSchedule)
+        FarmPanel(title = "Catatan saya") {
+            if (day.notes.isEmpty()) Text("Belum ada catatan akun ini untuk hari ini di perangkat.")
+            day.notes.forEach { row -> WorkerNoteRow(row, row.syncState.label(), onRecord) }
+            if (day.corrections.isNotEmpty()) {
+                HorizontalDivider()
+                FarmSectionHeading("Perlu diperbaiki")
+                day.corrections.forEach { row -> WorkerNoteRow(row, "Lihat alasan pengelola", onRecord) }
             }
-            schedule.optString("notes").takeIf(String::isNotBlank)?.let {
-                Text(it, Modifier.padding(horizontal = FarmSpace.Medium), style = MaterialTheme.typography.bodySmall)
+            if (day.held > 0) {
+                HorizontalDivider()
+                FarmActionRow("Catatan tertahan", "${day.held} catatan saya di greenhouse ini", FarmIcon.Schedule, onClick = onQueue)
             }
         }
-        HorizontalDivider()
-        FarmSectionHeading("Catatan saya")
-        if (day.notes.isEmpty()) Text("Belum ada catatan akun ini untuk hari ini di perangkat.")
-        day.notes.forEach { row -> WorkerNoteRow(row, row.syncState.label(), onRecord) }
-        if (day.corrections.isNotEmpty()) {
-            HorizontalDivider()
-            FarmSectionHeading("Perlu diperbaiki")
-            day.corrections.forEach { row -> WorkerNoteRow(row, "Lihat alasan pengelola", onRecord) }
+    }
+}
+
+private enum class TaskState { DONE, SKIPPED, PENDING }
+
+private class TaskLine(val schedule: JSONObject, val type: ActivityType?, val title: String, val state: TaskState, val detail: String)
+
+@Composable
+private fun TodayScheduleCard(due: List<JSONObject>, day: WorkerDay, canRecord: Boolean, onSchedule: (ActivityType, String) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val clock = java.time.format.DateTimeFormatter.ofPattern("HH.mm")
+    val rows = due.map { schedule ->
+        val id = schedule.getString("id")
+        val type = ActivityType.entries.find { it.wire == schedule.optString("activity_type") }
+        val typeLabel = type?.label ?: "Kegiatan"
+        val title = taskTitle(schedule.optString("notes"), typeLabel)
+        val accepted = day.synchronizedActivities.filter { it.optString("schedule_id") == id }
+        val completed = accepted.filter { it.optString("work_state") == "completed" }
+        val skipped = accepted.filter { it.optString("work_state") == "skipped" }
+        val unsent = day.notes.filter { it.kind == "activity" && it.body.optString("schedule_id") == id && it.syncState == SyncState.QUEUED }
+        val at = completed.maxOfOrNull { it.optString("occurred_at") }?.let {
+            runCatching { OffsetDateTime.parse(it).atZoneSameInstant(ActivityDraft.WIB).format(clock) }.getOrNull()
         }
-        if (day.held > 0) {
-            HorizontalDivider()
-            FarmActionRow("Catatan tertahan", "${day.held} catatan saya di greenhouse ini", FarmIcon.Schedule, onClick = onQueue)
+        when {
+            completed.isNotEmpty() || unsent.isNotEmpty() -> TaskLine(schedule, type, title, TaskState.DONE, listOfNotNull(typeLabel,
+                if (completed.isNotEmpty()) "selesai ${at ?: ""}".trim() else "belum terkirim",
+                "${skipped.size} dilewati".takeIf { skipped.isNotEmpty() }).joinToString(" · "))
+            skipped.isNotEmpty() -> TaskLine(schedule, type, title, TaskState.SKIPPED,
+                "Dilewati · ${skipped.first().optString("skipped_reason").ifBlank { "tanpa alasan tertulis" }}")
+            else -> TaskLine(schedule, type, title, TaskState.PENDING, "$typeLabel · " + daySession(runCatching {
+                OffsetDateTime.parse(schedule.optString("planned_at")).atZoneSameInstant(ActivityDraft.WIB).hour }.getOrDefault(0)).lowercase())
         }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+            FarmSectionHeading("Jadwal hari ini")
+            if (rows.isNotEmpty()) Text("${rows.count { it.state != TaskState.PENDING }} dari ${rows.size} selesai",
+                style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+        }
+        if (rows.isEmpty()) Text("Belum ada jadwal hari ini. Kegiatan spontan tetap dapat dicatat.", style = MaterialTheme.typography.bodyMedium)
+        else Surface(Modifier.fillMaxWidth(), shape = FarmShape.Card, color = colors.surface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, colors.outlineVariant)) {
+            Column {
+                rows.forEachIndexed { index, row ->
+                    if (index > 0) HorizontalDivider(Modifier.padding(horizontal = FarmSpace.Large), color = colors.outlineVariant)
+                    val id = row.schedule.getString("id")
+                    val enabled = canRecord && row.type != null
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag("worker-schedule-$id")
+                            .clickable(enabled = enabled, onClickLabel = "Catat ${row.title}", role = androidx.compose.ui.semantics.Role.Button) {
+                                row.type?.let { onSchedule(it, id) }
+                            }.padding(horizontal = FarmSpace.Large, vertical = FarmSpace.Small),
+                        horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TaskMark(row.state)
+                        Column(Modifier.weight(1f)) {
+                            Text(row.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(row.detail, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                        }
+                        if (row.state == TaskState.PENDING && enabled) Text("Catat",
+                            Modifier.heightIn(min = 44.dp).wrapContentHeight(Alignment.CenterVertically)
+                                .background(colors.secondaryContainer, FarmShape.Control).padding(horizontal = FarmSpace.Large),
+                            style = MaterialTheme.typography.labelLarge, color = colors.onSecondaryContainer)
+                    }
+                }
+            }
+        }
+        Text("Catat dari jadwal membuka form dengan jenis terisi.", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun TaskMark(state: TaskState) {
+    val colors = MaterialTheme.colorScheme
+    val (good, goodContent) = farmToneColors(FarmTone.Good)
+    val amber = farmToneColors(FarmTone.Amber).second
+    val mark = Modifier.size(28.dp)
+    when (state) {
+        TaskState.DONE -> Box(mark.background(good, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+            CompositionLocalProvider(LocalContentColor provides goodContent) { FarmControlIcon(FarmIcon.Check, "Selesai") }
+        }
+        TaskState.SKIPPED -> Box(mark.border(2.dp, amber, androidx.compose.foundation.shape.CircleShape).semantics { contentDescription = "Dilewati" })
+        TaskState.PENDING -> Box(mark.border(2.dp, colors.outline, androidx.compose.foundation.shape.CircleShape).semantics { contentDescription = "Belum dicatat" })
     }
 }
 

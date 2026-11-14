@@ -1,6 +1,6 @@
 # Bukti: pengelola sebagai super admin dan UI pengelola Versi B
 
-Status 11 November 2026. Rencana: [master prompt](MASTER_PROMPT_MANAGER_SUPERADMIN.md). Baseline `abaed43`. Dokumen ini membedakan bukti baru dari bukti lama dan menyebut yang **tidak** terverifikasi. Tidak ada migration; database `inofarm_finance_local` dan `inofarm_local` tidak disentuh.
+Status 11 November 2026. Rencana: master prompt `MASTER_PROMPT_MANAGER_SUPERADMIN.md` (berkas sudah tidak ada di repo). Baseline `abaed43`. Dokumen ini membedakan bukti baru dari bukti lama dan menyebut yang **tidak** terverifikasi. Tidak ada migration; database `inofarm_finance_local` dan `inofarm_local` tidak disentuh.
 
 ## Ringkasan per fase
 

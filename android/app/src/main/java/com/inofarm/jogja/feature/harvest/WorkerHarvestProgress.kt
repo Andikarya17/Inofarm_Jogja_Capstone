@@ -182,8 +182,7 @@ private fun ProgressSummary(data: JSONObject, saved: Boolean, showSources: Boole
         if (data.optBoolean("completed")) Text("Panen kelompok ditandai selesai")
         Text(if (saved) "Data tersimpan · ${timeLabel(data.getString("as_of"))}"
             else "Diperbarui ${timeLabel(data.getString("as_of"))}", style = MaterialTheme.typography.bodySmall)
-        Surface(Modifier.fillMaxWidth(), shape = FarmShape.Card, color = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer) {
+        Surface(Modifier.fillMaxWidth(), shape = FarmShape.Hero, color = FarmColors.Sage, contentColor = FarmColors.Ink) {
             Column(Modifier.padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                     FarmNavigationIcon(3)
@@ -199,8 +198,7 @@ private fun ProgressSummary(data: JSONObject, saved: Boolean, showSources: Boole
                         Text("${harvestDecimal(percent.toPlainString())}% target buah" +
                             if (percent > BigDecimal("100")) " · target terlampaui" else "")
                         LinearProgressIndicator(progress = { ratio }, modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .23f))
+                            color = FarmColors.Ink, trackColor = FarmColors.Ink.copy(alpha = .23f))
                     } else Text(if (data.optInt("records") == 0) "Belum ada panen tercatat."
                         else "Capaian belum lengkap karena kondisi sebagian buah belum diketahui.")
                     data.optString("weight_achievement_percent").toBigDecimalOrNull()?.let {

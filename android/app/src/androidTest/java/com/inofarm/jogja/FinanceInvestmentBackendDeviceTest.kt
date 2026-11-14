@@ -35,7 +35,7 @@ class FinanceInvestmentBackendDeviceTest {
         hideKeyboard()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)==false}
         rule.onNodeWithTag("finance-login").performScrollTo().assertIsEnabled().performClick()
-        try {rule.waitUntil(15000) {rule.onAllNodesWithTag(if (role == "manager") "manager-add-greenhouse" else "finance-context-open").fetchSemanticsNodes().isNotEmpty()}}
+        try {rule.waitUntil(15000) {rule.onAllNodesWithTag(if (role == "manager") "manager-add-greenhouse" else "worker-home-summary").fetchSemanticsNodes().isNotEmpty()}}
         catch(error:Exception) {
             lateinit var auth:com.inofarm.jogja.feature.auth.AuthViewModel;rule.runOnIdle {auth=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.auth.AuthViewModel::class.java]}
             throw AssertionError("Login transition: loading=${auth.state.value.loading}, hasSession=${auth.state.value.session!=null}, reason=${auth.state.value.error}",error)

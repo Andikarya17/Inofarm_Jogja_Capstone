@@ -280,11 +280,18 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
  * Manager bar: four tabs around a raised Catat button. Tab tags are finance-tab-0..3 and the button is
  * finance-record-fab; the button sits outside the selectable group.
  */
+/** Which item a dock slot holds; null is the gap under the Catat button, always in the middle. */
+internal fun dockItemAt(slot: Int, itemCount: Int): Int? = when {
+    slot == itemCount / 2 -> null
+    slot < itemCount / 2 -> slot
+    else -> slot - 1
+}
+
 @Composable internal fun FarmDockNavigation(
     selected: Int, items: List<Pair<String, Int>>, onSelect: (Int) -> Unit,
     onRecord: () -> Unit, recordEnabled: Boolean, modifier: Modifier = Modifier
 ) {
-    require(items.size == 4)
+    require(items.size == 2 || items.size == 4)
     val bar = Color(0xFF263F34)
     val pill = Color(0xFF385442)
     val positions = remember { mutableStateMapOf<Int, Pair<Int, Int>>() }
@@ -300,9 +307,9 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
                 if (target != null) Box(Modifier.offset { IntOffset(x, 0) }.width(with(density) { target.second.toDp() })
                     .height(72.dp).padding(vertical = 8.dp, horizontal = 4.dp).background(pill, FarmShape.Control))
                 Row(Modifier.fillMaxWidth().selectableGroup().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    for (slot in 0..4) {
-                        if (slot == 2) { Spacer(Modifier.weight(1f)); continue }
-                        val index = if (slot < 2) slot else slot - 1
+                    for (slot in 0..items.size) {
+                        val index = dockItemAt(slot, items.size)
+                        if (index == null) { Spacer(Modifier.weight(1f)); continue }
                         val on = index == selected
                         val color by animateColorAsState(if (on) Color.White else FarmColors.Sage.copy(alpha = 0.78f), tween(FarmMotion.State), label = "Ikon dock")
                         Column(Modifier.weight(1f).heightIn(min = 72.dp).onGloballyPositioned {

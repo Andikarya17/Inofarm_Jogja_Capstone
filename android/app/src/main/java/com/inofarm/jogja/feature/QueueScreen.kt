@@ -74,19 +74,26 @@ internal fun QueueScreen(
     }
     FarmMenuList(Modifier.testTag("finance-queue-list")) {
         item("queue-header") {
-            FarmMenuHeader(title, "") {
+            val waiting = queue.count { it.state == SyncState.QUEUED.name }
+            FarmMenuHeader(title, if (worker && waiting > 0) "$waiting catatan aman di perangkat, menunggu internet." else "") {
                 if (onVerification != null) TextButton(onClick = onVerification, modifier = Modifier.heightIn(min = FarmSpace.Touch)) {
                     Text("Kembali ke cek catatan")
                 }
                 if (onSendNow != null) Button(onClick = onSendNow, shape = FarmShape.Control,
-                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("queue-send-now")) { Text("Kirim sekarang") }
+                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("queue-send-now")) {
+                    if (worker) {
+                        FarmControlIcon(FarmIcon.Sync, null)
+                        Spacer(Modifier.width(FarmSpace.Small))
+                    }
+                    Text("Kirim sekarang")
+                }
                 if (activity.queueLoaded && activity.queueLoadError == null && queue.isNotEmpty()) {
                     val counts = listOf(
                         queue.count { it.syncState()?.needsReview == true } to "Perlu dicek",
                         queue.count { it.state == SyncState.QUEUED.name } to "Menunggu",
                         (if (worker) 0 else queue.count { it.state == SyncState.ACCEPTED.name }) to "Terkirim"
                     ).filter { it.first > 0 }
-                    if (counts.isNotEmpty()) {
+                    if (counts.isNotEmpty() && !worker) {
                         FarmPanel {
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Section),
                                 verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
@@ -137,8 +144,18 @@ internal fun QueueScreen(
             }
         }
         items(displayOrder, key = { it.id }) { operation ->
+            if (worker && queue.isNotEmpty()) {
+                val first = displayOrder.first { (it.syncState()?.needsReview == true) == (operation.syncState()?.needsReview == true) }
+                if (first.id == operation.id) FarmSectionHeading(
+                    if (operation.syncState()?.needsReview == true) "Ditolak, perlu dicek" else "Menunggu dikirim",
+                    Modifier.padding(bottom = FarmSpace.Small))
+            }
             QueueRecord(operation, opening, reviewError.takeIf { reviewOperation == operation.id },
                 if (canReview(operation)) ({ onReview(operation) }) else null, operation.id == focusOperation, worker)
+        }
+        if (worker && activity.queueLoaded && queue.isNotEmpty()) item("queue-footnote") {
+            Text("Catatan dikirim otomatis saat ada internet.", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -168,7 +185,8 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
         if (state == SyncState.ACCEPTED && reviewReceipt) {
             Text("Catatan sebelum data dipulihkan", style = MaterialTheme.typography.labelMedium)
             RecordStatus(SyncState.EPOCH_REVIEW)
-        } else if (state != null) RecordStatus(state)
+        } else if (state == SyncState.QUEUED && worker) FarmStatusChip("Belum terkirim", tone = FarmTone.Amber)
+        else if (state != null) RecordStatus(state)
         else Text(if (operation.state == "SUPERSEDED") "Sudah diganti" else "Perlu dicek",
             style = MaterialTheme.typography.labelMedium)
         Text(label.replaceFirstChar { it.uppercaseChar() }, style = MaterialTheme.typography.titleMedium)

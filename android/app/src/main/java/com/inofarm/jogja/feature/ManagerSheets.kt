@@ -15,6 +15,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,6 +36,18 @@ internal enum class RecordChoice(val label: String, val detail: String, val icon
     SALE("Penjualan", "Sudah lunas", FarmIcon.TrendUp),
 }
 
+/** The greenhouse choice a worker makes inside the Catat sheet; [onPick] gets the chosen greenhouse id. */
+internal class WorkerRecordTarget(
+    val greenhouses: List<org.json.JSONObject>, val chosen: String?, val caption: (String?) -> String?,
+    val onPick: (RecordChoice, String?) -> Unit, val onNutritionRun: (() -> Unit)? = null,
+)
+
+private val WorkerRecordDetails = mapOf(
+    RecordChoice.ACTIVITY to "Pekerjaan harian dan bahan",
+    RecordChoice.MEASUREMENT to "EC, PPM, pH",
+    RecordChoice.HARVEST to "Hasil per grade",
+)
+
 internal val WorkerRecordChoices = listOf(RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST)
 private val FieldChoices = setOf(RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST)
 
@@ -44,7 +59,9 @@ internal fun RecordSheet(
     onDismiss: () -> Unit,
     choices: List<RecordChoice> = RecordChoice.entries,
     contextLine: String? = null,
+    worker: WorkerRecordTarget? = null,
 ) {
+    var chosen by remember { mutableStateOf(worker?.chosen) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -60,13 +77,39 @@ internal fun RecordSheet(
                 if (onStartPlanting != null) StartPlantingCard(onStartPlanting)
                 val field = choices.filter { it in FieldChoices }
                 val money = choices.filterNot { it in FieldChoices }
-                if (field.isNotEmpty()) RecordGroup("Di greenhouse", field, 3, 0, onPick)
+                if (worker != null && worker.greenhouses.isNotEmpty()) {
+                    FarmChoiceChips("Greenhouse", chosen, worker.greenhouses, "record-greenhouse", scroll = true) { chosen = it }
+                    worker.caption(chosen)?.let {
+                        Text(it, Modifier.testTag("record-greenhouse-caption"), style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                val pick: (RecordChoice) -> Unit = if (worker != null) { choice -> worker.onPick(choice, chosen) } else onPick
+                if (field.isNotEmpty()) RecordGroup(if (worker != null) null else "Di greenhouse", field, 3, 0, pick,
+                    if (worker != null) WorkerRecordDetails else emptyMap())
+                worker?.onNutritionRun?.let { NutritionRunRow(it) }
                 if (money.isNotEmpty()) RecordGroup("Uang", money, 2, field.size, onPick)
                 if (money.isNotEmpty()) Text(
                     "Greenhouse lain? Pilih dulu di Beranda, atau biaya dan penjualan akan menanyakan greenhouse-nya.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+/** Sage row that starts the greenhouse-by-greenhouse nutrition check. */
+@Composable
+private fun NutritionRunRow(onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Row(Modifier.fillMaxWidth().farmPressable(interaction).clip(FarmShape.Card).background(FarmColors.Sage)
+        .clickable(interaction, null, role = Role.Button, onClick = onClick).testTag("record-nutrition-run").padding(FarmSpace.Medium),
+        horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.CenterVertically) {
+        FarmIconTile(FarmIcon.Droplet, tone = FarmTone.Forest)
+        Column(Modifier.weight(1f)) {
+            Text("Cek nutrisi semua greenhouse", style = MaterialTheme.typography.titleMedium, color = FarmColors.Ink, fontWeight = FontWeight.Bold)
+            Text("Isi berurutan, satu catatan per greenhouse", style = MaterialTheme.typography.bodySmall, color = FarmColors.Ink)
+        }
+        CompositionLocalProvider(LocalContentColor provides FarmColors.Ink) { FarmControlIcon(FarmIcon.ChevronRight, null) }
     }
 }
 
@@ -89,14 +132,15 @@ private fun StartPlantingCard(onClick: () -> Unit) {
 }
 
 @Composable
-private fun RecordGroup(title: String, items: List<RecordChoice>, columns: Int, offset: Int, onPick: (RecordChoice) -> Unit) {
+private fun RecordGroup(title: String?, items: List<RecordChoice>, columns: Int, offset: Int, onPick: (RecordChoice) -> Unit,
+    details: Map<RecordChoice, String> = emptyMap()) {
     val perRow = if (LocalDensity.current.fontScale > 1.3f) 1 else columns
     Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-        FarmSectionHeading(title)
+        title?.let { FarmSectionHeading(it) }
         items.chunked(perRow).forEachIndexed { row, rowItems ->
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                 rowItems.forEachIndexed { col, choice ->
-                    RecordTile(choice, offset + row * perRow + col, Modifier.weight(1f).fillMaxHeight(), onPick)
+                    RecordTile(choice, offset + row * perRow + col, Modifier.weight(1f).fillMaxHeight(), onPick, details[choice] ?: choice.detail)
                 }
                 repeat(perRow - rowItems.size) { Spacer(Modifier.weight(1f)) }
             }
@@ -105,7 +149,7 @@ private fun RecordGroup(title: String, items: List<RecordChoice>, columns: Int, 
 }
 
 @Composable
-private fun RecordTile(choice: RecordChoice, index: Int, modifier: Modifier, onPick: (RecordChoice) -> Unit) {
+private fun RecordTile(choice: RecordChoice, index: Int, modifier: Modifier, onPick: (RecordChoice) -> Unit, detail: String) {
     val interaction = remember { MutableInteractionSource() }
     Column(
         modifier.farmStaggerEntrance(index, "record-tile-${choice.name}", 30)
@@ -118,7 +162,7 @@ private fun RecordTile(choice: RecordChoice, index: Int, modifier: Modifier, onP
     ) {
         FarmIconTile(choice.icon, tone = FarmTone.Neutral)
         Text(choice.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        Text(choice.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
