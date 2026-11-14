@@ -8,7 +8,7 @@
 
 **Alur pekerja dirapikan 11 November 2026:** dua tab (Beranda, Riwayat), tombol Catat, indikator "N belum terkirim", kartu ringkasan per greenhouse dan koreksi dengan acuan otomatis. Bukti emulator API 30 dengan fixture sintetis, **belum diuji di perangkat fisik atau backend nyata**. [Bukti, batas dan matriks temuan](docs/context/WORKER_FLOW_EVIDENCE_20261111.md).
 
-Penyelarasan pekerja 10–11 November 2026 menambah pilihan greenhouse langsung, agenda WIB, picker lapangan, verifikasi panen per revisi dan progres pekerja. Source backend memakai migration 20, dengan verifikasi hanya pada `inofarm_test`. Database aplikasi lokal berada pada checkpoint schema 19. [Status, bukti dan gate PK0–PK7](docs/context/WORKER_ALIGNMENT_EVIDENCE_20261110.md).
+Penyelarasan pekerja 10–11 November 2026 menambah pilihan greenhouse langsung, agenda WIB, picker lapangan, verifikasi panen per revisi dan progres pekerja. Source backend memakai migration 20, dengan verifikasi hanya pada `inofarm_test`. Database aplikasi lokal `inofarm_finance_local` sudah di migration 20 sejak 14 November 2026 (55 tabel, backup dan bukti di [bukti D1](docs/context/DEPLOYMENT_MIGRATION_EVIDENCE_20261114.md)). [Status, bukti dan gate PK0–PK7](docs/context/WORKER_ALIGNMENT_EVIDENCE_20261110.md).
 
 Baseline diperbarui **10 November 2026 setelah remediasi**, source engineering `a67577d`. Baca `AGENTS.md` root dan `backend/AGENTS.md` sebelum bekerja. Instruksi pengguna terbaru mengatasi histori. [Bukti penyelesaian audit](docs/context/AUDIT_REMEDIATION_20261110.md) menjadi rujukan status terbaru.
 
@@ -41,7 +41,7 @@ Finance merupakan launcher default tanpa flag `-PfinanceApp`. Jangan menghidupka
 | Penyimpanan Android | SQLiteOpenHelper schema **10**, vault/sesi dan payload terenkripsi per server+akun, draf/outbox durable; bukan Room |
 | Sinkronisasi | foreground coordinator dan Android JobScheduler/JobService; bukan WorkManager |
 | Backend | PHP, Laravel 13 (constraint `^13.17`), Sanctum 4, controller/domain service/Query Builder/Eloquent, BCMath |
-| Database server | MySQL 8; runtime lokal diperiksa versi 8.0.30; migration finance sampai **20** di source (database lokal di 19) |
+| Database server | MySQL 8; runtime lokal diperiksa versi 8.0.30; migration finance sampai **20** di source dan database lokal; `php artisan migrate:status --pending=1` gagal bila ada yang tertinggal |
 | Laporan | snapshot immutable; Dompdf 3.1.6 untuk PDF, CSV dari snapshot yang sama |
 | Pengujian | PHPUnit, Kotlin/JUnit, MockWebServer, Android instrumentation, checker Python JSON Schema dan oracle perhitungan |
 
