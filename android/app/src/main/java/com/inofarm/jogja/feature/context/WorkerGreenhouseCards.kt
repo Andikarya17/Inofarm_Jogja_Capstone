@@ -1,5 +1,12 @@
 package com.inofarm.jogja.feature.context
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -11,7 +18,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +42,7 @@ import com.inofarm.jogja.feature.activities.domain.ManualMeasurement
 import com.inofarm.jogja.feature.harvest.varietyName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.time.Instant
@@ -187,11 +198,58 @@ internal fun WorkerGreenhouseList(state: WorkerHomeState, data: CultivationUiSta
             data.greenhouses.isEmpty() -> Text(
                 if (data.check == ContextCheck.CHECKED) "Belum ada greenhouse dalam penugasan. Hubungi pengelola."
                 else data.greenhouseAvailability() ?: "Memuat data perangkat…", style = MaterialTheme.typography.bodyMedium)
-            days == null -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text("Memuat data perangkat…", style = MaterialTheme.typography.bodyMedium)
+            days == null && state.failed -> Text("Data perangkat belum bisa dibaca. Perbarui untuk mencoba lagi.",
+                style = MaterialTheme.typography.bodyMedium)
+            else -> {
+                // The device cache usually answers at once. Placeholders only appear when it does not, then hand over to the cards.
+                var slow by remember { mutableStateOf(false) }
+                LaunchedEffect(days == null) { if (days == null) { delay(FarmMotion.PlaceholderReveal); slow = true } }
+                val stage = if (days != null) HomeListStage.Cards else if (slow) HomeListStage.Placeholder else HomeListStage.Waiting
+                AnimatedContent(stage, transitionSpec = {
+                    if (initialState == HomeListStage.Placeholder) fadeIn(tween(FarmMotion.State)) togetherWith fadeOut(tween(FarmMotion.State))
+                    else EnterTransition.None togetherWith ExitTransition.None
+                }, label = "Daftar greenhouse") { shown ->
+                    Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                        when (shown) {
+                            HomeListStage.Waiting -> Unit
+                            HomeListStage.Placeholder -> {
+                                Text("Memuat data perangkat…", Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                repeat(data.greenhouses.size.coerceIn(1, 3)) { WorkerGreenhousePlaceholder() }
+                            }
+                            HomeListStage.Cards -> days.orEmpty().forEachIndexed { index, day ->
+                                WorkerGreenhouseCard(day, index + 1) { onSelect(day.greenhouse) }
+                            }
+                        }
+                    }
+                }
             }
-            else -> days.forEachIndexed { index, day -> WorkerGreenhouseCard(day, index + 1) { onSelect(day.greenhouse) } }
+        }
+    }
+}
+
+private enum class HomeListStage { Waiting, Placeholder, Cards }
+
+/** A still outline of one greenhouse card, so the list does not jump when the real cards arrive. No shimmer. */
+@Composable
+private fun WorkerGreenhousePlaceholder() {
+    val colors = MaterialTheme.colorScheme
+    val line = with(LocalDensity.current) { 20.sp.toDp() }
+    @Composable fun block(width: Float, height: androidx.compose.ui.unit.Dp = line, modifier: Modifier = Modifier) =
+        Box(modifier.fillMaxWidth(width).height(height).background(colors.surfaceVariant, FarmShape.Chip))
+    Surface(Modifier.fillMaxWidth().clearAndSetSemantics {}, shape = FarmShape.Card, color = colors.surface,
+        border = BorderStroke(1.dp, colors.outlineVariant)) {
+        Column(Modifier.fillMaxWidth().padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+            Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
+                block(0.5f)
+                block(0.7f)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                Box(Modifier.weight(1f)) { block(1f, line + FarmSpace.Small) }
+                Box(Modifier.weight(1f)) { block(0.7f, line + FarmSpace.Small) }
+            }
+            HorizontalDivider(color = colors.outlineVariant)
+            block(0.6f)
         }
     }
 }
