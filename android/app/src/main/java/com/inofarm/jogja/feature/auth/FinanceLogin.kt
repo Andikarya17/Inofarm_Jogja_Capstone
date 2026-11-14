@@ -38,7 +38,11 @@ import androidx.core.view.WindowCompat
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.platform.LocalAutofillManager
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -73,13 +77,15 @@ internal fun FinanceLogin(
     endpoint: String?,
     onLogin: (String, String, String) -> Unit
 ) {
-    var email by rememberSaveable { mutableStateOf("") }
+    val context = LocalContext.current
+    var rememberedEmail by remember { mutableStateOf(LastLoginEmail.read(context)) }
+    var email by rememberSaveable { mutableStateOf(rememberedEmail) }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var awaitingPermission by remember { mutableStateOf(false) }
     var permissionMessage by remember { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
     val focus = LocalFocusManager.current
+    val autofill = LocalAutofillManager.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (awaitingPermission && granted && endpoint != null) onLogin(endpoint, email, password)
         if (!granted) permissionMessage = "Izinkan akses jaringan lokal untuk tersambung ke Inofarm."
@@ -92,6 +98,8 @@ internal fun FinanceLogin(
             focus.clearFocus()
             passwordVisible = false
             permissionMessage = null
+            // Lets a password manager offer to save or update what was typed.
+            autofill?.commit()
             if (LocalNetworkAccess.requiredFor(endpoint, Build.VERSION.SDK_INT) &&
                 ContextCompat.checkSelfPermission(context, LocalNetworkAccess.PERMISSION) != PackageManager.PERMISSION_GRANTED
             ) {
@@ -170,14 +178,26 @@ internal fun FinanceLogin(
                 ) {
                     FarmPageTitle("Masuk", "Pakai akun yang dibuat pengelola.")
                     val fieldsEnabled = !state.loading && !awaitingPermission
-                    LoginFieldLabel("Email")
+                    // The action shares the label's row, so a remembered email adds no gap between the two fields.
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { LoginFieldLabel("Email") }
+                        if (rememberedEmail.isNotEmpty() && email == rememberedEmail) TextButton(
+                            onClick = { LastLoginEmail.forget(context); rememberedEmail = ""; email = "" },
+                            enabled = fieldsEnabled,
+                            modifier = Modifier.testTag("finance-forget-email")
+                                .semantics { onClick("Kosongkan email yang diingat perangkat ini", null) }
+                        ) { Text("Bukan saya") }
+                    }
                     OutlinedTextField(
                         email, { email = it }, placeholder = { Text("email@contoh.com") },
                         leadingIcon = { FarmControlIcon(FarmIcon.Mail, null) },
                         shape = FarmShape.Tile, enabled = fieldsEnabled, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                         keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }),
-                        modifier = Modifier.fillMaxWidth().testTag("finance-email").semantics { contentDescription = "Email" }
+                        modifier = Modifier.fillMaxWidth().testTag("finance-email").semantics {
+                            contentDescription = "Email"
+                            contentType = ContentType.EmailAddress + ContentType.Username
+                        }
                     )
                     LoginFieldLabel("Password")
                     OutlinedTextField(
@@ -198,7 +218,10 @@ internal fun FinanceLogin(
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { submit() }),
-                        modifier = Modifier.fillMaxWidth().testTag("finance-password").semantics { contentDescription = "Password" }
+                        modifier = Modifier.fillMaxWidth().testTag("finance-password").semantics {
+                            contentDescription = "Password"
+                            contentType = ContentType.Password
+                        }
                     )
                     Column(Modifier.fillMaxWidth().animateContentSize(tween(FarmMotion.State)),
                         verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {

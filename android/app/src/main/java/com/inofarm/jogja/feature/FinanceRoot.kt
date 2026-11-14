@@ -68,6 +68,7 @@ import com.inofarm.jogja.feature.admin.AdminHost
 import com.inofarm.jogja.feature.admin.AdminResource
 import com.inofarm.jogja.feature.auth.AuthViewModel
 import com.inofarm.jogja.feature.auth.FinanceLogin
+import com.inofarm.jogja.feature.auth.LastLoginEmail
 import com.inofarm.jogja.feature.context.ContextViewModel
 import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.context.HomeContext
@@ -219,11 +220,18 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var adminEdit by rememberSaveable(authState.session?.scope?.key) { mutableStateOf(false) }
     val openAdmin: (AdminResource) -> Unit = { adminGreenhouse = null; adminEdit = false; adminEntry = it }
     BackHandler(authState.loading && authState.session!=null) { /* Wait for the bounded local persistence boundary. */ }
+    // The email is remembered only after the server accepted the login, never the password.
+    var pendingLoginEmail by remember { mutableStateOf<String?>(null) }
+    val loginContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(authState.session?.scope?.key) {
+        val accepted = pendingLoginEmail
+        if (authState.session != null && accepted != null) { LastLoginEmail.save(loginContext, accepted); pendingLoginEmail = null }
+    }
     Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
         if(authState.session==null) {
             val configured = runtime.configuredLoginEndpoint.value
             val endpoint = remember(configured) { runCatching { runtime.api.validateBase(configured) }.getOrNull() }
-            FinanceLogin(authState, endpoint, auth::login)
+            FinanceLogin(authState, endpoint) { base, email, password -> pendingLoginEmail = email; auth.login(base, email, password) }
         }
         else if(authState.loading) Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Spacer(Modifier.height(16.dp));Text("Menyimpan isian terakhir sebelum keluar…")}
         else {
