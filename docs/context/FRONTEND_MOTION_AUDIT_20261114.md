@@ -56,6 +56,7 @@ Lokasi: `feature/FinanceRoot.kt` cabang `asset.entry.busy || sale.busy || activi
 Dampak: simpan ke penyimpanan lokal biasanya cepat, jadi form hilang, spinner berkedip, lalu layar berikutnya muncul. Pengguna kehilangan konteks dan merasa aplikasi "loncat". Ini kebalikan dari aplikasi offline-first yang terasa instan.
 Saran: biarkan form atau langkah Periksa tetap terlihat. Tombol utama masuk ke status sibuk (label "Menyimpan…" dengan indikator kecil, seperti tombol Masuk), dan kontrol lain dinonaktifkan. Tampilkan indikator baru setelah sekitar 300 ms supaya simpan cepat tidak berkedip. Setelah selesai, pindah layar dengan transisi (P1-3) dan snackbar yang sudah ada.
 Perintah: `/impeccable harden`, `/impeccable animate`.
+Status 15 November 2026: selesai untuk bagian tanpa layar spinner dan tombol sibuk di tempat; transisi setelah simpan menunggu P1-3. [Bukti F2](FRONTEND_HARDEN_EVIDENCE_20261115.md).
 
 **[P1-3] Perpindahan layar dipotong tanpa transisi.**
 Lokasi: `FinanceRoot.kt` (rantai `when` sekitar baris 822–960 memilih layar dari ~40 flag `rememberSaveable`). Hanya tab pekerja (alpha 0,74→1 dan naik 5 dp, 180 ms) dan langkah Periksa (`FarmReviewEntrance`) yang punya gerak. Kategori: Kesesuaian platform.
@@ -78,6 +79,7 @@ Lokasi: `feature/auth/FinanceLogin.kt:174–202`. Kategori: Aksesibilitas, Keses
 Dampak: pengelola program dan password manager tidak bisa mengisi email dan password. Sesi berlaku 24 jam, jadi pekerja akan sering mengetik password 12 karakter di lapangan.
 Saran: tambahkan `semantics { contentType = ContentType.EmailAddress }` (atau `Username`) dan `ContentType.Password` (Compose UI 1.8 ke atas, BOM 2025.08.01 sudah mencukupi). Jangan menyimpan password sendiri.
 Perintah: `/impeccable harden`.
+Status 15 November 2026: petunjuk autofill terpasang dan diuji lewat semantik; belum diuji dengan password manager yang berisi akun. [Bukti F2](FRONTEND_HARDEN_EVIDENCE_20261115.md).
 
 **[P1-6] Daftar tidak menganimasikan baris yang berubah.**
 Lokasi: `HistoryScreen.kt:162`, `ActivityVerificationScreen.kt:187,332`, `QueueScreen.kt:146`, daftar Beranda. `animateItem` = 0. Kategori: Kesesuaian platform.
@@ -91,7 +93,7 @@ Perintah: `/impeccable animate`.
 
 **[P2-2] Tarik untuk memperbarui hanya ada di Beranda pengelola.** Beranda dan Riwayat pekerja, serta Riwayat dan Keuangan pengelola, memakai tombol "Perbarui". Tambahkan `PullToRefreshBox` yang memicu sinkronisasi yang sama dan mempertahankan tombol untuk aksesibilitas. `/impeccable adapt`.
 
-**[P2-3] Status memuat Beranda tanpa ruang cadangan.** `WorkerGreenhouseCards.kt:190` menampilkan spinner dan "Memuat data perangkat…", lalu kartu muncul dan mendorong isi ke bawah. Pakai placeholder statis berbentuk kartu (tanpa shimmer berulang) setinggi kartu nyata, lalu crossfade 200 ms ke kartu. Cache lokal cepat, jadi cukup tampilkan placeholder bila pemuatan lebih dari 150 ms. `/impeccable harden`.
+**[P2-3] Status memuat Beranda tanpa ruang cadangan.** `WorkerGreenhouseCards.kt:190` menampilkan spinner dan "Memuat data perangkat…", lalu kartu muncul dan mendorong isi ke bawah. Pakai placeholder statis berbentuk kartu (tanpa shimmer berulang) setinggi kartu nyata, lalu crossfade 200 ms ke kartu. Cache lokal cepat, jadi cukup tampilkan placeholder bila pemuatan lebih dari 150 ms. `/impeccable harden`. Status 15 November 2026: selesai untuk Beranda pekerja; Beranda pengelola tidak diubah. [Bukti F2](FRONTEND_HARDEN_EVIDENCE_20261115.md).
 
 **[P2-4] Back prediktif tanpa pratinjau dalam aplikasi.** `targetSdk` 37 sudah mengaktifkan Back prediktif, tetapi layar dalam (halaman greenhouse, detail, form) memakai `BackHandler` biasa sehingga tidak ada pratinjau saat gesture ditahan. Untuk halaman greenhouse dan detail, pakai `PredictiveBackHandler` yang menggerakkan skala 1→0,92 dan geser tepi sesuai progres gesture. Batal mengembalikan keadaan dengan spring. Jangan pasang pada form yang punya draf belum tersimpan sebelum perilaku simpan otomatisnya jelas. `/impeccable animate`.
 
@@ -114,7 +116,7 @@ Perintah: `/impeccable animate`.
 - **[P3-1]** `farmStaggerEntrance` memakai `delay(index * step)` yang tidak ikut skala animasi sistem. Saat "Hapus animasi" aktif, item tetap menunggu hingga sekitar 200 ms lalu muncul seketika. Kalikan jeda dengan skala durasi animator, atau lewati jeda bila skalanya 0.
 - **[P3-2]** Warna mentah yang menduplikasi token: `Color(0xFF203B30)`, `0xFF263F34`, `0xFF385442`, `0xFF493519` di `CanopyKit.kt` dan `FarmChrome.kt:399`. Pindahkan ke `FarmColors`/`ForestScheme`.
 - **[P3-3]** `background_login.jpg` (27 KB) tidak dipakai lagi. `shrinkResources` membuangnya di rilis, tetapi sebaiknya dihapus dari source.
-- **[P3-4]** Login: email terakhir tidak diingat antarsesi. Pertimbangkan mengisi email terakhir (bukan password), dengan pilihan "Bukan saya" untuk ponsel bersama.
+- **[P3-4]** Login: email terakhir tidak diingat antarsesi. Pertimbangkan mengisi email terakhir (bukan password), dengan pilihan "Bukan saya" untuk ponsel bersama. Status 15 November 2026: selesai sesuai keputusan G7. [Bukti F2](FRONTEND_HARDEN_EVIDENCE_20261115.md).
 - **[P3-5]** Login: kanopi menyusut saat keyboard terbuka lewat `animateDpAsState` yang dibaca di komposisi, sehingga layout dihitung ulang tiap frame selama 220 ms. Masih wajar; bisa dipindah ke `Modifier.layout` atau `graphicsLayer` bila profil menunjukkan jank.
 - **[P3-6]** Tanpa navigation rail untuk layar lebar. Target saat ini ponsel, jadi cukup dicatat.
 
