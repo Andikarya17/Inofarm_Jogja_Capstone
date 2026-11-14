@@ -68,6 +68,7 @@ Saran: turunkan satu kunci tujuan dari state yang ada, misalnya `sealed interfac
 - **fade** 150 ms untuk sheet ke form.
 Konten yang keluar harus memakai snapshot tujuan lamanya, jangan membaca state terbaru, supaya tidak berkedip ke isi yang salah saat keluar. Jangan menganimasikan pergantian cakupan greenhouse di Beranda pengelola karena isinya harus langsung terikat.
 Perintah: `/impeccable animate`.
+Status 15 November 2026: selesai; shared axis X, fade-through dock, gambar beku untuk layar keluar, cakupan Beranda pengelola tidak dianimasikan. [Bukti F3](FRONTEND_MOTION_EVIDENCE_20261115.md).
 
 **[P1-4] Kontrol utama tanpa ripple.**
 Lokasi: `CanopyKit.kt:178` (dock), `:338` (Catat), `ManagerHomeCanopy.kt:179` (kartu greenhouse), `ManagerSheets.kt:105,121,159` (kotak sheet Catat dan pilihan greenhouse). Semuanya `clickable(interaction, null, …)`. Kategori: Kesesuaian platform.
@@ -87,6 +88,7 @@ Lokasi: `HistoryScreen.kt:162`, `ActivityVerificationScreen.kt:187,332`, `QueueS
 Dampak: saat pengelola menekan "Sesuai", baris hilang seketika dan baris di bawahnya meloncat ke atas. Hal yang sama terjadi saat catatan terkirim di sheet Belum terkirim. Pengguna sulit memastikan aksinya berhasil.
 Saran: tambahkan `Modifier.animateItem()` (fade dan placement bawaan) pada baris yang sudah berkunci. Untuk inbox Cek catatan, beri jeda 150 ms dengan chip keputusan tampil sebelum baris keluar, supaya hasil keputusan terlihat dulu.
 Perintah: `/impeccable animate`.
+Status 15 November 2026: sebagian; `animateItem` terpasang pada Riwayat, Cek catatan, Belum terkirim, koreksi dan kartu pengelola; jeda chip 150 ms dan kartu greenhouse pekerja belum. [Bukti F3](FRONTEND_MOTION_EVIDENCE_20261115.md).
 
 ## Temuan P2
 
@@ -96,9 +98,9 @@ Perintah: `/impeccable animate`.
 
 **[P2-3] Status memuat Beranda tanpa ruang cadangan.** `WorkerGreenhouseCards.kt:190` menampilkan spinner dan "Memuat data perangkat…", lalu kartu muncul dan mendorong isi ke bawah. Pakai placeholder statis berbentuk kartu (tanpa shimmer berulang) setinggi kartu nyata, lalu crossfade 200 ms ke kartu. Cache lokal cepat, jadi cukup tampilkan placeholder bila pemuatan lebih dari 150 ms. `/impeccable harden`. Status 15 November 2026: selesai untuk Beranda pekerja; Beranda pengelola tidak diubah. [Bukti F2](FRONTEND_HARDEN_EVIDENCE_20261115.md).
 
-**[P2-4] Back prediktif tanpa pratinjau dalam aplikasi.** `targetSdk` 37 sudah mengaktifkan Back prediktif, tetapi layar dalam (halaman greenhouse, detail, form) memakai `BackHandler` biasa sehingga tidak ada pratinjau saat gesture ditahan. Untuk halaman greenhouse dan detail, pakai `PredictiveBackHandler` yang menggerakkan skala 1→0,92 dan geser tepi sesuai progres gesture. Batal mengembalikan keadaan dengan spring. Jangan pasang pada form yang punya draf belum tersimpan sebelum perilaku simpan otomatisnya jelas. `/impeccable animate`.
+**[P2-4] Back prediktif tanpa pratinjau dalam aplikasi.** `targetSdk` 37 sudah mengaktifkan Back prediktif, tetapi layar dalam (halaman greenhouse, detail, form) memakai `BackHandler` biasa sehingga tidak ada pratinjau saat gesture ditahan. Untuk halaman greenhouse dan detail, pakai `PredictiveBackHandler` yang menggerakkan skala 1→0,92 dan geser tepi sesuai progres gesture. Batal mengembalikan keadaan dengan spring. Jangan pasang pada form yang punya draf belum tersimpan sebelum perilaku simpan otomatisnya jelas. `/impeccable animate`. Status 15 November 2026: terpasang untuk halaman greenhouse pekerja dan detail catatan; pratinjau belum terlihat karena emulator Android 11 tidak mengirim progres gesture. [Bukti F3](FRONTEND_MOTION_EVIDENCE_20261115.md).
 
-**[P2-5] Root Compose monolitik.** `FinanceRoot.kt` 1.569 baris dengan ~40 flag state dan baris kode panjang. Setiap perubahan state membaca ulang seluruh `when`. Turunkan kunci tujuan (P1-3) dengan `derivedStateOf`, pindahkan cabang besar ke composable sendiri dengan parameter stabil, dan hindari membuat lambda baru dan `mapNotNull` di dalam cabang (contoh: `NutritionRunItem` dibangun di dalam `when`). Ini juga mempermudah transisi. `/impeccable optimize`. Status 15 November 2026: sebagian; daftar nutrisi diingat, kunci tujuan menyusul di F3, pemecahan cabang belum. [Bukti F1](FRONTEND_PERFORMANCE_EVIDENCE_20261115.md).
+**[P2-5] Root Compose monolitik.** `FinanceRoot.kt` 1.569 baris dengan ~40 flag state dan baris kode panjang. Setiap perubahan state membaca ulang seluruh `when`. Turunkan kunci tujuan (P1-3) dengan `derivedStateOf`, pindahkan cabang besar ke composable sendiri dengan parameter stabil, dan hindari membuat lambda baru dan `mapNotNull` di dalam cabang (contoh: `NutritionRunItem` dibangun di dalam `when`). Ini juga mempermudah transisi. `/impeccable optimize`. Status 15 November 2026: sebagian; daftar nutrisi diingat (F1), kunci tujuan `FinanceDestination` dipakai F3, pemecahan cabang belum. [Bukti F1](FRONTEND_PERFORMANCE_EVIDENCE_20261115.md).
 
 **[P2-6] Turunan dihitung ulang setiap recomposition.** `rememberWorkerHome` membangun `stamp` dari semua greenhouse, musim, kelompok, jadwal dan target pada setiap recomposition (`WorkerGreenhouseCards.kt:120`). Bungkus dengan `remember(data)` atau `derivedStateOf`. `/impeccable optimize`. Status 15 November 2026: selesai. [Bukti F1](FRONTEND_PERFORMANCE_EVIDENCE_20261115.md).
 
