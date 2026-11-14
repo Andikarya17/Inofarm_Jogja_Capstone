@@ -829,6 +829,19 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         // The Catat button grows with the font, so a worker's list keeps more room behind it at large sizes.
         val recordInset = 8.dp
         CompositionLocalProvider(LocalFarmListBottomInset provides recordInset) {
+        // Built when the run or its records change, not on every recomposition of the shell.
+        val runItems = remember(runSaved, activity.records, context.greenhouses) {
+            runSaved.split(',').filter { it.isNotBlank() }.mapNotNull { id ->
+                activity.records.find { it.id == id }?.let { record ->
+                    val draft = ActivityDraft.from(record.id, record.greenhouseId, record.body, record.baseVersion ?: record.serverVersion)
+                    fun value(text: String) = text.replace('.', ',')
+                    NutritionRunItem(context.greenhouses.find { it.optString("id") == record.greenhouseId }?.optString("name") ?: "Greenhouse",
+                        listOfNotNull(draft.ec.takeIf { it.isNotBlank() }?.let { "EC ${value(it)} mS/cm" },
+                            draft.ppm.takeIf { it.isNotBlank() }?.let { "PPM ${value(it)} ppm" },
+                            draft.ph.takeIf { it.isNotBlank() }?.let { "pH ${value(it)}" }).joinToString(" · "))
+                }
+            }
+        }
         // A form stays visible while its save runs, so touches are held until the save has settled.
         val saving = asset.entry.busy || sale.busy || activity.busy || harvest.busy || financial.busy || runPhase == 4
         val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -840,16 +853,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 attachment.parent!=null -> AttachmentScreen(session,context,attachment,attachmentVm,ticket)
                 // Phase 4 keeps the review on screen; its main button reports the sending in place.
                 runPhase == 3 || runPhase == 4 -> NutritionRunReview(
-                    saved = runSaved.split(',').filter { it.isNotBlank() }.mapNotNull { id ->
-                        activity.records.find { it.id == id }?.let { record ->
-                            val draft = ActivityDraft.from(record.id, record.greenhouseId, record.body, record.baseVersion ?: record.serverVersion)
-                            fun value(text: String) = text.replace('.', ',')
-                            NutritionRunItem(context.greenhouses.find { it.optString("id") == record.greenhouseId }?.optString("name") ?: "Greenhouse",
-                                listOfNotNull(draft.ec.takeIf { it.isNotBlank() }?.let { "EC ${value(it)} mS/cm" },
-                                    draft.ppm.takeIf { it.isNotBlank() }?.let { "PPM ${value(it)} ppm" },
-                                    draft.ph.takeIf { it.isNotBlank() }?.let { "pH ${value(it)}" }).joinToString(" · "))
-                        }
-                    },
+                    saved = runItems,
                     skipped = runSkipped.split('|').filter { it.isNotBlank() }, notReady = runNotReady.split('|').filter { it.isNotBlank() },
                     busy = activity.busy || runPhase == 4, onExit = { runEnd() }, onSend = { runPhase = 4 })
                 session.role==UserRole.MANAGER && asset.entry.draft!=null -> if(asset.entry.reviewing) FarmReviewEntrance { AssetReview(asset.entry.draft,context,asset.entry.busy,asset.vm::backToForm,asset.vm::queue) } else AssetForm(asset.entry,context,asset.vm)

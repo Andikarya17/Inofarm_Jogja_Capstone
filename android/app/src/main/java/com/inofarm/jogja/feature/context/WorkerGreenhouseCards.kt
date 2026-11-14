@@ -128,8 +128,11 @@ internal fun rememberWorkerHome(
     var days by remember(session.scope.key, today) { mutableStateOf<List<GreenhouseDay>?>(null) }
     var failed by remember(session.scope.key, today) { mutableStateOf(false) }
     // JSONObject has no equals, so key on ids and versions to avoid re-reading the cache on every reload.
-    val stamp = (data.greenhouses + data.seasons + data.groups + data.schedules + data.targets).map {
-        "${it.optString("id")}:${it.optLong("version")}:${it.optBoolean("active", true)}:${it.optString("running_group_id")}"
+    // Built once per loaded list, not on every recomposition of the Beranda.
+    val stamp = remember(data.greenhouses, data.seasons, data.groups, data.schedules, data.targets) {
+        (data.greenhouses + data.seasons + data.groups + data.schedules + data.targets).map {
+            "${it.optString("id")}:${it.optLong("version")}:${it.optBoolean("active", true)}:${it.optString("running_group_id")}"
+        }
     }
     LaunchedEffect(session.scope.key, stamp, today, changed, syncUpdate) {
         if (data.check == ContextCheck.ACCESS_CHANGED) return@LaunchedEffect
