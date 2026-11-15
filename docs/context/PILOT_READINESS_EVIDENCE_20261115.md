@@ -42,4 +42,4 @@ Tidak ada asersi tentang data server yang dihapus.
 
 - Server pilot HTTPS (P0-2) dan APK rilis bertanda tangan keystore pemilik (D4) di dua ponsel fisik.
 - Skenario 2 offline, 4 sampai 7 di ponsel terhadap server pilot.
-- Keputusan pemilik yang masih terbuka: P2-1 (penugasan aktif akun pengelola), uji restore ke database terpisah, PR dan merge.
+- Keputusan pemilik yang masih terbuka: uji restore ke database terpisah, PR dan merge.
