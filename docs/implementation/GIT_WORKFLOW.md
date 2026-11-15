@@ -1,6 +1,6 @@
 # Commit dan push GitLab UMY
 
-Tanggal: 15 Oktober 2026, Asia/Jakarta. Task ini diotorisasi pengguna untuk memublikasikan snapshot source existing dalam commit berdasarkan fitur. Author: Andika Arya Putra <andika.arya.ft23@mail.umy.ac.id>.
+Tanggal: 15 Oktober 2026, Asia/Jakarta. Task ini diotorisasi pengguna untuk memublikasikan snapshot source existing dalam commit berdasarkan fitur. Author: Andika Arya Putra.
 
 Remote: https://student-git.umy.ac.id/andika.arya.ft23/inofarm_jogja.git
 

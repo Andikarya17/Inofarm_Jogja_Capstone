@@ -59,3 +59,14 @@ id_ed25519
 *.sqlite
 *.sqlite3
 *.db
+
+# Pengaturan pribadi agen AI dan cache Python lokal
+.claude/settings.local.json
+.codex/
+__pycache__/
+*.pyc
+
+# Foto referensi desain milik pengguna di root (provenance belum ditinjau).
+# Diberi awalan / supaya folder assets Android tetap ter-track.
+/UI inspo/
+/assets/
