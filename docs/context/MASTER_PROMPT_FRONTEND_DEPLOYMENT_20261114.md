@@ -27,8 +27,8 @@ Kerjakan per fase (bagian 7), satu branch per fase, dan berhenti di setiap gerba
 
 ## 1. Mulai dari sumber yang benar
 
-1. Jalankan `git remote -v`. **Di laptop pemilik, remote GitHub bernama `github` (`Andikarya17/Inofarm_Jogja_Capstone`), sedangkan `origin` adalah GitLab kampus (`student-git.umy.ac.id`). Fetch dan push hanya ke `github`; jangan push ke `origin`.** Di clone lain, pakai remote yang URL-nya GitHub. Pastikan `main` sama dengan `github/main` dan memuat `Merge pull request #59` (`540bf10`) atau lebih baru.
-2. Periksa `git status`. Working tree pemilik berisi perubahan yang belum di-commit (skill di `.agents/`, `android/.run/…`, dua dokumen di `docs/context/`, folder inspirasi). **Jangan reset, stash, hapus, atau stage berkas yang bukan milik fase ini.** Kerjakan langsung di checkout ini: buat branch fase dengan `git switch -c codex/<fase> github/main` (perubahan pemilik ikut terbawa tanpa di-stage). Jangan memakai `git worktree`, karena worktree tidak membawa `.tools/`, `backend/vendor`, `backend/.env`, `android/local.properties`, `.runtime/` maupun skill di `.claude/skills/`. Bila `git switch` menolak karena bentrok dengan perubahan pemilik, berhenti dan tanya pengguna.
+1. Jalankan `git remote -v`. **Di laptop pemilik, `origin` adalah GitHub (`Andikarya17/Inofarm_Jogja_Capstone`); `github` adalah alias ke repo GitHub yang sama; `umy` adalah GitLab kampus (`student-git.umy.ac.id`). Fetch dan push hanya ke `origin`; jangan push ke `umy`.** Di clone lain, pakai remote yang URL-nya GitHub. Pastikan `main` sama dengan `origin/main` dan memuat `Merge pull request #60` (`6eef4c7`) atau lebih baru.
+2. Periksa `git status`. Working tree pemilik berisi perubahan yang belum di-commit (skill di `.agents/`, `android/.run/…`, dua dokumen di `docs/context/`, folder inspirasi). **Jangan reset, stash, hapus, atau stage berkas yang bukan milik fase ini.** Kerjakan langsung di checkout ini: buat branch fase dengan `git switch -c codex/<fase> origin/main` (perubahan pemilik ikut terbawa tanpa di-stage). Jangan memakai `git worktree`, karena worktree tidak membawa `.tools/`, `backend/vendor`, `backend/.env`, `android/local.properties`, `.runtime/` maupun skill di `.claude/skills/`. Bila `git switch` menolak karena bentrok dengan perubahan pemilik, berhenti dan tanya pengguna.
 3. Baca berurutan sebelum menulis kode:
    - `CLAUDE.md`, `AGENTS.md`, `backend/AGENTS.md`, `PRODUCT.md`, `DESIGN.md` (token, `FarmMotion`, `FarmShape`, `FarmSpace`, bagian *Motion dan umpan balik*, *Canopy*, *Pekerja Canopy*, *Celah terbuka*).
    - Kedua audit di atas, lengkap.
@@ -255,7 +255,7 @@ python scripts/check-finance-context.py
 
 - Branch `codex/<fase>` dari `main` remote. Commit kecil per perubahan logis, pesan konvensional (`feat(motion): …`, `fix(api): …`, `docs(deploy): …`), dan akhiri pesan dengan baris atribusi yang diminta sistem.
 - Stage hanya file fase ini. Jangan stage `.env*` (kecuali `.example` tanpa rahasia), dump, log, `outputs/`, `.runtime/`, `build/`, keystore, folder inspirasi UI, atau skill lokal.
-- `git fetch github` sebelum push, lalu `git push -u github codex/<fase>`. Push hanya branch fase ke remote `github`, tanpa force-push. **Jangan merge ke `main` dan jangan membuat PR tanpa izin pengguna.** Bila pengguna meminta PR, pastikan tidak ada konflik (`git merge-tree`) dan pemeriksaan bagian 8 lulus pada ujung branch.
+- `git fetch origin` sebelum push, lalu `git push -u origin codex/<fase>`. Push hanya branch fase ke remote GitHub (`origin`), tanpa force-push, dan jangan ke `umy`. **Jangan merge ke `main` dan jangan membuat PR tanpa izin pengguna.** Bila pengguna meminta PR, pastikan tidak ada konflik (`git merge-tree`) dan pemeriksaan bagian 8 lulus pada ujung branch.
 
 ## 10. Laporan di akhir setiap fase
 
