@@ -92,7 +92,7 @@ Status 15 November 2026: sebagian; `animateItem` terpasang pada Riwayat, Cek cat
 
 ## Temuan P2
 
-**[P2-1] Tidak ada haptik.** Tambahkan `LocalHapticFeedback` dengan tipe Compose (`Confirm` saat catatan diterima server atau keputusan "Sesuai", `Reject` saat login gagal atau validasi menolak, `SegmentTick` saat tab atau chip berganti, `LongPress` bila ada). Hanya pada momen bermakna, tidak pada setiap ketukan. Hormati setelan getar sistem (API bawaan sudah begitu). `/impeccable delight`.
+**[P2-1] Tidak ada haptik.** Tambahkan `LocalHapticFeedback` dengan tipe Compose (`Confirm` saat catatan diterima server atau keputusan "Sesuai", `Reject` saat login gagal atau validasi menolak, `SegmentTick` saat tab atau chip berganti, `LongPress` bila ada). Hanya pada momen bermakna, tidak pada setiap ketukan. Hormati setelan getar sistem (API bawaan sudah begitu). `/impeccable delight`. Status 15 November 2026: selesai di kode (Confirm, Reject, SegmentTick pada lima momen); getar belum dirasakan di perangkat fisik. [Bukti F4](FRONTEND_DELIGHT_EVIDENCE_20261115.md).
 
 **[P2-2] Tarik untuk memperbarui hanya ada di Beranda pengelola.** Beranda dan Riwayat pekerja, serta Riwayat dan Keuangan pengelola, memakai tombol "Perbarui". Tambahkan `PullToRefreshBox` yang memicu sinkronisasi yang sama dan mempertahankan tombol untuk aksesibilitas. `/impeccable adapt`.
 
@@ -112,7 +112,7 @@ Status 15 November 2026: sebagian; `animateItem` terpasang pada Riwayat, Cek cat
 
 **[P2-10] Ikon peluncur di luar palet dan bukan adaptive icon.** `res/drawable/ic_inofarm.xml` memakai `#006C49` dan `#BDF0CD`, tidak ada `mipmap-anydpi-v26`. Buat adaptive icon (latar `brand #2B503D` atau forest, foreground daun/greenhouse sage) beserta monochrome untuk ikon bertema Android 13. `/impeccable polish`.
 
-**[P2-11] Momen fokus "terkirim" belum dirancang.** Inti kepercayaan aplikasi offline ini adalah saat catatan pindah dari "Belum terkirim" ke "Terkirim". Sekarang hanya ada teks dan snackbar. Usulan satu momen fokus: indikator `N belum terkirim` di top bar menyusut dengan hitungan turun (tanpa animasi angka berjalan; cukup crossfade per nilai), ikon sinkron berputar **hanya selama sinkronisasi benar-benar berjalan** lalu berhenti, dan saat antrean kosong chip berubah menjadi centang sage selama 1,5 detik lalu menghilang dengan fade. Ini terikat ke state nyata, jadi tidak melanggar aturan tanpa animasi tak berhingga. `/impeccable delight`.
+**[P2-11] Momen fokus "terkirim" belum dirancang.** Inti kepercayaan aplikasi offline ini adalah saat catatan pindah dari "Belum terkirim" ke "Terkirim". Sekarang hanya ada teks dan snackbar. Usulan satu momen fokus: indikator `N belum terkirim` di top bar menyusut dengan hitungan turun (tanpa animasi angka berjalan; cukup crossfade per nilai), ikon sinkron berputar **hanya selama sinkronisasi benar-benar berjalan** lalu berhenti, dan saat antrean kosong chip berubah menjadi centang sage selama 1,5 detik lalu menghilang dengan fade. Ini terikat ke state nyata, jadi tidak melanggar aturan tanpa animasi tak berhingga. `/impeccable delight`. Status 15 November 2026: selesai; crossfade angka, putaran ikon selama sinkron, chip "Semua terkirim" 1,5 detik dengan live region, diuji `AllSentMomentUiTest`; TalkBack nyata belum. [Bukti F4](FRONTEND_DELIGHT_EVIDENCE_20261115.md).
 
 ## Temuan P3
 
