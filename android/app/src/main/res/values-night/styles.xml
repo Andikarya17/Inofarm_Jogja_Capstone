@@ -1,0 +1,11 @@
+<resources>
+    <!-- Dark mode keeps the same forest window and splash; the app's own dark theme takes over once Compose draws. -->
+    <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowBackground">@color/inofarm_forest</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/inofarm_forest</item>
+    </style>
+</resources>

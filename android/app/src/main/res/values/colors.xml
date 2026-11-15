@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Canopy tokens from DESIGN.md, for the window, splash and launcher icon drawn before Compose starts. -->
+    <color name="inofarm_forest">#132820</color>
+    <color name="inofarm_sage">#D4E4B7</color>
+    <color name="inofarm_background">#F4F3E8</color>
+</resources>
