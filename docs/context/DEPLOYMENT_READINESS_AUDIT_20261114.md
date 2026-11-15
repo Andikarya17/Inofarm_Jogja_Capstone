@@ -36,6 +36,7 @@ Backend saat ini berjalan lewat `php artisan serve` di laptop (`APP_URL=http://1
 **P0-3. APK rilis belum bisa dibagikan.**
 Build type `release` tidak punya `signingConfig`, dan `inofarmFinanceApiUrl` kosong secara bawaan. Varian `profile` memakai kunci debug dan ditandai "never distributed".
 *Saran:* buat keystore rilis yang disimpan di luar repo, tambahkan `signingConfig` yang membaca properti lokal, isi `-PinofarmFinanceApiUrl=https://…/api/v2/`, naikkan `versionCode`/`versionName`, lalu uji APK rilis (minify aktif) di satu ponsel nyata sebelum dibagikan.
+*Status 15 November 2026:* konfigurasi selesai. `signingConfig` membaca keystore dari luar repo, rilis ditolak tanpa URL `https://…/api/v2/`, versi naik ke 0.3.0 (3); APK bertanda tangan diuji dengan keystore sekali pakai. Belum: keystore asli pemilik dan uji di ponsel fisik. [Bukti D4](DEPLOYMENT_RELEASE_EVIDENCE_20261115.md).
 
 **P0-4. Dependency backend punya advisory keamanan.**
 `symfony/http-foundation` (4 advisory, termasuk trusted proxy dan URL yang host-nya bisa dipilih klien), `symfony/http-kernel` (forwarded header), `symfony/routing` (bypass akses berbasis path), dan `laravel/framework` (low). Versi terpasang: Symfony 8.1.8/8.1.10.
