@@ -283,6 +283,8 @@ Beranda pengelola memakai transisi singkat pada pilihan greenhouse, pembukaan su
 
 Pada pekerja, panel greenhouse baru muncul dalam 230 ms. Perpindahan dua tab memakai perubahan indikator tonal dan masuk singkat 180 ms. Posisi gulir tab disimpan. Bagian opsional dan sumber berubah tinggi dalam 180–200 ms. Nilai buah dan kg tampil langsung. Batang capaian beralih antar-snapshot dalam 240 ms. Umpan balik draf dan antrean mengikuti status penyimpanan yang sudah terjadi dan dapat diumumkan sebagai live region. [Bukti dan matriks gerak pekerja](docs/context/WORKER_ALIGNMENT_EVIDENCE_20261110.md)
 
+Polish akhir (15 November 2026): ripple Material 3 dipotong ke bentuk kartu dan lingkaran Catat, dengan warna ink di atas sage; tab segmen 48 dp; tarik untuk memperbarui di Beranda pekerja, Riwayat dan Keuangan memakai sinkron yang sama dengan tombol toolbar; jendela pembuka forest `#132820` dan ikon peluncur adaptif (daun sage di atas forest, lapisan monokrom tanpa urat). Snackbar memakai peran inverse dari palet (krem di atas ink pada mode terang, ink di atas krem pada mode gelap). Isian nominal pada font di atas 1,3 melepas sufiks IDR, turun satu ukuran dan membacakan nilai utuh di teks bantu.
+
 ### Canopy (12 November 2026)
 
 Token tambahan Canopy di `InofarmTheme.kt`: `FarmShape` (Tile 14, Dock 26, Chip 10, Sheet 28 dp), `FarmType.HeroAmount` (22/28 bold), `HeroNumber` (26/30 extrabold) dan `Wordmark` (44/48 extrabold, jarak huruf -1,2 sp); dua yang pertama memakai `tnum`. Nada status (`FarmTone`) memetakan ke peran yang ada: Neutral, Good, Info, Amber (`warning` pada `warning-surface`, gelap `#DCC28C` pada `#493519`), Error, Forest, Brand.
@@ -316,8 +318,8 @@ Halaman pekerja memakai bahasa visual Canopy yang sama dengan pengelola. Keputus
 
 Bukti berasal dari emulator API 30 (411 dp) dengan fixture, bukan perangkat fisik ([bukti](docs/context/FRONTEND_CANOPY_EVIDENCE_20261112.md)). Belum ada atau belum terbukti:
 
-- Isian nominal belum menampilkan pemisah ribuan (butuh keputusan karena menyentuh tampilan nilai yang divalidasi); kartu forest 34 sp untuk nominal pengeluaran belum ada.
+- Isian nominal kini menampilkan pemisah ribuan lewat `IdrGrouping` (15 November 2026); titik yang diketik menjadi koma desimal, jadi yang tampil selalu yang disimpan. Kartu forest 34 sp untuk nominal pengeluaran belum ada.
 - Wizard langkah 2 dan 3 belum terlihat di layar; hanya langkah 1.
-- Form pada mode gelap dan 200% hanya sebagian (pengukuran dan panen 200% ada). Chip Cacat amber pada permukaan gelap belum dilihat. Lebar 360 dp belum diperiksa.
+- Form pada mode gelap dan 200% hanya sebagian (pengukuran dan panen 200% ada). Chip Cacat amber pada permukaan gelap belum dilihat. Lebar 360 dp sudah dipotret untuk login, Beranda kedua peran, Riwayat, halaman greenhouse, Keuangan dan form pengeluaran (F5); form kegiatan pengelola pada 360 dp belum.
 - Dialog (wizard, admin) memakai bilah sistem gelap pada mode terang (sudah demikian sebelum Canopy). Picker greenhouse dari hero Keuangan berupa dialog forest bahkan pada mode terang.
 - Tombol `Tambah ...` masih garis penuh, bukan garis putus. Baris rincian penjualan masih memakai tombol teks `Hapus rincian N`, bukan `FarmDetailCard`. Tanggal dan jam form kegiatan bertumpuk. Langkah Periksa belum punya baris angka utama dua kolom.
