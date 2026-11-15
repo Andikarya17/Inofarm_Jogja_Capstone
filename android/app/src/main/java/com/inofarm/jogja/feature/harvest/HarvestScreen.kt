@@ -51,7 +51,7 @@ import java.math.BigDecimal
         val figure = ageFigure(age?.hst?.toString()?.toIntOrNull(), age?.hss?.toString()?.toIntOrNull())
         FarmFormFrame(
             header = { FarmFormHeader(title, state.saved, "harvest-draft-status", "harvest-close", vm::saveAndClose, !state.busy) },
-            bar = { FarmFormBar("harvest-save-draft", vm::saveAndClose, "harvest-review", "Periksa", vm::review, enabled = !state.busy,
+            bar = { FarmFormBar("harvest-save-draft", vm::saveAndClose, "harvest-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy,
                 saveLabel = if (worker) "Simpan sebagai draf" else "Simpan draf") }
         ) {
             FarmContextStrip(context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan",

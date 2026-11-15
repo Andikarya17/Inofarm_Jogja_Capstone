@@ -102,7 +102,7 @@ internal fun RecordSheet(
 private fun NutritionRunRow(onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Row(Modifier.fillMaxWidth().farmPressable(interaction).clip(FarmShape.Card).background(FarmColors.Sage)
-        .clickable(interaction, null, role = Role.Button, onClick = onClick).testTag("record-nutrition-run").padding(FarmSpace.Medium),
+        .clickable(interaction, androidx.compose.material3.ripple(color = FarmColors.Ink), role = Role.Button, onClick = onClick).testTag("record-nutrition-run").padding(FarmSpace.Medium),
         horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.CenterVertically) {
         FarmIconTile(FarmIcon.Droplet, tone = FarmTone.Forest)
         Column(Modifier.weight(1f)) {
@@ -118,7 +118,7 @@ private fun StartPlantingCard(onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Row(Modifier.fillMaxWidth().farmPressable(interaction).clip(FarmShape.Card)
         .background(MaterialTheme.colorScheme.primaryContainer)
-        .clickable(interaction, null, role = Role.Button, onClick = onClick).testTag("record-start-planting")
+        .clickable(interaction, androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick).testTag("record-start-planting")
         .padding(FarmSpace.Medium), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium),
         verticalAlignment = Alignment.CenterVertically) {
         FarmIconTile(FarmIcon.Add, tone = FarmTone.Forest)
@@ -156,7 +156,7 @@ private fun RecordTile(choice: RecordChoice, index: Int, modifier: Modifier, onP
             .farmPressable(interaction, 0.96f).clip(FarmShape.Card)
             .background(MaterialTheme.colorScheme.surface, FarmShape.Card)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, FarmShape.Card)
-            .clickable(interaction, null, role = Role.Button) { onPick(choice) }
+            .clickable(interaction, androidx.compose.material3.ripple(), role = Role.Button) { onPick(choice) }
             .testTag("record-${choice.name.lowercase()}").padding(FarmSpace.Medium),
         verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)
     ) {

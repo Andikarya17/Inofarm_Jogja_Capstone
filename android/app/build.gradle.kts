@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("androidx.baselineprofile")
 }
 fun quotedConfig(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 // Release signing comes from ~/.gradle/gradle.properties or the environment, never from the repository.
@@ -60,6 +61,8 @@ android {
     }
     testBuildType = if (project.hasProperty("profileUi")) "profile" else "debug"
 }
+// One profile for every build type, written to src/main/generated/baselineProfiles by :app:generateBaselineProfile.
+baselineProfile { mergeIntoMain = true }
 // A release APK talks to the pilot server only over HTTPS; refuse to build one that would ship without a usable URL.
 val checkReleaseConfig = tasks.register("checkReleaseConfig") {
     val url = releaseApiUrl
@@ -82,6 +85,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Installs the app's Baseline Profile on devices that sideload the APK instead of getting it from Play.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+    "baselineProfile"(project(":baselineprofile"))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")

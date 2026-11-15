@@ -31,6 +31,6 @@ Hash SHA-256 file asli saat diperiksa:
 - Login: `45fd236d1390d799d29b44e6b431b98775545e40fac747e083a120ff18f5c967`
 - Dashboard: `53a8248de6dfc68d9553460ff1cfe43fcec4490ee9e697f29405039df1ed6f2a`
 
-Salinan yang dipakai aplikasi memiliki hash yang sama dengan berkas yang diperiksa. [Resource login](../../android/app/src/main/res/drawable-nodpi/background_login.jpg) · [Resource dashboard](../../android/app/src/main/res/drawable-nodpi/background_dashboard.jpg).
+Salinan yang dipakai aplikasi memiliki hash yang sama dengan berkas yang diperiksa. Resource login `background_login.jpg` (dihapus dari source 15 November 2026 karena tidak dipakai lagi, [bukti F5](FRONTEND_POLISH_EVIDENCE_20261115.md)) · [Resource dashboard](../../android/app/src/main/res/drawable-nodpi/background_dashboard.jpg).
 
 Delivery Gate dokumen: arah dan alasan penggunaan aset tercatat (R-23/31/37), tanpa data atau klaim asal rekaan (R-17/36/38). Kontras, reflow, interaksi dan performa implementasi tetap belum diuji ulang (R-03/25/35/39/40); bukan PASS UI baru. Lihat [master prompt yang diperbarui](MASTER_PROMPT_FRONTEND_BOTANICAL.md).

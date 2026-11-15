@@ -1,0 +1,20 @@
+NOTE: Your device is running a version of ART where method tracing is known to
+affect performance measurement after trace capture, so method tracing is
+off by default.
+
+To use method tracing, either flash this device, use a different device, or
+enable method tracing with MicrobenchmarkConfig / instrumentation argument, and
+only run one test at a time.
+
+For more information, see https://issuetracker.google.com/issues/316174880
+WARNING: Running on Emulator
+Benchmark is running on an emulator, which is not representative of
+real user devices. Use a physical device to benchmark. Emulator
+benchmark improvements might not carry over to a real user's
+experience (or even regress real device performance).
+
+StartupBenchmark_startupWithProfile
+frameCount               min    18.0,   median    26.0,   max    28.0
+timeToInitialDisplayMs   min 1,200.8,   median 1,465.8,   max 2,272.7
+frameDurationCpuMs       P50    221.4,   P90    543.7,   P95    647.0,   P99  1,488.5
+Traces: Iteration 0 1 2 3 4 5 6 7 8 9

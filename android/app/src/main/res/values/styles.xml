@@ -1,7 +1,11 @@
 <resources>
+    <!-- The window is forest, the colour of the login canopy, so a cold start flows into it with no white flash. -->
     <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:colorAccent">#006C49</item>
+        <item name="android:windowBackground">@color/inofarm_forest</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/inofarm_forest</item>
     </style>
 </resources>

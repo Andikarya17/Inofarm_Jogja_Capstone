@@ -192,13 +192,13 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
     val greenhouse=context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse terakhir tersimpan"
     FarmFormFrame(
         header = { FarmFormHeader("${if(draft.baseVersion==null) "Catat" else "Koreksi"} ${draft.kind.label}", state.saved, "expense-draft-status", "expense-close", vm::saveAndClose, !state.busy) },
-        bar = { FarmFormBar("expense-save-draft", vm::saveAndClose, "expense-review", "Periksa", vm::review, enabled = !state.busy) }
+        bar = { FarmFormBar("expense-save-draft", vm::saveAndClose, "expense-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy) }
     ) {
         FarmContextStrip(greenhouse, null, null)
         FarmFormSection(if (draft.kind == RecordKind.EXPENSE) "Nominal pembayaran" else "Nominal alokasi") {
             FinanceField("Nominal IDR (Rp)", draft.amount, { v -> vm.edit { it.copy(amount = v) } },
                 "expense-amount", state.errors["amount"], KeyboardType.Decimal,
-                hint = "Desimal boleh koma, maksimal 2 angka. Tanpa pemisah ribuan. Kosong bukan nol.", suffix = "IDR", prominent = true)
+                hint = "Ketik angka tanpa titik; pemisah ribuan tampil sendiri. Desimal boleh koma, maksimal 2 angka. Kosong bukan nol.", suffix = "IDR", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
         }
         FarmFormSection(if (draft.kind == RecordKind.EXPENSE) "Pembayaran" else "Sumber dan musim tujuan") {
         if(draft.kind==RecordKind.EXPENSE) {

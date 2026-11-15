@@ -1,5 +1,15 @@
 # Gap analysis aktif, 11 November 2026
 
+## Gap setelah fase frontend dan deployment 15 November 2026
+
+Branch `codex/frontend-performance` (F1), `-motion` (F3), `-delight` (F4), `-polish` (F5), `codex/deploy-android-release` (D4), `codex/deploy-runbook` (D5), `codex/qa-ui-triage` (Q1) dan `codex/pilot-dry-run` (Q2) sudah di-push; belum ada PR atau merge.
+
+1. **Server pilot HTTPS dan keystore rilis** belum ada (P0-2, G3). Konfigurasi signing dan penjaga URL HTTPS sudah ada di D4.
+2. **Ponsel fisik:** haptik, splash Android 12, ikon bertema, TalkBack, Doze dan dry run dua ponsel belum dijalankan. Dry run emulator terhadap Laravel/MySQL `inofarm_test` lulus untuk login dan siklus cek catatan ([bukti Q2](PILOT_READINESS_EVIDENCE_20261115.md)).
+3. **Tes UI:** sekitar 15 dari 65 `FinanceEntryUiTest` gagal karena layar dan aturan pengelola berubah; perlu ditulis ulang, termasuk dua asersi yang masih mewajibkan alasan pengelola ([bukti Q1](UI_TEST_TRIAGE_EVIDENCE_20261115.md)).
+4. **Backend:** permintaan tanpa token dan tanpa `Accept: application/json` menjawab 500, bukan 401. Skrip `finance-device-fixture.php cleanup worker-alignment` tidak membersihkan `activity_reviews`.
+5. **Laporan musim dan ekspor PDF/CSV** belum diuji ulang dari UI Canopy terhadap backend nyata.
+
 ## Gap setelah pengelola menjadi super admin
 
 1. **Verifikasi perangkat:** semua perubahan UI pengelola (empat tab, Catat, indikator belum terkirim, detail greenhouse, wizard) belum dilihat di emulator atau perangkat. Mesin pengembangan kekurangan memori sehingga instalasi emulator macet.

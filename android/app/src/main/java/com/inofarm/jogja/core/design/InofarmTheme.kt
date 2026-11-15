@@ -33,6 +33,11 @@ internal object FarmColors {
     val Info = Color(0xFF365B66)
     val InfoSurface = Color(0xFFE7F0F2)
     val Navigation = Color(0xFFE9EEDF)
+    /** Forest surfaces in dark mode and the dock: card, raised container, selected pill, and the amber chip surface. */
+    val ForestSurface = Color(0xFF203B30)
+    val ForestContainer = Color(0xFF263F34)
+    val ForestPill = Color(0xFF385442)
+    val WarningSurfaceDark = Color(0xFF493519)
 }
 
 internal object FarmSpace {
@@ -66,6 +71,27 @@ internal object FarmMotion {
     const val Entrance = 280
     const val Stagger = 40
     const val LoginStagger = 60
+    /** A save that finishes sooner than this never shows its busy indicator, so quick local saves do not flicker. */
+    const val BusyReveal = 300L
+    /** A cache read that finishes sooner than this never shows the placeholder cards. */
+    const val PlaceholderReveal = 150L
+    /** Shell destination change (shared axis X and fade-through), in ms. The leaving screen is gone after [DepthExitShare] of it. */
+    const val Depth = 300
+    const val DepthExitShare = 250f / 300f
+    /** Fade-through: the old tab fades out in this many ms, the new tab enters from this scale. */
+    /** The one authored moment: the login canopy handing over to the Beranda. */
+    const val Focal = 400
+    /** How long "Semua terkirim" stays after the queue empties, and one turn of the sync icon while a sync runs. */
+    const val AllSentHold = 1500L
+    const val SyncTurn = 1000
+    const val TabExit = 90
+    const val TabEnterScale = 0.92f
+    /** Predictive Back preview at full gesture progress. */
+    const val BackPreviewScale = 0.92f
+    val BackPreviewShift = 8.dp
+    /** Material 3 emphasized easing: decelerate for what arrives, accelerate for what leaves. */
+    val EmphasizedDecelerate = androidx.compose.animation.core.CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+    val EmphasizedAccelerate = androidx.compose.animation.core.CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
     const val PressScaleButton = 0.97f
     const val PressScaleCard = 0.98f
     fun <T> pressSpring(): androidx.compose.animation.core.SpringSpec<T> = androidx.compose.animation.core.spring(
@@ -94,16 +120,17 @@ internal object FarmDepth {
 
 internal val ForestScheme = darkColorScheme(
     primary = FarmColors.Sage, onPrimary = FarmColors.Ink,
-    primaryContainer = Color(0xFF385442), onPrimaryContainer = FarmColors.Sage,
+    inverseSurface = FarmColors.Background, inverseOnSurface = FarmColors.Ink, inversePrimary = FarmColors.Brand,
+    primaryContainer = FarmColors.ForestPill, onPrimaryContainer = FarmColors.Sage,
     secondary = Color(0xFFDCC28C), onSecondary = Color(0xFF3C2E10),
     secondaryContainer = Color(0xFF304739), onSecondaryContainer = Color(0xFFE0E8D7),
     tertiary = Color(0xFF9BD0DB), onTertiary = Color(0xFF00363F),
     tertiaryContainer = Color(0xFF214751), onTertiaryContainer = Color(0xFFC4EAF0),
     background = Color(0xFF132820), onBackground = FarmColors.Background,
-    surface = Color(0xFF203B30), onSurface = FarmColors.Background,
+    surface = FarmColors.ForestSurface, onSurface = FarmColors.Background,
     surfaceVariant = Color(0xFF2E483C), onSurfaceVariant = Color(0xFFC4CEC3),
     surfaceContainerLowest = Color(0xFF12251E), surfaceContainerLow = Color(0xFF192F26),
-    surfaceContainer = Color(0xFF263F34), surfaceContainerHigh = Color(0xFF2C473B),
+    surfaceContainer = FarmColors.ForestContainer, surfaceContainerHigh = Color(0xFF2C473B),
     surfaceContainerHighest = Color(0xFF365145),
     outline = Color(0xFF9BAC9C), outlineVariant = Color(0xFF4A6456),
     error = Color(0xFFFFB4A9), onError = Color(0xFF601410),
@@ -117,6 +144,7 @@ internal val ForestScheme = darkColorScheme(
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) ForestScheme else lightColorScheme(
             primary = FarmColors.Brand, onPrimary = Color.White,
+            inverseSurface = FarmColors.Ink, inverseOnSurface = FarmColors.Background, inversePrimary = FarmColors.Sage,
             primaryContainer = FarmColors.Sage, onPrimaryContainer = FarmColors.Ink,
             secondary = FarmColors.Muted, onSecondary = Color.White,
             secondaryContainer = FarmColors.Soft, onSecondaryContainer = FarmColors.Ink,

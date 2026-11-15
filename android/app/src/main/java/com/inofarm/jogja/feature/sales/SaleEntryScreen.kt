@@ -45,7 +45,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
 
 @Composable fun SaleForm(state:SaleEntryState,context:CultivationUiState,vm:SaleEntryViewModel) {
     val draft=state.draft ?: return
-    FarmFormFrame(header = { FarmFormHeader(if(draft.baseVersion==null) "Catat penjualan lunas" else "Koreksi penjualan", state.saved, "sale-draft-status", "sale-close", vm::saveAndClose, !state.busy) }, bar = { FarmFormBar("sale-save-draft", vm::saveAndClose, "sale-review", "Periksa", vm::review, enabled = !state.busy) }) {
+    FarmFormFrame(header = { FarmFormHeader(if(draft.baseVersion==null) "Catat penjualan lunas" else "Koreksi penjualan", state.saved, "sale-draft-status", "sale-close", vm::saveAndClose, !state.busy) }, bar = { FarmFormBar("sale-save-draft", vm::saveAndClose, "sale-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy) }) {
         FarmFormSection("Pembayaran dan pembeli") {
         if(draft.lockedSeason) Text("Musim: ${context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "terakhir tersimpan"}")
         else Choice("Musim penjualan",draft.seasonId,context.seasons.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("status")=="open"},"sale-season") {value -> vm.edit {it.copy(seasonId=value,items=listOf(SaleLine()))}}
@@ -59,7 +59,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
             if(line.id in draft.lockedSources) Text(options.find {it.optString("id")==line.sourceId}?.optString("name") ?: "Sumber terakhir tersimpan · perbarui untuk saldo terbaru")
             else Choice("Sumber panen ${index+1}",line.sourceId,options,"sale-source-$index") {edit(line.copy(sourceId=it))}
             FinanceField("Bobot ${index+1} (kg)",line.quantity,{edit(line.copy(quantity=it))},"sale-quantity-$index",state.errors["items.$index.quantity"],KeyboardType.Decimal,hint="Lebih dari nol, maksimal6 desimal; tanpa pemisah ribuan.", suffix = "kg", prominent = true)
-            FinanceField("Harga ${index+1} (IDR/kg)",line.price,{edit(line.copy(price=it))},"sale-price-$index",state.errors["items.$index.price"],KeyboardType.Decimal,hint="Harga manual, maksimal6 desimal. Kosong bukan nol.", suffix = "IDR/kg", prominent = true)
+            FinanceField("Harga ${index+1} (IDR/kg)",line.price,{edit(line.copy(price=it))},"sale-price-$index",state.errors["items.$index.price"],KeyboardType.Decimal,hint="Harga manual, maksimal6 desimal. Kosong bukan nol.", suffix = "IDR/kg", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
             TextButton(onClick={vm.edit {it.copy(items=it.items.filterIndexed {i,_ -> i!=index})}},modifier=Modifier.testTag("sale-remove-$index")) {Text("Hapus rincian ${index+1}")}
         }}}
         OutlinedButton(onClick={vm.edit {it.copy(items=it.items+SaleLine())}},enabled=draft.items.size<30,modifier=Modifier.fillMaxWidth().testTag("sale-add")) {Text("Tambah sumber panen")}

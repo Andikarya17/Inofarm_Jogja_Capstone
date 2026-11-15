@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The leaf and stem of the original Inofarm mark, redrawn in Canopy sage and kept inside the 66 dp adaptive safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="1.4" android:scaleY="1.4" android:translateX="20.4" android:translateY="20.4">
+        <path android:fillColor="@color/inofarm_sage" android:pathData="M15,28 C15,18 25,12 36,12 C36,25 30,34 20,34 L15,28" />
+        <path android:fillColor="@android:color/transparent" android:strokeColor="@color/inofarm_background" android:strokeWidth="2.4" android:strokeLineCap="round" android:pathData="M12,37 L29,20 M20,29 L20,21 M20,29 L28,29" />
+    </group>
+</vector>

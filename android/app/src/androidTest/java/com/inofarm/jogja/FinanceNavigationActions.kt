@@ -117,3 +117,12 @@ internal fun FinanceTestRule.clickFinanceTool(tag: String) {
     openFinanceTools()
     onNodeWithTag(tag).performScrollTo().performClick()
 }
+
+/** Pengelola opens "Cek catatan" from the shortcut on Beranda; the four tabs no longer hold the inbox. */
+internal fun FinanceTestRule.openReviewInbox() {
+    selectFinanceTab(0)
+    waitUntil(20_000) {
+        runCatching { onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("manager-review-inbox")) }.isSuccess
+    }
+    onNodeWithTag("manager-review-inbox").performClick()
+}

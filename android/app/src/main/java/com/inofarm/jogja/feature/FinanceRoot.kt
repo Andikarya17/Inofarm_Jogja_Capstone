@@ -1,9 +1,11 @@
 package com.inofarm.jogja.feature
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import com.inofarm.jogja.core.design.*
@@ -19,6 +21,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
+import com.inofarm.jogja.core.design.farmSpinning
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
@@ -68,6 +72,7 @@ import com.inofarm.jogja.feature.admin.AdminHost
 import com.inofarm.jogja.feature.admin.AdminResource
 import com.inofarm.jogja.feature.auth.AuthViewModel
 import com.inofarm.jogja.feature.auth.FinanceLogin
+import com.inofarm.jogja.feature.auth.LastLoginEmail
 import com.inofarm.jogja.feature.context.ContextViewModel
 import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.context.HomeContext
@@ -219,11 +224,20 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var adminEdit by rememberSaveable(authState.session?.scope?.key) { mutableStateOf(false) }
     val openAdmin: (AdminResource) -> Unit = { adminGreenhouse = null; adminEdit = false; adminEntry = it }
     BackHandler(authState.loading && authState.session!=null) { /* Wait for the bounded local persistence boundary. */ }
+    // The email is remembered only after the server accepted the login, never the password.
+    var pendingLoginEmail by remember { mutableStateOf<String?>(null) }
+    // Set by a login in this process, so a stored session on cold start opens without the canopy moment.
+    var canopyHandoff by remember { mutableStateOf(false) }
+    val loginContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(authState.session?.scope?.key) {
+        val accepted = pendingLoginEmail
+        if (authState.session != null && accepted != null) { LastLoginEmail.save(loginContext, accepted); pendingLoginEmail = null }
+    }
     Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
         if(authState.session==null) {
             val configured = runtime.configuredLoginEndpoint.value
             val endpoint = remember(configured) { runCatching { runtime.api.validateBase(configured) }.getOrNull() }
-            FinanceLogin(authState, endpoint, auth::login)
+            FinanceLogin(authState, endpoint) { base, email, password -> pendingLoginEmail = email; canopyHandoff = true; auth.login(base, email, password) }
         }
         else if(authState.loading) Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Spacer(Modifier.height(16.dp));Text("Menyimpan isian terakhir sebelum keluar…")}
         else {
@@ -245,6 +259,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         }
                     }
                 }
+                if (canopyHandoff) com.inofarm.jogja.feature.auth.LoginCanopyHandoff { canopyHandoff = false }
             }
         }
     }
@@ -287,15 +302,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var reviewKind by rememberSaveable { mutableStateOf(ReviewKind.ACTIVITY) }
     val verification = remember(runtime) { ActivityVerificationRepository(runtime.api, runtime.store, runtime.vault) }
     val manager = session.role == UserRole.MANAGER
-    val tabEntrance = remember { Animatable(1f) }
-    var previousWorkerTab by remember { mutableIntStateOf(tab) }
-    LaunchedEffect(tab, manager) {
-        if (!manager && tab != previousWorkerTab) {
-            previousWorkerTab = tab
-            tabEntrance.snapTo(0f)
-            tabEntrance.animateTo(1f, tween(180))
-        }
-    }
     var managerRefresh by remember { mutableLongStateOf(0L) }
     var periodReview by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(adminPeriodRequest, manager) {
@@ -470,7 +476,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             if (season == null || selectedGroup == null) group = null
         }
     }
-    BackHandler(harvestProgressOpen || correctionsOpen || !manager && selectedGreenhouse != null || investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0) {
+    val backEnabled = harvestProgressOpen || correctionsOpen || !manager && selectedGreenhouse != null || investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0
+    // One back action for the system Back button, the gesture and the predictive preview below.
+    val handleBack: () -> Unit = {
         when {
             writing || queueOpening -> Unit
             ime -> keyboard?.hide()
@@ -508,6 +516,68 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             tab == 1 && reviewActivity != null -> reviewActivity = null
             tab == 0 && !manager && selectedGreenhouse != null -> { gh = null; season = null; group = null }
             else -> tab=0
+        }
+    }
+    BackHandler(backEnabled, handleBack)
+    // The shell's place, in the same order as the screen chain below; it drives the transition between screens.
+    val destination: FinanceDestination = when {
+        manager && investments.state.active -> FinanceDestination.Page("investment")
+        manager && reports.state.active -> FinanceDestination.Page("report")
+        attachment.parent != null -> FinanceDestination.Page("attachment")
+        runPhase == 3 || runPhase == 4 -> FinanceDestination.Review("nutrition")
+        manager && asset.entry.draft != null -> if (asset.entry.reviewing) FinanceDestination.Review("asset") else FinanceDestination.Form("asset")
+        manager && asset.history.selected != null -> FinanceDestination.Detail("asset")
+        manager && asset.depreciation.selected != null -> FinanceDestination.Detail("depreciation")
+        activity.draft != null -> if (activity.reviewing) FinanceDestination.Review("activity") else FinanceDestination.Form("activity")
+        harvest.draft != null -> if (harvest.reviewing) FinanceDestination.Review("harvest") else FinanceDestination.Form("harvest")
+        manager && sale.draft != null -> if (sale.reviewing) FinanceDestination.Review("sale") else FinanceDestination.Form("sale")
+        manager && saleHistory.selected != null -> FinanceDestination.Detail("sale")
+        manager && financial.draft != null -> if (financial.reviewing) FinanceDestination.Review("financial") else FinanceDestination.Form("financial")
+        manager && expenseHistory.selected != null -> FinanceDestination.Detail("expense")
+        manager && allocationHistory.selected != null -> FinanceDestination.Detail("allocation")
+        history.selected != null -> FinanceDestination.Detail("activity")
+        harvestHistory.selected != null -> FinanceDestination.Detail("harvest")
+        tab == 0 && manager -> FinanceDestination.Tab(0)
+        tab == 0 && correctionsOpen -> FinanceDestination.Page("corrections")
+        tab == 0 && !harvestProgressOpen -> if (selectedGreenhouse != null) FinanceDestination.Page("greenhouse") else FinanceDestination.Tab(0)
+        harvestProgressOpen -> FinanceDestination.Page("harvest-progress")
+        tab == 1 && manager && reviewActivity != null -> FinanceDestination.Detail("verification")
+        else -> FinanceDestination.Tab(tab)
+    }
+    // Predictive Back previews only screens that leave without losing input: the greenhouse page and record details.
+    val comparing = history.comparison != null || harvestHistory.comparison != null || saleHistory.comparison != null ||
+        expenseHistory.comparison != null || allocationHistory.comparison != null || asset.history.comparison != null || asset.depreciation.comparison != null
+    // The verification detail keeps its own Back handling, and Back with the keyboard open only hides the keyboard.
+    val previewBack = !writing && !comparing && !ime && !queueOpening && destination != FinanceDestination.Detail("verification") &&
+        (destination == FinanceDestination.Page("greenhouse") || destination is FinanceDestination.Detail)
+    var backPreview by remember { mutableFloatStateOf(0f) }
+    var backFromLeft by remember { mutableStateOf(true) }
+    val backScope = rememberCoroutineScope()
+    var backSettle by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    LaunchedEffect(destination, previewBack) { backSettle?.cancel(); backPreview = 0f }
+    val haptics = com.inofarm.jogja.core.design.rememberFarmHaptics()
+    // A tick when the dock tab changes, never on the first composition.
+    var tickedTab by remember { mutableIntStateOf(tab) }
+    LaunchedEffect(tab) { if (tab != tickedTab) { tickedTab = tab; haptics.segmentTick() } }
+    // Validation refused a form when its review produced field errors.
+    val formRejected = activity.errors.isNotEmpty() || harvest.errors.isNotEmpty() || sale.errors.isNotEmpty() ||
+        financial.errors.isNotEmpty() || asset.entry.errors.isNotEmpty()
+    LaunchedEffect(formRejected) { if (formRejected) haptics.reject() }
+    androidx.activity.compose.PredictiveBackHandler(enabled = previewBack) { events ->
+        backSettle?.cancel()
+        try {
+            events.collect { event ->
+                backPreview = event.progress
+                backFromLeft = event.swipeEdge == androidx.activity.BackEventCompat.EDGE_LEFT
+            }
+            handleBack()
+            // The shell reads the preview once more when it swaps screens; after that frame the preview is cleared either way.
+            androidx.compose.runtime.withFrameNanos { }
+            androidx.compose.runtime.withFrameNanos { }
+            backPreview = 0f
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            backSettle = backScope.launch { androidx.compose.animation.core.animate(backPreview, 0f, animationSpec = backCancelSpring()) { value, _ -> backPreview = value } }
+            throw cancelled
         }
     }
     val showNavigation = runPhase != 3 && !harvestProgressOpen && !(tab == 1 && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
@@ -609,6 +679,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         }
     }
     BackHandler(enabled = runPhase == 3) { runEnd() }
+    BackHandler(enabled = runPhase == 4) { /* Each queued record is being saved; wait for the local persistence boundary. */ }
     val nutritionForm: NutritionRunForm? = if (runPhase == 1 && runList.isNotEmpty()) {
         val names = runList.map { id -> context.greenhouses.find { it.optString("id") == id }?.optString("name").orEmpty() }
         NutritionRunForm(runIndex + 1, names, nutritionMainLabel(runIndex + 1, names),
@@ -803,7 +874,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 modifier = Modifier.padding(horizontal = 12.dp).navigationBarsPadding())
         }
     }) { padding ->
-        val menuViewport = showNavigation && !writing
         val systemBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val contentPadding = if (translucentNavigation) {
             PaddingValues(start = padding.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current),
@@ -812,33 +882,36 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         } else padding
         Box(Modifier.fillMaxSize().padding(contentPadding).consumeWindowInsets(padding).imePadding().padding(horizontal=FarmSpace.Page),
             contentAlignment = Alignment.TopCenter) {
-        val workerTabMotion = if (!manager && menuViewport) Modifier.graphicsLayer {
-            alpha = .74f + .26f * tabEntrance.value
-            translationY = 5.dp.toPx() * (1f - tabEntrance.value)
-        } else Modifier
         // The Catat button grows with the font, so a worker's list keeps more room behind it at large sizes.
         val recordInset = 8.dp
         CompositionLocalProvider(LocalFarmListBottomInset provides recordInset) {
-        Box(Modifier.widthIn(max = 900.dp).fillMaxSize().then(workerTabMotion)) {
+        // Built when the run or its records change, not on every recomposition of the shell.
+        val runItems = remember(runSaved, activity.records, context.greenhouses) {
+            runSaved.split(',').filter { it.isNotBlank() }.mapNotNull { id ->
+                activity.records.find { it.id == id }?.let { record ->
+                    val draft = ActivityDraft.from(record.id, record.greenhouseId, record.body, record.baseVersion ?: record.serverVersion)
+                    fun value(text: String) = text.replace('.', ',')
+                    NutritionRunItem(context.greenhouses.find { it.optString("id") == record.greenhouseId }?.optString("name") ?: "Greenhouse",
+                        listOfNotNull(draft.ec.takeIf { it.isNotBlank() }?.let { "EC ${value(it)} mS/cm" },
+                            draft.ppm.takeIf { it.isNotBlank() }?.let { "PPM ${value(it)} ppm" },
+                            draft.ph.takeIf { it.isNotBlank() }?.let { "pH ${value(it)}" }).joinToString(" · "))
+                }
+            }
+        }
+        // A form stays visible while its save runs, so touches are held until the save has settled.
+        val saving = asset.entry.busy || sale.busy || activity.busy || harvest.busy || financial.busy || runPhase == 4
+        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+        LaunchedEffect(saving) { if (saving) focusManager.clearFocus() }
+        FarmDestinationMotion(destination, tab, Modifier.widthIn(max = 900.dp).fillMaxSize().holdTouches(saving), { backPreview }, { backFromLeft }) {
             when {
                 session.role==UserRole.MANAGER && investments.state.active -> InvestmentScreen(investments,context,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && reports.state.active -> SeasonReportScreen(reports,context,returnToQueue=tab==1)
                 attachment.parent!=null -> AttachmentScreen(session,context,attachment,attachmentVm,ticket)
-                runPhase == 3 -> NutritionRunReview(
-                    saved = runSaved.split(',').filter { it.isNotBlank() }.mapNotNull { id ->
-                        activity.records.find { it.id == id }?.let { record ->
-                            val draft = ActivityDraft.from(record.id, record.greenhouseId, record.body, record.baseVersion ?: record.serverVersion)
-                            fun value(text: String) = text.replace('.', ',')
-                            NutritionRunItem(context.greenhouses.find { it.optString("id") == record.greenhouseId }?.optString("name") ?: "Greenhouse",
-                                listOfNotNull(draft.ec.takeIf { it.isNotBlank() }?.let { "EC ${value(it)} mS/cm" },
-                                    draft.ppm.takeIf { it.isNotBlank() }?.let { "PPM ${value(it)} ppm" },
-                                    draft.ph.takeIf { it.isNotBlank() }?.let { "pH ${value(it)}" }).joinToString(" · "))
-                        }
-                    },
+                // Phase 4 keeps the review on screen; its main button reports the sending in place.
+                runPhase == 3 || runPhase == 4 -> NutritionRunReview(
+                    saved = runItems,
                     skipped = runSkipped.split('|').filter { it.isNotBlank() }, notReady = runNotReady.split('|').filter { it.isNotBlank() },
-                    busy = activity.busy, onExit = { runEnd() }, onSend = { runPhase = 4 })
-                runPhase == 4 -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) { CircularProgressIndicator(); Text("Mengirim catatan…") }
-                asset.entry.busy || sale.busy || activity.busy || harvest.busy || financial.busy -> Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.Center) {CircularProgressIndicator();Text("Menyimpan isian ke perangkat…")}
+                    busy = activity.busy || runPhase == 4, onExit = { runEnd() }, onSend = { runPhase = 4 })
                 session.role==UserRole.MANAGER && asset.entry.draft!=null -> if(asset.entry.reviewing) FarmReviewEntrance { AssetReview(asset.entry.draft,context,asset.entry.busy,asset.vm::backToForm,asset.vm::queue) } else AssetForm(asset.entry,context,asset.vm)
                 session.role==UserRole.MANAGER && asset.history.selected!=null -> HistoryScreen(session,context,asset.history,asset.historyVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.historyVm.close()},kind=OperationalKind.ASSET,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && asset.depreciation.selected!=null -> HistoryScreen(session,context,asset.depreciation,asset.depreciationVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.depreciationVm.close()},kind=OperationalKind.DEPRECIATION,returnToQueue=tab==1)
@@ -888,6 +961,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
                 })
                 tab==0 && !harvestProgressOpen -> tabState.SaveableStateProvider("worker-home-${selectedGreenhouse?.optString("id").orEmpty()}") {
+                // Pull to refresh runs the same sync as the toolbar button, which stays for TalkBack and keyboards.
+                FarmPullRefresh(context.loading, onSync) {
                 val homeState = if (selectedGreenhouse == null) rememberWorkerHome(runtime, session, context, workerToday,
                     Triple(activity.records, harvest.records, activity.queue), syncUpdates) else null
                 LazyColumn(
@@ -955,7 +1030,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             Text("Catat di luar jadwal")
                         }
                     }
-                } }
+                }  }}
                 harvestProgressOpen && manager -> HarvestProgressScreen(session, ticket, context, runtime.harvest,
                     harvestProgressGreenhouse, harvestProgressGroup, syncUpdates,
                     { harvestProgressOpen = false }, onSync, {
@@ -974,12 +1049,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         { reviewActivity = it }, { showOutbox = true }, onSync, reviewKind, { reviewKind = it })
                 }
                 tab==4 && manager -> tabState.SaveableStateProvider(4) {
+                    FarmPullRefresh(context.loading, onSync) {
                     FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync,financeKind,financeLink,homeRepository,ticket,syncUpdates)
-                }
+                 }}
                 tab==6 && manager -> tabState.SaveableStateProvider(6) {
                     ManageScreen(session.name, onAdmin, onLogout, enabled = !writing, onAddGreenhouse = onAddGreenhouse, greenhouseCount = context.greenhouses.size.takeIf { it > 0 })
                 }
                 tab==5 -> tabState.SaveableStateProvider("history-$historyChip") {
+                    FarmPullRefresh(context.loading, onSync) {
                     val isActivity = historyChip != "harvest"
                     HistoryScreen(session,context,if (isActivity) history else harvestHistory,
                         if (isActivity) historyVm else harvestHistoryVm,activity.queue,
@@ -1030,7 +1107,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                     Modifier.testTag("worker-harvest-progress-open"), onClick = ::openWorkerHarvestProgress)
                             }
                         })
-                }
+                 }}
             }
         }
         }
@@ -1056,6 +1133,8 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
     var accountOpen by rememberSaveable { mutableStateOf(false) }
     val manager = session.role == UserRole.MANAGER
     val largeFont = LocalDensity.current.fontScale > 1.3f
+    val haptics = com.inofarm.jogja.core.design.rememberFarmHaptics()
+    val allSent = rememberAllSent(unsent, haptics::confirm)
     // The worker's greeting needs the full row, so the unsent button always sits on its own row below it.
     val stackUnsent = (largeFont || !manager) && unsent > 0
     val amber = farmToneColors(FarmTone.Amber).second
@@ -1070,7 +1149,22 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
                 FarmControlIcon(FarmIcon.Sync, null)
                 Spacer(Modifier.width(FarmSpace.Small))
             }
-            Text("$unsent belum terkirim", style = MaterialTheme.typography.labelLarge)
+            // The count changes by crossfade, never by counting up or down.
+            androidx.compose.animation.AnimatedContent(unsent, transitionSpec = {
+                androidx.compose.animation.fadeIn(tween(FarmMotion.State)) togetherWith androidx.compose.animation.fadeOut(tween(FarmMotion.State))
+            }, label = "Jumlah belum terkirim") { count -> Text("$count belum terkirim", style = MaterialTheme.typography.labelLarge) }
+        }
+    }
+    val allSentChip: @Composable () -> Unit = {
+        androidx.compose.animation.AnimatedVisibility(allSent, enter = androidx.compose.animation.fadeIn(tween(FarmMotion.State)),
+            exit = androidx.compose.animation.fadeOut(tween(FarmMotion.State))) {
+            Row(Modifier.heightIn(min = FarmSpace.Touch).background(FarmColors.Sage, FarmShape.Control)
+                .padding(horizontal = FarmSpace.Medium).testTag("finance-all-sent")
+                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite; contentDescription = "Semua catatan terkirim" },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                CompositionLocalProvider(LocalContentColor provides FarmColors.Ink) { FarmControlIcon(FarmIcon.Check, null) }
+                Text("Semua terkirim", style = MaterialTheme.typography.labelLarge, color = FarmColors.Ink)
+            }
         }
     }
     Row(
@@ -1091,11 +1185,13 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
         } else Text("Inofarm", Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             style = MaterialTheme.typography.titleLarge)
         if (unsent > 0) { if (!stackUnsent) unsentButton() }
+        else if (allSent) { if (!largeFont && manager) allSentChip() }
         else if (syncing && (manager || !largeFont)) Text("Memperbarui",
             Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.labelMedium)
         // The worker has no manual refresh on Beranda, so the toolbar keeps its button.
         if (!manager) IconButton(onClick = onSync, enabled = !syncing, modifier = Modifier.testTag("finance-sync")) {
-            FarmControlIcon(FarmIcon.Sync, if (syncing) "Memperbarui" else "Perbarui")
+            // The icon turns only while a sync is really running.
+            Box(if (syncing) Modifier.farmSpinning() else Modifier) { FarmControlIcon(FarmIcon.Sync, if (syncing) "Memperbarui" else "Perbarui") }
         }
         Box {
             Box(Modifier.size(FarmSpace.Touch).clickable(role = androidx.compose.ui.semantics.Role.Button) { accountOpen = true }
@@ -1125,6 +1221,7 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
         }
     }
     if (stackUnsent) unsentButton()
+    if (allSent && (largeFont || !manager)) allSentChip()
     if (sessionExpired) Text(
         "Sesi berakhir",
         Modifier.padding(bottom = FarmSpace.Tiny).semantics { liveRegion = LiveRegionMode.Polite },
@@ -1159,8 +1256,8 @@ internal fun ExpiredSessionNotice() {
         FarmFormFrame(
             header = { FarmFormHeader(title, state.saved, "finance-draft-status", "finance-close", vm::saveAndClose, !state.busy) },
             bar = {
-                if (run != null) FarmFormBar("nutrition-run-skip", run.onSkip, "nutrition-run-next", run.mainLabel, run.onMain, enabled = !state.busy, saveLabel = "Lewati")
-                else FarmFormBar("finance-save-draft", vm::saveAndClose, "finance-review", "Periksa", vm::review, enabled = !state.busy,
+                if (run != null) FarmFormBar("nutrition-run-skip", run.onSkip, "nutrition-run-next", run.mainLabel, run.onMain, enabled = !state.busy, busy = state.busy, saveLabel = "Lewati")
+                else FarmFormBar("finance-save-draft", vm::saveAndClose, "finance-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy,
                     saveLabel = if (worker) "Simpan sebagai draf" else "Simpan draf")
             }
         ) {
@@ -1212,7 +1309,7 @@ internal fun ExpiredSessionNotice() {
             }
             if (draft.type == ActivityType.MEASUREMENT) {
                 FarmWhenCard(draft.date, draft.time, "finance-time-edit", forceOpen = state.errors["occurred_at"] != null) { dateField(); timeField() }
-            } else { dateField(); timeField() }
+            } else FarmFieldPair(dateField, timeField, minPairWidth = 340.dp) // side by side only where a date still fits
         }
     }
     // Managers see the results first; the skip toggle follows the details.
@@ -1474,14 +1571,21 @@ internal fun ExpiredSessionNotice() {
 @Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true,enabled:Boolean=true,suffix:String?=null,prominent:Boolean=false,visual:androidx.compose.ui.text.input.VisualTransformation=androidx.compose.ui.text.input.VisualTransformation.None,leadingIcon:(@Composable ()->Unit)?=null,trailingAction:(@Composable ()->Unit)?=null) {
     val canopy = LocalCanopyForm.current
     val labelAbove = LocalDensity.current.fontScale > 1.5f || canopy
-    val support = error ?: hint
+    // Grouped amounts show dots as thousands separators, so a typed dot becomes the decimal comma: what is shown is what is saved.
+    val grouped = visual === com.inofarm.jogja.core.design.IdrGrouping
+    val change: (String) -> Unit = if (grouped) { text -> onChange(text.replace('.', ',')) } else onChange
+    // At large font sizes a long amount scrolls inside its single line, so the whole value is read back where it can wrap.
+    val largeAmount = grouped && LocalDensity.current.fontScale > 1.3f
+    val support = listOfNotNull(error ?: hint, if (largeAmount && value.isNotBlank()) "Tertulis: " + com.inofarm.jogja.core.design.IdrGrouping.group(value) else null)
+        .joinToString("\n").ifEmpty { null }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (labelAbove) Text(label, Modifier.clearAndSetSemantics {}, style = MaterialTheme.typography.labelLarge,
             fontWeight = if (canopy) androidx.compose.ui.text.font.FontWeight.SemiBold else null)
         OutlinedTextField(
-            value, onChange, shape = if (canopy) FarmShape.Tile else FarmShape.Control,
-            suffix = suffix?.let { unit -> { Text(unit) } },
-            textStyle = if (prominent) MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum") else LocalTextStyle.current,
+            value, change, shape = if (canopy) FarmShape.Tile else FarmShape.Control,
+            suffix = if (largeAmount) null else suffix?.let { unit -> { Text(unit) } },
+            textStyle = if (prominent && largeAmount) MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum")
+                else if (prominent) MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum") else LocalTextStyle.current,
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                 focusedContainerColor = MaterialTheme.colorScheme.surface
@@ -1566,4 +1670,45 @@ internal fun ExpiredSessionNotice() {
         CompositionLocalProvider(LocalContentColor provides content) { FarmControlIcon(FarmIcon.AlertTriangle, null) }
         Text(message, style = MaterialTheme.typography.bodyMedium, color = content)
     }
+}
+
+/** Swallows every touch while [hold] is true. The controls underneath stay visible and keep their own disabled state. */
+private fun Modifier.holdTouches(hold: Boolean): Modifier = if (!hold) this else pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial).changes.forEach { it.consume() }
+    }
+}
+
+/**
+ * True for [FarmMotion.AllSentHold] after the unsent count falls from above zero to zero in front of the user; a count
+ * that starts at zero, or only goes down to another positive number, never shows it. [onAllSent] fires once per moment.
+ */
+@Composable
+internal fun rememberAllSent(unsent: Int, onAllSent: () -> Unit): Boolean {
+    var lastUnsent by remember { mutableIntStateOf(unsent) }
+    var allSent by remember { mutableStateOf(false) }
+    LaunchedEffect(unsent) {
+        val before = lastUnsent
+        lastUnsent = unsent
+        if (unsent > 0) allSent = false
+        else if (before > 0) {
+            allSent = true
+            onAllSent()
+            kotlinx.coroutines.delay(FarmMotion.AllSentHold)
+            allSent = false
+        }
+    }
+    return allSent
+}
+
+/** Pull to refresh that only shows its indicator for a sync the pull itself started. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+internal fun FarmPullRefresh(syncing: Boolean, onSync: () -> Unit, content: @Composable () -> Unit) {
+    var pulled by remember { mutableStateOf(false) }
+    LaunchedEffect(syncing) { if (!syncing) pulled = false }
+    // A pull that did not start a sync (offline, or one already finished) must not leave the indicator armed for a later one.
+    LaunchedEffect(pulled) { if (pulled) { kotlinx.coroutines.delay(FarmMotion.BusyReveal); if (!syncing) pulled = false } }
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = pulled && syncing,
+        onRefresh = { pulled = true; onSync() }, modifier = Modifier.fillMaxSize()) { content() }
 }

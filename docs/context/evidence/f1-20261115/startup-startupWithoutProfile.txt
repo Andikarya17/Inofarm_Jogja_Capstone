@@ -1,0 +1,11 @@
+WARNING: Running on Emulator
+Benchmark is running on an emulator, which is not representative of
+real user devices. Use a physical device to benchmark. Emulator
+benchmark improvements might not carry over to a real user's
+experience (or even regress real device performance).
+
+StartupBenchmark_startupWithoutProfile
+frameCount               min    24.0,   median    26.0,   max    27.0
+timeToInitialDisplayMs   min 1,339.6,   median 1,486.3,   max 2,781.2
+frameDurationCpuMs       P50    233.4,   P90    653.3,   P95    760.4,   P99  1,302.3
+Traces: Iteration 0 1 2 3 4 5 6 7 8 9

@@ -116,7 +116,7 @@ class FinanceBackendDeviceTest {
         assertEquals(403, (runCatching { read("harvest-reviews") }.exceptionOrNull() as FinanceApiFailure).status)
 
         fun decide(version: Int, decision: String, message: String?) {
-            rule.selectFinanceTab(1)
+            rule.openReviewInbox()
             waitTag("activity-verification-list")
             choose("verification-kind", "harvest")
             val inbox = rule.onNodeWithTag("harvest-verification-list")
@@ -134,7 +134,7 @@ class FinanceBackendDeviceTest {
             detail.performScrollToNode(hasTestTag("verification-review"))
             rule.onNodeWithTag("verification-review").performClick()
             rule.captureBotanicalWindow("worker-harvest-real-manager-${decision}")
-            rule.onNodeWithTag("verification-submit").performClick()
+            // "Simpan keputusan" saves directly; the separate confirm step is gone.
             val manager = model.vault.current!!
             fun operation() = model.store.outbox(manager.scope.key).firstOrNull {
                 val payload = it.envelope.optJSONObject("payload")
@@ -307,7 +307,7 @@ class FinanceBackendDeviceTest {
         val activity = original.entityId
 
         fun openReview() {
-            rule.selectFinanceTab(1)
+            rule.openReviewInbox()
             waitFor("activity-verification-list")
             val tag = "verification-activity-$activity"
             rule.waitUntil(20_000) {
@@ -331,12 +331,12 @@ class FinanceBackendDeviceTest {
             }
             detail.performScrollToNode(hasTestTag("verification-review"))
             rule.onNodeWithTag("verification-review").performClick()
-            rule.onNodeWithTag("verification-submit").performClick()
+            // "Simpan keputusan" saves directly; the separate confirm step is gone.
         }
 
         login(fixture, "manager")
         openReview()
-        rule.waitUntil(20_000) { rule.onAllNodesWithText("Diterima server · revisi 1").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(20_000) { rule.onAllNodesWithText("Revisi 1").fetchSemanticsNodes().isNotEmpty() }
         rule.captureBotanicalWindow("pg1-manager-review")
         val reason = "Periksa satuan pada versi pertama."
         decide("invalid", reason)
@@ -409,7 +409,7 @@ class FinanceBackendDeviceTest {
         rule.onNodeWithTag("manager-greenhouse-$greenhouse").performClick()
         rule.waitUntil(20_000) { runCatching { home.performScrollToNode(hasTestTag("measurement-card-ppm")) }.isSuccess }
         rule.onNodeWithText("630").assertExists()
-        rule.onNodeWithText("Valid").assertExists()
+        rule.waitUntil(20_000) { rule.onAllNodesWithText("Sesuai", substring = true).fetchSemanticsNodes().isNotEmpty() }
         rule.captureBotanicalWindow("pg7-manager-home-reviewed")
         File(botanicalEvidenceDirectory(context), "pg1-reconciliation.json").writeText(checked.toString(2))
         rule.logoutFromAccount()
