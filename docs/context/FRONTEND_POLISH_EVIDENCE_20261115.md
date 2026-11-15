@@ -16,8 +16,8 @@ Label bukti: **diuji** (ada output perintah atau gambar), **dibaca dari kode**, 
 | P2-10 | Adaptive icon: latar forest, daun sage dari ikon lama, lapisan monokrom untuk ikon bertema | `res/drawable/ic_launcher_*.xml`, `res/mipmap-anydpi-v26/`, `AndroidManifest.xml` |
 | P3-3 | `background_login.jpg` dan `ic_inofarm.xml` yang tidak dipakai dihapus | `res/` |
 | P2-2 | `FarmPullRefresh` (`PullToRefreshBox`) pada Beranda pekerja, Riwayat dan Keuangan; memakai `syncing` dan aksi sinkron yang sudah ada | `FinanceRoot.kt` |
-| Pemisah ribuan | `IdrGrouping` (`VisualTransformation`): isian nominal menampilkan `1.234.567.890,50` sementara nilai yang divalidasi dan dikirim tetap persis yang diketik. Masukan yang bukan angka biasa tampil apa adanya, jadi galat validasi tidak tersembunyi | `IdrGrouping.kt`, pengeluaran, penjualan, aset, investasi |
-| Form | Tanggal dan jam kegiatan pengelola berdampingan (`FarmFieldPair`, bertumpuk di atas skala font 1,3); pada font besar tombol "Simpan sebagai draf" mendapat tiga baris, padding sempit dan lebar setara | `FinanceRoot.kt`, `FormCanopy.kt` |
+| Pemisah ribuan | `IdrGrouping` (`VisualTransformation`): isian nominal menampilkan `1.234.567.890,50` sementara nilai yang divalidasi dan dikirim tetap angka yang diketik (titik yang diketik menjadi koma desimal, lihat tinjauan butir 1). Masukan yang bukan angka biasa tampil apa adanya, jadi galat validasi tidak tersembunyi | `IdrGrouping.kt`, pengeluaran, penjualan, aset, investasi |
+| Form | Tanggal dan jam kegiatan pengelola berdampingan bila baris setidaknya 340 dp (`FarmFieldPair`, bertumpuk di atas skala font 1,3); pada font besar tombol "Simpan sebagai draf" mendapat tiga baris, padding sempit dan lebar setara | `FinanceRoot.kt`, `FormCanopy.kt` |
 
 ## Pemeriksaan
 
