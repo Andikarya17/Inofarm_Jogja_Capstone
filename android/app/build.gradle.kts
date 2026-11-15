@@ -4,6 +4,10 @@ plugins {
     id("androidx.baselineprofile")
 }
 fun quotedConfig(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+// Release signing comes from ~/.gradle/gradle.properties or the environment, never from the repository.
+fun releaseSecret(name: String) = providers.gradleProperty(name).orElse(providers.environmentVariable(name)).orNull?.takeIf { it.isNotBlank() }
+val releaseStoreFile = releaseSecret("INOFARM_RELEASE_STORE_FILE")
+val releaseApiUrl = providers.gradleProperty("inofarmFinanceApiUrl").orElse("")
 android {
     sourceSets.getByName("androidTest").assets.srcDir("../../contracts/v2/fixtures")
     namespace = "com.inofarm.jogja"
@@ -12,8 +16,8 @@ android {
         applicationId = "com.inofarm.jogja"
         minSdk = 29
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "FINANCE_API_BASE_URL", quotedConfig(providers.gradleProperty("inofarmFinanceApiUrl").orElse("").get()))
     }
@@ -23,6 +27,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     testOptions { unitTests.isReturnDefaultValues = true }
+    signingConfigs {
+        if (releaseStoreFile != null) create("release") {
+            storeFile = file(releaseStoreFile)
+            storePassword = releaseSecret("INOFARM_RELEASE_STORE_PASSWORD")
+            keyAlias = releaseSecret("INOFARM_RELEASE_KEY_ALIAS")
+            keyPassword = releaseSecret("INOFARM_RELEASE_KEY_PASSWORD")
+        }
+    }
     // Local profiling only: release behavior, locally signed, never distributed as a production release.
     buildTypes {
         getByName("release") {
@@ -30,6 +42,7 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             testProguardFiles("proguard-test-rules.pro")
+            if (releaseStoreFile != null) signingConfig = signingConfigs.getByName("release")
         }
         getByName("debug") {
             applicationIdSuffix = ".finance"
@@ -50,6 +63,19 @@ android {
 }
 // One profile for every build type, written to src/main/generated/baselineProfiles by :app:generateBaselineProfile.
 baselineProfile { mergeIntoMain = true }
+// A release APK talks to the pilot server only over HTTPS; refuse to build one that would ship without a usable URL.
+val checkReleaseConfig = tasks.register("checkReleaseConfig") {
+    val url = releaseApiUrl
+    val signed = releaseStoreFile != null
+    doLast {
+        val value = url.get()
+        require(value.startsWith("https://") && value.endsWith("/api/v2/")) {
+            "Release needs -PinofarmFinanceApiUrl=https://<server>/api/v2/ (got '" + value + "')"
+        }
+        if (!signed) logger.warn("Release APK is unsigned: set INOFARM_RELEASE_STORE_FILE, INOFARM_RELEASE_STORE_PASSWORD, INOFARM_RELEASE_KEY_ALIAS and INOFARM_RELEASE_KEY_PASSWORD outside the repository.")
+    }
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(checkReleaseConfig) }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.08.01"))
     implementation("androidx.compose.ui:ui")
