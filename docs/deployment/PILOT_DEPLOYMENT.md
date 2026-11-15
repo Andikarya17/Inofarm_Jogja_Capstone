@@ -213,7 +213,7 @@ Belum dirakit dengan keystore asli; konfigurasinya ada di branch `codex/deploy-a
 - [ ] `composer check-platform-reqs --lock --no-dev` lulus dan `php -m` memuat `bcmath`.
 - [ ] `.env` produksi terisi, `APP_DEBUG=false`, `APP_URL` https, `APP_KEY` dibuat dan disalin ke pengelola rahasia pemilik.
 - [ ] `php artisan migrate:status --pending=1` keluar 0.
-- [ ] HTTPS aktif; `GET /api/v2/me` tanpa token menjawab 401.
+- [ ] HTTPS aktif; `curl -H "Accept: application/json" https://<domain-pilot>/api/v2/me` tanpa token menjawab 401. Tanpa header itu backend saat ini menjawab 500 (`Route [login] not defined`, ditemukan 15 November 2026 di server uji lokal); aplikasi Android selalu mengirim header JSON sehingga tidak terdampak, tetapi pemantauan dan pemindai sebaiknya memakai header tersebut sampai backend diperbaiki.
 - [ ] Cron `schedule:run` dan backup harian terpasang; satu cadangan pertama sudah ada beserta `.sha256`.
 - [ ] Uji restore (bagian 8) sudah dilakukan dan dicatat.
 - [ ] APK rilis bertanda tangan (D4) dirakit dengan `-PinofarmFinanceApiUrl=https://<domain-pilot>/api/v2/`, dipasang di satu ponsel fisik, dan alur login, Beranda, catat, kirim berhasil.
