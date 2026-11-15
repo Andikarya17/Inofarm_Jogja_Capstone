@@ -48,11 +48,17 @@ Build type `release` tidak punya `signingConfig`, dan `inofarmFinanceApiUrl` kos
 
 **P1-1. 17 tes UI instrumentasi masih gagal.** `FinanceEntryUiTest` penuh: 17 dari 65 gagal di emulator (baseline lama, bukan regresi PR #58). Beberapa menyangkut alur inti: konflik, koreksi panen, Beranda pengelola, tutup musim dan login. *Saran:* triase per nama: perbaiki tes yang usang setelah perombakan UI, dan perbaiki kode bila ternyata ada bug nyata. Targetkan suite hijau sebelum UAT supaya regresi berikutnya terlihat.
 
+*Status 15 November 2026:* sebagian. Penantian setelah navigasi, penantian snapshot agenda dan teks baru diperbaiki tanpa menghapus asersi; suite penuh 16 gagal (perkiraan 15 setelah perbaikan agenda). Sisa kegagalan berasal dari layar dan aturan yang berubah, bukan waktu tunggu, dan perlu ditulis ulang. [Bukti Q1](UI_TEST_TRIAGE_EVIDENCE_20261115.md).
+
 **P1-2. Belum ada uji di perangkat fisik dan backend nyata dari UI.** Semua bukti layar memakai emulator dan fixture MockWebServer. Belum diuji: TalkBack nyata, Doze dan pengiriman latar, sinyal lemah di greenhouse, font 200% dan lebar 360 dp di sebagian besar layar. *Saran:* sebelum pilot, lakukan satu hari "dry run" dengan dua ponsel Android 10+ (satu pekerja, satu pengelola) ke server staging. Lakukan juga skenario offline lalu online, catat-koreksi-cek, panen sampai penjualan, laporan musim dan ekspor PDF.
+
+*Status 15 November 2026:* sebagian. Dry run emulator terhadap Laravel/MySQL `inofarm_test` nyata: login dua peran, pencatatan panen dan pengukuran, siklus "Perlu diperbaiki" → koreksi → "Sesuai" lulus dengan rekonsiliasi SQL. Belum: ponsel fisik, server staging, offline, laporan dan ekspor, Doze, TalkBack. [Bukti Q2](PILOT_READINESS_EVIDENCE_20261115.md).
 
 **P1-3. Data awal Inofarm belum ada.** Database lokal hanya berisi data sintetis (1 greenhouse, 1 pengelola, 1 pekerja), dan memang tidak ada seed produksi. *Saran:* siapkan checklist onboarding yang diisi pengelola lewat aplikasi: greenhouse, musim, varietas, kelompok tanam dan "tanam saat ini", satuan, bahan, grade, kategori biaya, jadwal/target, akun pekerja dan penugasan. Tanpa "tanam saat ini", alur "Cek nutrisi semua greenhouse" milik pekerja akan melewati greenhouse tersebut.
 
 **P1-4. Dokumen instalasi sudah usang.** `FIN17_INSTALL_RUN.md` masih menyebut schema 15/SQLite 9 dan "server memberi assignment pencipta", padahal sekarang migration 20/SQLite 10 dan pengelola adalah super admin. *Saran:* perbarui panduan instalasi server dan rilis APK berdasarkan P0-2 sampai P0-5.
+
+*Status 15 November 2026:* runbook pilot baru di branch `codex/deploy-runbook` (`docs/deployment/PILOT_DEPLOYMENT.md`), dan `FIN17_INSTALL_RUN.md` menautkannya.
 
 ### P2: konsistensi data dan perilaku
 
