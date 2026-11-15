@@ -102,7 +102,7 @@ internal fun RecordSheet(
 private fun NutritionRunRow(onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Row(Modifier.fillMaxWidth().farmPressable(interaction).clip(FarmShape.Card).background(FarmColors.Sage)
-        .clickable(interaction, androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick).testTag("record-nutrition-run").padding(FarmSpace.Medium),
+        .clickable(interaction, androidx.compose.material3.ripple(color = FarmColors.Ink), role = Role.Button, onClick = onClick).testTag("record-nutrition-run").padding(FarmSpace.Medium),
         horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.CenterVertically) {
         FarmIconTile(FarmIcon.Droplet, tone = FarmTone.Forest)
         Column(Modifier.weight(1f)) {

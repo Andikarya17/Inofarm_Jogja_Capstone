@@ -13,7 +13,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 internal object IdrGrouping : VisualTransformation {
     private val plain = Regex("""^-?\d+(,\d*)?$""")
 
-    fun group(raw: String): String = if (!plain.matches(raw)) raw else {
+    private val leadingZero = Regex("""^-?0\d""")
+
+    // "000123" is not an amount anyone means; it is shown as typed so the validator's message matches the screen.
+    fun group(raw: String): String = if (!plain.matches(raw) || leadingZero.containsMatchIn(raw)) raw else {
         val sign = if (raw.startsWith("-")) "-" else ""
         val body = raw.removePrefix("-")
         val whole = body.substringBefore(',')

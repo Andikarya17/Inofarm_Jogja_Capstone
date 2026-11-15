@@ -210,15 +210,21 @@ internal fun FarmWhenCard(date: String, time: String, editTag: String, forceOpen
     }
 }
 
-/** Two number fields side by side; they stack once the font is large enough that half a row no longer fits a value. */
+/**
+ * Two fields side by side; they stack once the font is large enough that half a row no longer fits a value, or when the
+ * row is narrower than [minPairWidth] (a date with a picker icon needs more room than a short number).
+ */
 @Composable
-internal fun FarmFieldPair(first: @Composable () -> Unit, second: @Composable () -> Unit) {
-    if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) {
-        Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) { first(); second() }
-    } else {
-        Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
-            Box(Modifier.weight(1f)) { first() }
-            Box(Modifier.weight(1f)) { second() }
+internal fun FarmFieldPair(first: @Composable () -> Unit, second: @Composable () -> Unit, minPairWidth: androidx.compose.ui.unit.Dp = 0.dp) {
+    val largeFont = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (largeFont || maxWidth < minPairWidth) {
+            Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) { first(); second() }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                Box(Modifier.weight(1f)) { first() }
+                Box(Modifier.weight(1f)) { second() }
+            }
         }
     }
 }

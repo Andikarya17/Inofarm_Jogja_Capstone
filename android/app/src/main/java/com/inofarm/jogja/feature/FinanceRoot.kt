@@ -1309,7 +1309,7 @@ internal fun ExpiredSessionNotice() {
             }
             if (draft.type == ActivityType.MEASUREMENT) {
                 FarmWhenCard(draft.date, draft.time, "finance-time-edit", forceOpen = state.errors["occurred_at"] != null) { dateField(); timeField() }
-            } else FarmFieldPair(dateField, timeField) // side by side; stacked above font scale 1.3
+            } else FarmFieldPair(dateField, timeField, minPairWidth = 340.dp) // side by side only where a date still fits
         }
     }
     // Managers see the results first; the skip toggle follows the details.
@@ -1571,14 +1571,21 @@ internal fun ExpiredSessionNotice() {
 @Composable internal fun FinanceField(label:String,value:String,onChange:(String)->Unit,tag:String,error:String?=null,keyboard:KeyboardType=KeyboardType.Text,hint:String?=null,singleLine:Boolean=true,enabled:Boolean=true,suffix:String?=null,prominent:Boolean=false,visual:androidx.compose.ui.text.input.VisualTransformation=androidx.compose.ui.text.input.VisualTransformation.None,leadingIcon:(@Composable ()->Unit)?=null,trailingAction:(@Composable ()->Unit)?=null) {
     val canopy = LocalCanopyForm.current
     val labelAbove = LocalDensity.current.fontScale > 1.5f || canopy
-    val support = error ?: hint
+    // Grouped amounts show dots as thousands separators, so a typed dot becomes the decimal comma: what is shown is what is saved.
+    val grouped = visual === com.inofarm.jogja.core.design.IdrGrouping
+    val change: (String) -> Unit = if (grouped) { text -> onChange(text.replace('.', ',')) } else onChange
+    // At large font sizes a long amount scrolls inside its single line, so the whole value is read back where it can wrap.
+    val largeAmount = grouped && LocalDensity.current.fontScale > 1.3f
+    val support = listOfNotNull(error ?: hint, if (largeAmount && value.isNotBlank()) "Tertulis: " + com.inofarm.jogja.core.design.IdrGrouping.group(value) else null)
+        .joinToString("\n").ifEmpty { null }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (labelAbove) Text(label, Modifier.clearAndSetSemantics {}, style = MaterialTheme.typography.labelLarge,
             fontWeight = if (canopy) androidx.compose.ui.text.font.FontWeight.SemiBold else null)
         OutlinedTextField(
-            value, onChange, shape = if (canopy) FarmShape.Tile else FarmShape.Control,
-            suffix = suffix?.let { unit -> { Text(unit) } },
-            textStyle = if (prominent) MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum") else LocalTextStyle.current,
+            value, change, shape = if (canopy) FarmShape.Tile else FarmShape.Control,
+            suffix = if (largeAmount) null else suffix?.let { unit -> { Text(unit) } },
+            textStyle = if (prominent && largeAmount) MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum")
+                else if (prominent) MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum") else LocalTextStyle.current,
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                 focusedContainerColor = MaterialTheme.colorScheme.surface
@@ -1700,6 +1707,8 @@ internal fun rememberAllSent(unsent: Int, onAllSent: () -> Unit): Boolean {
 internal fun FarmPullRefresh(syncing: Boolean, onSync: () -> Unit, content: @Composable () -> Unit) {
     var pulled by remember { mutableStateOf(false) }
     LaunchedEffect(syncing) { if (!syncing) pulled = false }
+    // A pull that did not start a sync (offline, or one already finished) must not leave the indicator armed for a later one.
+    LaunchedEffect(pulled) { if (pulled) { kotlinx.coroutines.delay(FarmMotion.BusyReveal); if (!syncing) pulled = false } }
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = pulled && syncing,
         onRefresh = { pulled = true; onSync() }, modifier = Modifier.fillMaxSize()) { content() }
 }

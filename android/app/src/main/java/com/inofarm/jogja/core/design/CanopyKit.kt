@@ -339,7 +339,7 @@ internal fun dockItemAt(slot: Int, itemCount: Int): Int? = when {
                 Box(Modifier.size(56.dp).farmPressable(interaction, FarmMotion.PressScaleButton, androidx.compose.foundation.shape.CircleShape)
                     .background(if (recordEnabled) FarmColors.Sage else FarmColors.Sage.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape)
                     .clip(androidx.compose.foundation.shape.CircleShape)
-                    .clickable(interaction, androidx.compose.material3.ripple(), enabled = recordEnabled, role = Role.Button, onClick = onRecord)
+                    .clickable(interaction, androidx.compose.material3.ripple(color = FarmColors.Ink), enabled = recordEnabled, role = Role.Button, onClick = onRecord)
                     .semantics { contentDescription = "Catat" }.testTag("finance-record-fab"), contentAlignment = Alignment.Center) {
                     CompositionLocalProvider(LocalContentColor provides FarmColors.Ink) { FarmControlIcon(FarmIcon.Add, null) }
                 }

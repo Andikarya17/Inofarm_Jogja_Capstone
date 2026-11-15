@@ -21,6 +21,9 @@ class IdrGroupingTest {
         assertEquals("12a3", shown("12a3"))
         assertEquals("1,2,3", shown("1,2,3"))
         assertEquals("1.000", shown("1.000"))
+        assertEquals("000123", shown("000123"))
+        assertEquals("-0500", shown("-0500"))
+        assertEquals("0,5", shown("0,5"))
     }
 
     @Test fun cursorMappingRoundTripsAndStaysInBounds() {

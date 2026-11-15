@@ -120,6 +120,7 @@ internal object FarmDepth {
 
 internal val ForestScheme = darkColorScheme(
     primary = FarmColors.Sage, onPrimary = FarmColors.Ink,
+    inverseSurface = FarmColors.Background, inverseOnSurface = FarmColors.Ink, inversePrimary = FarmColors.Brand,
     primaryContainer = FarmColors.ForestPill, onPrimaryContainer = FarmColors.Sage,
     secondary = Color(0xFFDCC28C), onSecondary = Color(0xFF3C2E10),
     secondaryContainer = Color(0xFF304739), onSecondaryContainer = Color(0xFFE0E8D7),
@@ -143,6 +144,7 @@ internal val ForestScheme = darkColorScheme(
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) ForestScheme else lightColorScheme(
             primary = FarmColors.Brand, onPrimary = Color.White,
+            inverseSurface = FarmColors.Ink, inverseOnSurface = FarmColors.Background, inversePrimary = FarmColors.Sage,
             primaryContainer = FarmColors.Sage, onPrimaryContainer = FarmColors.Ink,
             secondary = FarmColors.Muted, onSecondary = Color.White,
             secondaryContainer = FarmColors.Soft, onSecondaryContainer = FarmColors.Ink,
