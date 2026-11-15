@@ -1,5 +1,7 @@
 # FIN17 — instalasi dan penggunaan v2
 
+> Untuk server pilot, ikuti [runbook deployment pilot](../../deployment/PILOT_DEPLOYMENT.md) (15 November 2026). Dokumen ini tetap sebagai histori instalasi lokal.
+
 Lanjutan2 November2026: branch `codex/retire-iot-runtime` bergantung pada `codex/manual-ec-ppm-dashboard` (`0d960db`). Finance satu-satunya produk aktif/default; tidak perlu flag. Riwayat integrasi sebelum penghapusan: Checkpoint tersebut kini telah masuk GitHub **`main`** melalui PR #1–38; [evidence integrasi](MAIN_INTEGRATION_20261102.md). [Hasil engineering/gate](FIN16_ACCEPTANCE.md), [cutover/rollback](FIN17_CUTOVER.md), [status implementasi](../../context/IMPLEMENTATION_STATUS.md), [kontrak executable](../../../contracts/v2/README.md). FIN17 dokumen/tooling tersedia; penerimaan dan cutover produksi belum disahkan.
 
 ## Ambil source dan dependency
