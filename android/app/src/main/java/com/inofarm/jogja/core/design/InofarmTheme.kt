@@ -33,6 +33,11 @@ internal object FarmColors {
     val Info = Color(0xFF365B66)
     val InfoSurface = Color(0xFFE7F0F2)
     val Navigation = Color(0xFFE9EEDF)
+    /** Forest surfaces in dark mode and the dock: card, raised container, selected pill, and the amber chip surface. */
+    val ForestSurface = Color(0xFF203B30)
+    val ForestContainer = Color(0xFF263F34)
+    val ForestPill = Color(0xFF385442)
+    val WarningSurfaceDark = Color(0xFF493519)
 }
 
 internal object FarmSpace {
@@ -115,16 +120,16 @@ internal object FarmDepth {
 
 internal val ForestScheme = darkColorScheme(
     primary = FarmColors.Sage, onPrimary = FarmColors.Ink,
-    primaryContainer = Color(0xFF385442), onPrimaryContainer = FarmColors.Sage,
+    primaryContainer = FarmColors.ForestPill, onPrimaryContainer = FarmColors.Sage,
     secondary = Color(0xFFDCC28C), onSecondary = Color(0xFF3C2E10),
     secondaryContainer = Color(0xFF304739), onSecondaryContainer = Color(0xFFE0E8D7),
     tertiary = Color(0xFF9BD0DB), onTertiary = Color(0xFF00363F),
     tertiaryContainer = Color(0xFF214751), onTertiaryContainer = Color(0xFFC4EAF0),
     background = Color(0xFF132820), onBackground = FarmColors.Background,
-    surface = Color(0xFF203B30), onSurface = FarmColors.Background,
+    surface = FarmColors.ForestSurface, onSurface = FarmColors.Background,
     surfaceVariant = Color(0xFF2E483C), onSurfaceVariant = Color(0xFFC4CEC3),
     surfaceContainerLowest = Color(0xFF12251E), surfaceContainerLow = Color(0xFF192F26),
-    surfaceContainer = Color(0xFF263F34), surfaceContainerHigh = Color(0xFF2C473B),
+    surfaceContainer = FarmColors.ForestContainer, surfaceContainerHigh = Color(0xFF2C473B),
     surfaceContainerHighest = Color(0xFF365145),
     outline = Color(0xFF9BAC9C), outlineVariant = Color(0xFF4A6456),
     error = Color(0xFFFFB4A9), onError = Color(0xFF601410),

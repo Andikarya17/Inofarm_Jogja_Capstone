@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -55,7 +56,7 @@ import kotlin.math.roundToInt
 /** Colour roles for tiles and chips. Meaning is always written out; the colour only marks it. */
 internal enum class FarmTone { Neutral, Good, Info, Amber, Error, Forest, Brand }
 
-private val ForestTile = Color(0xFF203B30)
+private val ForestTile = FarmColors.ForestSurface
 
 @Composable internal fun farmToneColors(tone: FarmTone): Pair<Color, Color> {
     val c = MaterialTheme.colorScheme
@@ -64,7 +65,7 @@ private val ForestTile = Color(0xFF203B30)
         FarmTone.Neutral -> c.secondaryContainer to (if (dark) c.primary else FarmColors.Brand)
         FarmTone.Good -> (if (dark) c.primaryContainer else FarmColors.Soft) to (if (dark) c.primary else FarmColors.Brand)
         FarmTone.Info -> c.tertiaryContainer to c.onTertiaryContainer
-        FarmTone.Amber -> (if (dark) Color(0xFF493519) else FarmColors.WarningSurface) to (if (dark) ForestScheme.secondary else FarmColors.Warning)
+        FarmTone.Amber -> (if (dark) FarmColors.WarningSurfaceDark else FarmColors.WarningSurface) to (if (dark) ForestScheme.secondary else FarmColors.Warning)
         FarmTone.Error -> c.errorContainer to c.onErrorContainer
         FarmTone.Forest -> ForestTile to FarmColors.Sage
         FarmTone.Brand -> c.primary to c.onPrimary
@@ -98,7 +99,9 @@ private val playedEntrances = HashSet<Any>()
     LaunchedEffect(Unit) {
         playedEntrances.add(key)
         if (progress.value < 1f) {
-            delay(index * step.toLong())
+            // The wait follows the system animation scale, so with animations off every item appears at once.
+            val scale = coroutineContext[androidx.compose.ui.MotionDurationScale]?.scaleFactor ?: 1f
+            delay((index * step * scale).toLong())
             progress.animateTo(1f, tween(FarmMotion.Entrance))
         }
     }
@@ -175,7 +178,7 @@ private val playedEntrances = HashSet<Any>()
     val described = if (badge != null && badge > 0) "$label, ${badgeText(badge)} $badgeNote".trim() else label
     Column(
         modifier.farmPressable(interaction, FarmMotion.PressScaleCard, FarmShape.Card)
-            .clickable(interaction, null, enabled = enabled, role = Role.Button, onClick = onClick)
+            .clip(FarmShape.Card).clickable(interaction, androidx.compose.material3.ripple(), enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics(mergeDescendants = true) { contentDescription = described }
             .heightIn(min = FarmSpace.Touch).padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -221,12 +224,12 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
             }
         }.horizontalScroll(scroll).padding(4.dp)) {
         if (target != null) Box(Modifier.offset { IntOffset(x, 0) }.width(with(LocalDensity.current) { w.toDp() })
-            .height(FarmSpace.Touch - 4.dp).background(colors.primary, androidx.compose.foundation.shape.RoundedCornerShape(14.dp)))
+            .height(FarmSpace.Touch).background(colors.primary, androidx.compose.foundation.shape.RoundedCornerShape(14.dp)))
         Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             tabs.forEach { (id, label) ->
                 val on = id == selected
                 val text by animateColorAsState(if (on) colors.onPrimary else colors.onSecondaryContainer, tween(FarmMotion.State), label = "Teks tab")
-                Box(Modifier.heightIn(min = FarmSpace.Touch - 4.dp).onGloballyPositioned {
+                Box(Modifier.heightIn(min = FarmSpace.Touch).onGloballyPositioned {
                     positions[id] = it.positionInParent().x.roundToInt() to it.size.width
                 }.selectable(on, onClick = { onSelect(id) }, role = Role.Tab).padding(horizontal = 14.dp)
                     .testTag("$tagPrefix$id"), contentAlignment = Alignment.Center) {
@@ -292,8 +295,8 @@ internal fun dockItemAt(slot: Int, itemCount: Int): Int? = when {
     onRecord: () -> Unit, recordEnabled: Boolean, modifier: Modifier = Modifier
 ) {
     require(items.size == 2 || items.size == 4)
-    val bar = Color(0xFF263F34)
-    val pill = Color(0xFF385442)
+    val bar = FarmColors.ForestContainer
+    val pill = FarmColors.ForestPill
     val positions = remember { mutableStateMapOf<Int, Pair<Int, Int>>() }
     val target = positions[selected]
     var dockSettled by remember { mutableStateOf(false) }
@@ -335,7 +338,8 @@ internal fun dockItemAt(slot: Int, itemCount: Int): Int? = when {
             Box(Modifier.size(66.dp).background(bar, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(56.dp).farmPressable(interaction, FarmMotion.PressScaleButton, androidx.compose.foundation.shape.CircleShape)
                     .background(if (recordEnabled) FarmColors.Sage else FarmColors.Sage.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape)
-                    .clickable(interaction, null, enabled = recordEnabled, role = Role.Button, onClick = onRecord)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .clickable(interaction, androidx.compose.material3.ripple(), enabled = recordEnabled, role = Role.Button, onClick = onRecord)
                     .semantics { contentDescription = "Catat" }.testTag("finance-record-fab"), contentAlignment = Alignment.Center) {
                     CompositionLocalProvider(LocalContentColor provides FarmColors.Ink) { FarmControlIcon(FarmIcon.Add, null) }
                 }

@@ -176,7 +176,7 @@ internal fun GreenhouseCard(card: JSONObject, index: Int, outsideRange: Boolean,
     Surface(
         Modifier.fillMaxWidth().farmStaggerEntrance(index, "greenhouse-$id").farmPressable(interaction)
             .testTag("manager-greenhouse-$id")
-            .clickable(interaction, null, role = Role.Button, onClick = onClick)
+            .clip(FarmShape.Card).clickable(interaction, androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick)
             .semantics(mergeDescendants = true) { contentDescription = summary },
         shape = FarmShape.Card, color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)
     ) {

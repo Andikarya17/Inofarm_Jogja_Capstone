@@ -396,7 +396,7 @@ internal val rupiahGroupSeparator = Regex("(?<=\\d)\\.(?=\\d{3}(?:[.,]|$))")
     Surface(
         Modifier.fillMaxWidth(),
         shape = FarmShape.Control,
-        color = if (dark) Color(0xFF493519) else FarmColors.WarningSurface,
+        color = if (dark) FarmColors.WarningSurfaceDark else FarmColors.WarningSurface,
         contentColor = if (dark) ForestScheme.secondary else FarmColors.Warning
     ) {
         Text(message, Modifier.padding(FarmSpace.Medium), style = MaterialTheme.typography.bodyMedium)
