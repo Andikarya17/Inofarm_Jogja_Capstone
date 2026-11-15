@@ -42,8 +42,8 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
         if(draft.kind==AssetKind.ASSET) {
             FarmFormSection("Identitas dan nilai aset") {
                 FinanceField("Nama aset",draft.name,{value -> vm.edit {it.copy(name=value)}},"asset-name",state.errors["name"])
-                FinanceField("Harga perolehan (IDR)",draft.cost,{value -> vm.edit {it.copy(cost=value)}},"asset-cost",state.errors["cost"],KeyboardType.Decimal, suffix = "IDR", prominent = true)
-                FinanceField("Nilai sisa (IDR)",draft.residual,{value -> vm.edit {it.copy(residual=value)}},"asset-residual",state.errors["cost"],KeyboardType.Decimal, suffix = "IDR")
+                FinanceField("Harga perolehan (IDR)",draft.cost,{value -> vm.edit {it.copy(cost=value)}},"asset-cost",state.errors["cost"],KeyboardType.Decimal, suffix = "IDR", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
+                FinanceField("Nilai sisa (IDR)",draft.residual,{value -> vm.edit {it.copy(residual=value)}},"asset-residual",state.errors["cost"],KeyboardType.Decimal, suffix = "IDR", visual = com.inofarm.jogja.core.design.IdrGrouping)
             }
             FarmFormSection("Pembayaran sumber") {
             val sources=context.expenses.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("payment_kind")=="asset_acquisition" && it.optString("record_state")=="active"}.map {JSONObject(it.toString()).put("name","${moneyLabel(it.optString("amount"))} · ${it.optString("notes")} · ${it.optString("id").take(8)}")}
@@ -79,7 +79,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
             }
             FarmFormSection("Nominal alokasi") {
             FinanceField("Nominal alokasi (IDR)",draft.amount,{value -> vm.edit {it.copy(amount=value)}},"asset-amount",state.errors["amount"],KeyboardType.Decimal,
-                hint = "Isi nominal pemakaian untuk musim tujuan.", suffix = "IDR", prominent = true)
+                hint = "Isi nominal pemakaian untuk musim tujuan.", suffix = "IDR", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
             runCatching {val source=sources.single {it.getString("id")==draft.assetId};DepreciationAmounts.year(source.getString("cost"),source.getString("residual"),source.getInt("life_years"),AssetDraft.year(draft.usageYear),AssetDraft.date(source.getString("in_service_date")))}.getOrNull()?.let {
                 FarmFact("Anggaran tahun pemakaian", moneyLabel(it.amount.toPlainString()))
                 Text("Sisa anggaran diperiksa saat catatan terkirim.", style = MaterialTheme.typography.bodySmall)

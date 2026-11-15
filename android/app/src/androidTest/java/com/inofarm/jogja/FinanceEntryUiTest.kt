@@ -849,7 +849,8 @@ class FinanceEntryUiTest {
         hideKeyboard();capture("manager-payment")
         frontendEvidence("frame-timing.txt").writeText(gfxInfo("framestats"))
         rule.activityRule.scenario.recreate()
-        readyNode("expense-amount").performScrollTo().assertTextContains("1234567890,50")
+        // The field shows thousands separators; the review below proves the stored value is the one typed.
+        readyNode("expense-amount").performScrollTo().assertTextContains("1.234.567.890,50")
         choose("expense-category", category)
         choose("expense-payment-kind", "operating")
         readyNode("expense-notes").performScrollTo().performTextReplacement("Nominal panjang sintetis untuk tinjauan")
@@ -859,7 +860,8 @@ class FinanceEntryUiTest {
         readyText("1.234.567.890,50", substring = true).assertIsDisplayed()
         capture("manager-payment-review")
         Espresso.pressBack()
-        readyNode("expense-amount").performScrollTo().assertTextContains("1234567890,50")
+        // The field shows thousands separators; the review below proves the stored value is the one typed.
+        readyNode("expense-amount").performScrollTo().assertTextContains("1.234.567.890,50")
     }
 
     @Test fun defaultLauncherOpensFinanceWithExistingApplicationIdentity() {

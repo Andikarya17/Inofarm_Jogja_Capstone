@@ -198,7 +198,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
         FarmFormSection(if (draft.kind == RecordKind.EXPENSE) "Nominal pembayaran" else "Nominal alokasi") {
             FinanceField("Nominal IDR (Rp)", draft.amount, { v -> vm.edit { it.copy(amount = v) } },
                 "expense-amount", state.errors["amount"], KeyboardType.Decimal,
-                hint = "Desimal boleh koma, maksimal 2 angka. Tanpa pemisah ribuan. Kosong bukan nol.", suffix = "IDR", prominent = true)
+                hint = "Ketik angka tanpa titik; pemisah ribuan tampil sendiri. Desimal boleh koma, maksimal 2 angka. Kosong bukan nol.", suffix = "IDR", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
         }
         FarmFormSection(if (draft.kind == RecordKind.EXPENSE) "Pembayaran" else "Sumber dan musim tujuan") {
         if(draft.kind==RecordKind.EXPENSE) {

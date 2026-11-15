@@ -131,13 +131,17 @@ internal fun FarmFormBar(
         // Both buttons take the taller one's height, so a label that wraps at large font sizes does not leave them uneven.
         Row(Modifier.padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Small).height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
             if (showSave) OutlinedButton(onClick = onSave, enabled = enabled && !busy, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 52.dp).testTag(saveTag)) { Text(saveLabel, maxLines = 2) }
+                // At large font sizes "Simpan sebagai draf" needs three lines and the narrower padding, or a word breaks mid-way.
+                contentPadding = if (largeFont) PaddingValues(horizontal = FarmSpace.Small, vertical = FarmSpace.Small) else ButtonDefaults.ContentPadding,
+                modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 52.dp).testTag(saveTag)) {
+                Text(saveLabel, maxLines = 3, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
             Button(onClick = onMain, enabled = mainEnabled && !busy, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
                 // The working button keeps its filled colour, so it reads as in progress, not as unavailable.
                 colors = if (showBusy) ButtonDefaults.buttonColors(disabledContainerColor = colors.primary, disabledContentColor = colors.onPrimary)
                     else ButtonDefaults.buttonColors(),
                 contentPadding = if (largeFont) PaddingValues(horizontal = FarmSpace.Medium, vertical = FarmSpace.Small) else ButtonDefaults.ContentPadding,
-                modifier = Modifier.weight(if (showSave) 1.4f else 1f).fillMaxHeight().heightIn(min = 52.dp).testTag(mainTag)) {
+                modifier = Modifier.weight(if (showSave && !largeFont) 1.4f else 1f).fillMaxHeight().heightIn(min = 52.dp).testTag(mainTag)) {
                 AnimatedContent(showBusy, transitionSpec = { fadeIn(tween(FarmMotion.LoginFeedback)) togetherWith fadeOut(tween(FarmMotion.LoginFeedback)) },
                     label = "Status simpan") { working ->
                     Row(Modifier.semantics { if (working) liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.CenterVertically,

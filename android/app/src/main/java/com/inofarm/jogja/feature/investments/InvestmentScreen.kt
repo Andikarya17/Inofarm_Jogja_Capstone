@@ -144,7 +144,7 @@ private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:Inves
                 state.errors["flow-$year"]?.let { Notice(it, true) }
             }
         }
-        item(key="year-amount-$year") {FinanceField("Kas neto tahun $year (IDR; boleh negatif)",flow.amount,{v->vm.editScenario {d->d.copy(flows=d.flows.mapIndexed {i,f->if(i==index) f.copy(amount=v) else f})}},"investment-flow-$year")}
+        item(key="year-amount-$year") {FinanceField("Kas neto tahun $year (IDR; boleh negatif)",flow.amount,{v->vm.editScenario {d->d.copy(flows=d.flows.mapIndexed {i,f->if(i==index) f.copy(amount=v) else f})}},"investment-flow-$year", visual = com.inofarm.jogja.core.design.IdrGrouping)}
         item(key="year-kind-$year") {SourceChoice("Sumber tahun $year",flow.kind,"investment-flow-kind-$year") {v->vm.editScenario {d->d.copy(flows=d.flows.mapIndexed {i,f->if(i==index) f.copy(kind=v) else f})}}}
         item(key="year-reference-$year") {FinanceField("Referensi tahun $year",flow.reference,{v->vm.editScenario {d->d.copy(flows=d.flows.mapIndexed {i,f->if(i==index) f.copy(reference=v) else f})}},"investment-flow-reference-$year")}
         item(key="year-basis-$year") {FinanceField("Dasar kas neto tahun $year",flow.basis,{v->vm.editScenario {d->d.copy(flows=d.flows.mapIndexed {i,f->if(i==index) f.copy(basis=v) else f})}},"investment-flow-basis-$year")}

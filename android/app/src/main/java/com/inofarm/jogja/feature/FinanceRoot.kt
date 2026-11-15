@@ -961,6 +961,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
                 })
                 tab==0 && !harvestProgressOpen -> tabState.SaveableStateProvider("worker-home-${selectedGreenhouse?.optString("id").orEmpty()}") {
+                // Pull to refresh runs the same sync as the toolbar button, which stays for TalkBack and keyboards.
+                FarmPullRefresh(context.loading, onSync) {
                 val homeState = if (selectedGreenhouse == null) rememberWorkerHome(runtime, session, context, workerToday,
                     Triple(activity.records, harvest.records, activity.queue), syncUpdates) else null
                 LazyColumn(
@@ -1028,7 +1030,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             Text("Catat di luar jadwal")
                         }
                     }
-                } }
+                }  }}
                 harvestProgressOpen && manager -> HarvestProgressScreen(session, ticket, context, runtime.harvest,
                     harvestProgressGreenhouse, harvestProgressGroup, syncUpdates,
                     { harvestProgressOpen = false }, onSync, {
@@ -1047,12 +1049,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         { reviewActivity = it }, { showOutbox = true }, onSync, reviewKind, { reviewKind = it })
                 }
                 tab==4 && manager -> tabState.SaveableStateProvider(4) {
+                    FarmPullRefresh(context.loading, onSync) {
                     FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync,financeKind,financeLink,homeRepository,ticket,syncUpdates)
-                }
+                 }}
                 tab==6 && manager -> tabState.SaveableStateProvider(6) {
                     ManageScreen(session.name, onAdmin, onLogout, enabled = !writing, onAddGreenhouse = onAddGreenhouse, greenhouseCount = context.greenhouses.size.takeIf { it > 0 })
                 }
                 tab==5 -> tabState.SaveableStateProvider("history-$historyChip") {
+                    FarmPullRefresh(context.loading, onSync) {
                     val isActivity = historyChip != "harvest"
                     HistoryScreen(session,context,if (isActivity) history else harvestHistory,
                         if (isActivity) historyVm else harvestHistoryVm,activity.queue,
@@ -1103,7 +1107,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                     Modifier.testTag("worker-harvest-progress-open"), onClick = ::openWorkerHarvestProgress)
                             }
                         })
-                }
+                 }}
             }
         }
         }
@@ -1305,7 +1309,7 @@ internal fun ExpiredSessionNotice() {
             }
             if (draft.type == ActivityType.MEASUREMENT) {
                 FarmWhenCard(draft.date, draft.time, "finance-time-edit", forceOpen = state.errors["occurred_at"] != null) { dateField(); timeField() }
-            } else { dateField(); timeField() }
+            } else FarmFieldPair(dateField, timeField) // side by side; stacked above font scale 1.3
         }
     }
     // Managers see the results first; the skip toggle follows the details.
@@ -1688,4 +1692,14 @@ internal fun rememberAllSent(unsent: Int, onAllSent: () -> Unit): Boolean {
         }
     }
     return allSent
+}
+
+/** Pull to refresh that only shows its indicator for a sync the pull itself started. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+internal fun FarmPullRefresh(syncing: Boolean, onSync: () -> Unit, content: @Composable () -> Unit) {
+    var pulled by remember { mutableStateOf(false) }
+    LaunchedEffect(syncing) { if (!syncing) pulled = false }
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = pulled && syncing,
+        onRefresh = { pulled = true; onSync() }, modifier = Modifier.fillMaxSize()) { content() }
 }
