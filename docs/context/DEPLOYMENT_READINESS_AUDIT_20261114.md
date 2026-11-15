@@ -27,6 +27,7 @@ Tidak dijalankan: instrumentasi Android, emulator, perangkat fisik, backend nyat
 **P0-1. Database aplikasi tertinggal migration 20 dan sinkronisasi pekerja akan gagal.**
 `inofarm_finance_local` belum punya tabel `harvest_reviews` (`2026_11_10_000020_create_harvest_reviews` berstatus Pending). Android terbaru selalu mengirim `harvest_reviews=1` ke `GET sync/changes` (`FinanceSyncCoordinator.kt:115`). Untuk akun selain pengelola, `ChangeFeedController` lalu membuat subquery ke `harvest_reviews`. Akibatnya, menurut pembacaan kode, setiap tarikan data pekerja berakhir dengan galat SQL. Progres panen (`HarvestProgress`), verifikasi panen dan rekonsiliasi kiriman juga membaca tabel ini. Ini kesimpulan dari kode dan status migration; galatnya belum direproduksi lewat HTTP.
 *Saran:* buat cadangan SQL, jalankan `php artisan migrate --pretend`, lalu `php artisan migrate` pada database target, dan verifikasi `sync/changes` sebagai pekerja. Tambahkan langkah "migrate:status harus bersih" pada checklist rilis. Pertimbangkan endpoint kesehatan yang menolak melayani bila ada migration pending.
+*Status 14 November 2026:* selesai untuk database laptop. Migration 20 diterapkan pada `inofarm_finance_local` setelah backup, `sync/changes` sebagai pekerja menghasilkan 200 lewat HTTP kernel, dan `migrate:status --pending=1` menjadi penjaga yang diuji. Belum diuji dari aplikasi Android lewat jaringan; database server pilot belum ada. [Bukti D0](DEPLOYMENT_BASELINE_EVIDENCE_20261114.md), [bukti D1](DEPLOYMENT_MIGRATION_EVIDENCE_20261114.md).
 
 **P0-2. Belum ada server yang bisa dijangkau ponsel Inofarm.**
 Backend saat ini berjalan lewat `php artisan serve` di laptop (`APP_URL=http://127.0.0.1:8000`, MySQL di `127.0.0.1:3307`). APK rilis hanya menerima HTTPS (`ApiBaseUrl.kt:9`).
@@ -35,14 +36,17 @@ Backend saat ini berjalan lewat `php artisan serve` di laptop (`APP_URL=http://1
 **P0-3. APK rilis belum bisa dibagikan.**
 Build type `release` tidak punya `signingConfig`, dan `inofarmFinanceApiUrl` kosong secara bawaan. Varian `profile` memakai kunci debug dan ditandai "never distributed".
 *Saran:* buat keystore rilis yang disimpan di luar repo, tambahkan `signingConfig` yang membaca properti lokal, isi `-PinofarmFinanceApiUrl=https://…/api/v2/`, naikkan `versionCode`/`versionName`, lalu uji APK rilis (minify aktif) di satu ponsel nyata sebelum dibagikan.
+*Status 15 November 2026:* konfigurasi selesai. `signingConfig` membaca keystore dari luar repo, rilis ditolak tanpa URL `https://…/api/v2/`, versi naik ke 0.3.0 (3); APK bertanda tangan diuji dengan keystore sekali pakai. Belum: keystore asli pemilik dan uji di ponsel fisik. [Bukti D4](DEPLOYMENT_RELEASE_EVIDENCE_20261115.md).
 
 **P0-4. Dependency backend punya advisory keamanan.**
 `symfony/http-foundation` (4 advisory, termasuk trusted proxy dan URL yang host-nya bisa dipilih klien), `symfony/http-kernel` (forwarded header), `symfony/routing` (bypass akses berbasis path), dan `laravel/framework` (low). Versi terpasang: Symfony 8.1.8/8.1.10.
 *Saran:* `composer update "symfony/*" laravel/framework --with-dependencies` dalam batas constraint yang ada, jalankan ulang `test-backend.ps1`, lalu `composer audit` sampai bersih atau tiap sisa advisory dicatat beserta alasannya. Setel `TrustProxies` sesuai reverse proxy server.
+*Status 14 November 2026:* advisory selesai. `composer audit --locked` menghasilkan 0 advisory setelah Symfony naik ke 8.1.11 dan Laravel ke 13.42.0; suite backend 159 tes lulus. `TrustProxies` belum disetel karena bergantung pada server pilot. [Bukti D2](DEPLOYMENT_DEPENDENCY_EVIDENCE_20261114.md).
 
 **P0-5. Belum ada cadangan dan jadwal operasional.**
 `routes/console.php` hanya berisi perintah contoh: tidak ada jadwal backup, tidak ada `sanctum:prune-expired` (sudah ada 3 token kedaluwarsa di database lokal), tidak ada cron `schedule:run`. Keputusan Q08 (jadwal, retensi, RPO/RTO, operator) dan Q07 (batas lampiran) masih terbuka.
 *Saran:* untuk pilot, cukup `mysqldump` harian terenkripsi ke lokasi lain plus satu kali uji restore ke database terpisah. Jadwalkan `sanctum:prune-expired --hours=24`. Putuskan Q07 dan Q08 bersama pengelola Inofarm, minimal untuk masa pilot.
+*Status 14 November 2026:* sebagian. Jadwal `sanctum:prune-expired --hours=24`, skrip `scripts/backup-mysql.ps1` dan `.sh`, serta nilai pilot Q07/Q08 di `backend/.env.production.example` sudah ada dan diuji pada `inofarm_test`. Belum: cron di server, jadwal backup terpasang, dan uji restore ke database terpisah (akun aplikasi tidak punya hak `CREATE DATABASE`). [Bukti D3](DEPLOYMENT_HARDENING_EVIDENCE_20261114.md).
 
 ### P1: sebaiknya selesai sebelum atau di awal pilot
 
@@ -59,6 +63,7 @@ Build type `release` tidak punya `signingConfig`, dan `inofarmFinanceApiUrl` kos
 **P2-1. Sisa penugasan untuk akun pengelola.** Ada 1 baris `greenhouse_assignments` aktif milik pengelola. Setelah keputusan super admin, penugasan hanya untuk pekerja. Baris ini tidak berbahaya karena pengelola melihat semua greenhouse lewat role, tetapi bisa membingungkan daftar "pekerja di greenhouse ini". *Saran:* nonaktifkan lewat API (bukan hard delete), atau pastikan layar penugasan menyaring role pekerja.
 
 **P2-2. Masa sesi 24 jam.** `FINANCE_SESSION_SECONDS` bawaan 86.400. Pekerja lapangan akan diminta login ulang tiap hari. Outbox tetap tersimpan, jadi data tidak hilang. *Saran:* bicarakan dengan Inofarm: 24 jam lebih aman, tetapi 7 hari lebih nyaman. Nilainya bisa diubah lewat env tanpa ubah kode.
+*Status 14 November 2026:* pemilik memilih 7 hari untuk pilot; nilainya ada di `backend/.env.production.example`. Env laptop belum diubah. [Bukti D3](DEPLOYMENT_HARDENING_EVIDENCE_20261114.md).
 
 **P2-3. Bagian spesifikasi pekerja yang belum dikerjakan** (dari bukti PR #58): baris lipat "Belum dicatat dari 7 hari terakhir", chip greenhouse nonaktif di sheet Catat, angka utama dua kolom di langkah Periksa, chip "Diubah" pada koreksi, peringatan pH/EC di luar acuan, dan total panen bertitik desimal di langkah Periksa. Tidak ada yang memblokir pilot.
 
@@ -67,6 +72,7 @@ Build type `release` tidak punya `signingConfig`, dan `inofarmFinanceApiUrl` kos
 ### P3: kecil
 
 **P3-1. Validasi berjalan sebelum otorisasi pada tulis khusus pengelola.** Pekerja yang memanggil `POST expenses`, `sales`, `users`, `season-reports/preview` dan sejenisnya dengan payload tidak lengkap menerima 422 beserta daftar field, bukan 403. Dengan payload valid, tes yang ada membuktikan hasilnya 403 (misalnya `POST greenhouses`). Tidak ada data yang bocor, tetapi bentuk payload jadi terbuka dan perilakunya tidak seragam dengan GET (403). *Saran:* panggil pengecekan role pengelola sebelum `OperationInput::read`/validasi pada controller khusus pengelola, lalu tambahkan tes "pekerja + payload kosong = 403".
+*Status 14 November 2026:* selesai. Middleware `finance-manager` pada 31 rute tulis khusus pengelola; 56 permintaan pekerja dengan payload kosong menghasilkan 403. [Bukti D3](DEPLOYMENT_HARDENING_EVIDENCE_20261114.md).
 
 **P3-2. Lint 18 warning** (naik dari 16 pada baseline lama). Tidak ada error.
 
