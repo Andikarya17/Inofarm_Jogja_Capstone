@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,7 +64,12 @@ import java.util.Locale
 
 @Composable fun HistoryScreen(session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind=OperationalKind.ACTIVITY,
     returnToQueue:Boolean=false, recordScope:String?=null, onSync:(()->Unit)?=null,
-    historyKindPicker:(@Composable ()->Unit)?=null, canopy:Boolean=false, header:LazyListScope.()->Unit={}) {
+    historyKindPicker:(@Composable ()->Unit)?=null, canopy:Boolean=false, contentFade:Boolean=false,
+    header:LazyListScope.()->Unit={}) {
+    // After a kind chip changes, the chips and filters stay put and only the list under them fades in.
+    val fadeIn = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(if (contentFade) 0f else 1f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { fadeIn.animateTo(1f, androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State)) }
+    val fade = { fadeIn.value }
     when {
         state.comparison!=null -> ConflictReview(state.comparison,session,context,state.busy,state.message,vm::resolve,vm::closeComparison,kind)
         state.selected!=null -> HistoryDetail(state.selected,session,context,state,vm,queue,onEdit,kind,returnToQueue)
@@ -107,8 +113,8 @@ import java.util.Locale
                     }
                 }
             }
-            if (session.expired()) item("history-session") { ExpiredSessionNotice() }
-            else if (context.message != null || (!canopy && context.lastSyncedAt != null)) item("history-sync") {
+            if (session.expired()) item("history-session") { Faded(fade) { ExpiredSessionNotice() }}
+            else if (context.message != null || (!canopy && context.lastSyncedAt != null)) item("history-sync") { Faded(fade) {
                 FarmRecordCard {
                     context.message?.let { Text(it, Modifier.testTag("finance-sync-message"),
                         style=MaterialTheme.typography.bodySmall, color=MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -117,21 +123,21 @@ import java.util.Locale
                             style=MaterialTheme.typography.bodySmall, color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-            }
-            state.message?.let { item("history-message") { Notice(it,true) } }
+            }}
+            state.message?.let { item("history-message") { Faded(fade) { Notice(it,true) }} }
             val filtered = (if (chipType) state.filter.copy(type = null) else state.filter) != LocalHistoryFilter()
             when {
-                state.loading || !state.loaded && state.loadError == null -> item("history-loading") {
+                state.loading || !state.loaded && state.loadError == null -> item("history-loading") { Faded(fade) {
                     FarmRecordCard { Text("Memuat riwayat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                }
-                state.loadError != null -> item("history-error") {
+                }}
+                state.loadError != null -> item("history-error") { Faded(fade) {
                     FarmPanel(title="Riwayat belum bisa dimuat") {
                         Text(state.loadError)
                         OutlinedButton(onClick=vm::reload,shape=FarmShape.Control,
                             modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Coba lagi") }
                     }
-                }
-                state.records.isEmpty() -> item("history-empty") {
+                }}
+                state.records.isEmpty() -> item("history-empty") { Faded(fade) {
                     FarmPanel(title=if (filtered) "Belum ada catatan yang cocok dengan filter ini."
                         else "Belum ada catatan ${kind.label}.") {
                         if (filtered) TextButton(onClick={vm.filter(LocalHistoryFilter(type = state.filter.type.takeIf { chipType }))},
@@ -139,7 +145,7 @@ import java.util.Locale
                         else if (onSync != null && !session.expired()) TextButton(onClick=onSync,enabled=!context.loading,
                             modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Perbarui") }
                     }
-                }
+                }}
             }
             if (canopy) {
                 val today = LocalDate.now(ActivityDraft.WIB)
@@ -149,15 +155,15 @@ import java.util.Locale
                     if (days.lastOrNull()?.first == heading) days.last().second.add(r) else days.add(heading to mutableListOf(r))
                 }
                 days.forEach { (heading, rows) ->
-                    stickyHeader(key = "day-$heading-${rows.first().id}") { CanopyDayHeader(heading) }
-                    item(key = "day-rows-$heading-${rows.first().id}") {
+                    stickyHeader(key = "day-$heading-${rows.first().id}") { Faded(fade) { CanopyDayHeader(heading) }}
+                    item(key = "day-rows-$heading-${rows.first().id}") { Faded(fade) {
                         Column(Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
                             .background(MaterialTheme.colorScheme.surface)) {
                             rows.forEachIndexed { i, r ->
                                 CanopyRecordRow(r, kind, context, session.scope.accountId, state.checks, i == 0, i == rows.lastIndex) { vm.select(r.id) }
                             }
                         }
-                    }
+                    }}
                 }
             } else items(state.records, key = { it.id }) { record ->
                 // Rows fade and slide into place when the list changes, instead of jumping.
@@ -165,12 +171,12 @@ import java.util.Locale
                     HistoryRecordRow(record, kind, context, session.scope.accountId.takeIf { session.role == UserRole.WORKER }, state.checks) { vm.select(record.id) }
                 }
             }
-            if(state.hasMore) item {
+            if(state.hasMore) item { Faded(fade) {
                 if (canopy) OutlinedButton(onClick=vm::more,enabled=!state.loading,shape=FarmShape.Control,
                     modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("finance-history-more")) {Text("Muat 50 berikutnya")}
                 else Button(onClick=vm::more,enabled=!state.loading,shape=FarmShape.Control,
                     modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("finance-history-more")) {Text("Muat 50 berikutnya")}
-            }
+            }}
         }
     }
 }
@@ -381,14 +387,16 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
         pending.forEach {op ->
             var expanded by rememberSaveable(op.id) {mutableStateOf(false)}
             TextButton(onClick={expanded=!expanded},modifier=Modifier.fillMaxWidth().testTag("history-operation-${op.id}")) {Text(if(expanded) "Tutup isi yang belum terkirim" else "Lihat isi yang belum terkirim")}
-            if(expanded) {
+            androidx.compose.animation.AnimatedVisibility(expanded,
+                enter=androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State))+androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State)),
+                exit=androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.Press))+androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.Press))) { Column(verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium)) {
                 val action=op.envelope.optString("action");val payload=op.envelope.optJSONObject("payload")
                 if(payload==null) Notice("Isi catatan belum bisa dibaca lengkap. Data tetap tersimpan.",true)
                 else {
                     if(action in setOf("create","update")) RecordFacts(record.copy(body=payload,baseVersion=if(op.envelope.isNull("base_version")) null else op.envelope.getLong("base_version")),session,context,kind)
                     if(payload.has("reason")) Text("Catatan: ${payload.optString("reason")}")
                 }
-            }
+            } }
         }
         if(pending.any {it.state=="CONFLICT"}) Button(onClick=vm::compare,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("history-compare")) {Text("Bandingkan isian saya dengan data terbaru")}
         if(reviewable && (own || session.role==UserRole.MANAGER)) OutlinedButton(onClick={onEdit(record,true)},modifier=Modifier.fillMaxWidth().testTag("history-fix-rejected")) {Text("Perbaiki catatan yang ditolak")}
@@ -475,4 +483,8 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
         OperationalKind.ASSET,OperationalKind.DEPRECIATION -> com.inofarm.jogja.feature.assets.AssetFacts(record,context)
         OperationalKind.SALE -> com.inofarm.jogja.feature.sales.SaleFacts(record,context)
     }
+}
+
+@Composable private fun Faded(alpha: () -> Float, content: @Composable () -> Unit) {
+    Box(Modifier.graphicsLayer { this.alpha = alpha() }) { content() }
 }

@@ -263,8 +263,13 @@ internal fun FarmStepIndicator(step: Int, labels: List<String>) {
     Row(Modifier.fillMaxWidth().clearAndSetSemantics {}, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
         labels.forEachIndexed { index, label ->
             val number = index + 1
+            // The bar fills from the start when a step is reached and empties toward it on Kembali.
+            val fill by androidx.compose.animation.core.animateFloatAsState(if (number <= step) 1f else 0f,
+                tween(FarmMotion.Depth, easing = FarmMotion.EmphasizedDecelerate), label = "Batang langkah")
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(Modifier.fillMaxWidth().height(6.dp).background(if (number <= step) colors.primary else colors.outlineVariant, androidx.compose.foundation.shape.RoundedCornerShape(3.dp)))
+                Box(Modifier.fillMaxWidth().height(6.dp).background(colors.outlineVariant, androidx.compose.foundation.shape.RoundedCornerShape(3.dp))) {
+                    Box(Modifier.fillMaxWidth(fill).height(6.dp).background(colors.primary, androidx.compose.foundation.shape.RoundedCornerShape(3.dp)))
+                }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (number < step) Box(Modifier.size(16.dp)) { androidx.compose.runtime.CompositionLocalProvider(LocalContentColor provides colors.primary) { FarmControlIcon(FarmIcon.Check, null) } }
                     Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = if (number == step) FontWeight.Bold else FontWeight.Medium,

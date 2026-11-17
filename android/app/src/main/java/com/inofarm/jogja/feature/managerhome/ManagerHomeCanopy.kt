@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -148,7 +150,7 @@ internal fun ReviewCard(count: Int, onClick: () -> Unit) {
 
 /** One greenhouse: state tile, name, planting line, age figure, then fact chips. */
 @Composable
-internal fun GreenhouseCard(card: JSONObject, index: Int, outsideRange: Boolean, onClick: () -> Unit) {
+internal fun GreenhouseCard(card: JSONObject, index: Int, outsideRange: Boolean, onClick: (androidx.compose.ui.geometry.Rect?) -> Unit) {
     val colors = MaterialTheme.colorScheme
     val id = card.getString("id")
     val name = card.getString("name")
@@ -173,10 +175,13 @@ internal fun GreenhouseCard(card: JSONObject, index: Int, outsideRange: Boolean,
         harvest?.let { "Panen $it kg" }, last ?: "Belum ada catatan", if (outsideRange) "PPM di luar acuan" else null).joinToString(", ")
     val interaction = remember { MutableInteractionSource() }
     val large = LocalDensity.current.fontScale > 1.3f
+    // Where the card sits on screen, so the detail hero can open out of it. Read only when tapped.
+    val bounds = remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(1) }
     Surface(
-        Modifier.fillMaxWidth().farmStaggerEntrance(index, "greenhouse-$id").farmPressable(interaction)
+        Modifier.fillMaxWidth().onGloballyPositioned { bounds[0] = it.boundsInRoot() }
+            .farmStaggerEntrance(index, "greenhouse-$id").farmPressable(interaction)
             .testTag("manager-greenhouse-$id")
-            .clip(FarmShape.Card).clickable(interaction, androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick)
+            .clip(FarmShape.Card).clickable(interaction, androidx.compose.material3.ripple(), role = Role.Button) { onClick(bounds[0]) }
             .semantics(mergeDescendants = true) { contentDescription = summary },
         shape = FarmShape.Card, color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)
     ) {

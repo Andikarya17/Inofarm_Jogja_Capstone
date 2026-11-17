@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature.reports
 
+import androidx.compose.animation.animateContentSize
 import com.inofarm.jogja.core.design.FarmAmount
 import com.inofarm.jogja.core.design.FarmDraftStatus
 import com.inofarm.jogja.core.design.FarmFact
@@ -45,7 +46,7 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
         }
         state.message?.let {message -> item {Notice(message,true)}}
         if(state.accessDenied) {item {Notice("Akses akun berubah. Perbarui atau masuk ulang. Data di perangkat tidak dihapus.",true)}}
-        else if(state.busy) {item {CircularProgressIndicator();Text("Sedang memproses…")}}
+        else if(state.busy) {item {com.inofarm.jogja.core.design.FarmBusyReveal {CircularProgressIndicator();Text("Sedang memproses…")}}}
         else if(draft!=null) {
             item {Text(context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse tersimpan")}
             item {FarmDraftStatus(state.saved, Modifier.testTag("report-draft-status"))}
@@ -143,7 +144,7 @@ private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
 
 @Composable private fun Indicator(key:String,metric:JSONObject) {
     var expanded by androidx.compose.runtime.saveable.rememberSaveable(key, metric.toString()) { mutableStateOf(false) }
-    FarmResultRow(SeasonReportContract.labels.getValue(key), Modifier.testTag("report-metric-$key")) {
+    FarmResultRow(SeasonReportContract.labels.getValue(key), Modifier.testTag("report-metric-$key").animateContentSize(androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State))) {
         val unit = metric.getString("unit")
         val value = if (metric.isNull("value")) "Belum dapat dihitung"
             else reportValue(metric.getString("value"), unit, metric.getInt("display_scale"))
@@ -176,7 +177,7 @@ private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
 @Composable private fun SourceCard(source:JSONObject) {
     val data=source.getJSONObject("data");var expanded by remember(source.getString("id")) {mutableStateOf(false)}
     val label=when(source.getString("kind")) {"asset"->"Aset";"expense"->"Pembayaran";"cost_allocation"->"Alokasi biaya";"depreciation_allocation"->"Alokasi penyusutan";else->"Penjualan"}
-    OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+    OutlinedCard(Modifier.fillMaxWidth().animateContentSize(androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State))) {Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
         Text("$label · versi ${source.getInt("version")}",style=MaterialTheme.typography.titleMedium);Text(source.getString("reason"))
         source.optJSONObject("contribution")?.let {values->values.keys().forEach {key->Text("${SeasonReportContract.labels[key] ?: key}: ${reportValue(values.getString(key),if(key=="Q") "kg" else "IDR",if(key=="Q") 6 else 2)}")}}
         TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Tutup rincian" else "Lihat rincian")}

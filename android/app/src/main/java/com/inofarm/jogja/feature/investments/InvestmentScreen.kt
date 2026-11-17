@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature.investments
 
+import androidx.compose.animation.animateContentSize
 import com.inofarm.jogja.core.design.FarmAmount
 import com.inofarm.jogja.core.design.FarmDraftStatus
 import com.inofarm.jogja.core.design.FarmFact
@@ -50,7 +51,7 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
         }
         state.message?.let {item {Notice(it,true)}}
         if(state.denied) item {Notice("Akses akun berubah. Perbarui atau masuk ulang. Draf tetap tersimpan.",true)}
-        else if(state.busy) item {CircularProgressIndicator();Text("Sedang memproses…")}
+        else if(state.busy) item {com.inofarm.jogja.core.design.FarmBusyReveal {CircularProgressIndicator();Text("Sedang memproses…")}}
         else if(state.scenarioDraft!=null) scenarioForm(state.scenarioDraft,state,vm,context,returnToQueue)
         else if(state.reportDraft!=null) {
             val draft=state.reportDraft
@@ -194,7 +195,7 @@ private fun LazyListScope.report(data:JSONObject,accepted:Boolean) {
 }
 @Composable private fun InvestmentIndicator(key:String,m:JSONObject) {
     var expanded by androidx.compose.runtime.saveable.rememberSaveable(key, m.toString()) { mutableStateOf(false) }
-    FarmResultRow("$key · ${InvestmentContract.labels.getValue(key)}", Modifier.testTag("investment-metric-$key")) {
+    FarmResultRow("$key · ${InvestmentContract.labels.getValue(key)}", Modifier.testTag("investment-metric-$key").animateContentSize(androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State))) {
         val unit = m.getString("unit")
         val value = when {
             !m.isNull("value") -> investmentValue(m.getString("value"), unit, m.getInt("display_scale"))
@@ -236,5 +237,5 @@ private fun LazyListScope.report(data:JSONObject,accepted:Boolean) {
 }
 @Composable private fun AuditCard(event:JSONObject) {
     var expanded by remember(event.getLong("id")) {mutableStateOf(false)}
-    OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(14.dp)) {Text("Versi ${event.getInt("version")} · ${event.getString("actor_name")}");Text(timeLabel(event.getString("server_at")));Text("${event.getString("action")} · ${nullable(event,"reason")}");TextButton(onClick={expanded=!expanded}) {Text("Lihat perubahan")};if(expanded) Text(event.getJSONObject("changes").toString(2))}}
+    OutlinedCard(Modifier.fillMaxWidth().animateContentSize(androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State))) {Column(Modifier.padding(14.dp)) {Text("Versi ${event.getInt("version")} · ${event.getString("actor_name")}");Text(timeLabel(event.getString("server_at")));Text("${event.getString("action")} · ${nullable(event,"reason")}");TextButton(onClick={expanded=!expanded}) {Text("Lihat perubahan")};if(expanded) Text(event.getJSONObject("changes").toString(2))}}
 }
