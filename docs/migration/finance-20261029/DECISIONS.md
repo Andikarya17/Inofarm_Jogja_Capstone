@@ -1,5 +1,9 @@
 # Decision register target baru
 
+## Input pengelola tanpa draf, 17 November 2026
+
+Keputusan pengguna: semua input pengelola hanya punya Batal dan Simpan. Simpan membuka Ringkasan (langkah 2 dari 2) berisi apa yang diisi, dan Simpan di sana yang menyimpan. Pengelola tidak lagi punya tombol Simpan draf; isian tetap tersimpan otomatis selama form terbuka (KNF-03) dan Batal mengembalikannya. Alur pekerja tetap memakai draf, Periksa dan Kirim. Backend tidak berubah. [Bukti](../../context/MANAGER_SAVE_SUMMARY_EVIDENCE_20261117.md).
+
 ## Pengelola sebagai super admin, 11 November 2026
 
 **Keputusan pengguna**, berdasarkan masukan dosen pembimbing (navigasi pengelola terlalu panjang, terlalu banyak kalimat, kata teknis, peran tidak jelas, alur tambah greenhouse tidak jelas, pengelola terkesan butuh validasi):

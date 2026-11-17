@@ -198,9 +198,11 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
 @Composable fun FinancialForm(state:FinancialEntryState,context:CultivationUiState,vm:FinancialEntryViewModel) {
     val draft=state.draft ?: return
     val greenhouse=context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse terakhir tersimpan"
+    val cancel = rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
     FarmFormFrame(
-        header = { FarmFormHeader("${if(draft.baseVersion==null) "Catat" else "Koreksi"} ${draft.kind.label}", state.saved, "expense-draft-status", "expense-close", vm::saveAndClose, !state.busy) },
-        bar = { FarmFormBar("expense-save-draft", vm::saveAndClose, "expense-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy) }
+        header = { FarmFormHeader("${if(draft.baseVersion==null) "Catat" else "Koreksi"} ${draft.kind.label}", state.saved, "expense-draft-status", "expense-close", cancel, !state.busy,
+            showDraftStatus = false, closeLabel = "Batal", step = 1) },
+        bar = { FarmFormBar("expense-cancel", cancel, "expense-review", "Simpan", vm::review, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }
     ) {
         FarmContextStrip(greenhouse, null, null)
         FarmFormSection(if (draft.kind == RecordKind.EXPENSE) "Nominal pembayaran" else "Nominal alokasi") {
@@ -241,8 +243,8 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
 @Composable fun FinancialReview(draft:FinancialDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     val greenhouse=context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse terakhir tersimpan"
     FarmReviewFrame(draft.kind.label, if(draft.kind==RecordKind.EXPENSE) "$greenhouse Â· ${whenLabel(draft.date, draft.time)}" else greenhouse,
-        FarmIcon.Wallet, busy, "expense-queue", "expense-back", onBack, onQueue) {
-        FarmFormSection("Ringkasan ${draft.kind.label}") { FinancialDraftFacts(draft,context) }
+        FarmIcon.Wallet, busy, "expense-queue", "expense-back", onBack, onQueue, summary = true) {
+        FarmFormSection("Rincian") { FinancialDraftFacts(draft,context) }
         if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat.")
     }
 }

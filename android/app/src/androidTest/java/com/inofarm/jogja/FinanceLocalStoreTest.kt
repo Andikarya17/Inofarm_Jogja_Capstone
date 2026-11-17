@@ -73,6 +73,30 @@ class FinanceLocalStoreTest {
         assertEquals("Draf pada greenhouse asal", store.record(account, draft)?.body?.getString("notes"))
     }
 
+    @Test fun batalUndoesAutosaveWithoutTouchingQueuedOrAcceptedRecords() {
+        // A new record cancelled before Simpan leaves nothing behind.
+        val fresh=UUID.randomUUID().toString()
+        store.saveDraft("account-a",fresh,gh,body("Isian yang dibatalkan"))
+        store.restoreDraft("account-a",fresh,null)
+        assertNull(store.record("account-a",fresh))
+        // An accepted record opened for correction goes back to the server copy, still accepted.
+        val accepted=UUID.randomUUID().toString()
+        store.saveAndQueue("account-a",accepted,gh,body("Diterima"))
+        val op=store.outbox("account-a").single {it.entityId==accepted}
+        store.acknowledge("account-a",op.id,receipt(accepted,op.id,"Diterima"))
+        val origin=store.record("account-a",accepted)!!
+        assertEquals(SyncState.ACCEPTED,origin.syncState)
+        store.saveDraft("account-a",accepted,gh,body("Koreksi yang dibatalkan"),origin.revision)
+        assertEquals(SyncState.LOCAL,store.record("account-a",accepted)!!.syncState)
+        store.restoreDraft("account-a",accepted,origin)
+        val restored=store.record("account-a",accepted)!!
+        assertEquals(SyncState.ACCEPTED,restored.syncState);assertEquals("Diterima",restored.body.getString("notes"));assertEquals(origin.serverVersion,restored.baseVersion)
+        // Something queued since the form opened belongs to the outbox and is left alone.
+        val sent=UUID.randomUUID().toString()
+        store.saveAndQueue("account-a",sent,gh,body("Sudah disimpan"))
+        store.restoreDraft("account-a",sent,null)
+        assertEquals(SyncState.QUEUED,store.record("account-a",sent)!!.syncState)
+    }
     @Test fun durableOutboxSurvivesCloseReopenAndDoesNotCrossAccountOrServer() {
         val id=UUID.randomUUID().toString()
         store.saveAndQueue("account-a",id,gh,body())

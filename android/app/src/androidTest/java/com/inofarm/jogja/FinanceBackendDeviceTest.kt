@@ -133,8 +133,9 @@ class FinanceBackendDeviceTest {
             }
             detail.performScrollToNode(hasTestTag("verification-review"))
             rule.onNodeWithTag("verification-review").performClick()
+            rule.onNodeWithTag("verification-save").performClick()
             rule.captureBotanicalWindow("worker-harvest-real-manager-${decision}")
-            // "Simpan keputusan" saves directly; the separate confirm step is gone.
+            // "Simpan keputusan" opens the decision summary; its Simpan sends.
             val manager = model.vault.current!!
             fun operation() = model.store.outbox(manager.scope.key).firstOrNull {
                 val payload = it.envelope.optJSONObject("payload")
@@ -331,7 +332,8 @@ class FinanceBackendDeviceTest {
             }
             detail.performScrollToNode(hasTestTag("verification-review"))
             rule.onNodeWithTag("verification-review").performClick()
-            // "Simpan keputusan" saves directly; the separate confirm step is gone.
+            rule.onNodeWithTag("verification-save").performClick()
+            // "Simpan keputusan" opens the decision summary; its Simpan sends.
         }
 
         login(fixture, "manager")
@@ -559,8 +561,9 @@ class FinanceBackendDeviceTest {
         val payment=model.store.outbox(session.scope.key).single {it.envelope.getString("entity_type")=="expense"};assertEquals("QUEUED",payment.state)
         val editor=financeEditor()
         rule.runOnIdle {editor.new(com.inofarm.jogja.core.contracts.RecordKind.COST_ALLOCATION,a.getString("greenhouse_id"));editor.edit {it.copy(expenseId=payment.entityId,seasonId=a.getString("season_id"),amount="60,01",costClass="VC",basis="DEVICE ALLOCATION ${f.getString("fixture_id")}")}}
-        val allocationId=editor.state.value.draft!!.id;rule.onNodeWithTag("expense-save-draft").scrollIfScrollable().performClick()
-        rule.waitUntil(10000) {editor.state.value.draft==null && model.store.record(session.scope.key,allocationId)!=null}
+        // The form autosaves while open, so the unsent allocation survives the process restart of the next phase.
+        val allocationId=editor.state.value.draft!!.id
+        rule.waitUntil(10000) {model.store.record(session.scope.key,allocationId)!=null}
         assertTrue(model.store.outbox(session.scope.key).none {it.envelope.getString("entity_type")=="cost_allocation"})
         file("finance-device-financial-proof.json").writeText(JSONObject().put("payment_pid",android.os.Process.myPid()).put("expense_id",payment.entityId).put("payment_op",payment.id).put("payment_hash",payment.hash).put("allocation_id",allocationId).toString())
     }

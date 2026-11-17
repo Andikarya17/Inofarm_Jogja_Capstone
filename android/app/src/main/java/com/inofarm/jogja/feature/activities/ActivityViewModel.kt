@@ -49,13 +49,24 @@ class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
         }
     }
     fun clearMessage() {mutable.value=state.value.copy(message=null)}
-    fun new(gh:String,group:String,type:ActivityType=ActivityType.GENERAL,scheduleId:String?=null,runningPeriodVersion:Long?=null) { saveJob?.cancel();mutable.value=state.value.copy(draft=ActivityDraft(greenhouseId=gh,groupId=group,type=type,scheduleId=scheduleId,runningPeriodVersion=runningPeriodVersion),errors=emptyMap(),saved=false,reviewing=false,message=null) }
+    private val entry=com.inofarm.jogja.feature.EntryOrigin<ActivityDraft>()
+    fun new(gh:String,group:String,type:ActivityType=ActivityType.GENERAL,scheduleId:String?=null,runningPeriodVersion:Long?=null) { saveJob?.cancel();mutable.value=state.value.copy(draft=ActivityDraft(greenhouseId=gh,groupId=group,type=type,scheduleId=scheduleId,runningPeriodVersion=runningPeriodVersion),errors=emptyMap(),saved=false,reviewing=false,message=null);entry.start(null,state.value.draft) }
     fun open(record:LocalRecord,replaceRejected:Boolean=false) {
         saveJob?.cancel()
         mutable.value=state.value.copy(draft=ActivityDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion ?: record.serverVersion).let {if(replaceRejected) it.copy(replaceValidationRejected=true) else it},saved=true,errors=emptyMap(),reviewing=false,message=null)
+        entry.start(record,state.value.draft)
+    }
+    fun hasChanges()=entry.changed(state.value.draft)
+    /** Manager "Batal": closes the form and undoes its autosave, so nothing stays behind as a draft. */
+    fun cancel() {
+        val draft=state.value.draft ?: return;saveJob?.cancel()
+        mutable.value=state.value.copy(draft=null,reviewing=false,errors=emptyMap(),message=null)
+        entry.undo(viewModelScope,vault,draft.id,{session,ticket,id,origin -> repository.discard(session,ticket,id,origin)}) {
+            mutable.value=state.value.copy(message=it);reload()
+        }
     }
     fun edit(change:(ActivityDraft)->ActivityDraft) {
-        val draft=state.value.draft ?: return
+        val draft=state.value.draft ?: return;entry.touched=true
         val updated=change(draft);mutable.value=state.value.copy(draft=updated,saved=false,reviewing=false,errors=emptyMap())
         saveJob?.cancel();saveJob=viewModelScope.launch { delay(350);save(updated,false,false) }
     }

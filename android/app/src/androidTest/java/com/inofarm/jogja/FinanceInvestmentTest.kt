@@ -111,9 +111,12 @@ class FinanceInvestmentTest {
         click("investment-new");scroll("investment-name");rule.onNodeWithTag("investment-name").performTextReplacement("  Skenario α  ");Espresso.closeSoftKeyboard()
         scroll("investment-horizon");rule.onNodeWithTag("investment-horizon").performTextReplacement("2");Espresso.closeSoftKeyboard();scroll("investment-flow-2");rule.onNodeWithTag("investment-flow-2").performTextReplacement("-0,001");Espresso.closeSoftKeyboard()
         scroll("investment-horizon");rule.onNodeWithTag("investment-horizon").performTextReplacement("1");Espresso.closeSoftKeyboard();assertEquals("-0,001",vm.state.value.scenarioDraft!!.flows[1].amount)
-        click("investment-scenario-queue");rule.waitUntil(10000) {vm.state.value.errors.isNotEmpty()};assertTrue(store.outbox(session.scope.key).isEmpty());val id=vm.state.value.scenarioDraft!!.id
-        click("investment-save-draft");rule.waitUntil(10000) {vm.state.value.scenarioDraft==null && !vm.state.value.busy};rule.runOnIdle {vm.select(id)};rule.waitUntil(10000) {vm.state.value.scenarioDraft?.id==id && !vm.state.value.busy}
+        click("investment-scenario-review");rule.waitUntil(10000) {vm.state.value.errors.isNotEmpty()};assertTrue(store.outbox(session.scope.key).isEmpty());val id=vm.state.value.scenarioDraft!!.id
+        // The open form autosaves raw input; Batal then asks and undoes it, so nothing stays as a draft.
+        rule.waitUntil(10000) {store.record(session.scope.key,id)?.body?.optJSONObject("_local_form")?.optString("name")=="  Skenario α  "}
         assertEquals("  Skenario α  ",vm.state.value.scenarioDraft!!.name);assertEquals("-0,001",vm.state.value.scenarioDraft!!.flows[1].amount);assertEquals("",vm.state.value.scenarioDraft!!.initial)
+        click("investment-entry-cancel");rule.onNodeWithTag("entry-discard-confirm").performClick()
+        rule.waitUntil(10000) {vm.state.value.scenarioDraft==null && store.record(session.scope.key,id)==null}
     }
     @Test fun fourIndependentIndicatorsSolverDetailsAndPagedFrozenSourcesAreReachable() {
         val report=fixture.getJSONObject("receipt").getJSONObject("data");store.applyPull(session.scope.key,page(JSONArray().put(row(InvestmentContract.REPORT,report))))

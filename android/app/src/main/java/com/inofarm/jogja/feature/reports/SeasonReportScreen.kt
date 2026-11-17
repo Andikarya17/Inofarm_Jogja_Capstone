@@ -37,19 +37,21 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
     val state=workspace.state;val vm=workspace.vm;val draft=state.draft;val selected=state.selected
     val accepted=selected?.serverVersion!=null
     val data=runCatching {draft?.preview() ?: if(accepted) selected?.serverBody ?: selected?.body else selected?.body?.optJSONObject("_local_form")?.optJSONObject("preview")}.getOrNull()
+    if(state.confirmDiscard) com.inofarm.jogja.feature.FarmDiscardDialog(onDiscard=vm::discard,onKeep=vm::keepEditing)
     LazyColumn(Modifier.fillMaxSize().testTag("report-list"),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
         item {
             FarmPageTitle("Evaluasi musim")
             TextButton(onClick = {vm.back(returnToQueue)}, enabled = !state.busy, modifier = Modifier.heightIn(min=48.dp).testTag("report-back")) {
-                Text(if (draft != null) "Simpan dan kembali" else if(returnToQueue) "Kembali ke belum terkirim" else "Kembali")
+                Text(if (draft != null) "Batal" else if(returnToQueue) "Kembali ke belum terkirim" else "Kembali")
             }
+            // Step 2 is the server's computed summary of the evaluation; only after it can the report be saved.
+            if (draft != null && !state.busy) com.inofarm.jogja.feature.FarmEntrySteps(if (data != null) 2 else 1)
         }
         state.message?.let {message -> item {Notice(message,true)}}
         if(state.accessDenied) {item {Notice("Akses akun berubah. Perbarui atau masuk ulang. Data di perangkat tidak dihapus.",true)}}
         else if(state.busy) {item {com.inofarm.jogja.core.design.FarmBusyReveal {CircularProgressIndicator();Text("Sedang memproses…")}}}
         else if(draft!=null) {
             item {Text(context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse tersimpan")}
-            item {FarmDraftStatus(state.saved, Modifier.testTag("report-draft-status"))}
             item {Choice("Musim laporan",draft.seasonId,context.seasons.filter {it.optString("greenhouse_id")==draft.greenhouseId},"report-season") {value->vm.edit {it.copy(seasonId=value)}}}
             item {Coverage("Biaya dan alokasi",draft.costs,"report-costs") {value->vm.edit {it.copy(costs=value)}}}
             item {Coverage("Penjualan lunas",draft.sales,"report-sales") {value->vm.edit {it.copy(sales=value)}}}
@@ -58,16 +60,16 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
             item {FinanceField("Catatan pengelola",draft.note,{value->vm.edit {it.copy(note=value)}},"report-note",state.errors["note"],singleLine=false)}
             item {Notice("Pilih Sudah lengkap hanya jika semua biaya dan penjualan sudah tercatat, termasuk dari perangkat lain.")}
             state.errors.values.distinct().forEach {message->item {Notice(message,true)}}
-            item {Button(onClick=vm::preview,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("report-preview")) {Text("Lihat dulu")}}
+            item {Button(onClick=vm::preview,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("report-preview")) {Text(if(data==null) "Lihat ringkasan" else "Hitung ulang ringkasan")}}
             if(data!=null) {
-                item {Notice("Ini baru tampilan awal, belum menjadi laporan terbit.");draft.previewFetchedAt?.let {Text("Dilihat pada: ${timeLabel(Instant.ofEpochMilli(it).toString())}")}}
+                item {FarmPageTitle("Ringkasan evaluasi");Notice("Belum menjadi laporan terbit. Periksa sekali lagi, lalu Simpan.");draft.previewFetchedAt?.let {Text("Dihitung pada: ${timeLabel(Instant.ofEpochMilli(it).toString())}")}}
                 item {ReportHeader(data,false)}
                 seasonIndicators(data.getJSONObject("metrics"))
                 item {ReportAssumptions(data)}
                 item {OutlinedButton(onClick=vm::sources,modifier=Modifier.fillMaxWidth().testTag("report-sources")) {Text("Lihat sumber data")}}
                 item {Button(onClick=vm::queue,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("report-queue")) {Text("Simpan")}}
             }
-            item {OutlinedButton(onClick={vm.back(returnToQueue)},shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("report-save-draft")) {Text("Simpan dan kembali")}}
+            item {OutlinedButton(onClick={vm.back(returnToQueue)},shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("report-cancel")) {Text("Batal")}}
         } else if(selected!=null) {
             item {Notice(if(accepted) {if(state.fresh) "Laporan sudah dicocokkan dengan data terbaru." else "Menampilkan salinan di perangkat. Belum bisa dicocokkan dengan data terbaru."} else "Laporan ini belum terkirim. Yang tampil hanya tampilan awal.",!accepted)}
             selected.error?.let {error ->item {ErrorReasons(error)}}

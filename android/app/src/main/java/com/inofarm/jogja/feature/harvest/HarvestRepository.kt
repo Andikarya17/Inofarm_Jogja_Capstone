@@ -22,6 +22,10 @@ class HarvestRepository(val vault:FinanceSessionVault,private val store:LocalFin
     private val writes=Mutex()
     suspend fun snapshot(session:FinanceSession)=withContext(Dispatchers.IO) { HarvestRecords(store.records(session.scope.key,1000,kind="harvest"),store.outbox(session.scope.key,1000)) }
     suspend fun flush(session:FinanceSession,ticket:Long,draft:HarvestDraft)=save(session,ticket,draft,false,onlyIfChanged=true)
+    /** "Batal": undoes the autosaved edits of [id] back to [origin], the row as the form opened it (null when new). */
+    suspend fun discard(session:FinanceSession,ticket:Long,id:String,origin:com.inofarm.jogja.core.database.LocalRecord?)=withContext(Dispatchers.IO) {writes.withLock {
+        check(vault.matches(ticket,session.scope)) {"Sesi berubah."};store.restoreDraft(session.scope.key,id,origin)
+    }}
     private fun checkSession(session: FinanceSession, ticket: Long) {
         check(vault.matches(ticket, session.scope) && vault.current?.token == session.token &&
             vault.current?.role == session.role) { "Sesi berubah. Buka kembali rekap." }

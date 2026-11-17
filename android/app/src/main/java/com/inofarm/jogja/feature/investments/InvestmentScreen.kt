@@ -41,30 +41,40 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
 
 @Composable fun InvestmentScreen(workspace:InvestmentWorkspace,context:CultivationUiState,returnToQueue:Boolean=false) {
     val state=workspace.state;val vm=workspace.vm
+    if(state.confirmDiscard) com.inofarm.jogja.feature.FarmDiscardDialog(onDiscard=vm::discard,onKeep=vm::keepEditing)
     LazyColumn(Modifier.fillMaxSize().testTag("investment-list"),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(vertical=16.dp)) {
         item {
             com.inofarm.jogja.core.design.FarmPageTitle("Evaluasi investasi")
             TextButton(onClick={vm.back(returnToQueue)},enabled=!state.busy,modifier=Modifier.heightIn(min=48.dp).testTag("investment-back")) {
-                Text(if(state.scenarioDraft!=null || state.reportDraft!=null || state.cancelReason!=null) "Simpan dan kembali"
+                Text(if(state.scenarioReview) "Ubah" else if(state.scenarioDraft!=null || state.reportDraft!=null) "Batal"
+                    else if(state.cancelReason!=null) "Simpan dan kembali"
                     else if(returnToQueue) "Kembali ke belum terkirim" else "Kembali")
             }
+            val entryStep=when {
+                state.busy -> null
+                state.scenarioDraft!=null -> if(state.scenarioReview) 2 else 1
+                state.reportDraft!=null -> if(runCatching {state.reportDraft.preview()}.getOrNull()!=null) 2 else 1
+                else -> null
+            }
+            entryStep?.let {com.inofarm.jogja.feature.FarmEntrySteps(it)}
         }
         state.message?.let {item {Notice(it,true)}}
         if(state.denied) item {Notice("Akses akun berubah. Perbarui atau masuk ulang. Draf tetap tersimpan.",true)}
         else if(state.busy) item {com.inofarm.jogja.core.design.FarmBusyReveal {CircularProgressIndicator();Text("Sedang memproses…")}}
+        else if(state.scenarioDraft!=null && state.scenarioReview) scenarioSummary(state.scenarioDraft,context,vm)
         else if(state.scenarioDraft!=null) scenarioForm(state.scenarioDraft,state,vm,context,returnToQueue)
         else if(state.reportDraft!=null) {
             val draft=state.reportDraft
-            item {FarmPanel(title = "Laporan investasi") { FarmDraftStatus(state.saved, Modifier.testTag("investment-draft-status")) }}
-            item {Notice("Laporan memakai skenario yang sudah terkirim. Kirim dulu perubahan yang belum terkirim.")}
+            item {FarmPanel(title = "Laporan investasi") { Text("Laporan memakai skenario yang sudah terkirim. Kirim dulu perubahan yang belum terkirim.") }}
             item {FinanceField("Catatan laporan",draft.note,{v->vm.editReport {it.copy(note=v)}},"investment-report-note")}
-            item {Button(onClick=vm::preview,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("investment-preview")) {Text("Lihat dulu")}}
             val preview=runCatching {draft.preview()}.getOrNull()
+            item {Button(onClick=vm::preview,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("investment-preview")) {Text(if(preview==null) "Lihat ringkasan" else "Hitung ulang ringkasan")}}
             if(preview!=null) {
+                item {com.inofarm.jogja.core.design.FarmPageTitle("Ringkasan evaluasi");Text("Dihitung pada: ${draft.previewFetchedAt?.let {timeLabel(java.time.Instant.ofEpochMilli(it).toString())} ?: "belum tercatat"}")}
                 report(preview,false)
-                item {Text("Dilihat pada: ${draft.previewFetchedAt?.let {java.time.Instant.ofEpochMilli(it).toString()} ?: "belum tercatat"}")}
                 item {Button(onClick=vm::queueReport,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("investment-report-queue")) {Text("Simpan")}}
             }
+            item {OutlinedButton(onClick={vm.back(returnToQueue)},shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("investment-entry-cancel")) {Text("Batal")}}
         } else if(state.selected!=null) {
             val row=state.selected;val accepted=row.serverVersion!=null;val body=row.serverBody ?: row.body
             item {Notice(if(accepted) {if(state.fresh) "Salinan sudah dicocokkan dengan data terbaru." else "Menampilkan salinan di perangkat. Belum bisa dicocokkan dengan data terbaru."} else "Catatan ini belum terkirim.",!state.fresh);Text(row.syncState.label())}
@@ -124,7 +134,6 @@ internal fun investmentValue(value:String,unit:String,scale:Int):String {
 private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:InvestmentState,vm:InvestmentViewModel,context:CultivationUiState,returnToQueue:Boolean) {
     item {FarmSection(title = if(draft.baseVersion==null) "Skenario baru" else "Koreksi skenario versi ${draft.baseVersion}") {
         Text(context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse tersimpan")
-        FarmDraftStatus(state.saved, Modifier.testTag("investment-draft-status"))
     }}
     item {Notice("Kosongkan isian yang belum diketahui. Isi kas neto tiap tahun sendiri, lengkap dengan sumber dan dasarnya.")}
     item {FinanceField("Nama skenario",draft.name,{v->vm.editScenario {it.copy(name=v)}},"investment-name",state.errors["name"])}
@@ -153,8 +162,31 @@ private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:Inves
     item {FinanceField("Catatan dan asumsi skenario",draft.notes,{v->vm.editScenario {it.copy(notes=v)}},"investment-notes",state.errors["notes"])}
     if(draft.baseVersion!=null) item {FinanceField(vm.reasonLabel,draft.reason,{v->vm.editScenario {it.copy(reason=v)}},"investment-reason",state.errors["reason"])}
     state.errors.filterKeys {it !in setOf("name","base_date","horizon","initial","discount","initial_source","notes","reason") && !it.startsWith("flow-")}.values.forEach {item {Notice(it,true)}}
-    item {Button(onClick=vm::queueScenario,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().testTag("investment-scenario-queue")) {Text("Simpan skenario")}}
-    item {OutlinedButton(onClick={vm.back(returnToQueue)},shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("investment-save-draft")) {Text("Simpan dan kembali")}}
+    item {Button(onClick=vm::reviewScenario,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("investment-scenario-review")) {Text("Simpan")}}
+    item {OutlinedButton(onClick={vm.back(returnToQueue)},shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("investment-entry-cancel")) {Text("Batal")}}
+}
+/** Step 2 of a scenario: what will be saved, year by year, then Simpan queues it and Ubah goes back to the form. */
+private fun LazyListScope.scenarioSummary(d:InvestmentScenarioDraft,context:CultivationUiState,vm:InvestmentViewModel) {
+    fun money(value:String)=value.ifBlank {null}?.let {"$it IDR"} ?: "Belum diketahui"
+    item {FarmPanel(title = "Ringkasan skenario") {
+        FarmFact("Nama", d.name.ifBlank {"Belum diisi"}, prominent = true)
+        FarmFact("Greenhouse", context.greenhouses.find {it.optString("id")==d.greenhouseId}?.optString("name") ?: "Greenhouse tersimpan")
+        FarmFact("Tanggal dasar", d.baseDate.ifBlank {"Belum diisi"})
+        FarmFact("Jumlah tahun", d.horizon.ifBlank {"Belum diisi"})
+        FarmFact("Investasi awal", "${money(d.initial)} · ${sourceLabel(d.initialKind)}")
+        FarmFact("Diskonto tahunan", d.discountPercent.ifBlank {null}?.let {"$it%"} ?: "Belum diketahui")
+        FarmFact("Cara hitung pengembalian", when(d.convention) {"interpolation"->"Interpolasi bagian tahun";"end_of_year"->"Akhir tahun penerimaan";else->"Belum dipilih"})
+    }}
+    val count=runCatching {InvestmentInputs.horizon(d.horizon)}.getOrNull() ?: d.flows.size
+    item {FarmPanel(title = "Kas neto per tahun") {
+        d.flows.take(count).forEachIndexed {index,flow -> FarmFact("Tahun ${index+1}", "${money(flow.amount)} · ${sourceLabel(flow.kind)}")}
+    }}
+    if(d.notes.isNotBlank() || d.reason.isNotBlank()) item {FarmPanel(title = "Catatan") {
+        if(d.notes.isNotBlank()) Text(d.notes)
+        if(d.reason.isNotBlank()) FarmFact(vm.reasonLabel, d.reason)
+    }}
+    item {Button(onClick=vm::queueScenario,shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("investment-scenario-queue")) {Text("Simpan")}}
+    item {OutlinedButton(onClick={vm.back()},shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("investment-scenario-edit")) {Text("Ubah")}}
 }
 private fun LazyListScope.rawScenario(d:InvestmentScenarioDraft) {
     item {Text("Isian Anda",style=MaterialTheme.typography.titleLarge);Text("${d.name} · tanggal ${d.baseDate} · ${d.horizon} tahun");Text("Investasi awal: ${d.initial.ifBlank {"belum diketahui"}} IDR; ${sourceLabel(d.initialKind)}");Text("${d.initialReference}\n${d.initialBasis}");Text("Diskonto: ${d.discountPercent.ifBlank {"belum diketahui"}}%; cara hitung: ${d.convention.ifBlank {"belum dipilih"}}");Text("${d.notes}\nAlasan: ${d.reason}")}

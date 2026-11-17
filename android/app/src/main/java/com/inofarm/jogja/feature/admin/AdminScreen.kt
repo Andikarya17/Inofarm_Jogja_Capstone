@@ -8,6 +8,7 @@ import com.inofarm.jogja.feature.FarmFormHeader
 import com.inofarm.jogja.feature.FarmFormBar
 import com.inofarm.jogja.feature.FarmFormSection
 import com.inofarm.jogja.feature.FarmRoleCards
+import com.inofarm.jogja.feature.FarmReviewFrame
 import com.inofarm.jogja.feature.FinanceDateField
 import com.inofarm.jogja.core.design.FarmCheckbox
 import com.inofarm.jogja.core.design.FarmDraftStatus
@@ -261,7 +262,6 @@ internal fun deactivateNote(resource: AdminResource): String = when (resource) {
     var passwordConfirmation by remember(form.id,state.pending) {mutableStateOf("")}
     var unassignedEmail by rememberSaveable(form.id,form.values["greenhouse_id"]) {mutableStateOf("")}
     val confirmPassword=form.resource==AdminResource.USER && !state.pending && (form.version==null || password.isNotEmpty())
-    var confirm by rememberSaveable {mutableStateOf(false)}
     val action = when {
         form.version == null -> "Tambah"
         form.action == "close" -> "Tutup"
@@ -288,18 +288,34 @@ internal fun deactivateNote(resource: AdminResource): String = when (resource) {
     }
     var showPassword by remember {mutableStateOf(false)}
     val passwordMatches=!confirmPassword || password.length>=12 && password==passwordConfirmation
-    val submitLabel = when {
-        state.pending -> "Kirim ulang"
-        form.action == "close" -> "Tutup musim"
-        form.action == "reopen" -> "Buka musim"
-        else -> "Simpan ${form.resource.label.lowercase()}"
-    }
     val user = form.resource==AdminResource.USER
+    // Simpan opens the summary; its own Simpan sends. A retry after a lost connection sends at once with the same content.
+    var summary by rememberSaveable(form.id) {mutableStateOf(false)}
+    // A refusal reopens the form at the field to fix, not the summary.
+    LaunchedEffect(state.message) { if (state.message != null) summary = false }
+    val showSummary = summary && !state.pending && !state.rejected && state.server == null
+    BackHandler(enabled = showSummary && !state.busy) { summary = false }
+    if (showSummary) {
+        val name = form.resource.label.lowercase()
+        val icon = when (form.resource) { AdminResource.GREENHOUSE -> FarmIcon.Greenhouse; AdminResource.USER -> FarmIcon.Account; else -> FarmIcon.CheckList }
+        val subtitle = listOfNotNull(action, form.values["name"]?.takeIf { it.isNotBlank() }).joinToString(" · ")
+        FarmReviewFrame(name, subtitle, icon, state.busy, "admin-save", "admin-summary-back", { summary = false }, { vm.submit(password, onAccepted) },
+            mainLabel = confirmation?.third ?: "Simpan", summary = true,
+            summaryHint = "Periksa sekali lagi. Simpan langsung mengirim perubahan ke server, jadi perlu koneksi internet.") {
+            state.message?.let { Notice(it, true) }
+            confirmation?.let { Notice(it.second) }
+            FarmFormSection("Rincian") {
+                form.fields.forEach { FarmFact(it.label, display(it)) }
+                if (user && password.isNotEmpty()) FarmFact(if (form.version == null) "Password awal" else "Password baru", "Sudah diisi")
+            }
+        }
+        return
+    }
     FarmFormFrame(
         header = { FarmFormHeader("$action ${form.resource.label}", state.saved, "admin-saved", "admin-close", vm::requestCancel, !state.busy,
-            showDraftStatus = false, closeLabel = "Batal") },
-        bar = { FarmFormBar("admin-cancel", vm::requestCancel, "admin-submit", submitLabel,
-            { if(confirmation!=null && !state.pending) confirm=true else vm.submit(password,onAccepted) },
+            showDraftStatus = false, closeLabel = "Batal", step = if (state.pending) null else 1) },
+        bar = { FarmFormBar("admin-cancel", vm::requestCancel, "admin-submit", if (state.pending) "Kirim ulang" else "Simpan",
+            { if (state.pending) vm.submit(password, onAccepted) else summary = true },
             enabled = !state.busy, busy = state.busy, mainEnabled = !state.busy && !state.rejected && passwordMatches, saveLabel = "Batal") }
     ) {
     state.message?.let {Notice(it)}
@@ -369,10 +385,6 @@ internal fun deactivateNote(resource: AdminResource): String = when (resource) {
     if(state.rejected) TextButton(onClick=vm::reviseRejected,enabled=!state.busy,modifier=Modifier.testTag("admin-revise")) {Text("Tetap pakai isian saya")}
     if(confirmPassword && !passwordMatches) Text("Isi password minimal 12 karakter dan ulangi dengan isian yang sama.")
     }
-    if(confirm && confirmation!=null) AlertDialog(onDismissRequest={confirm=false}, containerColor = MaterialTheme.colorScheme.surface,
-        title={Text(confirmation.first)},text={Text(confirmation.second)},
-        confirmButton={Button(onClick={confirm=false;vm.submit(password,onAccepted)}, shape=FarmShape.Control) {Text(confirmation.third)}},
-        dismissButton={TextButton(onClick={confirm=false}) {Text("Batal")}})
     if(state.confirmCancel) AlertDialog(onDismissRequest=vm::dismissCancel, containerColor = MaterialTheme.colorScheme.surface,
         title={Text(if(state.pending) "Batalkan pengiriman?" else "Buang perubahan?")},
         text={Text(if(state.pending) "Perubahan ini mungkin sudah sampai ke server. Setelah dibatalkan, periksa daftarnya."

@@ -16,7 +16,8 @@ import org.json.JSONObject
 data class InvestmentState(val active:Boolean=false,val greenhouse:String="",val kind:String=InvestmentContract.SCENARIO,val scenarioFilter:String="",
     val scenarioDraft:InvestmentScenarioDraft?=null,val reportDraft:InvestmentReportDraft?=null,val selected:LocalRecord?=null,val cancelReason:String?=null,
     val records:List<LocalRecord> = emptyList(),val more:Boolean=false,val sources:ReportSourcePage?=null,val audit:JSONObject?=null,
-    val busy:Boolean=false,val saved:Boolean=false,val fresh:Boolean=false,val denied:Boolean=false,val errors:Map<String,String> = emptyMap(),val message:String?=null,val changed:Long=0)
+    val busy:Boolean=false,val saved:Boolean=false,val fresh:Boolean=false,val denied:Boolean=false,val errors:Map<String,String> = emptyMap(),val message:String?=null,val changed:Long=0,
+    val scenarioReview:Boolean=false,val confirmDiscard:Boolean=false)
 
 class InvestmentViewModel(private val repository:InvestmentRepository):ViewModel() {
     private val vault get()=repository.vault
@@ -29,15 +30,31 @@ class InvestmentViewModel(private val repository:InvestmentRepository):ViewModel
     private fun reset(gh:String=state.value.greenhouse)=InvestmentState(active=true,greenhouse=gh,kind=state.value.kind,changed=state.value.changed)
     fun show(gh:String="") {selection++;mutable.value=reset(gh);reload()}
     fun filter(kind:String) {require(kind in setOf(InvestmentContract.SCENARIO,InvestmentContract.REPORT));selection++;mutable.value=reset().copy(kind=kind);reload()}
-    fun newScenario(gh:String=state.value.greenhouse) {pauseAutosave();selection++;mutable.value=reset(gh).copy(kind=InvestmentContract.SCENARIO,scenarioDraft=InvestmentScenarioDraft(greenhouseId=gh));autosave=viewModelScope.launch {persistCurrent(false)}}
-    fun newReport(row:LocalRecord) {pauseAutosave();selection++;mutable.value=reset(row.greenhouseId).copy(kind=InvestmentContract.REPORT,reportDraft=InvestmentReportDraft(greenhouseId=row.greenhouseId,scenarioId=row.id));autosave=viewModelScope.launch {persistCurrent(false)}}
-    fun reevaluate() {val row=state.value.selected ?: return;val body=InvestmentContract.report(row.serverBody ?: row.body,true);pauseAutosave();selection++;mutable.value=reset(row.greenhouseId).copy(kind=InvestmentContract.REPORT,reportDraft=InvestmentReportDraft(greenhouseId=row.greenhouseId,scenarioId=body.getString("scenario_id")));autosave=viewModelScope.launch {persistCurrent(false)}}
+    // The scenario or evaluation the workspace opened with, so "Batal" can undo its autosave.
+    private val entry=com.inofarm.jogja.feature.EntryOrigin<Any>()
+    private var exitAfterDiscard=false
+    private fun opened(record:LocalRecord?,written:Boolean) {entry.start(record,state.value.scenarioDraft ?: state.value.reportDraft);entry.touched=written}
+    fun newScenario(gh:String=state.value.greenhouse) {pauseAutosave();selection++;mutable.value=reset(gh).copy(kind=InvestmentContract.SCENARIO,scenarioDraft=InvestmentScenarioDraft(greenhouseId=gh));opened(null,true);autosave=viewModelScope.launch {persistCurrent(false)}}
+    fun newReport(row:LocalRecord) {pauseAutosave();selection++;mutable.value=reset(row.greenhouseId).copy(kind=InvestmentContract.REPORT,reportDraft=InvestmentReportDraft(greenhouseId=row.greenhouseId,scenarioId=row.id));opened(null,true);autosave=viewModelScope.launch {persistCurrent(false)}}
+    fun reevaluate() {val row=state.value.selected ?: return;val body=InvestmentContract.report(row.serverBody ?: row.body,true);pauseAutosave();selection++;mutable.value=reset(row.greenhouseId).copy(kind=InvestmentContract.REPORT,reportDraft=InvestmentReportDraft(greenhouseId=row.greenhouseId,scenarioId=body.getString("scenario_id")));opened(null,true);autosave=viewModelScope.launch {persistCurrent(false)}}
+    /** Simpan on the scenario form: checks the fields, then shows the summary whose Simpan queues it. */
+    fun reviewScenario() {val draft=state.value.scenarioDraft ?: return;val errors=draft.validation(reasonRequired);mutable.value=state.value.copy(errors=errors,scenarioReview=errors.isEmpty())}
+    fun keepEditing() {mutable.value=state.value.copy(confirmDiscard=false)}
+    /** Drops the open scenario or evaluation and undoes its autosave, so no draft stays behind. */
+    fun discard() {
+        val id=(state.value.scenarioDraft?.id ?: state.value.reportDraft?.id) ?: return;pauseAutosave();selection++
+        mutable.value=reset().copy(active=!exitAfterDiscard)
+        entry.undo(viewModelScope,vault,id,{session,ticket,target,origin -> repository.discard(session,ticket,target,origin)}) {
+            mutable.value=state.value.copy(changed=state.value.changed+1,message=it);if(state.value.active) reload()
+        }
+        if(!exitAfterDiscard) reload()
+    }
     fun editScenario(change:(InvestmentScenarioDraft)->InvestmentScenarioDraft) {
-        val draft=state.value.scenarioDraft ?: return;mutable.value=state.value.copy(scenarioDraft=change(draft),saved=false,errors=emptyMap(),message=null)
+        val draft=state.value.scenarioDraft ?: return;entry.touched=true;mutable.value=state.value.copy(scenarioDraft=change(draft),saved=false,errors=emptyMap(),message=null,scenarioReview=false)
         pauseAutosave();autosave=viewModelScope.launch {delay(350);persistCurrent(false)}
     }
     fun editReport(change:(InvestmentReportDraft)->InvestmentReportDraft) {
-        val draft=state.value.reportDraft ?: return;mutable.value=state.value.copy(reportDraft=change(draft).copy(previewText=null,previewFetchedAt=null),saved=false,sources=null,message=null)
+        val draft=state.value.reportDraft ?: return;entry.touched=true;mutable.value=state.value.copy(reportDraft=change(draft).copy(previewText=null,previewFetchedAt=null),saved=false,sources=null,message=null)
         pauseAutosave();autosave=viewModelScope.launch {delay(350);persistCurrent(false)}
     }
     fun editCancel(value:String) {mutable.value=state.value.copy(cancelReason=value,saved=false);pauseAutosave();autosave=viewModelScope.launch {delay(350);persistCurrent(false)}}
@@ -59,8 +76,14 @@ class InvestmentViewModel(private val repository:InvestmentRepository):ViewModel
     }
     fun back(exitWorkspace:Boolean=false) {
         if(state.value.busy) return
+        if(state.value.scenarioReview) {mutable.value=state.value.copy(scenarioReview=false);return}
+        if(state.value.scenarioDraft!=null || state.value.reportDraft!=null) {
+            exitAfterDiscard=exitWorkspace
+            if(entry.changed(state.value.scenarioDraft ?: state.value.reportDraft)) mutable.value=state.value.copy(confirmDiscard=true) else discard()
+            return
+        }
         pauseAutosave();selection++
-        if(state.value.scenarioDraft!=null || state.value.reportDraft!=null || state.value.cancelReason!=null) action {_,_->persistCurrent(true,exitWorkspace)}
+        if(state.value.cancelReason!=null) action {_,_->persistCurrent(true,exitWorkspace)}
         else if(state.value.selected!=null) {
             mutable.value=reset().copy(active=!exitWorkspace)
             if (!exitWorkspace) reload()
@@ -86,6 +109,7 @@ class InvestmentViewModel(private val repository:InvestmentRepository):ViewModel
             val scenario=if(row.kind==InvestmentContract.SCENARIO && editable && row.body.has("_local_form")) InvestmentScenarioDraft.from(row.id,row.greenhouseId,row.body,base).copy(replaceRejected=row.syncState==SyncState.REJECTED) else null
             val report=if(row.kind==InvestmentContract.REPORT && editable && row.body.has("_local_form")) InvestmentReportDraft.from(row.id,row.greenhouseId,row.body).let {if(row.syncState==SyncState.REJECTED) it.copy(previewText=null,previewFetchedAt=null,replaceRejected=true) else it} else null
             mutable.value=state.value.copy(active=true,scenarioDraft=scenario,reportDraft=report,selected=if(scenario==null && report==null) row else null,cancelReason=if(row.body.has("_local_cancel") && editable) row.body.getString("_local_cancel") else null,sources=null,audit=null,saved=true,fresh=false)
+            if(scenario!=null || report!=null) opened(row,false)
             if(scenario==null && report==null && row.serverVersion!=null) {repository.verify(session,ticket,row);if(token==selection && state.value.selected?.id==row.id) mutable.value=state.value.copy(fresh=true)}
         }
     }
@@ -93,6 +117,7 @@ class InvestmentViewModel(private val repository:InvestmentRepository):ViewModel
         val row=state.value.selected ?: return;require(row.kind==InvestmentContract.SCENARIO && row.syncState==SyncState.ACCEPTED)
         val draft=InvestmentScenarioDraft.from(row.id,row.greenhouseId,row.serverBody ?: row.body,row.serverVersion)
         mutable.value=state.value.copy(selected=null,scenarioDraft=draft,errors=emptyMap(),saved=true,message=null,audit=null,sources=null)
+        opened(row,false)
     }
     fun beginCancel() {val row=state.value.selected ?: return;require(row.kind==InvestmentContract.SCENARIO && row.syncState==SyncState.ACCEPTED);mutable.value=state.value.copy(cancelReason="");pauseAutosave();autosave=viewModelScope.launch {persistCurrent(false)}}
     fun queueScenario() {val draft=state.value.scenarioDraft ?: return;val errors=draft.validation(reasonRequired);if(errors.isNotEmpty()) {mutable.value=state.value.copy(errors=errors);return};action {s,t->repository.queueScenario(s,t,draft);completed("Tersimpan. Terkirim otomatis saat ada internet.")}}

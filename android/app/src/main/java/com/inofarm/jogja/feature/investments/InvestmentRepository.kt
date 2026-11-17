@@ -16,6 +16,10 @@ class InvestmentAccessDenied:IllegalStateException("Akses ke greenhouse ini beru
 
 class InvestmentRepository(val vault:FinanceSessionVault,private val store:LocalFinanceStore,private val api:FinanceApi) {
     private val writes=Mutex()
+    /** "Batal": undoes the autosaved edits of [id] back to [origin], the row as the form opened it (null when new). */
+    suspend fun discard(session:FinanceSession,ticket:Long,id:String,origin:LocalRecord?)=withContext(Dispatchers.IO) {writes.withLock {
+        check(session,ticket);store.restoreDraft(session.scope.key,id,origin)
+    }}
     private fun check(session:FinanceSession,ticket:Long,gh:String?=null) {
         check(vault.matches(ticket,session.scope));require(session.role==UserRole.MANAGER) {"Investasi hanya untuk pengelola."}
         if(gh!=null && gh !in store.visibleGreenhouses(session.scope.key)) throw InvestmentAccessDenied()

@@ -49,10 +49,14 @@ import java.math.BigDecimal
                 if (group.isNull("transplant_date")) null else group.getString("transplant_date"), draft.occurredAt())
         }.getOrNull()
         val figure = ageFigure(age?.hst?.toString()?.toIntOrNull(), age?.hss?.toString()?.toIntOrNull())
+        // Workers keep their draft; a manager form has only Batal and Simpan, and Simpan opens the summary.
+        val cancel = if (worker) null else rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
         FarmFormFrame(
-            header = { FarmFormHeader(title, state.saved, "harvest-draft-status", "harvest-close", vm::saveAndClose, !state.busy) },
-            bar = { FarmFormBar("harvest-save-draft", vm::saveAndClose, "harvest-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy,
-                saveLabel = if (worker) "Simpan sebagai draf" else "Simpan draf") }
+            header = { if (cancel == null) FarmFormHeader(title, state.saved, "harvest-draft-status", "harvest-close", vm::saveAndClose, !state.busy)
+                else FarmFormHeader(title, state.saved, "harvest-draft-status", "harvest-close", cancel, !state.busy, showDraftStatus = false, closeLabel = "Batal", step = 1) },
+            bar = { if (cancel == null) FarmFormBar("harvest-save-draft", vm::saveAndClose, "harvest-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy,
+                    saveLabel = "Simpan sebagai draf")
+                else FarmFormBar("harvest-cancel", cancel, "harvest-review", "Simpan", vm::review, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }
         ) {
             FarmContextStrip(context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan",
                 group?.optString("name"), figure?.let { (value, unit) -> "$unit $value" })
@@ -160,7 +164,7 @@ import java.math.BigDecimal
 @Composable internal fun HarvestReview(draft:HarvestDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit,worker:Boolean) {
     if (!worker) {
         val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
-        FarmReviewFrame("panen", "$greenhouse · ${whenLabel(draft.date, draft.time)}", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue) {
+        FarmReviewFrame("panen", "$greenhouse · ${whenLabel(draft.date, draft.time)}", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue, summary = true) {
             FarmFormSection("Waktu dan kelompok") { HarvestReviewTime(draft, context, readable = true) }
             FarmFormSection("Hasil per grade") { HarvestReviewResults(draft, context) }
             if(draft.replaceValidationRejected) Notice("Panen yang ditolak diganti dengan catatan ini. Catatan lama tetap ada di riwayat.")

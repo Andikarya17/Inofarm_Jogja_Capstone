@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,21 +63,57 @@ internal fun FarmFormFrame(
 }
 
 /**
- * Close, title and draft state. In record forms close saves the draft and goes back. Admin forms have no draft:
- * they pass [showDraftStatus] false and a [closeLabel] of "Batal".
+ * Close, title and draft state. Worker forms close by saving the draft. Manager forms have no draft: they pass
+ * [showDraftStatus] false, a [closeLabel] of "Batal", and [step] 1 so the two steps (Isi data, Ringkasan) show.
  */
 @Composable
 internal fun FarmFormHeader(title: String, saved: Boolean, statusTag: String, closeTag: String, onClose: () -> Unit, enabled: Boolean = true,
-                            showDraftStatus: Boolean = true, closeLabel: String = "Simpan draf dan kembali") {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-        IconButton(onClick = onClose, enabled = enabled, modifier = Modifier.testTag(closeTag)) {
-            FarmControlIcon(FarmIcon.Close, closeLabel)
+                            showDraftStatus: Boolean = true, closeLabel: String = "Simpan draf dan kembali", step: Int? = null) {
+    Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+            IconButton(onClick = onClose, enabled = enabled, modifier = Modifier.testTag(closeTag)) {
+                FarmControlIcon(FarmIcon.Close, closeLabel)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                if (showDraftStatus) FarmDraftStatus(saved, Modifier.testTag(statusTag))
+            }
         }
-        Column(Modifier.weight(1f)) {
-            Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            if (showDraftStatus) FarmDraftStatus(saved, Modifier.testTag(statusTag))
-        }
+        step?.let { FarmEntrySteps(it) }
     }
+}
+
+/** The two steps of a manager entry: fill in, then the summary that saves. TalkBack reads the step as one sentence. */
+@Composable
+internal fun FarmEntrySteps(step: Int) {
+    val names = listOf("Isi data", "Ringkasan")
+    Box(Modifier.fillMaxWidth().semantics { contentDescription = "Langkah $step dari 2, ${names[step - 1].lowercase()}" }) {
+        FarmStepIndicator(step, names)
+    }
+}
+
+/**
+ * "Batal" for a manager entry: closes at once when nothing changed, otherwise asks first. Back does the same.
+ * Returns the action for the close button and the bar's Batal.
+ */
+@Composable
+internal fun rememberEntryCancel(busy: Boolean, hasChanges: () -> Boolean, onCancel: () -> Unit): () -> Unit {
+    var asking by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val request = { if (hasChanges()) asking = true else onCancel() }
+    androidx.activity.compose.BackHandler(enabled = !busy) { request() }
+    if (asking) FarmDiscardDialog(onDiscard = { asking = false; onCancel() }, onKeep = { asking = false })
+    return request
+}
+
+/** Asked before a manager entry with changes is thrown away. */
+@Composable
+internal fun FarmDiscardDialog(onDiscard: () -> Unit, onKeep: () -> Unit) {
+    AlertDialog(onDismissRequest = onKeep, containerColor = MaterialTheme.colorScheme.surface,
+        title = { Text("Buang isian ini?") },
+        text = { Text("Isian ini belum disimpan dan akan dibuang. Catatan yang sudah tersimpan tidak berubah.") },
+        confirmButton = { TextButton(onClick = onDiscard, modifier = Modifier.testTag("entry-discard-confirm"),
+            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Buang") } },
+        dismissButton = { TextButton(onClick = onKeep, modifier = Modifier.testTag("entry-discard-keep")) { Text("Lanjut mengisi") } })
 }
 
 /** Forest strip with the greenhouse and planting the form is for; [age] sits on the right when known. */
@@ -174,20 +211,28 @@ internal fun whenLabel(date: String, time: String): String {
     return if (day != null && time.isNotBlank()) "${dateLabel(day)} · ${time.trim().take(5)} WIB" else "$date $time".trim().ifBlank { "Waktu belum diisi" }
 }
 
-/** Step "Periksa": a forest header for what is being saved, the details as cards, and Ubah isian / Simpan. */
+/**
+ * The step before the final save. Workers see "Periksa" with Ubah isian / Kirim. Managers get [summary]: step 2 of 2,
+ * "Ringkasan", and Ubah / Simpan, the second tap of Simpan that the form's own Simpan led to.
+ */
 @Composable
 internal fun FarmReviewFrame(
     title: String, subtitle: String, icon: FarmIcon, busy: Boolean, queueTag: String, backTag: String,
     onBack: () -> Unit, onQueue: () -> Unit, mainLabel: String = "Simpan",
     hint: String = "Pastikan isinya benar. Setelah disimpan, catatan dikirim saat ada koneksi.",
+    summary: Boolean = false,
+    summaryHint: String = "Periksa sekali lagi. Setelah disimpan, catatan terkirim otomatis saat ada internet.",
     content: @Composable ColumnScope.() -> Unit,
 ) {
     FarmFormFrame(
         header = {
-            FarmPageTitle("Periksa $title", hint)
+            if (summary) {
+                FarmPageTitle("Ringkasan $title", summaryHint)
+                FarmEntrySteps(2)
+            } else FarmPageTitle("Periksa $title", hint)
             FarmContextStrip(title.replaceFirstChar { it.uppercase() }, subtitle, null, icon)
         },
-        bar = { FarmFormBar(backTag, onBack, queueTag, mainLabel, onQueue, enabled = !busy, mainIcon = true, saveLabel = "Ubah isian",
+        bar = { FarmFormBar(backTag, onBack, queueTag, mainLabel, onQueue, enabled = !busy, mainIcon = true, saveLabel = if (summary) "Ubah" else "Ubah isian",
             busy = busy, busyLabel = if (mainLabel.startsWith("Kirim")) "Mengirim…" else "Menyimpan…") },
         content = content
     )

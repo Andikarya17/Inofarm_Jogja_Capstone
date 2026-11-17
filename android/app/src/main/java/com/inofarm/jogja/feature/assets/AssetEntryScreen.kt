@@ -5,6 +5,7 @@ import com.inofarm.jogja.feature.FarmFormHeader
 import com.inofarm.jogja.feature.FarmFormBar
 import com.inofarm.jogja.feature.FarmFormSection
 import com.inofarm.jogja.feature.FarmReviewFrame
+import com.inofarm.jogja.feature.rememberEntryCancel
 import com.inofarm.jogja.core.design.FarmIcon
 import com.inofarm.jogja.core.design.FarmHeroCard
 import com.inofarm.jogja.feature.FinanceDateField
@@ -38,7 +39,10 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
 
 @Composable fun AssetForm(state:AssetEntryState,context:CultivationUiState,vm:AssetEntryViewModel) {
     val draft=state.draft ?: return
-    FarmFormFrame(header = { FarmFormHeader(if(draft.kind==AssetKind.ASSET) "Catat aset" else "Alokasikan penyusutan", state.saved, "asset-draft-status", "asset-close", vm::saveAndClose, !state.busy) }, bar = { FarmFormBar("asset-save-draft", vm::saveAndClose, "asset-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy) }) {
+    val cancel = rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
+    FarmFormFrame(header = { FarmFormHeader(if(draft.kind==AssetKind.ASSET) "Catat aset" else "Alokasikan penyusutan", state.saved, "asset-draft-status", "asset-close", cancel, !state.busy,
+        showDraftStatus = false, closeLabel = "Batal", step = 1) },
+        bar = { FarmFormBar("asset-cancel", cancel, "asset-review", "Simpan", vm::review, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }) {
         if(draft.kind==AssetKind.ASSET) {
             FarmFormSection("Identitas dan nilai aset") {
                 FinanceField("Nama aset",draft.name,{value -> vm.edit {it.copy(name=value)}},"asset-name",state.errors["name"])
@@ -99,7 +103,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
     val acquisition = draft.kind == AssetKind.ASSET
     FarmReviewFrame(if (acquisition) "perolehan aset" else "alokasi penyusutan",
         if (acquisition) draft.name.ifBlank { "Aset belum diberi nama" } else "Musim tujuan dan periode pemakaian",
-        FarmIcon.Asset, busy, "asset-queue", "asset-back", onBack, onQueue) {
+        FarmIcon.Asset, busy, "asset-queue", "asset-back", onBack, onQueue, summary = true) {
         FarmFormSection("Rincian") { AssetDraftFacts(draft,context) }
         if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat.")
     }

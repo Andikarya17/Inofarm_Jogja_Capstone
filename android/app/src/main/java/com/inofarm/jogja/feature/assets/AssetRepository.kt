@@ -15,6 +15,10 @@ class AssetValidationFailure(val fields:Map<String,String>,val baseVersion:Long?
 class AssetRepository(val vault:FinanceSessionVault,private val store:LocalFinanceStore) {
     private val writes=Mutex()
     suspend fun flush(session:FinanceSession,ticket:Long,draft:AssetDraft)=save(session,ticket,draft,false,true)
+    /** "Batal": undoes the autosaved edits of [id] back to [origin], the row as the form opened it (null when new). */
+    suspend fun discard(session:FinanceSession,ticket:Long,id:String,origin:com.inofarm.jogja.core.database.LocalRecord?)=withContext(Dispatchers.IO) {writes.withLock {
+        check(vault.matches(ticket,session.scope)) {"Sesi berubah."};store.restoreDraft(session.scope.key,id,origin)
+    }}
     suspend fun save(session:FinanceSession,ticket:Long,draft:AssetDraft,queue:Boolean,onlyIfChanged:Boolean=false)=withContext(Dispatchers.IO) {writes.withLock {
         check(vault.matches(ticket,session.scope));require(session.role==UserRole.MANAGER) {"Aset hanya untuk pengelola."}
         var existing=store.record(session.scope.key,draft.id)

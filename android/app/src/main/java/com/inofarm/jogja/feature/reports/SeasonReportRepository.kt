@@ -19,6 +19,10 @@ data class ReportSourcePage(val body:JSONObject,val cached:Boolean) {
 
 class SeasonReportRepository(val vault:FinanceSessionVault,private val store:LocalFinanceStore,private val api:FinanceApi) {
     private val writes=Mutex()
+    /** "Batal": undoes the autosaved edits of [id] back to [origin], the row as the form opened it (null when new). */
+    suspend fun discard(session:FinanceSession,ticket:Long,id:String,origin:LocalRecord?)=withContext(Dispatchers.IO) {writes.withLock {
+        check(session,ticket);store.restoreDraft(session.scope.key,id,origin)
+    }}
     private fun check(session:FinanceSession,ticket:Long) {check(vault.matches(ticket,session.scope));require(session.role==UserRole.MANAGER) {"Evaluasi keuangan hanya untuk pengelola."}}
     suspend fun records(session:FinanceSession,gh:String?,season:String?,offset:Int)=withContext(Dispatchers.IO) {
         check(session,vault.generation);store.hydrateReportCache(session.scope.key)

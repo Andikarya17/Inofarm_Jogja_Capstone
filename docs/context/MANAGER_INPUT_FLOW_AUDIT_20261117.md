@@ -44,7 +44,9 @@ Berbeda dengan admin: tulis admin selalu butuh koneksi dan tidak pernah masuk ou
 
 Yang **tidak** diwajibkan oleh dokumen apa pun adalah layar Periksa terpisah untuk pengelola. PRD hanya menulis "formulir → review → simpan draf atau antrekan" pada alur pekerja ([PRD](PRD.md), bagian alur). Pengelola mengisi lebih banyak data per hari dan bisa mengoreksi atau membatalkan dengan audit, jadi langkah tambahan ini terutama menambah ketukan.
 
-## Rekomendasi (belum dikerjakan)
+## Rekomendasi
+
+Keputusan pengguna pada hari yang sama melampaui R1–R4: semua input pengelola memakai Batal / Simpan lalu Ringkasan, termasuk form keuangan dan admin. Hasilnya di [bukti alur Ringkasan](MANAGER_SAVE_SUMMARY_EVIDENCE_20261117.md). Tabel di bawah dipertahankan sebagai dasar pertimbangan.
 
 | # | Prioritas | Usulan | Alasan |
 |---|---|---|---|

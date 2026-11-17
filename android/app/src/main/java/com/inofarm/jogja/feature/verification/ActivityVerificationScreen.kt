@@ -422,15 +422,6 @@ private fun DecisionEditor(
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(decision, reason, busy, draft?.syncState) {
-        val choice = decision ?: return@LaunchedEffect
-        if (!busy && (draft == null || draft.syncState == SyncState.LOCAL) &&
-            (choice != draft?.body?.text("decision") || reason.trim() != draft?.body?.text("reason").orEmpty())) {
-            delay(350)
-            attempt { repository.save(session, ticket, kind, entry, choice, reason, queue = false) }
-                .onSuccess(onSaved).onFailure { error = it.message }
-        }
-    }
     fun save(queue: Boolean) {
         val choice = decision ?: return
         busy = true
@@ -476,17 +467,26 @@ private fun DecisionEditor(
                 FinanceField(if (decision == "invalid") "Alasan (wajib)" else "Catatan (opsional)",
                     reason, { reason = it.take(1000) }, "verification-reason", singleLine = false)
                 error?.let { FarmAttention(it) }
-                Button(onClick = { save(true) }, enabled = !busy && reason.length <= 1000 &&
+                Button(onClick = { confirmation = true }, enabled = !busy && reason.length <= 1000 &&
                     (decision != "invalid" || reason.isNotBlank()), modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch)
                     .testTag("verification-review")) { Text("Simpan keputusan") }
-                TextButton(onClick = { save(false) }, enabled = !busy && reason.length <= 1000,
-                    modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Simpan draf") }
-                val saved = decision == draft?.body?.text("decision") && reason.trim() == draft?.body?.text("reason").orEmpty()
-                Text(if (saved) "Draf tersimpan di perangkat." else "Perubahan draf belum tersimpan.",
-                    style = MaterialTheme.typography.bodySmall)
             } }
         }
     }
+    // The summary before the decision is sent: what was decided, for which revision, and the reason or note.
+    if (confirmation && decision != null) AlertDialog(onDismissRequest = { if (!busy) confirmation = false },
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = { Text("Ringkasan keputusan") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                FarmFact("Keputusan", if (decision == "invalid") "Perlu diperbaiki" else "Sesuai", prominent = true)
+                FarmFact("Revisi", "Revisi $version")
+                FarmFact(if (decision == "invalid") "Alasan" else "Catatan", reason.trim().ifBlank { "Tidak ada" })
+            }
+        },
+        confirmButton = { Button(onClick = { save(true) }, enabled = !busy, shape = FarmShape.Control,
+            modifier = Modifier.testTag("verification-save")) { Text(if (busy) "Menyimpan…" else "Simpan") } },
+        dismissButton = { TextButton(onClick = { confirmation = false }, enabled = !busy) { Text("Ubah") } })
 }
 
 @Composable
