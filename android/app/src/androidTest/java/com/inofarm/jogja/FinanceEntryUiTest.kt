@@ -1430,10 +1430,11 @@ class FinanceEntryUiTest {
             readyNode(option).performClick()
             readyNode("admin-resource").assertTextContains(resource.label)
         }
+        // Adding a greenhouse from the list opens the same three-step wizard as Beranda and Kelola.
         readyNode("admin-new").performScrollTo().performClick()
-        readyNode("admin-name").assertExists()
+        readyNode("wizard-name").assertExists()
         captureWindow("manager-walk-admin-editor")
-        readyNode("admin-submit").scrollIfScrollable().assertExists()
+        readyNode("wizard-next").scrollIfScrollable().assertExists()
         Espresso.pressBack()
         assertEquals(0, posts.get() + financePosts.get() + harvestPosts.get())
     }

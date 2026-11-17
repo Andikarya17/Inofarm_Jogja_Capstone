@@ -22,9 +22,28 @@ data class AdminState(val resource:AdminResource=AdminResource.GREENHOUSE,val gr
     val form:AdminForm?=null,val editing:Boolean=false,val pending:Boolean=false,val needsPassword:Boolean=false,val busy:Boolean=false,val saved:Boolean=true,
     val options:Map<String,List<JSONObject>> = emptyMap(),val message:String?=null,val rejected:Boolean=false,val server:JSONObject?=null,
     val listChecked:Boolean=false,val detail:JSONObject?=null,val readiness:Map<String,Int>?=null,
-    val optionsLoading:Boolean=false,val period:JSONObject?=null,val setupGreenhouse:JSONObject?=null)
+    val optionsLoading:Boolean=false,val period:JSONObject?=null,val setupGreenhouse:JSONObject?=null,
+    /** The user changed a field since the form opened, so cancelling asks first. */
+    val dirty:Boolean=false,
+    /** The cancel question is showing. */
+    val confirmCancel:Boolean=false,
+    /** Another form the user asked to open while an unfinished one exists; the user decides whether to drop the old one. */
+    val replace:AdminForm?=null)
 
 class AdminViewModel(private val repository:AdminRepository,private val session:FinanceSession):ViewModel() {
+    companion object {
+        /**
+         * The server refused the operation for good: sending it again cannot succeed. Session loss, timeouts and
+         * rate limits are not final, and neither are network or server errors, which keep the operation for a retry.
+         */
+        fun definitive(error:Throwable):Boolean = error is FinanceApiFailure && error.status in 400..499 && error.status !in setOf(401,408,429)
+        /**
+         * Opening [target] continues [current] instead of replacing it: only a change to the same record. A new
+         * record always asks, so "Tambah" never silently shows text typed earlier.
+         */
+        fun sameTarget(current:AdminForm,target:AdminForm):Boolean = target.version!=null && current.resource==target.resource &&
+            current.action==target.action && current.id==target.id
+    }
     private val ticket=repository.vault.generation
     private val mutable=MutableStateFlow(AdminState(busy=true));val state=mutable.asStateFlow()
     private var journal=JSONObject();private var revision=0L;private var autosave:Job?=null
@@ -33,12 +52,13 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
         try {
             journal=withContext(Dispatchers.IO) {repository.read(session,ticket)};revision=journal.optLong("revision");loaded=true
             val form=journal.optJSONObject("form")?.let(AdminForm::parse)
-            mutable.value=state.value.copy(form=form,pending=journal.has("pending"),needsPassword=journal.optBoolean("needs_password"),rejected=journal.optBoolean("rejected"),server=journal.optJSONObject("server"))
+            mutable.value=state.value.copy(form=form,pending=journal.has("pending"),needsPassword=journal.optBoolean("needs_password"),rejected=journal.optBoolean("rejected"),server=journal.optJSONObject("server"),
+                dirty=form!=null && journal.optBoolean("dirty",true))
             load()
         } catch(error:Exception) {mutable.value=state.value.copy(busy=false,message=userMessage(error))}
     }}
     private fun snapshot():JSONObject=JSONObject(journal.toString()).put("revision",++revision).apply {
-        state.value.form?.let {put("form",it.json())} ?: remove("form")
+        state.value.form?.let {put("form",it.json());put("dirty",state.value.dirty)} ?: run {remove("form");remove("dirty")}
     }.also {journal=it;mutable.value=state.value.copy(saved=false)}
     private suspend fun persist(value:JSONObject) {
         withContext(Dispatchers.IO) {repository.write(session,ticket,value)}
@@ -124,29 +144,74 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
             if (needsReload) reload()
         }
     }
+    /**
+     * Opens a new or existing record. One form is kept at a time (it survives the app being closed), but it never
+     * blocks: opening something else asks whether to drop the unfinished form instead of reopening it.
+     */
     fun open(row:JSONObject?=null,action:String="update") {
         if(state.value.busy || !loaded) return
-        if(state.value.form!=null) {resume();return}
-        val form=if(row==null) AdminForm(state.value.resource,values=buildMap {
+        val target=if(row==null) AdminForm(state.value.resource,values=buildMap {
             state.value.greenhouse?.let {put("greenhouse_id",it)}
             if(state.value.resource==AdminResource.ASSIGNMENT)
                 put("effective_from",OffsetDateTime.now(ActivityDraft.WIB).withNano(0).toString())
         }) else AdminForm.edit(state.value.resource,row,action)
-        mutable.value=state.value.copy(form=form,editing=true,message=null,detail=null,readiness=null)
+        request(target)
+    }
+    private fun request(target:AdminForm) {
+        val current=state.value.form
+        when {
+            current==null -> start(target)
+            sameTarget(current,target) -> resume()
+            else -> mutable.value=state.value.copy(replace=target)
+        }
+    }
+    private fun start(form:AdminForm,dirty:Boolean=false) {
+        journal=JSONObject()
+        mutable.value=state.value.copy(form=form,editing=true,dirty=dirty,message=null,detail=null,readiness=null,
+            pending=false,needsPassword=false,rejected=false,server=null,replace=null,confirmCancel=false)
         flush();loadOptions()
     }
-    fun resume() {mutable.value=state.value.copy(editing=true);loadOptions()}
-    fun back() {if(!state.value.busy && flush()) mutable.value=state.value.copy(editing=false)}
+    /** Drops the unfinished form and opens the one the user asked for. */
+    fun confirmReplace() {
+        val target=state.value.replace ?: return
+        if(state.value.busy) return
+        start(target)
+    }
+    fun keepCurrent() {mutable.value=state.value.copy(replace=null)}
+    fun resume() {mutable.value=state.value.copy(editing=true,replace=null);loadOptions()}
+    /** Cancel leaves at once when nothing would be lost, and asks first otherwise. */
+    fun requestCancel() {
+        if(state.value.busy) return
+        if(state.value.dirty || state.value.pending) mutable.value=state.value.copy(confirmCancel=true) else discard()
+    }
+    fun dismissCancel() {mutable.value=state.value.copy(confirmCancel=false)}
+    /**
+     * Drops the form. A pending operation may already have reached the server (only the reply was lost), so the
+     * list is reloaded and the message tells the manager to check it.
+     */
     fun discard() {
-        if(state.value.busy || state.value.pending) return
-        mutable.value=state.value.copy(form=null,editing=false,message="Draf dihapus.")
+        if(state.value.busy) return
+        val wasPending=state.value.pending
+        mutable.value=state.value.copy(form=null,editing=false,dirty=false,confirmCancel=false,pending=false,needsPassword=false,
+            rejected=false,server=null,message=if(wasPending) "Pengiriman dibatalkan. Perubahan mungkin sudah tersimpan; periksa daftar." else null)
         journal=JSONObject();flush()
+        if(wasPending) reload()
+    }
+    /** Turns a record on or off in one step from the list or detail; the caller has already asked the manager. */
+    fun setActive(row:JSONObject,active:Boolean,onAccepted:()->Unit) {
+        if(state.value.busy || !loaded) return
+        val edit=AdminForm.edit(state.value.resource,row)
+        val target=edit.copy(values=edit.values+("active" to active.toString()))
+        if(state.value.form!=null) {request(target);return}
+        start(target,dirty=true)
+        mutable.value=state.value.copy(editing=false)
+        submit("",onAccepted,done=if(active) "${target.resource.label} aktif lagi." else "${target.resource.label} dinonaktifkan.")
     }
     fun edit(key:String,value:String) {
         if(state.value.pending || state.value.busy) return
         val form=state.value.form ?: return
         val values=if(key=="greenhouse_id" && form.resource==AdminResource.ASSIGNMENT) form.values-"user_id" else form.values
-        mutable.value=state.value.copy(form=form.copy(values=values+(key to value)),message=null)
+        mutable.value=state.value.copy(form=form.copy(values=values+(key to value)),message=null,dirty=true)
         autosave?.cancel();val snapshot=snapshot()
         autosave=viewModelScope.launch {delay(250);try {persist(snapshot)} catch(error:Exception) {mutable.value=state.value.copy(message=userMessage(error))}}
         if(key=="greenhouse_id") loadOptions()
@@ -186,42 +251,51 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
             finally { if (kotlinx.coroutines.currentCoroutineContext().isActive) mutable.value=state.value.copy(optionsLoading=false) }
         }
     }
+    /** After a version conflict the manager compared both versions and keeps editing their own values. */
     fun reviseRejected() {
         if(!state.value.rejected || state.value.busy) return
-        // Only definitive validation/version rejection may be replaced after explicit review.
-        journal.remove("pending");journal.remove("hash");journal.remove("needs_password");journal.remove("rejected");journal.remove("server")
-        mutable.value=state.value.copy(pending=false,needsPassword=false,rejected=false,server=null,message="Isian Anda tetap tersimpan. Bandingkan dengan data terbaru sebelum menyimpan lagi.")
+        unlock()
+        mutable.value=state.value.copy(message="Isian Anda tetap ada. Bandingkan dengan data terbaru sebelum menyimpan lagi.")
         flush()
+    }
+    /** Forgets the refused operation so the fields can be edited and a new operation is built on the next save. */
+    private fun unlock() {
+        journal.remove("pending");journal.remove("hash");journal.remove("needs_password");journal.remove("rejected");journal.remove("server")
+        mutable.value=state.value.copy(pending=false,needsPassword=false,rejected=false,server=null)
     }
     fun useServer() {
         val row=state.value.server ?: return;val form=state.value.form ?: return
         if(!state.value.rejected || state.value.busy) return
-        journal=JSONObject();mutable.value=state.value.copy(form=AdminForm.edit(form.resource,row,form.action),pending=false,needsPassword=false,rejected=false,server=null,message="Data terbaru dipakai.")
+        journal=JSONObject();mutable.value=state.value.copy(form=AdminForm.edit(form.resource,row,form.action),pending=false,needsPassword=false,rejected=false,server=null,dirty=false,message="Data terbaru dipakai.")
         flush();loadOptions()
     }
-    fun submit(password:String,onAccepted:()->Unit) {
+    fun submit(password:String,onAccepted:()->Unit,done:String?=null) {
         if(state.value.busy) return
         val form=state.value.form ?: return
-        autosave?.cancel();mutable.value=state.value.copy(busy=true,message=null)
+        autosave?.cancel();mutable.value=state.value.copy(busy=true,message=null,confirmCancel=false)
         viewModelScope.launch {
             try {
                 persist(snapshot())
                 if(!journal.has("pending")) journal=repository.prepare(session,ticket,form,password,journal)
                 mutable.value=state.value.copy(pending=true,needsPassword=journal.optBoolean("needs_password"))
                 repository.send(session,ticket,journal,password)
-                journal=JSONObject();mutable.value=state.value.copy(form=null,editing=false,pending=false,needsPassword=false,rejected=false,server=null,
+                journal=JSONObject();mutable.value=state.value.copy(form=null,editing=false,pending=false,needsPassword=false,rejected=false,server=null,dirty=false,
                     greenhouse=if(form.resource==AdminResource.GREENHOUSE && form.version==null) form.id else state.value.greenhouse)
                 persist(snapshot());onAccepted();load()
-                mutable.value=state.value.copy(message=if(state.value.listChecked) {
-                    if(form.resource==AdminResource.USER && form.version==null) "Akun tersimpan dan sudah ditambahkan ke greenhouse ini."
-                    else "Tersimpan."
-                } else "Tersimpan. ${state.value.message ?: "Daftar belum diperbarui."}")
+                val saved=done ?: if(form.resource==AdminResource.USER && form.version==null) "Akun tersimpan dan sudah ditambahkan ke greenhouse ini." else "Tersimpan."
+                mutable.value=state.value.copy(message=if(state.value.listChecked) saved else "$saved ${state.value.message ?: "Daftar belum diperbarui."}")
             } catch(cancelled:CancellationException) {throw cancelled}
             catch(error:Exception) {
-                val definitive=error is FinanceApiFailure && (error.status==422 || error.code=="version_conflict")
-                journal.put("rejected",definitive)
-                if(error is FinanceApiFailure) error.detail.optJSONObject("current_data")?.let {journal.put("server",it)}
-                mutable.value=state.value.copy(pending=journal.has("pending"),needsPassword=journal.optBoolean("needs_password"),rejected=definitive,server=journal.optJSONObject("server"),message=userMessage(error))
+                // A final refusal never leaves the form stuck on "Kirim ulang". A version conflict waits for the manager
+                // to compare versions; every other refusal unlocks the fields at once so the values can be fixed.
+                val conflict=error is FinanceApiFailure && error.code=="version_conflict"
+                if(definitive(error) && !conflict) unlock()
+                else {
+                    journal.put("rejected",conflict)
+                    if(error is FinanceApiFailure) error.detail.optJSONObject("current_data")?.let {journal.put("server",it)}
+                }
+                mutable.value=state.value.copy(pending=journal.has("pending"),needsPassword=journal.optBoolean("needs_password"),rejected=journal.optBoolean("rejected"),
+                    server=journal.optJSONObject("server"),message=userMessage(error),editing=state.value.editing || definitive(error) || !journal.has("pending"))
                 try {persist(snapshot())} catch(saveError:Exception) {mutable.value=state.value.copy(message=userMessage(saveError))}
             } finally {mutable.value=state.value.copy(busy=false)}
         }

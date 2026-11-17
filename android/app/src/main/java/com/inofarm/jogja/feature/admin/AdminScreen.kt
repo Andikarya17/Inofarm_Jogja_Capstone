@@ -55,6 +55,8 @@ import com.inofarm.jogja.feature.Notice
     onClose: () -> Unit,
     initialGreenhouse: String? = null,
     initialEdit: Boolean = false,
+    /** Adding a greenhouse goes through the three-step wizard, the same as from Beranda and Kelola. */
+    onAddGreenhouse: (() -> Unit)? = null,
 ) {
     if(session.role!=UserRole.MANAGER) {LaunchedEffect(Unit) {onClose()};return}
     val vm:AdminViewModel=viewModel(key="admin-${session.scope.key}-${repository.vault.generation}",factory=object:ViewModelProvider.Factory {
@@ -80,7 +82,8 @@ import com.inofarm.jogja.feature.Notice
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {vm.flush()}
     val close={if(!state.busy && vm.flush()) onClose()}
     Dialog(onDismissRequest=close,properties=DialogProperties(usePlatformDefaultWidth=false,dismissOnBackPress=false)) {
-        BackHandler {if(state.editing) vm.back() else if(state.detail!=null) vm.closeDetail() else close()}
+        BackHandler {if(state.editing) vm.requestCancel() else if(state.detail!=null) vm.closeDetail() else close()}
+        var toggle by remember { mutableStateOf<org.json.JSONObject?>(null) }
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(horizontal = FarmSpace.Page)) {
                 val title = when (initialResource) {
@@ -138,8 +141,11 @@ import com.inofarm.jogja.feature.Notice
                         }
                     }
                     FlowRow(horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small)) {
-                        TextButton(onClick={vm.open(row)},enabled=!state.busy && state.form==null,
+                        TextButton(onClick={vm.open(row)},enabled=!state.busy,
                             modifier=Modifier.heightIn(min=FarmSpace.Touch)) { Text("Ubah") }
+                        if(row.has("active")) TextButton(onClick={toggle=row},enabled=!state.busy,
+                            modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("admin-toggle-active")) {
+                            Text(if(row.optBoolean("active",true)) "Nonaktifkan" else "Aktifkan lagi") }
                         if(isGreenhouse) {
                             TextButton(onClick={vm.setup(AdminResource.SEASON,row)},enabled=!state.busy,
                                 modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("admin-setup-season")) { Text("Tambah musim") }
@@ -164,14 +170,18 @@ import com.inofarm.jogja.feature.Notice
                         TextButton(onClick = vm::returnToGreenhouse, enabled = !state.busy,
                             modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kembali ke ${greenhouse.getString("name")}") }
                     }
-                    state.form?.let {Button(onClick=vm::resume,enabled=!state.busy,modifier=Modifier.testTag("admin-resume")) {Text(if(state.pending) "Kirim ulang" else "Lanjutkan draf ${it.resource.label}")}}
+                    state.form?.let {Button(onClick=vm::resume,enabled=!state.busy,modifier=Modifier.testTag("admin-resume")) {
+                        Text(if(state.pending) "Kirim ulang ${it.resource.label.lowercase()}" else "Lanjutkan isian ${it.resource.label.lowercase()} yang belum disimpan")}}
                     FarmPanel(title = "Pilih data") {
                         Choice("Jenis data",state.resource.name,AdminResource.entries.map {org.json.JSONObject().put("id",it.name).put("name",it.label)},"admin-resource") {vm.choose(AdminResource.valueOf(it))}
                         if(state.resource!=AdminResource.GREENHOUSE)
                             Choice("Greenhouse",state.greenhouse,state.options["greenhouses"].orEmpty(),"admin-greenhouse",
                                 loading=state.busy,onSelect=vm::greenhouse)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                            Button(onClick={vm.open()},enabled=!state.busy && state.form==null && (state.resource==AdminResource.GREENHOUSE || state.greenhouse!=null),
+                            Button(onClick={
+                                    if(state.resource==AdminResource.GREENHOUSE && onAddGreenhouse!=null) { if(vm.flush()) onAddGreenhouse() }
+                                    else vm.open()
+                                },enabled=!state.busy && (state.resource==AdminResource.GREENHOUSE || state.greenhouse!=null),
                                 shape=FarmShape.Control,modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("admin-new")) {
                                 Text(if(state.resource==AdminResource.ASSIGNMENT) "Tambah pekerja" else "Tambah ${state.resource.label.lowercase()}")
                             }
@@ -190,7 +200,7 @@ import com.inofarm.jogja.feature.Notice
                         FarmPanel(title = row.optString("name").ifBlank {
                             row.optString("activity_type").ifBlank {row.optString("user_name").ifBlank {row.optString("user_id")}}
                         }) {
-                            Text("Versi ${row.optLong("version")} · ${if(row.optString("status")=="closed") "Musim ditutup" else if(row.optBoolean("active",true)) "Aktif" else "Nonaktif"}",
+                            Text(if(row.optString("status")=="closed") "Musim ditutup" else if(row.optString("status")=="open") "Musim berjalan" else if(row.optBoolean("active",true)) "Aktif" else "Nonaktif",
                                 style = MaterialTheme.typography.bodyMedium)
                             if(state.resource==AdminResource.USER)
                                 Text("${row.optString("email")} · ${if(row.optString("role")=="manager") "Pengelola" else "Pekerja"}")
@@ -201,9 +211,11 @@ import com.inofarm.jogja.feature.Notice
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                                 if(searchable) TextButton(onClick={vm.detail(row)},enabled=!state.busy,
                                     modifier=Modifier.heightIn(min=FarmSpace.Touch)) {Text("Lihat detail")}
-                                TextButton(onClick={vm.open(row)},enabled=!state.busy && state.form==null,
+                                TextButton(onClick={vm.open(row)},enabled=!state.busy,
                                     modifier=Modifier.heightIn(min=FarmSpace.Touch)) {Text("Ubah")}
-                                if(state.resource==AdminResource.SEASON) TextButton(onClick={vm.open(row,if(row.optString("status")=="closed") "reopen" else "close")},enabled=!state.busy && state.form==null,
+                                if(!searchable && state.resource!=AdminResource.SEASON && row.has("active")) TextButton(onClick={toggle=row},enabled=!state.busy,
+                                    modifier=Modifier.heightIn(min=FarmSpace.Touch)) {Text(if(row.optBoolean("active",true)) "Nonaktifkan" else "Aktifkan lagi")}
+                                if(state.resource==AdminResource.SEASON) TextButton(onClick={vm.open(row,if(row.optString("status")=="closed") "reopen" else "close")},enabled=!state.busy,
                                     modifier=Modifier.heightIn(min=FarmSpace.Touch)) {Text(if(row.optString("status")=="closed") "Buka kembali musim" else "Tutup musim")}
                             }
                         }
@@ -214,7 +226,33 @@ import com.inofarm.jogja.feature.Notice
                 }
             }
         }
+        toggle?.let { row ->
+            val activate = !row.optBoolean("active", true)
+            val label = state.resource.label.lowercase()
+            AlertDialog(onDismissRequest = { toggle = null }, containerColor = MaterialTheme.colorScheme.surface,
+                title = { Text(if (activate) "Aktifkan lagi $label?" else "Nonaktifkan $label?") },
+                text = { Text(if (activate) "${row.optString("name").ifBlank { state.resource.label }} bisa dipakai lagi." else deactivateNote(state.resource)) },
+                confirmButton = { Button(onClick = { toggle = null; vm.setActive(row, activate, onAccepted) }, shape = FarmShape.Control,
+                    modifier = Modifier.testTag("admin-toggle-confirm")) { Text(if (activate) "Aktifkan" else "Nonaktifkan") } },
+                dismissButton = { TextButton(onClick = { toggle = null }) { Text("Batal") } })
+        }
+        state.replace?.let { target ->
+            val currentLabel = state.form?.resource?.label?.lowercase().orEmpty()
+            AlertDialog(onDismissRequest = vm::keepCurrent, containerColor = MaterialTheme.colorScheme.surface,
+                title = { Text(if (state.pending) "Batalkan pengiriman sebelumnya?" else "Buang isian sebelumnya?") },
+                text = { Text(if (state.pending) "Pengiriman $currentLabel belum selesai. Perubahan itu mungkin sudah tersimpan; periksa daftarnya nanti."
+                    else "Isian $currentLabel yang belum disimpan akan dibuang supaya Anda bisa membuka ${target.resource.label.lowercase()} ini.") },
+                confirmButton = { Button(onClick = vm::confirmReplace, shape = FarmShape.Control, modifier = Modifier.testTag("admin-replace-confirm")) { Text("Buang dan lanjut") } },
+                dismissButton = { TextButton(onClick = vm::resume, modifier = Modifier.testTag("admin-replace-keep")) { Text("Buka isian sebelumnya") } })
+        }
     }
+}
+
+internal fun deactivateNote(resource: AdminResource): String = when (resource) {
+    AdminResource.GREENHOUSE -> "Data lama tidak dihapus. Greenhouse dinonaktifkan dan riwayatnya tetap ada."
+    AdminResource.USER -> "Akun ini tidak bisa masuk lagi. Riwayatnya tetap ada."
+    AdminResource.ASSIGNMENT -> "Pekerja tidak lagi melihat greenhouse ini."
+    else -> "Data lama tidak dihapus. Riwayatnya tetap ada."
 }
 
 @Composable private fun AdminEditor(state:AdminState,vm:AdminViewModel,onAccepted:()->Unit) {
@@ -224,7 +262,6 @@ import com.inofarm.jogja.feature.Notice
     var unassignedEmail by rememberSaveable(form.id,form.values["greenhouse_id"]) {mutableStateOf("")}
     val confirmPassword=form.resource==AdminResource.USER && !state.pending && (form.version==null || password.isNotEmpty())
     var confirm by rememberSaveable {mutableStateOf(false)}
-    var discard by rememberSaveable {mutableStateOf(false)}
     val action = when {
         form.version == null -> "Tambah"
         form.action == "close" -> "Tutup"
@@ -242,12 +279,7 @@ import com.inofarm.jogja.feature.Notice
     val confirmation: Triple<String, String, String>? = when {
         form.action == "close" -> Triple("Tutup musim?", "Catatan baru ditahan sampai musim dibuka lagi.", "Tutup musim")
         form.version != null && original?.optBoolean("active", true) != false && form.values["active"] == "false" ->
-            Triple("Nonaktifkan ${form.resource.label.lowercase()}?", when (form.resource) {
-                AdminResource.GREENHOUSE -> "Data lama tidak dihapus. Greenhouse dinonaktifkan dan riwayatnya tetap ada."
-                AdminResource.USER -> "Akun ini tidak bisa masuk lagi. Riwayatnya tetap ada."
-                AdminResource.ASSIGNMENT -> "Pekerja tidak lagi melihat greenhouse ini."
-                else -> "Data lama tidak dihapus. Riwayatnya tetap ada."
-            }, "Nonaktifkan")
+            Triple("Nonaktifkan ${form.resource.label.lowercase()}?", deactivateNote(form.resource), "Nonaktifkan")
         form.resource == AdminResource.USER && form.version != null && original != null && original.optString("role") != form.values["role"] ->
             Triple("Ubah peran akun?", "Akun ini perlu masuk ulang.", "Ubah peran")
         form.resource == AdminResource.USER && form.version != null && password.isNotEmpty() ->
@@ -264,14 +296,15 @@ import com.inofarm.jogja.feature.Notice
     }
     val user = form.resource==AdminResource.USER
     FarmFormFrame(
-        header = { FarmFormHeader("$action ${form.resource.label}", state.saved, "admin-saved", "admin-close", vm::back, !state.busy) },
-        bar = { FarmFormBar("admin-save-draft", vm::back, "admin-submit", submitLabel,
+        header = { FarmFormHeader("$action ${form.resource.label}", state.saved, "admin-saved", "admin-close", vm::requestCancel, !state.busy,
+            showDraftStatus = false, closeLabel = "Batal") },
+        bar = { FarmFormBar("admin-cancel", vm::requestCancel, "admin-submit", submitLabel,
             { if(confirmation!=null && !state.pending) confirm=true else vm.submit(password,onAccepted) },
-            enabled = !state.busy, busy = state.busy, mainEnabled = !state.busy && !state.rejected && passwordMatches, saveLabel = "Simpan draf dan kembali") }
+            enabled = !state.busy, busy = state.busy, mainEnabled = !state.busy && !state.rejected && passwordMatches, saveLabel = "Batal") }
     ) {
     state.message?.let {Notice(it)}
     if(state.busy) { Text("Memuat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
-    if(state.pending) Notice("Belum terkirim. Kirim ulang, isinya tetap sama.")
+    if(state.pending) Notice("Belum terkirim. Kirim ulang dengan isi yang sama, atau Batal untuk membatalkan.")
     val renderField: @Composable ColumnScope.(AdminField) -> Unit = {field ->
         val value=form.values[field.key].orEmpty()
         if(state.pending || state.busy || form.version!=null && field.key=="greenhouse_id") FarmFact(field.label, display(field))
@@ -333,13 +366,17 @@ import com.inofarm.jogja.feature.Notice
         form.fields.forEach {field -> Text("Terbaru · ${field.label}: ${if(row.isNull(field.key)) "Belum diisi" else row.optString(field.key)}")}
         TextButton(onClick=vm::useServer,enabled=!state.busy) {Text("Pakai data terbaru")}
     }
-    if(state.rejected) TextButton(onClick=vm::reviseRejected,enabled=!state.busy) {Text("Perbaiki draf yang ditolak")}
+    if(state.rejected) TextButton(onClick=vm::reviseRejected,enabled=!state.busy,modifier=Modifier.testTag("admin-revise")) {Text("Tetap pakai isian saya")}
     if(confirmPassword && !passwordMatches) Text("Isi password minimal 12 karakter dan ulangi dengan isian yang sama.")
-    if(!state.pending) TextButton(onClick={discard=true},enabled=!state.busy) {Text("Hapus draf ini")}
     }
     if(confirm && confirmation!=null) AlertDialog(onDismissRequest={confirm=false}, containerColor = MaterialTheme.colorScheme.surface,
         title={Text(confirmation.first)},text={Text(confirmation.second)},
         confirmButton={Button(onClick={confirm=false;vm.submit(password,onAccepted)}, shape=FarmShape.Control) {Text(confirmation.third)}},
         dismissButton={TextButton(onClick={confirm=false}) {Text("Batal")}})
-    if(discard) AlertDialog(onDismissRequest={discard=false},title={Text("Hapus draf?")},text={Text("Isian ini akan dihapus. Data yang sudah tersimpan tetap ada.")},confirmButton={TextButton(onClick={discard=false;vm.discard()}) {Text("Hapus draf")}},dismissButton={TextButton(onClick={discard=false}) {Text("Kembali")}})
+    if(state.confirmCancel) AlertDialog(onDismissRequest=vm::dismissCancel, containerColor = MaterialTheme.colorScheme.surface,
+        title={Text(if(state.pending) "Batalkan pengiriman?" else "Buang perubahan?")},
+        text={Text(if(state.pending) "Perubahan ini mungkin sudah sampai ke server. Setelah dibatalkan, periksa daftarnya."
+            else "Isian ini belum disimpan dan akan dibuang. Data yang sudah tersimpan tidak berubah.")},
+        confirmButton={TextButton(onClick=vm::discard,modifier=Modifier.testTag("admin-cancel-confirm")) {Text(if(state.pending) "Batalkan pengiriman" else "Buang")}},
+        dismissButton={TextButton(onClick=vm::dismissCancel) {Text("Lanjut mengisi")}})
 }
