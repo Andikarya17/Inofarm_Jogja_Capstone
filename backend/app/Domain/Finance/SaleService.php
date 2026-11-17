@@ -74,6 +74,10 @@ final class SaleService
                 $data = ['season_id' => $seasonId, 'greenhouse_id' => $season->greenhouse_id, 'season_name' => $row->season_name ?? $season->name,
                     'season_version' => $row->season_version ?? $season->version, 'paid_at' => CarbonImmutable::parse($p['paid_at'])->utc()->format('Y-m-d H:i:s.u'),
                     'payment_status' => 'paid', 'customer_name' => $p['customer_name'], 'notes' => $p['notes'], ...collect($quote)->except('items')->all()];
+                // Older clients omit these keys; an update from them keeps the stored values instead of clearing them.
+                foreach (['payment_method', 'payment_reference', 'customer_type'] as $key) {
+                    $data[$key] = array_key_exists($key, $p) ? $p[$key] : ($row->$key ?? null);
+                }
             }
             $data = [...$data, 'version' => $version, 'updated_at' => now()];
             if (!$row) {DB::table('sales')->insert([...$data, 'id' => $op['entity_id'], 'recorded_by' => $current->id, 'recorded_by_name' => $current->name, 'created_at' => now()]);}

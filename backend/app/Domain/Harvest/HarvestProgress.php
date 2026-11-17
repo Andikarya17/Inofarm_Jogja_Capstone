@@ -28,8 +28,8 @@ final class HarvestProgress
         if ($fruit === null && $kg === null && $basis === '') {
             return null;
         }
-        if ($fruit === null || $basis === '') {
-            throw ValidationException::withMessages(['harvest_target' => 'Isi target buah dan dasar penetapannya.']);
+        if (($fruit === null && $kg === null) || $basis === '') {
+            throw ValidationException::withMessages(['harvest_target' => 'Isi target buah atau kg beserta dasar penetapannya.']);
         }
         if ($kg !== null) {
             try {
@@ -59,31 +59,33 @@ final class HarvestProgress
         $totals = $this->emptyTotals();
         $rows = $this->items($id);
         $records = (clone $rows)->distinct()->count('harvest.id');
-        $amounts = (clone $rows)->groupBy('item.quality')->selectRaw('item.quality, SUM(item.fruit_count) as fruit_count, CAST(SUM(item.weight_kg) AS CHAR) as weight_kg')->get();
+        $amounts = (clone $rows)->groupBy('item.quality')->selectRaw('item.quality, '.self::FRUIT_SQL.', CAST(SUM(item.weight_kg) AS CHAR) as weight_kg')->get();
         foreach ($amounts as $row) {
-            $totals[$row->quality ?? 'unknown'] = ['fruit_count' => (int) $row->fruit_count, 'weight_kg' => $row->weight_kg];
+            $totals[$row->quality ?? 'unknown'] = ['fruit_count' => self::fruit($row), 'weight_kg' => $row->weight_kg];
         }
         $saleable = $totals['saleable']['fruit_count'];
-        $completeQuality = $totals['unknown']['fruit_count'] === 0 && bccomp($totals['unknown']['weight_kg'], '0', 6) === 0;
+        $completeQuality = in_array($totals['unknown']['fruit_count'], [0, null], true) && bccomp($totals['unknown']['weight_kg'], '0', 6) === 0;
         $comparable = $target !== null && $records > 0 && $completeQuality;
+        $fruitComparable = $comparable && $saleable !== null && ($target['fruit_count'] ?? null) !== null;
+        $weightAchievement = $comparable && ($target['weight_kg'] ?? null) !== null
+            ? bcdiv(bcmul($totals['saleable']['weight_kg'], '100', 6), $target['weight_kg'], 6) : null;
         $variety = DB::table('varieties')->where('id', $group->variety_id)->first(['id', 'name', 'version']);
 
         if ($actor->role === 'worker') {
             $byStatus = array_fill_keys(['valid', 'invalid', 'pending', 'manager', 'legacy'], $this->emptyTotals());
             $status = self::statusSql();
             $amounts = $this->joinReviews($rows)->groupBy('item.quality', 'verification_status')
-                ->selectRaw("$status as verification_status, item.quality, SUM(item.fruit_count) as fruit_count, CAST(SUM(item.weight_kg) AS CHAR) as weight_kg")->get();
+                ->selectRaw("$status as verification_status, item.quality, ".self::FRUIT_SQL.', CAST(SUM(item.weight_kg) AS CHAR) as weight_kg')->get();
             foreach ($amounts as $row) {
-                $byStatus[$row->verification_status][$row->quality ?? 'unknown'] = ['fruit_count' => (int) $row->fruit_count, 'weight_kg' => $row->weight_kg];
+                $byStatus[$row->verification_status][$row->quality ?? 'unknown'] = ['fruit_count' => self::fruit($row), 'weight_kg' => $row->weight_kg];
             }
             return ['greenhouse_id' => $ctx['greenhouse']->id, 'greenhouse' => $ctx['greenhouse']->name,
                 'season' => $ctx['season']->name, 'season_status' => $ctx['season']->status, 'group_id' => $id, 'group' => $group->name,
                 'variety' => $variety?->name, 'completed' => $group->harvest_completion !== null,
                 'target' => $target === null ? null : array_intersect_key($target, array_flip(['fruit_count', 'weight_kg', 'basis', 'version'])),
                 'records' => $records, 'totals' => $totals, 'verification' => $byStatus, 'complete_quality' => $completeQuality,
-                'achievement_percent' => $comparable ? bcdiv(bcmul((string) $saleable, '100', 0), (string) $target['fruit_count'], 6) : null,
-                'weight_achievement_percent' => $comparable && $target['weight_kg'] !== null
-                    ? bcdiv(bcmul($totals['saleable']['weight_kg'], '100', 6), $target['weight_kg'], 6) : null,
+                'achievement_percent' => $fruitComparable ? bcdiv(bcmul((string) $saleable, '100', 0), (string) $target['fruit_count'], 6) : null,
+                'weight_achievement_percent' => $weightAchievement,
                 'as_of' => CarbonImmutable::now('UTC')->toISOString()];
         }
 
@@ -94,8 +96,9 @@ final class HarvestProgress
             'sowing_date' => $group->sowing_date, 'transplant_date' => $group->transplant_date,
             'target' => $target, 'completion' => self::decode($group->harvest_completion), 'records' => $records,
             'totals' => $totals, 'complete_quality' => $completeQuality,
-            'achievement_percent' => $comparable ? bcdiv(bcmul((string) $saleable, '100', 0), (string) $target['fruit_count'], 6) : null,
-            'difference_fruit' => $comparable ? $target['fruit_count'] - $saleable : null,
+            'achievement_percent' => $fruitComparable ? bcdiv(bcmul((string) $saleable, '100', 0), (string) $target['fruit_count'], 6) : null,
+            'weight_achievement_percent' => $weightAchievement,
+            'difference_fruit' => $fruitComparable ? $target['fruit_count'] - $saleable : null,
             'as_of' => CarbonImmutable::now('UTC')->toISOString()];
     }
 
@@ -132,6 +135,14 @@ final class HarvestProgress
     private static function statusSql(): string
     {
         return "COALESCE(review.decision, CASE harvest.recorded_by_role WHEN 'worker' THEN 'pending' WHEN 'manager' THEN 'manager' ELSE 'legacy' END)";
+    }
+
+    /** Weighed-only lines leave the count unknown, so a bucket with any of them has no fruit total. */
+    private const FRUIT_SQL = 'CASE WHEN SUM(item.fruit_count IS NULL) > 0 THEN NULL ELSE SUM(item.fruit_count) END as fruit_count';
+
+    private static function fruit(object $row): ?int
+    {
+        return $row->fruit_count === null ? null : (int) $row->fruit_count;
     }
 
     private function emptyTotals(): array

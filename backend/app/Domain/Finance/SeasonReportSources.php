@@ -29,9 +29,8 @@ final class SeasonReportSources
         $counts = ['FC' => 0, 'VC' => 0, 'sales' => 0, 'cancelled' => 0];
         foreach (['cost_allocation' => 'cost_allocations', 'depreciation_allocation' => 'depreciation_allocations', 'sale' => 'sales'] as $kind => $table) {
             $query = DB::table($table)->where('season_id', $seasonId);
-            if ($kind === 'cost_allocation') {
-                $query->whereIn('expense_id', DB::table('expenses')->where('greenhouse_id', $gh->id)->select('id'));
-            } else {
+            // Cost allocations may come from a shared expense paid under another greenhouse; the season already scopes them.
+            if ($kind !== 'cost_allocation') {
                 $query->where('greenhouse_id', $gh->id);
             }
             $rows = $query->orderBy('id')->limit(self::MAX_SOURCES + 1)->get();
@@ -99,13 +98,12 @@ final class SeasonReportSources
             }
         }
         if ($expenseIds) {
-            $rows = DB::table('expenses')->where('greenhouse_id', $gh->id)->whereIn('id', array_keys($expenseIds))->orderBy('id')->get();
+            $rows = DB::table('expenses')->whereIn('id', array_keys($expenseIds))->orderBy('id')->get();
             if ($rows->count() !== count($expenseIds)) {
-                throw new DomainFailure('report_source_integrity', 'Pembayaran sumber tidak lengkap pada greenhouse.', 500);
+                throw new DomainFailure('report_source_integrity', 'Pembayaran sumber tidak lengkap.', 500);
             }
             $this->capacity(count($sources) + $rows->count());
             foreach ($this->snapshots->readMany('expense', $rows->all()) as $body) {
-                $this->parent($body, $gh->id);
                 $sources[] = ['kind' => 'expense', 'id' => $body['id'], 'version' => $body['version'], 'included' => false, 'role' => 'reference_only',
                     'contribution' => null, 'reason' => 'Pembayaran sumber saja; biaya masuk melalui alokasi, bukan pembayaran kedua.', 'data' => $body];
             }

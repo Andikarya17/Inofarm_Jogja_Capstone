@@ -1316,9 +1316,16 @@
                             "additionalProperties": false,
                             "properties": {
                               "fruit_count": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "maximum": 2147483647
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 2147483647
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               },
                               "weight_kg": {
                                 "anyOf": [
@@ -1338,7 +1345,6 @@
                               }
                             },
                             "required": [
-                              "fruit_count",
                               "basis"
                             ]
                           },
@@ -5619,6 +5625,12 @@
                             "integer",
                             "null"
                           ]
+                        },
+                        "weight_achievement_percent": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       }
                     },
@@ -6021,9 +6033,16 @@
                             "additionalProperties": false,
                             "properties": {
                               "fruit_count": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "maximum": 2147483647
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 2147483647
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               },
                               "weight_kg": {
                                 "anyOf": [
@@ -6043,7 +6062,6 @@
                               }
                             },
                             "required": [
-                              "fruit_count",
                               "basis"
                             ]
                           },
@@ -10743,7 +10761,25 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "split_season_ids[]",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "description": "Musim tujuan (boleh lintas greenhouse) untuk usulan bagi rata; maksimal 20.",
+            "schema": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              }
+            }
+          }
+        ]
       }
     },
     "/attachments/policy": {
@@ -18527,6 +18563,804 @@
           }
         }
       }
+    },
+    "/greenhouses/{id}/copy-masters": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "copy_greenhouse_masters",
+        "summary": "Salin data master aktif dari greenhouse lain (pengelola); nama yang sudah ada dilewati sehingga aman diulang",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source_greenhouse_id"
+                ],
+                "properties": {
+                  "source_greenhouse_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "greenhouse_id",
+                        "source_greenhouse_id",
+                        "copied"
+                      ],
+                      "properties": {
+                        "greenhouse_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        },
+                        "source_greenhouse_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        },
+                        "copied": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "varieties",
+                            "units",
+                            "materials",
+                            "grades",
+                            "expense_categories"
+                          ],
+                          "properties": {
+                            "varieties": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "units": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "materials": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "grades": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "expense_categories": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/cash-flow": {
+      "get": {
+        "operationId": "cash_flow_report",
+        "summary": "Uang masuk dan keluar per bulan dan greenhouse (pengelola), maksimal 24 bulan",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}$"
+            }
+          },
+          {
+            "name": "greenhouse_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cash flow bulanan WIB; format=csv mengembalikan berkas CSV",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "from",
+                        "until",
+                        "greenhouse_id",
+                        "currency",
+                        "timezone",
+                        "months",
+                        "totals",
+                        "basis",
+                        "as_of"
+                      ],
+                      "properties": {
+                        "from": {
+                          "type": "string",
+                          "pattern": "^[0-9]{4}-[0-9]{2}$"
+                        },
+                        "until": {
+                          "type": "string",
+                          "pattern": "^[0-9]{4}-[0-9]{2}$"
+                        },
+                        "greenhouse_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "currency": {
+                          "const": "IDR"
+                        },
+                        "timezone": {
+                          "const": "Asia/Jakarta"
+                        },
+                        "basis": {
+                          "type": "string"
+                        },
+                        "as_of": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "totals": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "receipts",
+                            "payments",
+                            "net"
+                          ],
+                          "properties": {
+                            "receipts": {
+                              "type": "string",
+                              "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                            },
+                            "payments": {
+                              "type": "string",
+                              "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                            },
+                            "net": {
+                              "type": "string",
+                              "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                            }
+                          }
+                        },
+                        "months": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "month",
+                              "receipts",
+                              "payments",
+                              "net",
+                              "greenhouses"
+                            ],
+                            "properties": {
+                              "month": {
+                                "type": "string",
+                                "pattern": "^[0-9]{4}-[0-9]{2}$"
+                              },
+                              "receipts": {
+                                "type": "string",
+                                "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                              },
+                              "payments": {
+                                "type": "string",
+                                "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                              },
+                              "net": {
+                                "type": "string",
+                                "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                              },
+                              "greenhouses": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "greenhouse_id",
+                                    "greenhouse_name",
+                                    "receipts",
+                                    "payments",
+                                    "net"
+                                  ],
+                                  "properties": {
+                                    "greenhouse_id": {
+                                      "type": "string",
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                                    },
+                                    "greenhouse_name": {
+                                      "type": "string"
+                                    },
+                                    "receipts": {
+                                      "type": "string",
+                                      "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                                    },
+                                    "payments": {
+                                      "type": "string",
+                                      "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                                    },
+                                    "net": {
+                                      "type": "string",
+                                      "pattern": "^-?(?:0|[1-9][0-9]{0,17})\\.[0-9]{2}$"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/season-reports/compare": {
+      "get": {
+        "operationId": "season_comparison",
+        "summary": "Perbandingan metrik tercatat beberapa musim, lintas greenhouse (pengelola)",
+        "parameters": [
+          {
+            "name": "season_ids[]",
+            "in": "query",
+            "required": true,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 10,
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "season_id",
+                          "season_name",
+                          "season_status",
+                          "start_date",
+                          "end_date",
+                          "greenhouse_id",
+                          "greenhouse_name",
+                          "metrics",
+                          "source_counts",
+                          "harvest_weight_kg",
+                          "unsold_weight_kg"
+                        ],
+                        "properties": {
+                          "season_id": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                          },
+                          "season_name": {
+                            "type": "string"
+                          },
+                          "season_status": {
+                            "enum": [
+                              "open",
+                              "closed"
+                            ]
+                          },
+                          "start_date": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "end_date": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "greenhouse_id": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                          },
+                          "greenhouse_name": {
+                            "type": "string"
+                          },
+                          "metrics": {
+                            "type": "object",
+                            "description": "Sama dengan metrics pratinjau laporan musim (provisional, cakupan unknown)."
+                          },
+                          "source_counts": {
+                            "type": "object"
+                          },
+                          "harvest_weight_kg": {
+                            "type": "string",
+                            "pattern": "^[0-9]+\\.[0-9]{6}$"
+                          },
+                          "unsold_weight_kg": {
+                            "type": "string",
+                            "pattern": "^[0-9]+\\.[0-9]{6}$",
+                            "description": "Bobot panen layak/belum dinilai yang belum terjual; rincian cacat tidak dihitung."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seasons/{id}/material-usage": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "season_material_usage",
+        "summary": "Total pemakaian bahan per musim dari kegiatan aktif yang selesai, per bahan dan satuan tanpa konversi",
+        "responses": {
+          "200": {
+            "description": "Berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "season_id",
+                        "season_name",
+                        "greenhouse_id",
+                        "items",
+                        "basis"
+                      ],
+                      "properties": {
+                        "season_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        },
+                        "season_name": {
+                          "type": "string"
+                        },
+                        "greenhouse_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        },
+                        "basis": {
+                          "type": "string"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "material_id",
+                              "material_name",
+                              "unit_id",
+                              "unit_name",
+                              "quantity",
+                              "activities"
+                            ],
+                            "properties": {
+                              "material_id": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                              },
+                              "material_name": {
+                                "type": "string"
+                              },
+                              "unit_id": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                              },
+                              "unit_name": {
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "type": "string"
+                              },
+                              "activities": {
+                                "type": "integer",
+                                "minimum": 1
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Revisi tidak lengkap atau kegagalan server; jangan menganggap respons sebagai versi sah.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -19076,9 +19910,16 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
                 },
                 "fruit_count": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 2147483647
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483647
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "weight_kg": {
                   "type": "string",
@@ -19846,6 +20687,28 @@
           "available_amount": {
             "type": "string",
             "pattern": "^(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+          },
+          "even_split": {
+            "type": "array",
+            "description": "Hanya bila split_season_ids dikirim: sisa dibagi rata per sen, sen sisa ke musim pertama.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "season_id",
+                "amount"
+              ],
+              "properties": {
+                "season_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "amount": {
+                  "type": "string",
+                  "pattern": "^(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,2})?$"
+                }
+              }
+            }
           }
         }
       },
@@ -20486,6 +21349,44 @@
           },
           "rounding": {
             "const": "HALF_UP_TRANSACTION"
+          },
+          "payment_method": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cash",
+                  "qris",
+                  "transfer"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment_reference": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "customer_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "consumer",
+                  "partner"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -25074,7 +25975,8 @@
                           "fruit_count": {
                             "type": [
                               "integer",
-                              "string"
+                              "string",
+                              "null"
                             ]
                           }
                         },
@@ -25191,9 +26093,16 @@
         "additionalProperties": false,
         "properties": {
           "fruit_count": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 2147483647
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "weight_kg": {
             "anyOf": [
@@ -28680,8 +29589,15 @@
         ],
         "properties": {
           "fruit_count": {
-            "type": "integer",
-            "minimum": 0
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "weight_kg": {
             "type": "string",
@@ -28780,8 +29696,15 @@
                 ],
                 "properties": {
                   "fruit_count": {
-                    "type": "integer",
-                    "minimum": 1
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "weight_kg": {
                     "anyOf": [

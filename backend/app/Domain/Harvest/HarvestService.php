@@ -101,7 +101,7 @@ final class HarvestService
                     abort_if($old !== null && $old->grade_id !== $line['grade_id'], 422, 'Grade rincian tidak dapat diganti. Buat rincian baru setelah meninjau saldo.');
                     $grade = DB::table('grades')->where('id', $line['grade_id'])->where('greenhouse_id', $ctx['greenhouse']->id)
                         ->when($old === null, fn ($q) => $q->where('active', true))->first() ?? abort(422, 'Grade harus berasal dari greenhouse yang sama; grade baru harus aktif.');
-                    if (! is_int($line['fruit_count'])) {
+                    if ($line['fruit_count'] !== null && ! is_int($line['fruit_count'])) {
                         throw ValidationException::withMessages(["items.$index.fruit_count" => 'Jumlah buah harus integer JSON.']);
                     }
                     try {

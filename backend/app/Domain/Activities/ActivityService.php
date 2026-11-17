@@ -161,8 +161,9 @@ final class ActivityService
             }
         }
         if ($p['work_state'] === 'skipped') {
-            if (trim($p['skipped_reason'] ?? '') === '') {
-                $errors['skipped_reason'] = 'Alasan kegiatan dilewati wajib diisi.';
+            // Field practice: skipped work needs no reason, except nutrition, which must still be given.
+            if ($p['activity_type'] === 'nutrition' && trim($p['skipped_reason'] ?? '') === '') {
+                $errors['skipped_reason'] = 'Pemberian nutrisi yang dilewati wajib diberi alasan.';
             }
         } else {
             if ($p['activity_type'] === 'nutrition') {

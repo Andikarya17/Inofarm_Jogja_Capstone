@@ -60,13 +60,16 @@ class FinanceActivitySyncTest extends FinanceTestCase
         $materials = array_map(fn ($m) => ['material_id' => $m['id'], 'unit_id' => $unit['id'], 'quantity' => '0'], [$a, $b]);
         $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], ['activity_type' => 'spray', 'materials' => $materials])))
             ->assertCreated()->assertJsonCount(2, 'data.materials');
-        foreach ([['manual_ph' => '14.000001'], ['manual_ppm' => '-1'], ['manual_ph' => 'NaN'], ['manual_ph' => 6.0], ['activity_type' => 'nutrition'], ['work_state' => 'skipped'], ['activity_type' => 'stage']] as $invalid) {
+        foreach ([['manual_ph' => '14.000001'], ['manual_ppm' => '-1'], ['manual_ph' => 'NaN'], ['manual_ph' => 6.0], ['activity_type' => 'nutrition'], ['activity_type' => 'nutrition', 'work_state' => 'skipped'], ['activity_type' => 'stage']] as $invalid) {
             $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], $invalid)))->assertUnprocessable();
         }
         $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], ['activity_type' => 'nutrition', 'manual_ppm' => '0', 'manual_ph' => '0', 'materials' => $materials])))
             ->assertCreated()->assertJsonPath('data.manual_ppm', '0.000000')->assertJsonPath('data.reference_snapshot.checks.manual_ppm.status', 'unavailable');
         $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], ['work_state' => 'skipped', 'skipped_reason' => 'Hujan sintetis'])))
             ->assertCreated()->assertJsonPath('data.work_state', 'skipped');
+        // Field practice: only skipped nutrition needs a reason.
+        $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], ['work_state' => 'skipped'])))
+            ->assertCreated()->assertJsonPath('data.skipped_reason', null);
     }
 
     public function test_worker_own_correction_manager_cancel_version_conflict_and_closed_queue(): void

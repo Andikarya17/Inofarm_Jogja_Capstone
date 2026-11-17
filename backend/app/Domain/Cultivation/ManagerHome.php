@@ -55,7 +55,7 @@ final class ManagerHome
         $harvestTotals = (clone $harvests)->whereIn('r.planting_group_id', $activeGroups)
             ->join('harvest_items as i', 'i.harvest_id', '=', 'r.id')->where('i.active', true)
             ->groupBy('r.planting_group_id')
-            ->selectRaw('r.planting_group_id, COUNT(DISTINCT r.id) AS records, CAST(SUM(i.weight_kg) AS CHAR) AS weight_kg, SUM(i.fruit_count) AS fruit_count')
+            ->selectRaw('r.planting_group_id, COUNT(DISTINCT r.id) AS records, CAST(SUM(i.weight_kg) AS CHAR) AS weight_kg, CASE WHEN SUM(i.fruit_count IS NULL) > 0 THEN NULL ELSE SUM(i.fruit_count) END AS fruit_count')
             ->get()->keyBy('planting_group_id');
 
         $cards = $greenhouses->map(function ($row) use ($periods, $last, $stage, $harvestTotals) {

@@ -36,7 +36,8 @@ final class SaleController extends Controller
     private function perform(Request $request, string $action, ?string $id = null)
     {
         $rules = $action === 'cancel' ? [] : ['season_id' => ['required', OperationInput::UUID], 'paid_at' => 'required|date_format:Y-m-d\TH:i:sP',
-            'payment_status' => 'required|in:paid', 'customer_name' => 'present|string|max:200', 'notes' => 'present|string|max:2000', 'items' => 'required|array|min:1|max:30',
+            'payment_status' => 'required|in:paid', 'customer_name' => 'present|string|max:200',
+            'payment_method' => 'sometimes|nullable|in:cash,qris,transfer', 'payment_reference' => 'sometimes|nullable|string|max:100', 'customer_type' => 'sometimes|nullable|in:consumer,partner', 'notes' => 'present|string|max:2000', 'items' => 'required|array|min:1|max:30',
             'items.*' => 'required|array:id,harvest_item_id,quantity_kg,price_per_kg', 'items.*.id' => ['required', OperationInput::UUID, 'distinct'],
             'items.*.harvest_item_id' => ['required', OperationInput::UUID, 'distinct'], 'items.*.quantity_kg' => 'required|string|max:30', 'items.*.price_per_kg' => 'required|string|max:30'];
         if ($action !== 'create') {$rules['reason'] = OperationInput::reasonRule($request, ['required', 'string', 'max:1000', 'regex:/\S/u']);}

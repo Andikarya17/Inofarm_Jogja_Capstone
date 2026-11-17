@@ -119,6 +119,9 @@ final class MasterService
             } elseif (in_array($action, ['close', 'reopen'], true)) {
                 $newStatus = $action === 'close' ? 'closed' : 'open';
                 abort_if($before['status'] === $newStatus, 422, 'Status musim sudah sesuai permintaan.');
+                if ($action === 'close') {
+                    $this->assertSoldOut($id, $payload['reason'] ?? null);
+                }
                 $data = ['status' => $newStatus];
             } elseif ($table === 'planting_groups') {
                 $seasonId = $before['season_id'] ?? $data['season_id'];
@@ -188,5 +191,54 @@ final class MasterService
             return ['before' => $before, 'after' => $after, 'greenhouse_id' => $gh,
                 'audience' => in_array($table, ['greenhouse_assignments', 'expense_categories'], true) ? 'manager' : 'all'];
         });
+    }
+
+    /** Unsold saleable harvest weight (kg) of a season; defective lines are already "gagal jual". */
+    public static function unsoldWeight(string $seasonId): string
+    {
+        return (string) (DB::table('harvest_items as item')->join('harvests as harvest', 'harvest.id', '=', 'item.harvest_id')
+            ->join('planting_groups as grp', 'grp.id', '=', 'harvest.planting_group_id')->where('grp.season_id', $seasonId)
+            ->where('harvest.record_state', 'active')->where('item.active', true)
+            ->where(fn ($q) => $q->whereNull('item.quality')->orWhere('item.quality', '!=', 'defective'))
+            ->selectRaw('CAST(COALESCE(SUM(item.weight_kg - item.sold_weight_kg), 0) AS DECIMAL(20,6)) AS kg')->value('kg') ?? '0.000000');
+    }
+
+    /** Field practice: a season ends once its fruit is sold out; leftovers need an explicit note (e.g. gagal jual). */
+    private function assertSoldOut(string $seasonId, ?string $note): void
+    {
+        $unsold = self::unsoldWeight($seasonId);
+        if (bccomp($unsold, '0', 6) > 0 && trim($note ?? '') === '') {
+            throw new DomainFailure('season_unsold_balance', 'Masih ada '.rtrim(rtrim($unsold, '0'), '.').' kg buah belum terjual. Isi catatan, misalnya gagal jual, untuk tetap menutup musim.', 422);
+        }
+    }
+
+    /** Copies active masters missing (by name) in the target; re-running it copies nothing twice. */
+    public function copyMasters(User $actor, string $target, string $source): array
+    {
+        $this->access->manager($actor);
+        $this->access->require($actor, $source);
+        $result = [];
+        DB::transaction(function () use ($actor, $target, $source, &$result) {
+            foreach (['varieties', 'units', 'materials', 'grades', 'expense_categories'] as $table) {
+                $existing = DB::table($table)->where('greenhouse_id', $target)->get()
+                    ->map(fn ($row) => mb_strtolower(trim($row->name)).'|'.($row->dimension ?? ''))->flip();
+                $copied = 0;
+                foreach (DB::table($table)->where('greenhouse_id', $source)->where('active', true)->orderBy('name')->get() as $row) {
+                    $key = mb_strtolower(trim($row->name)).'|'.($row->dimension ?? '');
+                    if ($existing->has($key)) {
+                        continue;
+                    }
+                    $payload = ['greenhouse_id' => $target, 'name' => $row->name] + (isset($row->dimension) ? ['dimension' => $row->dimension] : []);
+                    $this->mutate($actor, $table, ['schema_version' => '2', 'sync_epoch' => DB::table('sync_state')->where('id', 1)->value('epoch'),
+                        'operation_id' => (string) Str::uuid(), 'entity_id' => (string) Str::uuid(), 'entity_type' => $table,
+                        'action' => 'create', 'base_version' => null, 'payload' => $payload]);
+                    $existing[$key] = true;
+                    $copied++;
+                }
+                $result[$table] = $copied;
+            }
+        });
+
+        return ['greenhouse_id' => $target, 'source_greenhouse_id' => $source, 'copied' => $result];
     }
 }
