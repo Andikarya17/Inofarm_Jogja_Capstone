@@ -24,6 +24,7 @@ import com.inofarm.jogja.feature.attachments.AttachmentRepository
 /** One database/session generation per application process, shared across activity recreation. */
 class InofarmApplication:Application() {
     val finance:FinanceDependencies by lazy {FinanceDependencies(this)}
+    val theme by lazy {com.inofarm.jogja.core.design.ThemePreference(com.inofarm.jogja.core.design.SharedPreferencesThemeStorage(this))}
 }
 
 class FinanceDependencies(application:Application) {

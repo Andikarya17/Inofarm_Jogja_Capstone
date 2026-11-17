@@ -3,7 +3,6 @@ package com.inofarm.jogja.core.design
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,7 +20,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun BotanicalBackdrop(@DrawableRes artwork: Int, accentHeight: Dp) {
     val background = MaterialTheme.colorScheme.background
-    val dark = isSystemInDarkTheme()
+    val dark = LocalFarmTheme.current.dark
     BoxWithConstraints(Modifier.fillMaxSize().background(background)) {
         if (maxWidth < maxHeight && maxWidth < 600.dp) {
             Box(Modifier.fillMaxWidth().height(accentHeight)) {

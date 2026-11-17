@@ -16,7 +16,6 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -60,7 +59,7 @@ private val ForestTile = FarmColors.ForestSurface
 
 @Composable internal fun farmToneColors(tone: FarmTone): Pair<Color, Color> {
     val c = MaterialTheme.colorScheme
-    val dark = isSystemInDarkTheme()
+    val dark = LocalFarmTheme.current.dark
     return when (tone) {
         FarmTone.Neutral -> c.secondaryContainer to (if (dark) c.primary else FarmColors.Brand)
         FarmTone.Good -> (if (dark) c.primaryContainer else FarmColors.Soft) to (if (dark) c.primary else FarmColors.Brand)
@@ -183,7 +182,7 @@ internal fun Modifier.farmListItem(scope: androidx.compose.foundation.lazy.LazyI
 @Composable internal fun FarmHeroCard(
     modifier: Modifier = Modifier, motifShift: Float = 0f, motifAlpha: Float = 0.28f, content: @Composable ColumnScope.() -> Unit
 ) {
-    val dark = isSystemInDarkTheme()
+    val dark = LocalFarmTheme.current.dark
     MaterialTheme(colorScheme = ForestScheme, typography = MaterialTheme.typography) {
         Surface(modifier.fillMaxWidth(), shape = FarmShape.Hero,
             color = if (dark) ForestTile else ForestScheme.background, contentColor = ForestScheme.onBackground,

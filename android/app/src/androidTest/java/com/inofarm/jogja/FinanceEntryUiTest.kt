@@ -803,6 +803,46 @@ class FinanceEntryUiTest {
         }
     }
 
+    /** F0: light is the default whatever the system theme; the avatar menu switches both roles and the choice survives logout. */
+    @Test fun themeMenuSwitchesLightAndDarkForBothRoles() {
+        val theme = (rule.activity.application as InofarmApplication).theme
+        rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+        try {
+            captureInternal("theme-worker-light")
+            rule.onNodeWithTag("finance-account").performClick()
+            readyNode("theme-light").assertIsSelected()
+            rule.onNodeWithTag("theme-dark").assertIsNotSelected()
+            captureInternal("theme-worker-menu")
+            rule.onNodeWithTag("theme-dark").performClick()
+            rule.onNodeWithTag("theme-dark").assertIsSelected()
+            assertEquals(com.inofarm.jogja.core.design.ThemeMode.DARK, theme.mode.value)
+            Espresso.pressBack()
+            captureInternal("theme-worker-dark")
+            managerLogin()
+            assertEquals(com.inofarm.jogja.core.design.ThemeMode.DARK, theme.mode.value)
+            captureInternal("theme-manager-dark")
+            rule.onNodeWithTag("finance-account").performClick()
+            readyNode("theme-dark").assertIsSelected()
+            rule.onNodeWithTag("theme-light").performClick()
+            rule.onNodeWithTag("theme-light").assertIsSelected()
+            Espresso.pressBack()
+            captureInternal("theme-manager-light")
+        } finally {
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+        }
+    }
+
+    /** Internal storage, so `adb exec-out run-as ... cat files/evidence/<name>.png` can read it on Android 11. */
+    private fun captureInternal(name: String) {
+        rule.waitForIdle()
+        Thread.sleep(350)
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.waitForIdleSync()
+        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+        File(File(rule.activity.filesDir, "evidence").apply { mkdirs() }, "$name.png").outputStream()
+            .use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
     @Test fun glassFrontendCapturesWorkerManagerAndPreservesDraftNavigation() {
         rule.onNodeWithTag("finance-tab-2").assertDoesNotExist()
         rule.onNodeWithTag("finance-account").performClick()
