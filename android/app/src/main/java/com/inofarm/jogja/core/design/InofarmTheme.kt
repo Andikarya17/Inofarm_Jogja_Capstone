@@ -81,6 +81,8 @@ internal object FarmMotion {
     /** Fade-through: the old tab fades out in this many ms, the new tab enters from this scale. */
     /** The one authored moment: the login canopy handing over to the Beranda. */
     const val Focal = 400
+    /** The manager's greenhouse card opening into the detail hero (container transform). */
+    const val ContainerOpen = 360
     /** How long "Semua terkirim" stays after the queue empties, and one turn of the sync icon while a sync runs. */
     const val AllSentHold = 1500L
     const val SyncTurn = 1000

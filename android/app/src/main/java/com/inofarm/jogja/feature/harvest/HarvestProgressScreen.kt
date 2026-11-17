@@ -113,7 +113,7 @@ private fun HarvestProgressDetail(
             loading = false
         }
     }
-    if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+    if (loading) com.inofarm.jogja.core.design.FarmBusyReveal { LinearProgressIndicator(Modifier.fillMaxWidth()) }
     error?.let {
         FarmAttention(if (data == null) it else "Menampilkan rekap tersimpan. $it")
         TextButton(onClick = { refreshing++ }) { Text("Coba lagi") }

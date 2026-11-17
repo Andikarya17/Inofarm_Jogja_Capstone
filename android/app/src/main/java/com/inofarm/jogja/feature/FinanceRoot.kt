@@ -298,6 +298,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var recordSheet by rememberSaveable { mutableStateOf(false) }
     var moneyPick by rememberSaveable { mutableStateOf<String?>(null) }
     var historyChip by rememberSaveable { mutableStateOf("activity") }
+    var historyChipFade by remember { mutableStateOf(false) }
+    val chipHaptics = com.inofarm.jogja.core.design.rememberFarmHaptics()
     var lastGreenhouse by rememberSaveable { mutableStateOf<String?>(null) }
     var reviewActivity by rememberSaveable { mutableStateOf<String?>(null) }
     var reviewKind by rememberSaveable { mutableStateOf(ReviewKind.ACTIVITY) }
@@ -353,6 +355,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         rememberWorkerCorrections(runtime, session, Triple(activity.records, harvest.records, activity.queue), syncUpdates)
     val managerHome = if (manager) rememberManagerHome(homeRepository, session, ticket, gh, syncUpdates, activity.records, managerRefresh)
         else ManagerHomeState()
+    val greenhouseOpening = com.inofarm.jogja.feature.managerhome.rememberGreenhouseOpening()
     if (session.rejected || managerHome.sessionRejected) {
         LaunchedEffect(Unit) { onAccessDenied() }
         Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(FarmSpace.Page),
@@ -956,7 +959,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             harvestProgressGroup = runningGroup
                             harvestProgressOpen = true
                         },
-                        onSeasonReport = { reports.vm.show("") })
+                        onSeasonReport = { reports.vm.show("") },
+                        opening = greenhouseOpening)
                 }
                 tab==0 && correctionsOpen -> WorkerCorrectionsScreen(workerCorrections, context, onOpen = { row ->
                     if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
@@ -1059,6 +1063,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 tab==5 -> tabState.SaveableStateProvider("history-$historyChip") {
                     FarmPullRefresh(context.loading, onSync) {
                     val isActivity = historyChip != "harvest"
+                    // Read once by the new screen; cleared after this composition so a dock tap back here does not fade again.
+                    val chipFade = historyChipFade
+                    if (chipFade) SideEffect { historyChipFade = false }
                     HistoryScreen(session,context,if (isActivity) history else harvestHistory,
                         if (isActivity) historyVm else harvestHistoryVm,activity.queue,
                         onEdit={record,replace ->
@@ -1068,9 +1075,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         kind=if (isActivity) OperationalKind.ACTIVITY else OperationalKind.HARVEST,
                         recordScope=if (manager && canRecordFromHome) listOfNotNull(homeSnapshot?.selected?.text("name"),homeSnapshot?.period?.text("season_name")).joinToString(" · ")
                         else null,
-                        onSync=onSync, canopy = true,
+                        onSync=onSync, canopy = true, contentFade = chipFade,
                         historyKindPicker = if (tab == 5) ({
                             val choose: (String) -> Unit = { id ->
+                                if (id in setOf("activity", "measurement", "harvest") && id != historyChip) { historyChipFade = true; chipHaptics.segmentTick() }
                                 when (id) {
                                     "mine" -> { historyVm.mine(!history.mine); harvestHistoryVm.mine(!history.mine) }
                                     "activity", "measurement" -> {

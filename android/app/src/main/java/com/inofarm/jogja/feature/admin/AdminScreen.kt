@@ -106,7 +106,7 @@ import com.inofarm.jogja.feature.Notice
                 else LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(vertical = FarmSpace.Medium),
                     verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                 state.message?.let { item("message") { Notice(it) } }
-                if(state.busy) item("busy") { Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) { Text("Memuat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) } }
+                if(state.busy) item("busy") { com.inofarm.jogja.core.design.FarmBusyReveal { Text("Memuat…"); LinearProgressIndicator(Modifier.fillMaxWidth()) } }
                 if(state.detail!=null) item("detail") { Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                     val row=requireNotNull(state.detail)
                     val isGreenhouse=state.resource==AdminResource.GREENHOUSE

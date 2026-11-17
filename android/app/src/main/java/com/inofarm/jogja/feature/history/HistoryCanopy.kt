@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature.history
 
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -52,11 +53,17 @@ internal fun CanopyTypeChips(selected: String, onSelect: (String) -> Unit) {
         verticalAlignment = Alignment.CenterVertically) {
         listOf("activity" to "Kegiatan", "measurement" to "Pengukuran", "harvest" to "Panen").forEach { (id, label) ->
             val on = selected == id
+            val container by androidx.compose.animation.animateColorAsState(if (on) colors.primary else colors.surface,
+                androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State), label = "Chip riwayat")
+            val content by androidx.compose.animation.animateColorAsState(if (on) colors.onPrimary else colors.onSurface,
+                androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State), label = "Teks chip riwayat")
+            val edge by androidx.compose.animation.animateColorAsState(if (on) colors.primary else colors.outline,
+                androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State), label = "Tepi chip riwayat")
             Surface(Modifier.heightIn(min = FarmSpace.Touch).testTag("history-chip-$id")
                 .selectable(on, role = Role.RadioButton) { onSelect(id) },
-                shape = FarmShape.Control, color = if (on) colors.primary else colors.surface,
-                contentColor = if (on) colors.onPrimary else colors.onSurface,
-                border = if (on) null else BorderStroke(1.dp, colors.outline)) {
+                shape = FarmShape.Control, color = container,
+                contentColor = content,
+                border = BorderStroke(1.dp, edge)) {
                 Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
                     Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium)
                 }

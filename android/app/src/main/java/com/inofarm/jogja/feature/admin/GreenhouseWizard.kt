@@ -24,6 +24,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.inofarm.jogja.core.contracts.UserRole
 import com.inofarm.jogja.core.design.*
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import com.inofarm.jogja.core.network.FinanceApiFailure
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.FinanceField
@@ -241,7 +243,12 @@ fun GreenhouseWizardHost(
                 HorizontalDivider()
                 Column(Modifier.weight(1f).verticalScroll(scroll).padding(vertical = FarmSpace.Medium),
                     verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
-                    if (finished) {
+                    androidx.compose.animation.AnimatedContent(finished, label = "Wizard selesai", transitionSpec = {
+                        androidx.compose.animation.fadeIn(tween(FarmMotion.State, delayMillis = FarmMotion.TabExit)) togetherWith
+                            androidx.compose.animation.fadeOut(tween(FarmMotion.TabExit))
+                    }) { done ->
+                    Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                    if (done) {
                         Text("Greenhouse siap dicatat", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
                         Text(name.trim(), style = MaterialTheme.typography.titleMedium)
                         val facts = listOfNotNull(
@@ -259,7 +266,18 @@ fun GreenhouseWizardHost(
                             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         progress?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                         error?.let { Notice(it, true) }
-                        when (step) {
+                        // Forward slides in from the end, Kembali from the start: the same shared axis as the shell.
+                        androidx.compose.animation.AnimatedContent(step, label = "Langkah wizard", transitionSpec = {
+                            val direction = if (targetState > initialState) 1 else -1
+                            val enter = tween<androidx.compose.ui.unit.IntOffset>(FarmMotion.Depth, easing = FarmMotion.EmphasizedDecelerate)
+                            val exit = tween<androidx.compose.ui.unit.IntOffset>((FarmMotion.Depth * FarmMotion.DepthExitShare).toInt(), easing = FarmMotion.EmphasizedAccelerate)
+                            (androidx.compose.animation.slideInHorizontally(enter) { (it * 0.08f).toInt() * direction } +
+                                androidx.compose.animation.fadeIn(tween(FarmMotion.Depth, easing = FarmMotion.EmphasizedDecelerate))) togetherWith
+                                (androidx.compose.animation.slideOutHorizontally(exit) { -(it * 0.08f).toInt() * direction } +
+                                    androidx.compose.animation.fadeOut(tween((FarmMotion.Depth * FarmMotion.DepthExitShare).toInt(), easing = FarmMotion.EmphasizedAccelerate)))
+                        }) { shown ->
+                        Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                        when (shown) {
                             1 -> {
                                 Text("Greenhouse", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
                                 if (ghDone) FarmInfoCard { Text("Greenhouse ${name.trim()} sudah tersimpan.", style = MaterialTheme.typography.bodyMedium) }
@@ -309,6 +327,10 @@ fun GreenhouseWizardHost(
                                     modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("wizard-skip")) { Text("Lewati langkah ini") }
                             }
                         }
+                        }
+                        }
+                    }
+                    }
                     }
                 }
                 if (!finished) FarmFormBar("wizard-back", { step-- }, "wizard-next", if (step == 3) "Selesai" else "Simpan dan lanjut",

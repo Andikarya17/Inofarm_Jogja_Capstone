@@ -111,6 +111,32 @@ private val playedEntrances = HashSet<Any>()
     }
 }
 
+/** A list item that fades in when it arrives, slides when its neighbours change and leaves faster than it came. */
+internal fun Modifier.farmListItem(scope: androidx.compose.foundation.lazy.LazyItemScope): Modifier = with(scope) {
+    this@farmListItem.animateItem(fadeInSpec = tween(FarmMotion.State), fadeOutSpec = tween(FarmMotion.Press))
+}
+
+/**
+ * True once [busy] has lasted [FarmMotion.BusyReveal], so a quick answer never flashes a loading indicator.
+ * Callers fade the indicator in with [FarmMotion.LoginFeedback].
+ */
+@Composable internal fun rememberBusyReveal(busy: Boolean): Boolean {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(busy) {
+        if (busy) { delay(FarmMotion.BusyReveal); shown = true } else shown = false
+    }
+    return shown && busy
+}
+
+/** A loading line that only appears once the work has lasted [FarmMotion.BusyReveal], then fades in. Add it while busy. */
+@Composable internal fun FarmBusyReveal(content: @Composable ColumnScope.() -> Unit) {
+    val shown = rememberBusyReveal(true)
+    androidx.compose.animation.AnimatedVisibility(shown, enter = androidx.compose.animation.fadeIn(tween(FarmMotion.LoginFeedback)),
+        exit = androidx.compose.animation.fadeOut(tween(FarmMotion.Press))) {
+        Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small), content = content)
+    }
+}
+
 /** Stem with three leaf pairs in sage; decorative, so it carries no semantics. [shift] is the parallax offset in px. */
 @Composable internal fun FarmLeafMotif(modifier: Modifier = Modifier, shift: Float = 0f, alpha: Float = 0.28f) {
     val color = FarmColors.Sage.copy(alpha = alpha)
@@ -260,13 +286,18 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
                 val id = option.getString("id")
                 val on = id == selected
                 val name = option.optString("choice_label").ifBlank { option.getString("name") }
+                val container by animateColorAsState(if (on) (if (id == warningId) FarmColors.Warning else colors.primary) else colors.surface,
+                    tween(FarmMotion.State), label = "Chip")
+                val content by animateColorAsState(if (on) (if (id == warningId) Color.White else colors.onPrimary) else colors.onSurface,
+                    tween(FarmMotion.State), label = "Teks chip")
+                val edge by animateColorAsState(if (on) container else colors.outline, tween(FarmMotion.State), label = "Tepi chip")
                 Surface(
                     Modifier.heightIn(min = FarmSpace.Touch).testTag("$tag-option-$id")
                         .selectable(on, enabled = !loading, role = Role.RadioButton, onClick = { onSelect(id) }),
                     shape = FarmShape.Control,
-                    color = if (on) (if (id == warningId) FarmColors.Warning else colors.primary) else colors.surface,
-                    contentColor = if (on) (if (id == warningId) Color.White else colors.onPrimary) else colors.onSurface,
-                    border = if (on) null else BorderStroke(1.dp, colors.outline)
+                    color = container,
+                    contentColor = content,
+                    border = BorderStroke(1.dp, edge)
                 ) {
                     Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
                         Text(name, style = MaterialTheme.typography.labelLarge, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium)

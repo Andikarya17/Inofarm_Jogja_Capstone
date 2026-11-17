@@ -68,6 +68,7 @@ internal fun ManagerHomeScreen(
     onAdminFor: (AdminResource, Boolean) -> Unit = { _, _ -> },
     onHarvestProgress: () -> Unit = {},
     onSeasonReport: () -> Unit = {},
+    opening: GreenhouseOpening? = null,
 ) {
     val snapshot = state.snapshot
     val selected = snapshot?.selected
@@ -77,8 +78,14 @@ internal fun ManagerHomeScreen(
     var section by rememberSaveable(selection) { mutableStateOf("summary") }
     val list = rememberLazyListState()
     val placeholderList = rememberLazyListState()
-    val appearance = remember { Animatable(if (selection == null) 1f else .78f) }
+    // A card tap opens the detail with the container transform instead of this fade.
+    val appearance = remember { Animatable(if (selection == null || opening?.pending(selection) == true) 1f else .78f) }
     LaunchedEffect(Unit) { appearance.animateTo(1f, tween(FarmMotion.State)) }
+    if (opening != null) {
+        LaunchedEffect(Unit) { kotlinx.coroutines.delay(FarmMotion.PlaceholderReveal); opening.abandonIfWaiting(selection) }
+        DisposableEffect(Unit) { onDispose { opening.abandonIfWaiting(selection) } }
+    }
+    val trailing = { if (opening?.pending(selection) == true) opening.trailingAlpha() else 1f }
     val names = snapshot?.choices.orEmpty().associate { it.getString("id") to it.getString("name") }
     val activities = LocalHistoryFilter(greenhouseId = selection,
         groupId = period?.text("group_id"), recordState = "active")
@@ -94,54 +101,59 @@ internal fun ManagerHomeScreen(
         contentPadding = padding, verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium),
     ) {
         if (selection != null && selected != null) item("hero") {
-            GreenhouseHero(selected, when {
+            if (opening != null) LaunchedEffect(Unit) { opening.play(selection) }
+            val surface = MaterialTheme.colorScheme.surface
+            Box(if (opening != null) with(opening) { Modifier.openingHero(surface) } else Modifier) { GreenhouseHero(selected, when {
                 snapshot == null -> ""
                 state.cached -> "Data tersimpan · ${timeLabel(snapshot.asOf.toString())}"
                 else -> "Diperbarui ${snapshot.asOf.atZone(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH.mm 'WIB'"))}"
-            }) { onPeriodReview(true) }
+            }) { onPeriodReview(true) } }
         }
-        if (state.message != null || state.cached) item("coverage") {
+        if (state.message != null || state.cached) item("coverage") { HomeItem(trailing) {
             FarmPanel {
                 Text(if (state.cached) "Belum bisa memperbarui. Data yang tampil adalah data tersimpan." else state.message.orEmpty())
                 TextButton(onClick = onRefresh, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Perbarui") }
-            }
+            } }
         }
         if (selection == null) {
-            if (snapshot != null) item("cash-hero") {
+            if (snapshot != null) item("cash-hero") { HomeItem(trailing) {
                 CashHero(snapshot, when {
                     state.cached -> "Data tersimpan · ${timeLabel(snapshot.asOf.toString())}"
                     else -> "Diperbarui ${snapshot.asOf.atZone(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH:mm 'WIB'"))}"
                 }, state.loading, onOpen)
-            }
-            item("shortcuts") { HomeShortcuts(reviewCount, onReviewInbox, onAddGreenhouse, onHarvestProgress, onSeasonReport) }
+            }}
+            item("shortcuts") { HomeItem(trailing) { HomeShortcuts(reviewCount, onReviewInbox, onAddGreenhouse, onHarvestProgress, onSeasonReport) }}
         }
         if (snapshot == null) {
-            if (state.loading) item("loading") { FarmPanel { Text("Memuat ringkasan greenhouse…") } }
+            if (state.loading) item("loading") { HomeItem(trailing) { FarmPanel { Text("Memuat ringkasan greenhouse…") } }}
         } else if (selection == null) {
-            if (reviewCount != null && reviewCount > 0) item("review-inbox") { ReviewCard(reviewCount, onReviewInbox) }
-            item("greenhouse-title") {
+            if (reviewCount != null && reviewCount > 0) item("review-inbox") { HomeItem(trailing) { ReviewCard(reviewCount, onReviewInbox) }}
+            item("greenhouse-title") { HomeItem(trailing) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { SectionTitle("Greenhouse") }
                     Text("${snapshot.cards.size} greenhouse", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            }
-            if (snapshot.cards.isEmpty()) item("empty") { FarmPanel { Text("Belum ada greenhouse. Tambah greenhouse pertama.") } }
+            }}
+            if (snapshot.cards.isEmpty()) item("empty") { HomeItem(trailing) { FarmPanel { Text("Belum ada greenhouse. Tambah greenhouse pertama.") } }}
             val outsideFor = snapshot.json.rows("attention").filter {
                 !state.cached && validToday && it.text("type") == "measurement_outside_range"
             }.map { it.getString("greenhouse_id") }.toSet()
             itemsIndexed(snapshot.cards, key = { _, card -> card.getString("id") }) { index, card ->
                 // Cards slide into place when a greenhouse is added or leaves the list.
-                Column(Modifier.animateItem()) {
-                    GreenhouseCard(card, index, card.getString("id") in outsideFor) { onSelect(card.getString("id")) }
+                HomeItem(trailing) {
+                    GreenhouseCard(card, index, card.getString("id") in outsideFor) { bounds ->
+                        opening?.start(card.getString("id"), bounds)
+                        onSelect(card.getString("id"))
+                    }
                 }
             }
         } else if (selected != null) {
-            item("hub-sections") {
+            item("hub-sections") { HomeItem(trailing) {
                 FarmSegmentedTabs(listOf("summary" to "Ringkasan", "activity" to "Kegiatan", "harvest" to "Panen",
                     "finance" to "Keuangan", "settings" to "Pengaturan"), section, { section = it })
-            }
-            if (section == "summary") item("measurement") {
+            }}
+            if (section == "summary") item("measurement") { HomeItem(trailing) {
                 Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                     val server = snapshot.detail?.optJSONObject("measurement")
                     val dayState = snapshot.detail?.text("measurement_day_state")
@@ -183,8 +195,8 @@ internal fun ManagerHomeScreen(
                         Caption("PPM belum dapat dibandingkan dengan acuan saat pengukuran.")
                     }
                 }
-            }
-            if (section == "activity") item("work") {
+            }}
+            if (section == "activity") item("work") { HomeItem(trailing) {
                 FarmPanel(title = "Kegiatan dan jadwal") {
                     val schedules = snapshot.detail?.rows("schedules").orEmpty()
                     if (period != null && schedules.isEmpty()) Caption("Belum ada jadwal aktif.")
@@ -199,8 +211,8 @@ internal fun ManagerHomeScreen(
                     TextButton(onClick = { onOpen(HomeDestination(OperationalKind.ACTIVITY, activities, seasonLabelId = periodId)) },
                         modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat kegiatan") }
                 }
-            }
-            if (section in setOf("summary", "harvest")) item("harvest") {
+            }}
+            if (section in setOf("summary", "harvest")) item("harvest") { HomeItem(trailing) {
                 val harvest = snapshot.detail?.optJSONObject("harvest")
                 val title = if (period == null) "Riwayat panen" else "Panen tanam saat ini"
                 val (headline, note) = when {
@@ -212,8 +224,8 @@ internal fun ManagerHomeScreen(
                     }
                 }
                 HarvestRow(title, headline, note) { onOpen(HomeDestination(OperationalKind.HARVEST, activities, seasonLabelId = periodId)) }
-            }
-            if (section == "settings") item("settings") {
+            }}
+            if (section == "settings") item("settings") { HomeItem(trailing) {
                 val active = selected.optBoolean("active", true)
                 FarmRecordCard {
                     if (!active) Text("Greenhouse nonaktif. Ubah greenhouse untuk mengaktifkannya lagi.", style = MaterialTheme.typography.bodyMedium)
@@ -228,20 +240,20 @@ internal fun ManagerHomeScreen(
                     FarmActionRow(if (active) "Ubah atau nonaktifkan" else "Ubah greenhouse", "Nama dan status greenhouse", FarmIcon.Greenhouse,
                         Modifier.testTag("hub-edit")) { onAdminFor(AdminResource.GREENHOUSE, true) }
                 }
-            }
+            }}
         }
         val findings = snapshot?.json?.rows("attention").orEmpty().filter {
             !state.cached && (it.text("type") == "period_review" || validToday)
         }
         if ((findings.isNotEmpty() || queued != null) && (selection == null || section == "summary")) {
-            item("attention") { SectionTitle("Perlu perhatian") }
-            if (queued != null) item("local-queue") {
+            item("attention") { HomeItem(trailing) { SectionTitle("Perlu perhatian") }}
+            if (queued != null) item("local-queue") { HomeItem(trailing) {
                 AttentionCard("Belum terkirim") {
                     Caption(queued.error?.text("message") ?: "Ada catatan yang perlu dicek.")
                     TextButton(onClick = { onQueue(queued) }, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Lihat rinciannya") }
                 }
-            }
-            items(findings, key = { it.getString("id") }) { finding ->
+            }}
+            items(findings, key = { it.getString("id") }) { finding -> HomeItem(trailing) {
                 val periodFinding = finding.text("type") == "period_review"
                 val outside = finding.text("type") == "measurement_outside_range"
                 val gh = finding.getString("greenhouse_id")
@@ -273,10 +285,10 @@ internal fun ManagerHomeScreen(
                         Text(if (periodFinding) "Pilih tanam saat ini" else "Lihat riwayat pengukuran")
                     }
                 }
-            }
+            } }
         }
         if (snapshot != null) {
-            if (selection == null || section in setOf("activity", "harvest")) item("recent") {
+            if (selection == null || section in setOf("activity", "harvest")) item("recent") { HomeItem(trailing) {
                 val recent = snapshot.json.rows("recent").filter {
                     selection == null || (section == "harvest") == (it.text("kind") == "harvest")
                 }
@@ -289,19 +301,25 @@ internal fun ManagerHomeScreen(
                         record.getString("id"), record.text("season_id")))
                 }, onAllActivities = { onOpen(HomeDestination(OperationalKind.ACTIVITY, activities, seasonLabelId = periodId)) },
                     onAllHarvests = { onOpen(HomeDestination(OperationalKind.HARVEST, activities, seasonLabelId = periodId)) })
-            }
-            if (selection != null && section in setOf("summary", "finance")) item("cash") {
+            }}
+            if (selection != null && section in setOf("summary", "finance")) item("cash") { HomeItem(trailing) {
                 val cash = snapshot.cash
                 val filter = LocalHistoryFilter(greenhouseId = snapshot.selection, from = cash.getString("from"),
                     until = cash.getString("until"), recordState = "active")
                 CashCard(snapshot, { onOpen(HomeDestination(OperationalKind.EXPENSE, filter)) },
                     { onOpen(HomeDestination(OperationalKind.SALE, filter)) })
-            }
+            }}
         }
     }
 
     }
     if (periodReview && snapshot?.selected != null) RunningPeriodSheet(snapshot, state, onPeriodReview, onAdmin, onOpen, seasonActions, onDesignate)
+}
+
+/** Every home item except the hero: slides and fades with list changes, and waits while a greenhouse card opens. */
+@Composable
+private fun androidx.compose.foundation.lazy.LazyItemScope.HomeItem(alpha: () -> Float, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.farmListItem(this).graphicsLayer { this.alpha = alpha() }, content = content)
 }
 
 @Composable

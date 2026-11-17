@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.feature.FinanceDateField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
@@ -460,7 +461,18 @@ private fun DecisionEditor(
         } else {
             Choice("Keputusan", decision, listOf(option("valid", "Sesuai"), option("invalid", "Perlu diperbaiki")),
                 "verification-decision") { decision = it }
-            if (decision != null) {
+            // The reason field opens under the choice; "Perlu diperbaiki" needs a reason, so it is scrolled into view.
+            val reasonView = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+            LaunchedEffect(decision) {
+                if (decision == "invalid") { delay(com.inofarm.jogja.core.design.FarmMotion.State.toLong()); reasonView.bringIntoView() }
+            }
+            val motion = com.inofarm.jogja.core.design.FarmMotion
+            androidx.compose.animation.AnimatedVisibility(decision != null,
+                enter = androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(motion.State, easing = motion.EmphasizedDecelerate)) +
+                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(motion.State)),
+                exit = androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(motion.Press)) +
+                    androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(motion.Press))) {
+            Column(Modifier.bringIntoViewRequester(reasonView), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                 FinanceField(if (decision == "invalid") "Alasan (wajib)" else "Catatan (opsional)",
                     reason, { reason = it.take(1000) }, "verification-reason", singleLine = false)
                 error?.let { FarmAttention(it) }
@@ -472,7 +484,7 @@ private fun DecisionEditor(
                 val saved = decision == draft?.body?.text("decision") && reason.trim() == draft?.body?.text("reason").orEmpty()
                 Text(if (saved) "Draf tersimpan di perangkat." else "Perubahan draf belum tersimpan.",
                     style = MaterialTheme.typography.bodySmall)
-            }
+            } }
         }
     }
 }

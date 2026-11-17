@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.animateContentSize
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -72,14 +73,21 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
         com.inofarm.jogja.feature.managerhome.rememberManagerHome(homeRepository, session, ticket, gh, syncUpdate, null, 0L) else null
     val cashSnapshot = home?.snapshot?.takeIf { it.selection == gh }
     var showTools by rememberSaveable { mutableStateOf(false) }
+    // A kind chip keeps the hero and chips in place; only the list under them fades in.
+    var kindChanged by remember { mutableStateOf(false) }
+    val haptics = com.inofarm.jogja.core.design.rememberFarmHaptics()
     key(kind) {
         HistoryScreen(session,context,when(kind) {RecordKind.ASSET -> asset.history;RecordKind.DEPRECIATION -> asset.depreciation;RecordKind.EXPENSE -> expense;RecordKind.SALE -> saleHistory;else -> allocation},when(kind) {RecordKind.ASSET -> asset.historyVm;RecordKind.DEPRECIATION -> asset.depreciationVm;RecordKind.EXPENSE -> expenseVm;RecordKind.SALE -> saleHistoryVm;else -> allocationVm},queue,
-            canopy=true,onEdit={record,replace -> if(kind in setOf(RecordKind.ASSET,RecordKind.DEPRECIATION)) {asset.vm.open(record,replace);if(kind==RecordKind.ASSET) asset.historyVm.close() else asset.depreciationVm.close()} else if(kind==RecordKind.SALE) {sales.open(record,replace);saleHistoryVm.close()} else {entry.open(record,replace);if(kind==RecordKind.EXPENSE) expenseVm.close() else allocationVm.close()}},kind=kind,onSync=onSync,
+            canopy=true,onEdit={record,replace -> if(kind in setOf(RecordKind.ASSET,RecordKind.DEPRECIATION)) {asset.vm.open(record,replace);if(kind==RecordKind.ASSET) asset.historyVm.close() else asset.depreciationVm.close()} else if(kind==RecordKind.SALE) {sales.open(record,replace);saleHistoryVm.close()} else {entry.open(record,replace);if(kind==RecordKind.EXPENSE) expenseVm.close() else allocationVm.close()}},kind=kind,onSync=onSync,contentFade=kindChanged,
             historyKindPicker={
-                FarmChoiceChips("Riwayat keuangan",selected,listOf(option(RecordKind.EXPENSE.wire,"Pembayaran"),option(RecordKind.SALE.wire,"Penjualan lunas"),option(RecordKind.COST_ALLOCATION.wire,"Alokasi biaya"),option(RecordKind.ASSET.wire,"Aset"),option(RecordKind.DEPRECIATION.wire,"Penyusutan")),"expense-history-kind",scroll=true) {selected=it}
+                FarmChoiceChips("Riwayat keuangan",selected,listOf(option(RecordKind.EXPENSE.wire,"Pembayaran"),option(RecordKind.SALE.wire,"Penjualan lunas"),option(RecordKind.COST_ALLOCATION.wire,"Alokasi biaya"),option(RecordKind.ASSET.wire,"Aset"),option(RecordKind.DEPRECIATION.wire,"Penyusutan")),"expense-history-kind",scroll=true) {
+                    if (it != selected) { kindChanged = true; haptics.segmentTick() }
+                    selected=it
+                }
             }) {
             item("finance-workspace") {
-                FarmHeroCard {
+                // Picking a greenhouse adds the month's cash; the hero grows to it instead of jumping.
+                FarmHeroCard(Modifier.animateContentSize(androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State))) {
                     Choice("Greenhouse pencatatan",gh,greenhouses,"expense-gh",loading=context.loading) {gh=it}
                     if (cashSnapshot != null) {
                         val cash = cashSnapshot.cash

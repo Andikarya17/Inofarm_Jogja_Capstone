@@ -131,7 +131,7 @@ Prioritas: **P1** mengganggu tugas atau membingungkan, **P2** melemahkan hierark
 
 ### Catatan tes yang ditemukan saat audit
 
-`FinanceBackendDeviceTest.kt:619` dan `:687` menekan `finance-tab-4`, padahal bar pengelola sekarang hanya punya `finance-tab-0..3` (`FinanceNavigation.kt:41-45`). Tes perangkat itu kemungkinan sudah tidak cocok sejak navigasi empat tab. Ini temuan dari membaca kode, belum dijalankan.
+Awalnya saya hanya menyebut `FinanceBackendDeviceTest.kt:619` dan `:687`. Fase 0 sesi Sonnet (12 November) menemukan jauhnya lebih luas, dan saya cek ulang dengan grep: `finance-tab-4` 30 kali di 7 file tes, `finance-tab-1` 23 kali di 2 file, `manager-home-picker` 12 kali di 7 file, `finance-record-fab` 6 kali di 2 file. Tes ini ditulis untuk bar lama lima tab pengelola. Pemetaan dan langkah perbaikannya (Fase 0b) ada di master prompt bagian 3 dan 6. Belum ada yang dijalankan.
 
 ### Tipografi dan gerak
 
