@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\V2;
 
+use App\Domain\Cultivation\MasterService;
 use App\Domain\Finance\CostAllocationService;
 use App\Domain\Finance\ExpenseBalance;
 use App\Domain\Finance\ExpenseService;
@@ -80,7 +81,18 @@ final class ExpenseController extends Controller
 
     public function availability(Request $request, string $id)
     {
-        return app(ScopedRead::class)->run($request, fn (User $actor) => ['data' => app(ExpenseBalance::class)->publicRow(app(ExpenseService::class)->scope($actor)->where('id', $id)->first() ?? abort(404))]);
+        $input = $request->validate(['split_season_ids' => 'sometimes|array|min:1|max:20', 'split_season_ids.*' => 'required|uuid|distinct']);
+
+        return app(ScopedRead::class)->run($request, function (User $actor) use ($id, $input) {
+            $data = app(ExpenseBalance::class)->publicRow(app(ExpenseService::class)->scope($actor)->where('id', $id)->first() ?? abort(404));
+            if (isset($input['split_season_ids'])) {
+                $seasons = array_values($input['split_season_ids']);
+                abort_unless(app(MasterService::class)->scope($actor, 'seasons')->whereIn('id', $seasons)->count() === count($seasons), 404);
+                $data['even_split'] = ExpenseBalance::evenSplit($data['available_amount'], $seasons);
+            }
+
+            return ['data' => $data];
+        });
     }
 
     public function store(Request $request, string $financeResource)

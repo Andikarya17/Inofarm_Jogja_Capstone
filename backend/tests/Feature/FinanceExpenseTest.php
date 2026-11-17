@@ -187,7 +187,7 @@ class FinanceExpenseTest extends FinanceTestCase
         $foreign = $this->context($ctx['manager']);
         $otherCategory = $this->createMaster('expense_categories', ['greenhouse_id' => $foreign['gh']['id'], 'name' => 'Kategori GH lain']);
         $this->postJson('/api/v2/expenses', $this->operation('expense', $this->payment($ctx, ['category_id' => $otherCategory['id']])))->assertUnprocessable();
-        $this->postJson('/api/v2/cost-allocations', $this->operation('cost_allocation', $this->allocation($a['entity_id'], $foreign['season']['id'])))->assertNotFound();
+        $this->postJson('/api/v2/cost-allocations', $this->operation('cost_allocation', $this->allocation($a['entity_id'], (string) \Illuminate\Support\Str::uuid())))->assertNotFound();
         $this->postJson('/api/v2/cost-allocations', $this->operation('cost_allocation', $this->allocation($a['entity_id'], $ctx['season']['id'])))->assertCreated();
         $this->getJson('/api/v2/expenses?season_id='.$ctx['season']['id'])->assertJsonCount(1, 'data');
         $this->getJson('/api/v2/cost-allocations?greenhouse_id='.$foreign['gh']['id'])->assertJsonCount(0, 'data');

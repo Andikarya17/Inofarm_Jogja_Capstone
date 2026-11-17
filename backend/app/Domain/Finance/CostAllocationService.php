@@ -39,7 +39,8 @@ final class CostAllocationService
             $this->access->manager($current);
             $source = $op['action'] === 'create' ? (object) $op['payload'] : ($this->scope($current)->where('id', $op['entity_id'])->first() ?? abort(404));
             $expense = $this->expenses->scope($current)->where('id', $source->expense_id)->first() ?? abort(404);
-            DB::table('seasons')->where('id', $source->season_id)->where('greenhouse_id', $expense->greenhouse_id)->first() ?? abort(404);
+            // Shared costs (electricity, pesticide, salaries) may be charged to seasons of any greenhouse the actor can reach.
+            DB::table('seasons')->whereIn('greenhouse_id', $this->access->ids($current))->where('id', $op['payload']['season_id'] ?? $source->season_id)->first() ?? abort(404);
         }, function (User $current) use ($op) {
             $p = $op['payload'];
             $row = null;
@@ -54,9 +55,16 @@ final class CostAllocationService
             }
             $expense = $this->expenses->scope($current)->where('id', $row->expense_id ?? $p['expense_id'])->lockForUpdate()->first() ?? abort(404);
             $this->balance->assertConsistent($expense);
-            $season = DB::table('seasons')->where('id', $row->season_id ?? $p['season_id'])->where('greenhouse_id', $expense->greenhouse_id)->lockForUpdate()->first() ?? abort(404);
+            $seasonId = $op['action'] === 'cancel' ? $row->season_id : $p['season_id'];
+            $season = DB::table('seasons')->whereIn('greenhouse_id', $this->access->ids($current))->where('id', $seasonId)->lockForUpdate()->first() ?? abort(404);
             $this->expenses->writableGreenhouse($current, $expense->greenhouse_id);
+            $this->expenses->writableGreenhouse($current, $season->greenhouse_id);
             $this->expenses->openSeason($season);
+            $moved = $row !== null && $row->season_id !== $season->id;
+            if ($moved) {
+                // Moving a wrongly booked cost changes both seasons, so both must still be open.
+                $this->expenses->openSeason(DB::table('seasons')->where('id', $row->season_id)->lockForUpdate()->first());
+            }
             abort_unless($expense->record_state === 'active' && $expense->payment_kind === 'operating', 422, 'Alokasi biaya operasi memerlukan pembayaran operasi aktif; pembelian aset tidak dihitung ulang sebagai biaya operasi.');
             $amount = $op['action'] === 'cancel' ? '0.00' : Money::amount($p['amount']);
             $newTotal = bcadd(bcsub($expense->allocated_amount, $row->amount ?? '0', 2), $amount, 2);
@@ -66,10 +74,11 @@ final class CostAllocationService
             if ($op['action'] === 'cancel') {
                 $data = ['record_state' => 'cancelled'];
             } else {
-                abort_if($row !== null && ($p['expense_id'] !== $row->expense_id || $p['season_id'] !== $row->season_id), 422, 'Sumber dan musim alokasi tidak dapat dipindah. Batalkan lalu buat alokasi baru dengan alasan.');
+                abort_if($row !== null && $p['expense_id'] !== $row->expense_id, 422, 'Sumber pembayaran alokasi tidak dapat diganti. Batalkan lalu buat alokasi baru.');
                 $data = ['expense_id' => $expense->id, 'season_id' => $season->id, 'amount' => $amount, 'currency' => 'IDR',
                     'cost_class' => $p['cost_class'], 'allocation_basis' => $p['allocation_basis'],
-                    'season_name' => $row->season_name ?? $season->name, 'season_version' => $row->season_version ?? $season->version];
+                    'season_name' => $row !== null && ! $moved ? $row->season_name : $season->name,
+                    'season_version' => $row !== null && ! $moved ? $row->season_version : $season->version];
             }
             $data['version'] = ($row->version ?? 0) + 1;
             $data['updated_at'] = now();

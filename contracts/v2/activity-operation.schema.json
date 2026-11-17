@@ -298,6 +298,17 @@
                 "null"
               ],
               "maxLength": 500
+            },
+            "measurement_moment": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "before_injection",
+                "after_injection",
+                null
+              ]
             }
           }
         }
@@ -529,6 +540,17 @@
                 "null"
               ],
               "maxLength": 500
+            },
+            "measurement_moment": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "before_injection",
+                "after_injection",
+                null
+              ]
             }
           }
         }

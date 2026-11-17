@@ -8,6 +8,7 @@ use App\Http\Controllers\V2\AuthController;
 use App\Http\Controllers\V2\ChangeFeedController;
 use App\Http\Controllers\V2\ContextController;
 use App\Http\Controllers\V2\ExpenseController;
+use App\Http\Controllers\V2\FieldReportController;
 use App\Http\Controllers\V2\HarvestController;
 use App\Http\Controllers\V2\HarvestReviewController;
 use App\Http\Controllers\V2\InvestmentReportController;
@@ -34,6 +35,10 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::get('greenhouses/{id}', [ContextController::class, 'greenhouse'])->whereUuid('id');
         Route::get('manager-home', ManagerHomeController::class);
         Route::post('greenhouses/{id}/running-period', [MasterController::class, 'designatePeriod'])->whereUuid('id')->middleware('finance-manager');
+        Route::post('greenhouses/{id}/copy-masters', [MasterController::class, 'copyMasters'])->whereUuid('id')->middleware('finance-manager');
+        Route::get('reports/cash-flow', [FieldReportController::class, 'cashFlow'])->middleware('finance-manager');
+        Route::get('season-reports/compare', [FieldReportController::class, 'compare'])->middleware('finance-manager');
+        Route::get('seasons/{id}/material-usage', [FieldReportController::class, 'materialUsage'])->whereUuid('id');
         Route::get('sync/status', SyncStatusController::class);
         Route::post('sync/operations', [ActivityController::class, 'sync']);
         Route::get('sync/changes', ChangeFeedController::class);

@@ -26,6 +26,18 @@ final class ExpenseBalance
             'available_amount' => $active ? bcsub($expense->amount, $expense->allocated_amount, 2) : '0.00'];
     }
 
+    /** "Dibagi rata": whole cents, the first seasons absorb the leftover cents so the parts add up exactly. */
+    public static function evenSplit(string $available, array $seasonIds): array
+    {
+        $cents = bcmul($available, '100', 0);
+        $count = (string) count($seasonIds);
+        $base = bcdiv($cents, $count, 0);
+        $extra = (int) bcsub($cents, bcmul($base, $count, 0), 0);
+
+        return array_map(fn (string $id, int $index) => ['season_id' => $id,
+            'amount' => bcdiv(bcadd($base, $index < $extra ? '1' : '0', 0), '100', 2)], $seasonIds, array_keys($seasonIds));
+    }
+
     /** Only called inside the authorized mutation ledger. */
     public function publish(object $expense): void
     {

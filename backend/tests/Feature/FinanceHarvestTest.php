@@ -269,11 +269,15 @@ class FinanceHarvestTest extends FinanceTestCase
             $p['items'][0]['weight_kg'] = $invalid;
             $this->postJson('/api/v2/harvests', $this->operation('harvest', $p))->assertUnprocessable();
         }
-        foreach ([-1, '2', 1.5, true, 2147483648, null] as $invalid) {
+        foreach ([-1, '2', 1.5, true, 2147483648] as $invalid) {
             $p = $payload;
             $p['items'][0]['fruit_count'] = $invalid;
             $this->postJson('/api/v2/harvests', $this->operation('harvest', $p))->assertUnprocessable();
         }
+        // Weighed-only lines send an explicit null; a missing key is still rejected.
+        $p = $payload;
+        unset($p['items'][0]['fruit_count']);
+        $this->postJson('/api/v2/harvests', $this->operation('harvest', $p))->assertUnprocessable();
         foreach (['id', 'grade_id'] as $key) {
             $p = $payload;
             $p['items'][1][$key] = $p['items'][0][$key];

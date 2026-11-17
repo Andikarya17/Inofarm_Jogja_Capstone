@@ -109,6 +109,14 @@ final class MasterController extends Controller
         return response()->json($result['body'], $result['status']);
     }
 
+    public function copyMasters(Request $request, string $id, MasterService $service)
+    {
+        $input = $request->validate(['source_greenhouse_id' => 'required|uuid']);
+        abort_if($input['source_greenhouse_id'] === $id, 422, 'Pilih greenhouse sumber yang berbeda.');
+
+        return ['data' => $service->copyMasters($request->user(), $id, $input['source_greenhouse_id'])];
+    }
+
     private function mutate(Request $request, MasterService $service, string $action, ?string $id = null)
     {
         $table = $this->table($request);

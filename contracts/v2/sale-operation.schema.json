@@ -194,6 +194,44 @@
               }
             }
           }
+        },
+        "payment_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "cash",
+                "qris",
+                "transfer"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payment_reference": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "customer_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "consumer",
+                "partner"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     },
@@ -278,6 +316,44 @@
           "minLength": 1,
           "maxLength": 1000,
           "pattern": "\\S"
+        },
+        "payment_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "cash",
+                "qris",
+                "transfer"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payment_reference": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "customer_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "consumer",
+                "partner"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     },
