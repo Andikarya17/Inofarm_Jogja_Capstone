@@ -41,14 +41,16 @@ class FinanceMasterTest extends FinanceTestCase
         $changed['payload']['name'] = 'Isi berbeda';
         $this->postJson('/api/v2/greenhouses', $changed)->assertConflict()->assertJsonPath('code', 'operation_conflict');
         $this->assertDatabaseCount('greenhouses', 1);
-        $this->assertDatabaseCount('audit_logs', 1);
-        $this->assertDatabaseCount('change_feed', 1);
+        // A new greenhouse also receives the 10 starting spray materials, once, even when the create is replayed.
+        $this->assertDatabaseCount('materials', 10);
+        $this->assertDatabaseCount('audit_logs', 11);
+        $this->assertDatabaseCount('change_feed', 11);
         $this->assertDatabaseCount('sync_operations', 1);
         $edit = $this->operation('greenhouses', ['name' => 'Nama baru', 'active' => true, 'reason' => 'Koreksi uji'], 'update', $op['entity_id'], 1);
         $this->patchJson('/api/v2/greenhouses/'.$op['entity_id'], $edit)->assertOk()->assertJsonPath('version', 2);
         $edit['operation_id'] = (string) Str::uuid();
         $this->patchJson('/api/v2/greenhouses/'.$op['entity_id'], $edit)->assertConflict()->assertJsonPath('current_version', 2);
-        $this->assertDatabaseCount('audit_logs', 2);
+        $this->assertDatabaseCount('audit_logs', 12);
         $epoch = $this->operation('greenhouses', ['name' => 'Old epoch']);
         $epoch['sync_epoch'] = (string) Str::uuid();
         $this->postJson('/api/v2/greenhouses', $epoch)->assertConflict()->assertJsonPath('code', 'epoch_mismatch');
@@ -71,7 +73,10 @@ class FinanceMasterTest extends FinanceTestCase
         DB::table('greenhouse_assignments')->where('user_id', $manager->id)->update(['active' => false]);
         $this->postJson('/api/v2/varieties', $op)->assertCreated();
         DB::table('greenhouse_assignments')->where('id', $assignment['id'])->update(['active' => false]);
-        $this->asUser($worker)->getJson('/api/v2/planting-groups')->assertJsonCount(0, 'data');
+        // Assignments no longer limit workers (17 Nov 2026); an inactive greenhouse does.
+        $this->asUser($worker)->getJson('/api/v2/planting-groups')->assertJsonCount(1, 'data');
+        DB::table('greenhouses')->where('id', $ctx['gh']['id'])->update(['active' => false]);
+        $this->getJson('/api/v2/planting-groups')->assertJsonCount(0, 'data');
     }
 
     public function test_close_reopen_is_versioned_reasoned_and_closed_group_writes_are_held(): void

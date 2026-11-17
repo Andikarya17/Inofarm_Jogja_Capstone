@@ -7,6 +7,7 @@ use App\Domain\Contracts\DomainFailure;
 use App\Domain\Cultivation\GroupContext;
 use App\Domain\Cultivation\MasterService;
 use App\Domain\Cultivation\ReferenceService;
+use App\Domain\Cultivation\SprayMaterialCatalog;
 use App\Domain\Cultivation\TargetComparator;
 use App\Domain\Sync\MutationLedger;
 use App\Models\User;
@@ -17,11 +18,16 @@ use InvalidArgumentException;
 
 final class ActivityService
 {
-    public function __construct(private GroupContext $context, private MasterService $masters, private ReferenceService $references, private MutationLedger $ledger) {}
+    /** Columns a mutation copies from its payload, besides occurred_at and observations. */
+    private const COLUMNS = ['planting_group_id', 'season_id', 'schedule_id', 'activity_type', 'manual_ec', 'manual_ppm', 'manual_ph', 'actual_stage',
+        'work_state', 'skipped_reason', 'notes', 'entry_batch_id', 'age_basis', 'age_day', 'spray_date', 'spray_period'];
+
+    public function __construct(private GroupContext $context, private MasterService $masters, private ReferenceService $references,
+        private MutationLedger $ledger, private SprayMaterialCatalog $sprays) {}
 
     public function scope(User $actor)
     {
-        return DB::table('activities')->whereIn('planting_group_id', $this->masters->scope($actor, 'planting_groups')->select('id'));
+        return DB::table('activities')->whereIn('season_id', $this->masters->scope($actor, 'seasons')->select('id'));
     }
 
     public function publicRow(object $row): array
@@ -47,7 +53,7 @@ final class ActivityService
         return $this->ledger->run($actor, $op, function (User $current) use ($op) {
             $source = $op['action'] === 'create' ? null : ($this->scope($current)->where('id', $op['entity_id'])->first() ?? abort(404));
             // Replays still require current scope/role. Closed/inactive state blocks only a new mutation.
-            $this->context->get($current, $source->planting_group_id ?? $op['payload']['planting_group_id']);
+            $this->context->activity($current, $source ?? $op['payload']);
             if ($source !== null) {
                 abort_unless($current->role === 'manager' || ($source->recorded_by === $current->id && $op['action'] !== 'cancel'), 403, 'Koreksi hanya untuk catatan sendiri; pembatalan memerlukan pengelola.');
             }
@@ -62,7 +68,10 @@ final class ActivityService
                 throw new DomainFailure('entity_exists', 'Identitas aktivitas sudah digunakan.');
             }
             $p = $op['payload'];
-            $ctx = $this->context->get($current, $before['planting_group_id'] ?? $p['planting_group_id'], true);
+            if ($op['action'] !== 'cancel') {
+                $p = $this->parent($p, $before);
+            }
+            $ctx = $this->context->activity($current, $before ?? $p, true);
             if ($op['action'] === 'create' && isset($p['running_period_version'])) {
                 app(\App\Domain\Cultivation\RunningPeriod::class)->assertHomeParent($ctx, $p['running_period_version']);
             }
@@ -70,7 +79,7 @@ final class ActivityService
                 $data = ['record_state' => 'cancelled'];
                 $snapshot = $before['reference_snapshot'];
             } else {
-                abort_if($before !== null && $p['planting_group_id'] !== $before['planting_group_id'], 422, 'Kelompok aktivitas tidak dapat dipindah.');
+                $p['materials'] = $this->resolveMaterials($current, $p, $ctx['greenhouse']->id);
                 $this->validate($p, $ctx['greenhouse']->id, $before);
                 if ($before !== null && ($p['reference_policy'] ?? 'preserve') === 'preserve') {
                     abort_if(CarbonImmutable::parse($p['occurred_at'])->ne(CarbonImmutable::parse($before['occurred_at'])) || $p['activity_type'] !== $before['activity_type'], 422, 'Perubahan waktu/jenis memerlukan refresh acuan eksplisit dan alasan.');
@@ -79,12 +88,15 @@ final class ActivityService
                         $snapshot['checks'][$parameter] = TargetComparator::compare($p[$parameter] ?? null, $snapshot['checks'][$parameter]['target'] ?? null);
                     }
                 } else {
-                    $snapshot = $this->references->snapshot($ctx['group'], $p['activity_type'], $p['occurred_at'], $p);
-                    if ($snapshot['age']['status'] === 'unavailable') {
+                    $snapshot = $ctx['group'] === null
+                        ? $this->references->seasonSnapshot($ctx['season'], $p['activity_type'], $p['occurred_at'], $p)
+                        : $this->references->snapshot($ctx['group'], $p['activity_type'], $p['occurred_at'], $p);
+                    // New entries carry the typed HSS/HST, so a computed age is no longer required (K6).
+                    if (($p['entry_batch_id'] ?? null) === null && $snapshot['age']['status'] === 'unavailable') {
                         throw ValidationException::withMessages(['occurred_at' => $snapshot['age']['reasons']]);
                     }
                 }
-                $data = array_intersect_key($p, array_flip(['planting_group_id', 'schedule_id', 'activity_type', 'manual_ec', 'manual_ppm', 'manual_ph', 'actual_stage', 'work_state', 'skipped_reason', 'notes']));
+                $data = array_intersect_key($p, array_flip(self::COLUMNS));
                 if (array_key_exists('observations', $p)) {
                     $observations = array_filter($p['observations'] ?? [], fn ($value) => $value !== null);
                     $data['observations'] = $observations === [] ? null : json_encode($observations, JSON_THROW_ON_ERROR);
@@ -94,7 +106,8 @@ final class ActivityService
                     $snapshot['schedule'] = $schedule === null ? null : $this->references->publicRow($schedule);
                 }
                 $data['occurred_at'] = CarbonImmutable::parse($p['occurred_at'])->utc()->format('Y-m-d H:i:s.u');
-                foreach (['schedule_id', 'manual_ec', 'manual_ppm', 'manual_ph', 'actual_stage', 'skipped_reason'] as $key) {
+                foreach (['planting_group_id', 'schedule_id', 'manual_ec', 'manual_ppm', 'manual_ph', 'actual_stage', 'skipped_reason',
+                    'entry_batch_id', 'age_basis', 'age_day', 'spray_date', 'spray_period'] as $key) {
                     $data[$key] = $data[$key] ?? null;
                 }
             }
@@ -135,18 +148,28 @@ final class ActivityService
             }
         }
         abort_if(isset($p['manual_ph']) && bccomp($p['manual_ph'], '14', 6) > 0, 422, 'pH harus 0 sampai 14.');
+        $spray = $p['activity_type'] === 'spray';
         foreach ($p['materials'] as $item) {
-            $this->nonNegative($item['quantity'], 'materials.quantity');
-            $retained = collect($before['materials'] ?? [])->contains(fn ($old) => $old['material_id'] === $item['material_id'] && $old['unit_id'] === $item['unit_id']);
+            $unitId = $item['unit_id'] ?? null;
+            $quantity = $item['quantity'] ?? null;
+            // A spray dose is optional, but half a dose (unit without amount or the reverse) is never accepted.
+            if (! $spray || $unitId !== null || $quantity !== null) {
+                abort_if($unitId === null || $quantity === null, 422, $spray ? 'Isi jumlah dan satuan dosis bersama, atau kosongkan keduanya.' : 'Isi jumlah dan satuan bahan.');
+                $this->nonNegative($quantity, 'materials.quantity');
+            }
+            $retained = collect($before['materials'] ?? [])->contains(fn ($old) => $old['material_id'] === $item['material_id'] && $old['unit_id'] === $unitId);
             $material = DB::table('materials')->where('id', $item['material_id'])->where('greenhouse_id', $gh)->when(! $retained, fn ($q) => $q->where('active', true))->first();
-            $unit = DB::table('units')->where('id', $item['unit_id'])->where('greenhouse_id', $gh)->when(! $retained, fn ($q) => $q->where('active', true))->first();
-            abort_unless($material && $unit && $material->dimension === $unit->dimension, 422, 'Bahan/satuan harus aktif, berdimensi sama dan berasal dari greenhouse yang sama.');
+            $unit = $unitId === null ? null : DB::table('units')->where('id', $unitId)->where('greenhouse_id', $gh)->when(! $retained, fn ($q) => $q->where('active', true))->first();
+            // Spray doses use any unit of the greenhouse (e.g. ml/L); nutrition keeps the same-dimension rule.
+            abort_unless($material && ($unitId === null || ($unit && ($spray || $material->dimension === $unit->dimension))), 422,
+                'Bahan/satuan harus aktif, berdimensi sama dan berasal dari greenhouse yang sama.');
         }
         if (($p['schedule_id'] ?? null) !== null) {
+            abort_if(($p['planting_group_id'] ?? null) === null, 422, 'Jadwal hanya untuk catatan per kelompok.');
             $schedule = DB::table('schedules')->where('id', $p['schedule_id'])->where('planting_group_id', $p['planting_group_id'])->where('activity_type', $p['activity_type'])->first();
             abort_unless($schedule && ($schedule->active || ($before['schedule_id'] ?? null) === $schedule->id), 422, 'Jadwal tidak cocok atau sudah tidak aktif.');
         }
-        $errors = [];
+        $errors = $this->entryErrors($p);
         if ($p['activity_type'] === 'measurement') {
             foreach (['manual_ec', 'manual_ppm'] as $field) {
                 if (($p[$field] ?? null) === null) {
@@ -166,7 +189,8 @@ final class ActivityService
                 $errors['skipped_reason'] = 'Pemberian nutrisi yang dilewati wajib diberi alasan.';
             }
         } else {
-            if ($p['activity_type'] === 'nutrition') {
+            // In the greenhouse entry form the readings live in the measurement section of the same batch.
+            if ($p['activity_type'] === 'nutrition' && ($p['entry_batch_id'] ?? null) === null) {
                 foreach (['manual_ppm', 'manual_ph'] as $field) {
                     if (($p[$field] ?? null) === null) {
                         $errors[$field] = 'Pengukuran manual wajib diisi; kosong bukan nol.';
@@ -186,6 +210,66 @@ final class ActivityService
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
         }
+    }
+
+    /** Group and season come from the payload (or the stored row); a legacy payload names only its group. */
+    private function parent(array $p, ?array $before): array
+    {
+        $group = $p['planting_group_id'] ?? null;
+        $season = $p['season_id'] ?? null;
+        if ($group !== null) {
+            $groupSeason = DB::table('planting_groups')->where('id', $group)->value('season_id') ?? abort(404);
+            abort_if($season !== null && $season !== $groupSeason, 422, 'Kelompok tidak berada di musim ini.');
+            $season = $groupSeason;
+        }
+        abort_if($season === null, 422, 'Pilih greenhouse dan musim.');
+        if ($before !== null) {
+            abort_if($group !== $before['planting_group_id'] || $season !== $before['season_id'], 422, 'Kelompok aktivitas tidak dapat dipindah.');
+        }
+
+        return [...$p, 'planting_group_id' => $group, 'season_id' => $season];
+    }
+
+    /** A typed spray name becomes a shared master material; ids are what the activity stores. */
+    private function resolveMaterials(User $actor, array $p, string $gh): array
+    {
+        return array_map(function (array $item) use ($actor, $p, $gh) {
+            if (($item['material_id'] ?? null) === null) {
+                abort_unless($p['activity_type'] === 'spray' && trim($item['material_name'] ?? '') !== '', 422, 'Pilih bahan dari daftar.');
+                $item['material_id'] = $this->sprays->resolve($actor, $gh, $item['material_name']);
+            }
+
+            return ['material_id' => $item['material_id'], 'unit_id' => $item['unit_id'] ?? null, 'quantity' => $item['quantity'] ?? null];
+        }, $p['materials']);
+    }
+
+    /** Rules of the greenhouse entry form (entry_batch_id present); legacy single-type payloads skip the new requirements. */
+    private function entryErrors(array $p): array
+    {
+        $errors = [];
+        $entry = ($p['entry_batch_id'] ?? null) !== null;
+        $basis = $p['age_basis'] ?? null;
+        $day = $p['age_day'] ?? null;
+        if (($basis === null) !== ($day === null) || ($entry && $basis === null)) {
+            $errors['age_basis'] = 'Isi umur tanaman: HSS atau HST dan hari ke berapa.';
+        }
+        $spray = $p['activity_type'] === 'spray';
+        if (! $spray && (($p['spray_date'] ?? null) !== null || ($p['spray_period'] ?? null) !== null)) {
+            $errors['spray_date'] = 'Tanggal dan waktu semprot hanya untuk penyemprotan.';
+        }
+        if ($entry && $spray) {
+            if (($p['planting_group_id'] ?? null) === null) {
+                $errors['planting_group_id'] = 'Pilih varietas yang disemprot.';
+            }
+            if (($p['spray_date'] ?? null) === null || ($p['spray_period'] ?? null) === null) {
+                $errors['spray_date'] = 'Isi tanggal semprot dan pilih pagi atau sore.';
+            }
+        }
+        if ($entry && ! $spray && ($p['planting_group_id'] ?? null) !== null) {
+            $errors['planting_group_id'] = 'Catatan ini berlaku untuk seluruh greenhouse; varietas hanya dipilih untuk penyemprotan.';
+        }
+
+        return $errors;
     }
 
     private function nonNegative(mixed $value, string $field): void

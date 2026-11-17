@@ -9,7 +9,7 @@ use Tests\FinanceTestCase;
 
 class WorkerRecordingRecoveryTest extends FinanceTestCase
 {
-    public function test_scope_growth_recovers_older_masters_and_revocation_hides_them(): void
+    public function test_scope_growth_recovers_older_masters_and_deactivation_hides_them(): void
     {
         $manager = $this->account();
         $worker = $this->account('worker');
@@ -17,8 +17,9 @@ class WorkerRecordingRecoveryTest extends FinanceTestCase
         $gh = $ctx['gh']['id'];
         $other = $this->context($manager);
         $foreign = $this->context($this->account());
-        $this->asUser($worker)->getJson('/api/v2/me')->assertOk()->assertJsonCount(0, 'greenhouses');
-        $cursor = $this->getJson('/api/v2/sync/changes')->assertOk()->assertJsonCount(0, 'scope')->assertJsonCount(0, 'data')->json('next_cursor');
+        // Workers reach every active greenhouse without an assignment (17 Nov 2026).
+        $this->asUser($worker)->getJson('/api/v2/me')->assertOk()->assertJsonCount(3, 'greenhouses');
+        $cursor = $this->getJson('/api/v2/sync/changes?limit=100')->assertOk()->assertJsonCount(3, 'scope')->json('next_cursor');
         $this->postJson('/api/v2/users/assignment-candidate', ['greenhouse_id' => $gh, 'email' => $worker->email])->assertForbidden();
 
         $this->asUser($manager)->getJson('/api/v2/users?for_assignment=1&greenhouse_id='.$gh)->assertJsonCount(1, 'data')
@@ -42,9 +43,15 @@ class WorkerRecordingRecoveryTest extends FinanceTestCase
             'effective_from' => now()->addDay()->format('Y-m-d\TH:i:sP')]);
         $this->assertDatabaseCount('greenhouse_assignments', 5);
 
-        $this->asUser($worker)->getJson('/api/v2/greenhouses')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $gh);
-        $feed = $this->getJson('/api/v2/sync/changes?'.http_build_query(['cursor' => $cursor]))->assertOk()->assertJsonCount(1, 'scope')->json();
-        $this->assertSame(['greenhouses', 'varieties', 'seasons', 'planting_groups'], array_column($feed['data'], 'entity_type'));
+        // A new greenhouse widens the scope, so an old cursor replays every visible record, older masters included.
+        $later = $this->context($manager);
+        $this->asUser($worker)->getJson('/api/v2/greenhouses')->assertOk()->assertJsonCount(4, 'data');
+        $feed = $this->getJson('/api/v2/sync/changes?'.http_build_query(['cursor' => $cursor, 'limit' => 100]))->assertOk()->assertJsonCount(4, 'scope')->json();
+        $types = array_count_values(array_column($feed['data'], 'entity_type'));
+        $this->assertSame(4, $types['planting_groups']);
+        $this->assertSame(40, $types['materials']);
+        $this->assertArrayNotHasKey('greenhouse_assignments', $types);
+        $this->assertContains($later['group']['id'], array_column($feed['data'], 'entity_id'));
         $this->getJson('/api/v2/sync/changes?'.http_build_query(['cursor' => $feed['next_cursor']]))->assertOk()->assertJsonCount(0, 'data');
 
         $activity = $this->operation('activity', ['planting_group_id' => $ctx['group']['id'], 'activity_type' => 'general',
@@ -59,13 +66,17 @@ class WorkerRecordingRecoveryTest extends FinanceTestCase
         $this->patchJson('/api/v2/greenhouses/'.$gh, $this->operation('greenhouses', ['name' => 'GH uji diperbarui', 'active' => false,
             'reason' => 'Uji penutupan input'], 'update', $gh, 1))->assertOk()->assertJsonPath('data.active', false);
         $this->getJson('/api/v2/greenhouses/'.$gh)->assertOk()->assertJsonPath('active', false);
-        $this->asUser($worker)->postJson('/api/v2/activities', $this->operation('activity', $activity['payload']))->assertUnprocessable();
+        $this->asUser($worker)->postJson('/api/v2/activities', $this->operation('activity', $activity['payload']))->assertNotFound();
         $this->asUser($manager)->patchJson('/api/v2/greenhouses/'.$gh, $this->operation('greenhouses', ['name' => 'GH uji diperbarui', 'active' => true,
             'reason' => 'Uji buka input'], 'update', $gh, 2))->assertOk()->assertJsonPath('data.active', true);
+        // Revoking the assignment changes nothing now; deactivating the greenhouse hides it from the worker.
         $this->patchJson('/api/v2/assignments/'.$assign['entity_id'], $this->operation('greenhouse_assignments', ['effective_from' => $from, 'effective_until' => null,
             'active' => false, 'reason' => 'Uji pencabutan'], 'update', $assign['entity_id'], 1))->assertOk();
+        $this->asUser($worker)->getJson('/api/v2/activities/'.$activity['entity_id'])->assertOk();
+        $this->asUser($manager)->patchJson('/api/v2/greenhouses/'.$gh, $this->operation('greenhouses', ['name' => 'GH uji diperbarui', 'active' => false,
+            'reason' => 'Uji penutupan lagi'], 'update', $gh, 3))->assertOk();
         $this->asUser($worker)->getJson('/api/v2/sync/changes?'.http_build_query(['cursor' => $feed['next_cursor']]))
-            ->assertOk()->assertJsonCount(0, 'scope')->assertJsonCount(0, 'data');
+            ->assertOk()->assertJsonCount(3, 'scope');
         $this->getJson('/api/v2/activities/'.$activity['entity_id'])->assertNotFound();
         $this->asUser($manager)->getJson('/api/v2/activities/'.$activity['entity_id'])->assertOk();
     }

@@ -17,3 +17,7 @@ GET `/users?greenhouse_id=...&for_assignment=1` memberi kandidat aktif yang memi
 `GET sync/status` mengembalikan schema_version dan UUID sync_epoch metadata yang dibuat migration; bukan default bisnis. Semua mutation berbagi lock metadata singleton lalu memeriksa hak terkini, epoch, hash receipt dan version; menyimpan mutation+audit+receipt+feed dalam satu transaction. Ini memprioritaskan integritas dan commit-order feed untuk usaha kecil; throughput tinggi belum dibuktikan. Receipt tidak dipurge otomatis. FIN05 menambahkan pull dan outbox Android; belum tersedia pada FIN03.
 
 Migration baru membuat tabel master+ledger; FK restrict. Read-only test MySQL guard tetap. Migration/test belum dijalankan pada inofarm_local; menjalankan server v2 pada database pengguna memerlukan migrasi target terpisah, tidak dilakukan lewat suite.
+
+## Bahan semprot bersama (17 November 2026)
+
+`materials.purpose` bernilai `spray` untuk daftar bahan semprot bersama, null untuk bahan lain. Daftar awal keputusan pengguna (Nisozin, Demolish, Regent, Antracol, Agrept, Amistartop, Bion M, Daconil, Besromil, Sop 3g/L) dibuat untuk setiap greenhouse baru saat `POST greenhouses`. Greenhouse yang sudah ada sebelum migration 22 mendapatkannya lewat `php artisan inofarm:spray-materials <email-pengelola-aktif>`, idempoten, dengan pengelola itu tercatat sebagai aktor audit. Bahan spray ber-`dimension` `spray` dan tidak dipasangkan dengan dimensi satuan.

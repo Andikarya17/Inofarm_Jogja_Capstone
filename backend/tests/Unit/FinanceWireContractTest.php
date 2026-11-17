@@ -17,6 +17,14 @@ class FinanceWireContractTest extends TestCase
         $this->assertSame(CanonicalJson::hash($fixture['operation']), CanonicalJson::hash($reordered));
     }
 
+    public function test_greenhouse_entry_fixture_matches_the_independent_hash(): void
+    {
+        $fixture = json_decode(file_get_contents(__DIR__.'/../../../contracts/v2/fixtures/activity-entry-operation.json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame($fixture['canonical_sha256'], CanonicalJson::hash($fixture['operation']));
+        $this->assertSame(30, $fixture['operation']['payload']['age_day']);
+        $this->assertNull($fixture['operation']['payload']['materials'][0]['quantity']);
+    }
+
     public function test_decimal_zero_null_locale_scale_and_overflow_are_distinct(): void
     {
         $this->assertSame('0.00', DecimalValue::parse('0.00', 2));

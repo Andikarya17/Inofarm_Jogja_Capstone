@@ -46,40 +46,45 @@ class FinanceAuthScopeTest extends TestCase
         return $actor->createToken('fixture-v2', $abilities, now()->addDay())->plainTextToken;
     }
 
-    public function test_two_roles_receive_public_identity_and_only_assigned_greenhouses(): void
+    public function test_two_roles_receive_public_identity_and_workers_reach_every_active_greenhouse(): void
     {
+        // User decision 17 Nov 2026: a worker reaches every active greenhouse without an assignment; only managers see inactive ones.
         $manager = $this->account('manager');
         $worker = $this->account();
         $a = $this->greenhouse($manager, 'GH A sintetis');
         $b = $this->greenhouse($manager, 'GH B sintetis');
+        $retired = $this->greenhouse($manager, 'GH nonaktif sintetis');
+        DB::table('greenhouses')->where('id', $retired)->update(['active' => false]);
         $this->assign($worker, $a, $manager);
-        $this->assign($manager, $b, $manager);
         foreach ([$worker, $manager] as $user) {
             $this->app['auth']->forgetGuards();
             $login = $this->postJson('/api/v2/auth/login', ['email' => $user->email, 'password' => 'fixture-only-password'])
                 ->assertOk()->assertJsonPath('user.id', $user->public_id)->assertJsonPath('user.role', $user->role)->json();
-            $this->withToken($login['token'])->getJson('/api/v2/me')->assertOk()->assertJsonCount(1, 'greenhouses');
-            $this->withToken($login['token'])->getJson('/api/v2/greenhouses')->assertOk()->assertJsonCount(1, 'data');
+            $visible = $user->role === 'manager' ? 3 : 2;
+            // Forget the guard again: the login request above would otherwise leave the previous account cached.
+            $this->app['auth']->forgetGuards();
+            $this->withToken($login['token'])->getJson('/api/v2/me')->assertOk()->assertJsonCount($visible, 'greenhouses');
+            $this->withToken($login['token'])->getJson('/api/v2/greenhouses')->assertOk()->assertJsonCount($visible, 'data');
         }
         $this->app['auth']->forgetGuards();
-        $this->withToken($this->token($worker))->getJson('/api/v2/greenhouses/'.$b)->assertNotFound()->assertJsonPath('code', 'not_found');
-        $this->getJson('/api/v2/greenhouses?greenhouse_id='.$b)->assertJsonPath('data.0.id', $a);
+        $this->withToken($this->token($worker))->getJson('/api/v2/greenhouses/'.$b)->assertOk();
+        $this->getJson('/api/v2/greenhouses/'.$retired)->assertNotFound()->assertJsonPath('code', 'not_found');
     }
 
-    public function test_scope_revocation_inactive_and_effective_window_are_checked_each_request(): void
+    public function test_assignment_no_longer_decides_access_but_inactive_state_is_checked_each_request(): void
     {
         $manager = $this->account('manager');
         $worker = $this->account();
         $a = $this->greenhouse($manager, 'A');
-        $this->assign($worker, $a, $manager);
         $token = $this->token($worker);
         $this->withToken($token)->getJson('/api/v2/greenhouses/'.$a)->assertOk();
-        DB::table('greenhouse_assignments')->where('user_id', $worker->id)->update(['active' => false]);
+        $this->assign($worker, $a, $manager);
+        DB::table('greenhouse_assignments')->where('user_id', $worker->id)->update(['active' => false, 'effective_until' => now()->subSecond()]);
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v2/greenhouses/'.$a)->assertOk();
+        DB::table('greenhouses')->where('id', $a)->update(['active' => false]);
         $this->app['auth']->forgetGuards();
         $this->withToken($token)->getJson('/api/v2/greenhouses/'.$a)->assertNotFound();
-        DB::table('greenhouse_assignments')->where('user_id', $worker->id)->update(['active' => true, 'effective_from' => now()->addDay()]);
-        $this->getJson('/api/v2/greenhouses')->assertJsonCount(0, 'data');
-        DB::table('greenhouse_assignments')->where('user_id', $worker->id)->update(['effective_from' => now()->subDay(), 'effective_until' => now()->subSecond()]);
         $this->getJson('/api/v2/greenhouses')->assertJsonCount(0, 'data');
         $worker->update(['active' => false]);
         $this->app['auth']->forgetGuards();

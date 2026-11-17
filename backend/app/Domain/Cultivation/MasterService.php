@@ -182,6 +182,7 @@ final class MasterService
                     app(EntityIdentity::class)->claim('greenhouse_assignments', $assignmentId);
                     DB::table('greenhouse_assignments')->insert(['id' => $assignmentId, 'greenhouse_id' => $id,
                         'user_id' => $current->id, 'created_by' => $current->id, 'effective_from' => now(), 'created_at' => now(), 'updated_at' => now()]);
+                    app(SprayMaterialCatalog::class)->ensure($current, $id);
                 }
             } else {
                 DB::table($table)->where('id', $id)->update($data);

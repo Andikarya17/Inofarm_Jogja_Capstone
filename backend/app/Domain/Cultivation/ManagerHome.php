@@ -27,20 +27,27 @@ final class ManagerHome
         $groups = $this->period->groups($ids)->groupBy('greenhouse_id');
         $periods = $greenhouses->mapWithKeys(fn ($row) => [$row->id => $this->period->resolve($row, $groups->get($row->id, collect()), $at)]);
         $activeGroups = $periods->where('state', 'ready')->pluck('group_id')->all();
+        // One nutrient tank per greenhouse: activity readings belong to the running group's season, not to one variety.
+        $groupSeasons = DB::table('planting_groups')->whereIn('id', $activeGroups)->pluck('season_id', 'id');
+        $seasonGroups = $groupSeasons->flip();
+        $running = fn (Builder $q) => $q->whereIn('r.season_id', $groupSeasons->values())
+            ->where(fn ($q) => $q->whereNull('r.planting_group_id')->orWhereIn('r.planting_group_id', $activeGroups));
 
         $activities = $this->operations('activities', $ids);
         $harvests = $this->operations('harvests', $ids);
         $last = $this->lastByGreenhouse($activities, $harvests);
-        $stage = $this->latestPerGroup((clone $activities)->whereIn('r.planting_group_id', $activeGroups)
+        $stage = $this->latestPerSeason($running(clone $activities)
             ->where('r.activity_type', 'stage')->where('r.work_state', 'completed')
-            ->whereNotNull('r.actual_stage')->where('r.occurred_at', '<=', $this->sqlTime($at)));
+            ->whereNotNull('r.actual_stage')->where('r.occurred_at', '<=', $this->sqlTime($at)), $seasonGroups);
         $dayStart = $this->sqlTime($at->startOfDay());
         $tomorrow = $this->sqlTime($at->startOfDay()->addDay());
-        $measurementRows = (clone $activities)->whereIn('r.planting_group_id', $activeGroups)
+        $measurementRows = $running(clone $activities)
             ->where('r.work_state', 'completed')->whereNotNull('r.manual_ppm')->where('r.occurred_at', '<', $tomorrow);
-        $pairs = $this->latestPerGroup((clone $measurementRows)->whereNotExists(ActivityReviewService::current('invalid', 'r')));
-        $invalidToday = $this->latestPerGroup((clone $measurementRows)->where('r.occurred_at', '>=', $dayStart)
-            ->whereExists(ActivityReviewService::current('invalid', 'r')));
+        $pairs = $this->latestPerSeason((clone $measurementRows)->whereNotExists(ActivityReviewService::current('invalid', 'r')), $seasonGroups);
+        $invalidToday = $this->latestPerSeason((clone $measurementRows)->where('r.occurred_at', '>=', $dayStart)
+            ->whereExists(ActivityReviewService::current('invalid', 'r')), $seasonGroups);
+        $ages = $this->latestPerSeason($running(clone $activities)->whereNotNull('r.age_basis')
+            ->where('r.occurred_at', '<', $tomorrow), $seasonGroups);
         $measurements = $this->readAcceptedSection(fn () => $this->accepted->readMany('activity', $pairs->values()->all()));
         if ($measurements !== null) {
             $decisions = DB::table('activity_reviews')->whereIn('activity_id', $pairs->pluck('id'))->get()
@@ -58,12 +65,16 @@ final class ManagerHome
             ->selectRaw('r.planting_group_id, COUNT(DISTINCT r.id) AS records, CAST(SUM(i.weight_kg) AS CHAR) AS weight_kg, CASE WHEN SUM(i.fruit_count IS NULL) > 0 THEN NULL ELSE SUM(i.fruit_count) END AS fruit_count')
             ->get()->keyBy('planting_group_id');
 
-        $cards = $greenhouses->map(function ($row) use ($periods, $last, $stage, $harvestTotals) {
+        $cards = $greenhouses->map(function ($row) use ($periods, $last, $stage, $ages, $harvestTotals) {
             $period = $periods[$row->id];
             $phase = $stage->get($period['group_id'] ?? '');
             if ($phase) {
                 $period['phase'] = ['id' => $phase->id, 'value' => $phase->actual_stage, 'occurred_at' => $this->iso($phase->occurred_at)];
             }
+            // Plant age as last typed by Inofarm (K6), never computed.
+            $age = $ages->get($period['group_id'] ?? '');
+            $period['manual_age'] = $age ? ['basis' => $age->age_basis, 'day' => (int) $age->age_day, 'activity_id' => $age->id,
+                'occurred_at' => $this->iso($age->occurred_at)] : null;
 
             return ['id' => $row->id, 'name' => $row->name, 'active' => (bool) $row->active, 'version' => $row->version,
                 'period' => $period, 'last_operational_at' => $this->iso($last[$row->id] ?? null),
@@ -94,7 +105,8 @@ final class ManagerHome
         if ($selected !== null) {
             $period = $periods[$selected];
             $group = $period['group_id'] ?? null;
-            $activities->where('r.planting_group_id', $group);
+            $activities->where('r.season_id', $groupSeasons->get($group ?? ''))
+                ->where(fn ($q) => $q->whereNull('r.planting_group_id')->orWhere('r.planting_group_id', $group));
             $harvests->where('r.planting_group_id', $group);
             $pair = $pairs->get($group ?? '');
             $dayState = match (true) {
@@ -121,6 +133,12 @@ final class ManagerHome
 
     private function operations(string $table, array $ids): Builder
     {
+        if ($table === 'activities') {
+            // Greenhouse-level activities have no group; their season is on the row itself.
+            return DB::table('activities as r')->join('seasons as s', 's.id', '=', 'r.season_id')
+                ->leftJoin('planting_groups as g', 'g.id', '=', 'r.planting_group_id')->whereIn('s.greenhouse_id', $ids)->where('r.record_state', 'active');
+        }
+
         return DB::table("$table as r")->join('planting_groups as g', 'g.id', '=', 'r.planting_group_id')
             ->join('seasons as s', 's.id', '=', 'g.season_id')->whereIn('s.greenhouse_id', $ids)->where('r.record_state', 'active');
     }
@@ -138,11 +156,12 @@ final class ManagerHome
         return $result;
     }
 
-    private function latestPerGroup(Builder $query): Collection
+    /** Latest activity per running season, keyed by that season's running group as the cards expect. */
+    private function latestPerSeason(Builder $query, Collection $seasonGroups): Collection
     {
-        $ranked = $query->select('r.*')->selectRaw('ROW_NUMBER() OVER (PARTITION BY r.planting_group_id ORDER BY r.occurred_at DESC, r.id DESC) AS position_in_group');
+        $ranked = $query->select('r.*')->selectRaw('ROW_NUMBER() OVER (PARTITION BY r.season_id ORDER BY r.occurred_at DESC, r.id DESC) AS position_in_season');
 
-        return DB::query()->fromSub($ranked, 'ranked')->where('position_in_group', 1)->get()->keyBy('planting_group_id');
+        return DB::query()->fromSub($ranked, 'ranked')->where('position_in_season', 1)->get()->keyBy(fn ($row) => $seasonGroups->get($row->season_id));
     }
 
     private function recent(Builder $activities, Builder $harvests): array

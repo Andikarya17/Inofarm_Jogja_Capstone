@@ -51,7 +51,7 @@ final class ManagerSuperAdminAccessTest extends FinanceTestCase
         $this->getJson('/api/v2/activities')->assertOk()->assertJsonCount(1, 'data');
     }
 
-    public function test_a_worker_keeps_the_assignment_scope_and_gains_no_manager_access(): void
+    public function test_a_worker_reaches_every_active_greenhouse_and_gains_no_manager_access(): void
     {
         $manager = $this->account();
         $a = $this->context($manager);
@@ -59,18 +59,19 @@ final class ManagerSuperAdminAccessTest extends FinanceTestCase
         $worker = $this->account('worker');
         $this->assignWorker($a, $worker);
 
-        $this->asUser($worker)->getJson('/api/v2/me')->assertOk()->assertJsonCount(1, 'greenhouses');
-        $this->getJson('/api/v2/greenhouses')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $a['gh']['id']);
-        $this->getJson('/api/v2/greenhouses/'.$b['gh']['id'])->assertNotFound()->assertJsonPath('code', 'not_found');
-        $this->getJson('/api/v2/sync/changes')->assertOk()->assertJsonCount(1, 'scope');
-        $this->postJson('/api/v2/activities', $this->operation('activity', $this->activity($b)))->assertNotFound();
+        // 17 Nov 2026: the assignment to A no longer limits the worker; B is reachable too.
+        $this->asUser($worker)->getJson('/api/v2/me')->assertOk()->assertJsonCount(2, 'greenhouses');
+        $this->getJson('/api/v2/greenhouses')->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson('/api/v2/greenhouses/'.$b['gh']['id'])->assertOk();
+        $this->getJson('/api/v2/sync/changes')->assertOk()->assertJsonCount(2, 'scope');
+        $this->postJson('/api/v2/activities', $this->operation('activity', $this->activity($b)))->assertCreated();
         $this->getJson('/api/v2/manager-home')->assertForbidden();
         $this->getJson('/api/v2/assignments')->assertForbidden();
         $this->getJson('/api/v2/users?greenhouse_id='.$a['gh']['id'].'&all_accounts=1')->assertForbidden();
         $this->postJson('/api/v2/greenhouses', $this->operation('greenhouses', ['name' => 'Tidak boleh']))->assertForbidden();
     }
 
-    public function test_worker_replay_still_checks_access_after_the_assignment_is_removed(): void
+    public function test_worker_replay_still_checks_access_after_the_greenhouse_is_deactivated(): void
     {
         $manager = $this->account();
         $ctx = $this->context($manager);
@@ -79,6 +80,8 @@ final class ManagerSuperAdminAccessTest extends FinanceTestCase
         $op = $this->operation('activity', $this->activity($ctx));
         $this->asUser($worker)->postJson('/api/v2/activities', $op)->assertCreated();
         DB::table('greenhouse_assignments')->where('id', $assignment['id'])->update(['active' => false]);
+        $this->postJson('/api/v2/activities', $op)->assertCreated();
+        DB::table('greenhouses')->where('id', $ctx['gh']['id'])->update(['active' => false]);
         $this->postJson('/api/v2/activities', $op)->assertNotFound();
     }
 

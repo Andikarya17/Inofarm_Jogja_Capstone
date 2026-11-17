@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\FinanceTestCase;
 
@@ -162,11 +163,15 @@ class FieldAlignmentTest extends FinanceTestCase
         // Both greenhouses already have "Varietas sintetis"; units/materials/grades are new for B.
         $copy()->assertJsonPath('data.copied.units', 1)->assertJsonPath('data.copied.materials', 1)->assertJsonPath('data.copied.varieties', 0);
         $copy()->assertJsonPath('data.copied', ['varieties' => 0, 'units' => 0, 'materials' => 0, 'grades' => 0, 'expense_categories' => 0]);
-        $this->getJson('/api/v2/materials?greenhouse_id='.$b['gh']['id'])->assertJsonPath('data.0.name', 'AB mix LAN');
+        $copiedNames = array_column($this->getJson('/api/v2/materials?greenhouse_id='.$b['gh']['id'].'&limit=100')->json('data'), 'name');
+        $this->assertContains('AB mix LAN', $copiedNames);
         $this->postJson('/api/v2/greenhouses/'.$b['gh']['id'].'/copy-masters', ['source_greenhouse_id' => $b['gh']['id']])->assertUnprocessable();
 
         $worker = $this->account('worker');
         $this->asUser($worker)->getJson('/api/v2/reports/cash-flow?from=2026-10&until=2026-10')->assertForbidden();
+        // Material usage is a field report, not finance; every worker now reaches active greenhouses (17 Nov 2026).
+        $this->getJson('/api/v2/seasons/'.$a['season']['id'].'/material-usage')->assertOk();
+        DB::table('greenhouses')->where('id', $a['gh']['id'])->update(['active' => false]);
         $this->getJson('/api/v2/seasons/'.$a['season']['id'].'/material-usage')->assertNotFound();
     }
 }
