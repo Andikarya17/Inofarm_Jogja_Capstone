@@ -70,3 +70,30 @@ __pycache__/
 # Diberi awalan / supaya folder assets Android tetap ter-track.
 /UI inspo/
 /assets/
+
+# Skill dan agen AI yang terpasang lokal. Impeccable tetap ter-track, kecuali binary-nya.
+/.agents/skills/antislop*/
+/.agents/skills/find-skills/
+/.agents/skills/impeccable/scripts/bin/
+/.claude/skills/
+/.claude/agents/
+/skills-lock.json
+/.mcp.json
+
+# Dependency Node di root yang tidak dipakai aplikasi
+/package.json
+/package-lock.json
+/node_modules/
+
+# Bahan revisi proposal (di luar repo aplikasi)
+/docs/design/proposal-revisi-20261026/
+
+# Prompt sesi agen yang belum ter-track (yang sudah ter-track tidak terpengaruh)
+/docs/context/HANDOFF_PROMPT_OPUS_20261115.md
+/docs/context/HANDOFF_PROMPT_WORKER_20261112.md
+/docs/context/MASTER_PROMPT_MANAGER_SUPERADMIN.md
+/docs/context/MASTER_PROMPT_WORKER_ALIGNMENT.md
+/docs/context/MASTER_PROMPT_WORKER_FLOW.md
+/docs/context/RUN_MANAGER_SUPERADMIN.md
+/docs/context/RUN_WORKER_ALIGNMENT.md
+/docs/context/RUN_WORKER_FLOW.md
