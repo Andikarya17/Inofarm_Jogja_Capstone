@@ -63,6 +63,9 @@ class FinanceEntryUiTest {
     private val extraGreenhouses = List(4) { UUID.randomUUID().toString() }
     private val overviewFixture = AtomicBoolean(false)
     private val managerWalkthroughFixture = AtomicBoolean(false)
+    /** Master writes the wizard sends (path, operation), and greenhouses it created, so later reads see them. */
+    private val wizardPosts = java.util.concurrent.ConcurrentLinkedQueue<Pair<String, JSONObject>>()
+    private val wizardGreenhouses = java.util.concurrent.CopyOnWriteArrayList<JSONObject>()
     private val failedLogin = AtomicBoolean(false)
     private val managerLogins = AtomicInteger()
     private val designationFixture = AtomicBoolean(true)
@@ -146,11 +149,19 @@ class FinanceEntryUiTest {
                     else -> if (managerWalkthroughFixture.get() && request.method == "GET" &&
                         com.inofarm.jogja.feature.admin.AdminResource.entries.any { it.path == path }) {
                         val rows = when (path) {
-                            "greenhouses" -> JSONArray(managerGreenhouses().map { it.put("version", 1) })
+                            "greenhouses" -> JSONArray(managerGreenhouses().map { it.put("version", 1) } + wizardGreenhouses)
                             "planting-groups" -> JSONArray().put(JSONObject().put("id", group).put("name", "Kelompok uji"))
                             else -> JSONArray()
                         }
                         response.setBody(JSONObject().put("data", rows).put("next_cursor", JSONObject.NULL).toString())
+                    } else if (managerWalkthroughFixture.get() && request.method == "POST" &&
+                        (path in setOf("greenhouses", "seasons", "varieties", "planting-groups", "users", "assignments") || path.endsWith("/running-period"))) {
+                        val op = JSONObject(request.body.readUtf8())
+                        wizardPosts.add(path to op)
+                        val data = JSONObject(op.getJSONObject("payload").toString()).put("id", op.getString("entity_id")).put("version", 1)
+                        if (path == "greenhouses") wizardGreenhouses.add(JSONObject(data.toString()).put("active", true))
+                        response.setResponseCode(if (op.getString("action") == "create") 201 else 200).setBody(JSONObject()
+                            .put("operation_id", op.getString("operation_id")).put("entity_id", op.getString("entity_id")).put("version", 1).put("data", data).toString())
                     } else if(path.endsWith("/audit")) {
                         val id=path.substringAfter("activities/").substringBefore("/audit");val rows=JSONArray()
                         receipts.values.filter {it.getString("entity_id")==id}.sortedBy {it.getInt("version")}.forEach {receipt ->
@@ -1396,6 +1407,57 @@ class FinanceEntryUiTest {
         historyList.assertIsDisplayed()
     }
 
+    /** F2: two steps, one or two varieties planted together, each saved as a group named after it, and no worker step. */
+    @Test fun greenhouseWizardSavesTwoVarietiesInTwoStepsWithoutAssignments() {
+        val theme = (rule.activity.application as InofarmApplication).theme
+        managerWalkthroughFixture.set(true)
+        managerLogin()
+        rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+        try {
+            readyNode("finance-tab-3").performClick()
+            readyNode("manage-greenhouse").performClick()
+            readyNode("admin-new").performScrollTo().performClick()
+            readyNode("wizard-step").assertTextContains("Langkah 1 dari 2")
+            readyNode("wizard-name").performTextReplacement("GH Wizard sintetis");hideKeyboard()
+            readyNode("wizard-next").performClick()
+            readyNode("wizard-step").assertTextContains("Langkah 2 dari 2", substring = true)
+            rule.onNodeWithTag("wizard-group").assertDoesNotExist()
+            rule.onNodeWithTag("wizard-variety-1").assertDoesNotExist()
+            readyNode("wizard-season").performScrollTo().performTextReplacement("Musim wizard");hideKeyboard()
+            readyNode("wizard-variety-0").performScrollTo().performTextReplacement("Inthanon");hideKeyboard()
+            readyNode("wizard-population-0").performScrollTo().performTextReplacement("120");hideKeyboard()
+            readyNode("wizard-add-variety").performScrollTo().performClick()
+            readyNode("wizard-variety-1").performScrollTo().performTextReplacement("inthanon ");hideKeyboard()
+            readyNode("wizard-population-1").performScrollTo().performTextReplacement("80");hideKeyboard()
+            readyNode("wizard-next").performClick()
+            readyText("Nama varietas kedua harus berbeda dari yang pertama.").assertExists()
+            readyNode("wizard-variety-1").performScrollTo().performTextReplacement("Sweetnet");hideKeyboard()
+            rule.onAllNodesWithText("Nama varietas kedua harus berbeda dari yang pertama.").assertCountEquals(0)
+            readyNode("wizard-season").performScrollTo()
+            captureInternal("wizard-step2-light")
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.DARK) }
+            readyNode("wizard-variety-1").performScrollTo()
+            captureInternal("wizard-step2-dark")
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+            readyNode("wizard-next").performClick()
+            readyNode("wizard-open").assertExists()
+            readyText("Mulai tanam Inthanon dan Sweetnet. Semua pekerja sudah bisa mencatat di sini.").assertExists()
+            captureInternal("wizard-done-light")
+
+            val sent = wizardPosts.toList()
+            assertEquals(listOf("greenhouses", "seasons", "varieties", "planting-groups", "varieties", "planting-groups"),
+                sent.map { it.first }.filterNot { it.endsWith("/running-period") })
+            val groups = sent.filter { it.first == "planting-groups" }.map { it.second }
+            assertEquals(listOf("Inthanon", "Sweetnet"), groups.map { it.getJSONObject("payload").getString("name") })
+            assertEquals(listOf("120", "80"), groups.map { it.getJSONObject("payload").get("population").toString() })
+            val period = sent.single { it.first.endsWith("/running-period") }.second
+            assertEquals(groups.first().getString("entity_id"), period.getJSONObject("payload").getString("planting_group_id"))
+            assertTrue(sent.none { it.first == "users" || it.first == "assignments" })
+        } finally {
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+        }
+    }
+
     @Test fun managerWalkthroughVisitsPickersScheduleToolsAndAdminWithoutSubmitting() {
         managerWalkthroughFixture.set(true)
         overviewFixture.set(true)
@@ -1462,7 +1524,8 @@ class FinanceEntryUiTest {
         readyNode("admin-resource").performScrollTo().performClick()
         captureWindow("manager-walk-admin-resources")
         Espresso.pressBack()
-        val resources = com.inofarm.jogja.feature.admin.AdminResource.entries
+        // Assignments no longer decide access (17 Nov 2026), so they are not offered as a data type.
+        val resources = com.inofarm.jogja.feature.admin.AdminResource.entries.filter { it != com.inofarm.jogja.feature.admin.AdminResource.ASSIGNMENT }
         for (resource in resources.drop(1) + resources.first()) {
             readyNode("admin-resource").performScrollTo().performClick()
             val option = "admin-resource-option-${resource.name}"
@@ -1470,7 +1533,7 @@ class FinanceEntryUiTest {
             readyNode(option).performClick()
             readyNode("admin-resource").assertTextContains(resource.label)
         }
-        // Adding a greenhouse from the list opens the same three-step wizard as Beranda and Kelola.
+        // Adding a greenhouse from the list opens the same two-step wizard as Beranda and Kelola.
         readyNode("admin-new").performScrollTo().performClick()
         readyNode("wizard-name").assertExists()
         captureWindow("manager-walk-admin-editor")

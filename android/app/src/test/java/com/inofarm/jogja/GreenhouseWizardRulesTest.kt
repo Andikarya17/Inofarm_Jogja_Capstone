@@ -18,23 +18,24 @@ class GreenhouseWizardRulesTest {
         assertNull(WizardRules.greenhouseNameError("GH Utara"))
     }
 
-    @Test fun completePlantingHasNoErrors() {
-        assertTrue(WizardRules.plantingErrors("Musim 1", "2026-11-10", "Inthanon", "Kelompok A", "120", "2026-11-10", "").isEmpty())
+    @Test fun completePlantingWithOneOrTwoVarietiesHasNoErrors() {
+        assertTrue(WizardRules.plantingErrors("Musim 1", "2026-11-10", listOf("Inthanon" to "120"), "2026-11-10", "").isEmpty())
+        assertTrue(WizardRules.plantingErrors("Musim 1", "2026-11-10", listOf("Inthanon" to "120", "Sweetnet" to "80"), "2026-11-10", "2026-11-20").isEmpty())
     }
 
-    @Test fun eachPlantingFieldReportsItsOwnError() {
-        val errors = WizardRules.plantingErrors("", "10-11-2026", "", "", "-3", "salah", "")
-        assertEquals(setOf("season", "start", "variety", "group", "population", "sowing"), errors.keys)
+    @Test fun eachPlantingFieldReportsItsOwnErrorPerVariety() {
+        val errors = WizardRules.plantingErrors("", "10-11-2026", listOf("" to "-3", " " to "x"), "salah", "")
+        assertEquals(setOf("season", "start", "variety0", "population0", "variety1", "population1", "sowing"), errors.keys)
+    }
+
+    @Test fun secondVarietyMustDifferIgnoringCaseAndSpaces() {
+        val errors = WizardRules.plantingErrors("M", "2026-11-10", listOf("Inthanon" to "10", " inthanon " to "10"), "2026-11-10", "")
+        assertEquals(setOf("variety1"), errors.keys)
     }
 
     @Test fun transplantMayNotBeBeforeSowing() {
-        val errors = WizardRules.plantingErrors("M", "2026-11-10", "V", "G", "10", "2026-11-10", "2026-11-09")
+        val errors = WizardRules.plantingErrors("M", "2026-11-10", listOf("V" to "10"), "2026-11-10", "2026-11-09")
         assertEquals(setOf("transplant"), errors.keys)
-    }
-
-    @Test fun newWorkerNeedsNameEmailAndTwelveCharacterPassword() {
-        assertEquals(setOf("name", "email", "password"), WizardRules.workerErrors("", "tanpa-at", "pendek").keys)
-        assertTrue(WizardRules.workerErrors("Sari", "sari@example.com", "dua-belas-huruf").isEmpty())
     }
 
     @Test fun wizardFormsProducePayloadsTheServerAccepts() {

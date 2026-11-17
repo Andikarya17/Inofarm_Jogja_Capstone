@@ -158,8 +158,6 @@ import com.inofarm.jogja.feature.Notice
                                 if (vm.flush()) onReviewPeriod(row.getString("id"))
                             }, enabled = !state.busy && row.optBoolean("active", true),
                                 modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("admin-setup-period")) { Text("Ganti tanam saat ini") }
-                            TextButton(onClick={vm.setup(AdminResource.ASSIGNMENT,row)},enabled=!state.busy,
-                                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("admin-setup-assignment")) { Text("Atur pekerja") }
                         }
                     }
                     OutlinedButton(onClick=vm::closeDetail,enabled=!state.busy,
@@ -174,8 +172,9 @@ import com.inofarm.jogja.feature.Notice
                     state.form?.let {Button(onClick=vm::resume,enabled=!state.busy,modifier=Modifier.testTag("admin-resume")) {
                         Text(if(state.pending) "Kirim ulang ${it.resource.label.lowercase()}" else "Lanjutkan isian ${it.resource.label.lowercase()} yang belum disimpan")}}
                     FarmPanel(title = "Pilih data") {
-                        Choice("Jenis data",state.resource.name,AdminResource.entries.map {org.json.JSONObject().put("id",it.name).put("name",it.label)},"admin-resource") {vm.choose(AdminResource.valueOf(it))}
-                        if(state.resource!=AdminResource.GREENHOUSE)
+                        // Assignments stay on the server for history but no longer decide access, so they are not managed here.
+                        Choice("Jenis data",state.resource.name,AdminResource.entries.filter {it!=AdminResource.ASSIGNMENT}.map {org.json.JSONObject().put("id",it.name).put("name",it.label)},"admin-resource") {vm.choose(AdminResource.valueOf(it))}
+                        if(state.resource!=AdminResource.GREENHOUSE && state.resource!=AdminResource.USER)
                             Choice("Greenhouse",state.greenhouse,state.options["greenhouses"].orEmpty(),"admin-greenhouse",
                                 loading=state.busy,onSelect=vm::greenhouse)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
@@ -191,7 +190,8 @@ import com.inofarm.jogja.feature.Notice
                         }
                     }
                     FarmSectionHeading("Daftar ${state.resource.label.lowercase()}")
-                    if(state.resource!=AdminResource.GREENHOUSE && state.greenhouse==null) Text("Pilih greenhouse untuk melihat dan menambah data.")
+                    if(state.resource==AdminResource.USER && state.greenhouse==null && state.listChecked) Text("Tambah greenhouse dulu sebelum membuat akun.")
+                    else if(state.resource!=AdminResource.GREENHOUSE && state.greenhouse==null) Text("Pilih greenhouse untuk melihat dan menambah data.")
                     if(state.rows.isEmpty() && state.listChecked) Text("Belum ada ${state.resource.label.lowercase()}.")
                     if(searchable && state.rows.isNotEmpty()) FinanceField("Cari ${state.resource.label.lowercase()}",search,{search=it},"admin-search")
                     if(visibleRows.isEmpty() && state.rows.isNotEmpty()) Text("Tidak ada kecocokan dalam daftar yang dimuat.")
@@ -305,7 +305,7 @@ internal fun deactivateNote(resource: AdminResource): String = when (resource) {
             state.message?.let { Notice(it, true) }
             confirmation?.let { Notice(it.second) }
             FarmFormSection("Rincian") {
-                form.fields.forEach { FarmFact(it.label, display(it)) }
+                form.fields.filterNot { user && it.key == "greenhouse_id" }.forEach { FarmFact(it.label, display(it)) }
                 if (user && password.isNotEmpty()) FarmFact(if (form.version == null) "Password awal" else "Password baru", "Sudah diisi")
             }
         }
@@ -374,8 +374,8 @@ internal fun deactivateNote(resource: AdminResource): String = when (resource) {
     val dataFields = form.fields.filter { !(user && (it.key=="role" || it.key=="greenhouse_id")) }
     if(user) {
         form.fields.filter { it.key=="role" }.forEach { renderField(it) }
+        // Accounts are not tied to a greenhouse any more; greenhouse_id is only the API's record placement, filled for the user.
         FarmFormSection("Data akun") { dataFields.forEach { renderField(it) }; passwordFields() }
-        form.fields.filter { it.key=="greenhouse_id" }.forEach { FarmFormSection("Greenhouse tempat bekerja") { renderField(it) } }
     } else FarmFormSection("Isian ${form.resource.label.lowercase()}") { dataFields.forEach { renderField(it) } }
     state.server?.let {row ->
         Notice("Data ini baru diubah di perangkat lain. Isian Anda tetap tersimpan.")
