@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.session.FinanceSession
+import com.inofarm.jogja.feature.EntryOrigin
 import com.inofarm.jogja.feature.auth.userMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -24,14 +25,25 @@ class SaleEntryViewModel(private val repository:SaleRepository):ViewModel() {
         if(scope==session?.scope?.key) return
         scope=session?.scope?.key;pauseAutosave();mutable.value=SaleEntryState()
     }
-    fun new(gh:String) {pauseAutosave();mutable.value=state.value.copy(draft=SaleDraft(greenhouseId=gh),errors=emptyMap(),reviewing=false,saved=false,message=null)}
+    private val entry=EntryOrigin<SaleDraft>()
+    fun new(gh:String) {pauseAutosave();mutable.value=state.value.copy(draft=SaleDraft(greenhouseId=gh),errors=emptyMap(),reviewing=false,saved=false,message=null);entry.start(null,state.value.draft)}
+    fun hasChanges()=entry.changed(state.value.draft)
+    /** "Batal": closes the form and undoes its autosave, so nothing stays behind as a draft. */
+    fun cancel() {
+        val draft=state.value.draft ?: return;pauseAutosave()
+        mutable.value=state.value.copy(draft=null,reviewing=false,errors=emptyMap(),message=null)
+        entry.undo(viewModelScope,vault,draft.id,{session,ticket,id,origin -> repository.discard(session,ticket,id,origin)}) {
+            mutable.value=state.value.copy(changed=state.value.changed+1,message=it)
+        }
+    }
     fun open(record:LocalRecord,replaceRejected:Boolean=false) {
         pauseAutosave();require(record.kind=="sale")
         val draft=SaleDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion ?: record.serverVersion)
         mutable.value=state.value.copy(draft=draft.copy(replaceValidationRejected=replaceRejected,lockedSeason=draft.lockedSeason || record.serverVersion!=null || record.latestOperationId!=null,lockedSources=draft.lockedSources+(record.serverBody?.optJSONArray("items")?.let {rows -> (0 until rows.length()).map {rows.getJSONObject(it).getString("id")}} ?: emptyList())),errors=emptyMap(),reviewing=false,saved=true,message=null)
+        entry.start(record,state.value.draft)
     }
     fun edit(change:(SaleDraft)->SaleDraft) {
-        val draft=state.value.draft ?: return;val updated=change(draft)
+        val draft=state.value.draft ?: return;val updated=change(draft);entry.touched=true
         mutable.value=state.value.copy(draft=updated,saved=false,reviewing=false,errors=emptyMap())
         pauseAutosave();saveJob=viewModelScope.launch {delay(350);save(updated,false,false)}
     }

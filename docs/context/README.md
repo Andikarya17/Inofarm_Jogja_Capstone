@@ -1,5 +1,13 @@
 # Context pack aktif: operasional dan evaluasi keuangan
 
+## Input pengelola Batal / Simpan → Ringkasan, 17 November 2026
+
+Semua input pengelola kini Batal / Simpan, lalu Ringkasan dengan Ubah / Simpan; tidak ada draf pengelola. Pekerja tidak berubah. [Bukti dan batas](MANAGER_SAVE_SUMMARY_EVIDENCE_20261117.md).
+
+## Serah terima dan audit input pengelola, 17 November 2026
+
+Sesi baru mulai dari [serah terima 17 November](HANDOFF_20261117.md): posisi `github/main` setelah PR #70, kronologi 10–17 November, hasil tes terakhir, pekerjaan terbuka dan preferensi kerja pengguna. [Audit alur input pengelola](MANAGER_INPUT_FLOW_AUDIT_20261117.md) memetakan input mana yang sudah langsung simpan dan mana yang masih wajib Periksa (delapan form domain), dengan rekomendasi R1–R4 yang belum diputuskan. Hanya dokumen; kode tidak berubah.
+
 ## Status setelah remediasi10 November2026
 
 [Bukti remediasi](AUDIT_REMEDIATION_20261110.md) mengatasi status terbuka pada audit sebelumnya. DB-01 selesai pada database lokal inofarm_finance_local, kini finance19/54 tabel/75 FK dan Beranda terbaca. API-01/API-02 selesai dengan152 operasi OpenAPI yang setara153 route runtime setelah ekspansi, schema respons dan tes parity. API-03 selesai dengan filter review invalid versi aktif. FE-01 selesai dengan pembacaan seluruh halaman cache scoped. Backend144 tes, JVM74 dan instrumentasi32 tes API30 lulus. QA-01, benchmark produksi dan keputusan bisnis tetap terbuka. Gunakan [CLAUDE.md](../../CLAUDE.md) sebagai pintu masuk terkini.

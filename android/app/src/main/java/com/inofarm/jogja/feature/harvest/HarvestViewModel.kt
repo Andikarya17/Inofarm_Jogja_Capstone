@@ -37,15 +37,26 @@ class HarvestViewModel(private val repository:HarvestRepository):ViewModel() {
             } }
     }
     fun clearMessage() {mutable.value=state.value.copy(message=null)}
-    fun new(gh:String,group:String,runningPeriodVersion:Long?=null) {saveJob?.cancel();mutable.value=state.value.copy(draft=HarvestDraft(greenhouseId=gh,groupId=group,runningPeriodVersion=runningPeriodVersion, requireQuality=true),errors=emptyMap(),saved=false,reviewing=false,message=null)}
+    private val entry=com.inofarm.jogja.feature.EntryOrigin<HarvestDraft>()
+    fun new(gh:String,group:String,runningPeriodVersion:Long?=null) {saveJob?.cancel();mutable.value=state.value.copy(draft=HarvestDraft(greenhouseId=gh,groupId=group,runningPeriodVersion=runningPeriodVersion, requireQuality=true),errors=emptyMap(),saved=false,reviewing=false,message=null);entry.start(null,state.value.draft)}
+    fun hasChanges()=entry.changed(state.value.draft)
+    /** Manager "Batal": closes the form and undoes its autosave, so nothing stays behind as a draft. */
+    fun cancel() {
+        val draft=state.value.draft ?: return;pauseAutosave()
+        mutable.value=state.value.copy(draft=null,reviewing=false,errors=emptyMap(),message=null)
+        entry.undo(viewModelScope,vault,draft.id,{session,ticket,id,origin -> repository.discard(session,ticket,id,origin)}) {
+            mutable.value=state.value.copy(changed=state.value.changed+1,message=it);reload()
+        }
+    }
     fun open(record:LocalRecord,replaceRejected:Boolean=false) {
         saveJob?.cancel()
         val accepted=record.serverBody?.optJSONArray("items")
         val locked=accepted?.let {array -> (0 until array.length()).map {array.getJSONObject(it).getString("id")}.toSet()} ?: emptySet()
         mutable.value=state.value.copy(draft=HarvestDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion ?: record.serverVersion).let {if(replaceRejected) it.copy(replaceValidationRejected=true,lockedItems=locked) else it},saved=true,errors=emptyMap(),reviewing=false,message=null)
+        entry.start(record,state.value.draft)
     }
     fun edit(change:(HarvestDraft)->HarvestDraft) {
-        val draft=state.value.draft ?: return
+        val draft=state.value.draft ?: return;entry.touched=true
         val updated=change(draft);mutable.value=state.value.copy(draft=updated,saved=false,reviewing=false,errors=emptyMap())
         saveJob?.cancel();saveJob=viewModelScope.launch { delay(350);save(updated,false,false) }
     }

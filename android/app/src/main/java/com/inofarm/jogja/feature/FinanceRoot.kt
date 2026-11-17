@@ -856,7 +856,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 .padding(horizontal=FarmSpace.Page)
         ) {
         if((attachment.parent!=null && (ime || LocalDensity.current.fontScale>1.5f || LocalConfiguration.current.screenHeightDp<400)) || (ime && (investments.state.scenarioDraft!=null || investments.state.reportDraft!=null || investments.state.cancelReason!=null || reports.state.draft!=null || (!manager && (asset.entry.draft!=null || sale.draft!=null || activity.draft!=null || harvest.draft!=null || financial.draft!=null))))) {
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(if(attachment.parent!=null) "Lampiran" else if(investments.state.active) "Investasi" else if(reports.state.draft!=null) "Evaluasi" else if(asset.entry.draft!=null) "Aset" else if(sale.draft!=null) "Penjualan" else if(financial.draft!=null && LocalDensity.current.fontScale>1.5f) "Isian" else if(financial.draft!=null) "Catat ${financial.draft.kind.label}" else if(harvest.draft!=null) "Catat panen" else "Catat kegiatan",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={keyboard?.hide();if(attachment.parent!=null) {if(attachment.selected!=null) attachmentVm.closeSelected() else attachmentVm.close()} else if(investments.state.active) investments.vm.back() else if(reports.state.draft!=null) reports.vm.back() else if(asset.entry.draft!=null) asset.vm.saveAndClose() else if(sale.draft!=null) saleVm.saveAndClose() else if(financial.draft!=null) financialVm.saveAndClose() else if(harvest.draft!=null) harvestVm.saveAndClose() else vm.saveAndClose()},enabled=!writing) {Text(if(attachment.parent!=null) "Kembali" else "Simpan draf")} }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(if(attachment.parent!=null) "Lampiran" else if(investments.state.active) "Investasi" else if(reports.state.draft!=null) "Evaluasi" else if(asset.entry.draft!=null) "Aset" else if(sale.draft!=null) "Penjualan" else if(financial.draft!=null && LocalDensity.current.fontScale>1.5f) "Isian" else if(financial.draft!=null) "Catat ${financial.draft.kind.label}" else if(harvest.draft!=null) "Catat panen" else "Catat kegiatan",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={keyboard?.hide();if(attachment.parent!=null) {if(attachment.selected!=null) attachmentVm.closeSelected() else attachmentVm.close()} else if(investments.state.active) investments.vm.back() else if(reports.state.draft!=null) reports.vm.back() else if(asset.entry.draft!=null) asset.vm.saveAndClose() else if(sale.draft!=null) saleVm.saveAndClose() else if(financial.draft!=null) financialVm.saveAndClose() else if(harvest.draft!=null) harvestVm.saveAndClose() else vm.saveAndClose()},enabled=!writing) {Text(if(attachment.parent!=null) "Kembali" else if(manager) "Batal" else "Simpan draf")} }
         } else {
             FinanceToolbar(session, context.loading, writing, sessionExpired, onSync, onLogout, onAdmin,
                 unsent = unsent, onUnsent = { queueFocus = null; showOutbox = true }, bar = managerBar)
@@ -1262,12 +1262,16 @@ internal fun ExpiredSessionNotice() {
                 if (groupData.isNull("transplant_date")) null else groupData.getString("transplant_date"), draft.occurredAt())
         }.getOrNull()
         val figure = ageFigure(age?.hst?.toString()?.toIntOrNull(), age?.hss?.toString()?.toIntOrNull())
+        // Workers keep their draft; a manager form has only Batal and Simpan, and Simpan opens the summary.
+        val cancel = if (worker || run != null) null else rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
         FarmFormFrame(
-            header = { FarmFormHeader(title, state.saved, "finance-draft-status", "finance-close", vm::saveAndClose, !state.busy) },
+            header = { if (cancel == null) FarmFormHeader(title, state.saved, "finance-draft-status", "finance-close", vm::saveAndClose, !state.busy)
+                else FarmFormHeader(title, state.saved, "finance-draft-status", "finance-close", cancel, !state.busy, showDraftStatus = false, closeLabel = "Batal", step = 1) },
             bar = {
                 if (run != null) FarmFormBar("nutrition-run-skip", run.onSkip, "nutrition-run-next", run.mainLabel, run.onMain, enabled = !state.busy, busy = state.busy, saveLabel = "Lewati")
-                else FarmFormBar("finance-save-draft", vm::saveAndClose, "finance-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy,
-                    saveLabel = if (worker) "Simpan sebagai draf" else "Simpan draf")
+                else if (cancel == null) FarmFormBar("finance-save-draft", vm::saveAndClose, "finance-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy,
+                    saveLabel = "Simpan sebagai draf")
+                else FarmFormBar("finance-cancel", cancel, "finance-review", "Simpan", vm::review, enabled = !state.busy, busy = state.busy, saveLabel = "Batal")
             }
         ) {
             if (run != null) {
@@ -1426,7 +1430,7 @@ internal fun ExpiredSessionNotice() {
     if (!worker) {
         val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
         FarmReviewFrame(if (draft.type == ActivityType.MEASUREMENT) "pengukuran" else "kegiatan", "$greenhouse · ${whenLabel(draft.date, draft.time)}",
-            FarmIcon.CheckList, busy, "finance-queue", "finance-back", onBack, onQueue) {
+            FarmIcon.CheckList, busy, "finance-queue", "finance-back", onBack, onQueue, summary = true) {
             if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat dan tidak dikirim ulang.")
             FarmFormSection("Rincian") { ActivityReviewFacts(draft, context, readable = true) }
         }

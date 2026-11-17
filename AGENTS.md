@@ -1,5 +1,7 @@
 # Instruksi agen Inofarm: baseline aktif29 Oktober 2026
 
+Status terbaru 17 November 2026: baca `CLAUDE.md` lalu [serah terima 17 November](docs/context/HANDOFF_20261117.md). Bagian bertanggal di bawah adalah histori bila bertentangan dengan keduanya.
+
 Baseline setelah remediasi10 November2026 mengikuti [bukti penyelesaian](docs/context/AUDIT_REMEDIATION_20261110.md). Database aplikasi lokal sudah migration19, parity route OpenAPI lengkap, filter latest mengikuti review dan cache konteks membaca seluruh halaman. Status audit lama di bawah harus dibaca sebagai checkpoint sebelum perbaikan. QA/keputusan produksi tetap mengikuti gate yang tercatat.
 
 ## Prioritas dan scope terbaru

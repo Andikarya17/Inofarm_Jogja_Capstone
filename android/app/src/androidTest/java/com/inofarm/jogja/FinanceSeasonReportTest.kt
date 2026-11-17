@@ -124,16 +124,18 @@ class FinanceSeasonReportTest {
         assertEquals("0",SeasonReportDraft.from(rejected.id,gh,store.record(session.scope.key,rejected.id)!!.body).pending)
         assertTrue(repository.preview(session,vault.generation,reviewed().copy(pending="")).pending.isBlank())
     }
-    @Test fun largeTextFormRetainsRawInputAfterNetworkFailureAndCanBeSaved() {
+    @Test fun largeTextFormRetainsRawInputAfterNetworkFailureAndBatalDiscardsIt() {
         click("report-new");choose("report-season",season);choose("report-costs","complete");choose("report-sales","complete");choose("report-state","provisional")
         scroll("report-pending");assertEquals("",vm.state.value.draft!!.pending)
         scroll("report-note");rule.onNodeWithTag("report-note").performTextReplacement("  Tinjauan α\nbaris kedua  ");Espresso.closeSoftKeyboard()
         responseStatus.set(503);click("report-preview");rule.waitUntil(10000) {!vm.state.value.busy && vm.state.value.message!=null}
         assertEquals("  Tinjauan α\nbaris kedua  ",vm.state.value.draft!!.note);assertNull(vm.state.value.draft!!.previewText)
-        val id=vm.state.value.draft!!.id;click("report-save-draft");rule.waitUntil(10000) {vm.state.value.draft==null && !vm.state.value.busy}
-        val saved=store.record(session.scope.key,id)!!;assertEquals("",SeasonReportDraft.from(id,gh,saved.body).pending);assertTrue(store.outbox(session.scope.key).isEmpty())
-        rule.runOnIdle {vm.select(id)};rule.waitUntil(10000) {vm.state.value.draft?.id==id && !vm.state.value.busy}
-        assertEquals("  Tinjauan α\nbaris kedua  ",vm.state.value.draft!!.note)
+        val id=vm.state.value.draft!!.id
+        // The open evaluation autosaves raw input; Batal then asks and undoes it, so nothing stays as a draft.
+        rule.waitUntil(10000) {store.record(session.scope.key,id)?.let {SeasonReportDraft.from(id,gh,it.body).note}=="  Tinjauan α\nbaris kedua  "}
+        assertEquals("",SeasonReportDraft.from(id,gh,store.record(session.scope.key,id)!!.body).pending);assertTrue(store.outbox(session.scope.key).isEmpty())
+        click("report-cancel");rule.onNodeWithTag("entry-discard-confirm").performClick()
+        rule.waitUntil(10000) {vm.state.value.draft==null && store.record(session.scope.key,id)==null}
     }
     @Test fun previewAllIndicatorsAndQueueStayReadableAtTwoHundredPercentText() {
         rule.runOnIdle {vm.new(gh,season);vm.edit {reviewed().copy(id=it.id)}}
@@ -144,12 +146,14 @@ class FinanceSeasonReportTest {
         click("report-queue");rule.waitUntil(10000) {vm.state.value.draft==null && !vm.state.value.busy}
         assertEquals(1,store.outbox(session.scope.key).size);assertNull(store.records(session.scope.key,kind="season_report").single().serverVersion)
     }
-    @Test fun revokedAssignmentHidesPreviewAndStillAllowsKeepingTheRawDraft() {
+    @Test fun revokedAssignmentHidesPreviewAndBatalKeepsTheHeldRawRecord() {
         rule.runOnIdle {vm.new(gh,season);vm.edit {reviewed().copy(id=it.id)};vm.preview()}
         rule.waitUntil(10000) {!vm.state.value.busy && vm.state.value.draft?.previewText!=null}
         val draft=vm.state.value.draft!!;store.applyPull(session.scope.key,page(access=false));rule.runOnIdle {vm.reload()}
         rule.waitUntil(10000) {vm.state.value.accessDenied};rule.onNodeWithTag("report-metric-TC").assertDoesNotExist()
-        rule.runOnIdle {vm.back()};rule.waitUntil(10000) {!vm.state.value.busy && vm.state.value.draft==null}
+        // Batal on a changed evaluation asks first; discarding never removes a record held because access changed.
+        rule.runOnIdle {vm.back()};rule.waitUntil(10000) {vm.state.value.confirmDiscard}
+        rule.runOnIdle {vm.discard()};rule.waitUntil(10000) {!vm.state.value.busy && vm.state.value.draft==null}
         val retained=store.record(session.scope.key,draft.id)!!;assertEquals(SyncState.SCOPE_REVOKED,retained.syncState)
         assertEquals(draft,SeasonReportDraft.from(draft.id,gh,retained.body));assertTrue(store.outbox(session.scope.key).isEmpty())
     }

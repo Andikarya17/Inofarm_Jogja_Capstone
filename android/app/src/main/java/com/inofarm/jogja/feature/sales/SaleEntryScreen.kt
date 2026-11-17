@@ -45,7 +45,10 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
 
 @Composable fun SaleForm(state:SaleEntryState,context:CultivationUiState,vm:SaleEntryViewModel) {
     val draft=state.draft ?: return
-    FarmFormFrame(header = { FarmFormHeader(if(draft.baseVersion==null) "Catat penjualan lunas" else "Koreksi penjualan", state.saved, "sale-draft-status", "sale-close", vm::saveAndClose, !state.busy) }, bar = { FarmFormBar("sale-save-draft", vm::saveAndClose, "sale-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy) }) {
+    val cancel = rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
+    FarmFormFrame(header = { FarmFormHeader(if(draft.baseVersion==null) "Catat penjualan lunas" else "Koreksi penjualan", state.saved, "sale-draft-status", "sale-close", cancel, !state.busy,
+        showDraftStatus = false, closeLabel = "Batal", step = 1) },
+        bar = { FarmFormBar("sale-cancel", cancel, "sale-review", "Simpan", vm::review, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }) {
         FarmFormSection("Pembayaran dan pembeli") {
         if(draft.lockedSeason) Text("Musim: ${context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "terakhir tersimpan"}")
         else Choice("Musim penjualan",draft.seasonId,context.seasons.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("status")=="open"},"sale-season") {value -> vm.edit {it.copy(seasonId=value,items=listOf(SaleLine()))}}
@@ -80,7 +83,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
     }
 }
 @Composable fun SaleReview(draft:SaleDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
-    FarmReviewFrame("penjualan lunas", whenLabel(draft.date, draft.time), FarmIcon.TrendUp, busy, "sale-queue", "sale-back", onBack, onQueue) {
+    FarmReviewFrame("penjualan lunas", whenLabel(draft.date, draft.time), FarmIcon.TrendUp, busy, "sale-queue", "sale-back", onBack, onQueue, summary = true) {
         FarmFormSection("Rincian transaksi") { SaleDraftFacts(draft,context) }
         if(draft.replaceValidationRejected) Notice("Perbaikan ini dikirim sebagai catatan baru. Catatan yang ditolak tetap ada di riwayat.")
     }

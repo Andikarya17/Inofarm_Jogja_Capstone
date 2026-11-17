@@ -1801,17 +1801,17 @@ class FinanceEntryUiTest {
             rule.waitForIdle()
         }
         layout(true);rule.onNodeWithTag("expense-notes").performScrollTo().performClick().performTextReplacement("Catatan pembayaran font 200 persen")
-        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-save-draft").scrollIfScrollable().assertIsDisplayed()
+        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-cancel").scrollIfScrollable().assertIsDisplayed()
         File(rule.activity.getExternalFilesDir(null),"expense-narrow-ime.png").outputStream().use {rule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
         captureWindow("payment-narrow-ime")
         hideKeyboard();rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}
         rule.waitUntil(10000) {rule.activity.resources.configuration.orientation==Configuration.ORIENTATION_LANDSCAPE};layout(false)
         rule.onNodeWithTag("expense-notes").performScrollTo().assertTextContains("Catatan pembayaran font 200 persen")
             .performClick().performTextReplacement("Landscape tetap dapat disimpan")
-        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-save-draft").scrollIfScrollable().assertIsDisplayed()
+        Thread.sleep(500);rule.waitForIdle();rule.onNodeWithTag("expense-cancel").scrollIfScrollable().assertIsDisplayed()
         File(rule.activity.getExternalFilesDir(null),"expense-landscape-ime.png").outputStream().use {rule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
         captureWindow("payment-landscape-ime")
-        rule.onNodeWithTag("expense-save-draft").performClick();rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED}
+        rule.onNodeWithTag("expense-cancel").performClick();rule.onNodeWithTag("entry-discard-confirm").performClick();rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED}
     }
     @Test fun narrowAndLandscapeAtTwoHundredPercentKeepSaveReachableWithKeyboard() {
         chooseContext()
@@ -1915,7 +1915,7 @@ class FinanceEntryUiTest {
         choose("expense-history-kind","asset");rule.clickFinanceTool("asset-new")
         rule.onNodeWithTag("asset-name").performScrollTo().performTextReplacement("Isian 200 persen")
         rule.onNodeWithTag("asset-basis").performScrollTo().performTextReplacement("Basis tetap bisa dijangkau");hideKeyboard()
-        rule.onNodeWithTag("asset-save-draft").scrollIfScrollable().assertIsDisplayed().performClick()
+        rule.onNodeWithTag("asset-cancel").scrollIfScrollable().assertIsDisplayed().performClick();rule.onNodeWithTag("entry-discard-confirm").performClick()
     }
 
     @Test fun assetConflictReviewPreservesRawLocalNameAndOldOperation() {

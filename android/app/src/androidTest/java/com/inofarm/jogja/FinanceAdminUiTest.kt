@@ -88,6 +88,7 @@ class FinanceAdminUiTest {
         rule.onNodeWithTag("admin-name").performScrollTo().performTextInput("GH ditolak sintetis")
         Espresso.closeSoftKeyboard()
         rule.onNodeWithTag("admin-submit").scrollIfScrollable().performClick()
+        rule.onNodeWithTag("admin-save").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Musim ditutup",substring=true).fetchSemanticsNodes().isNotEmpty()}
         assertFalse(repository.read(session,vault.generation).has("pending"))
         rule.onAllNodesWithText("Kirim ulang",substring=true).assertCountEquals(0)
@@ -95,15 +96,24 @@ class FinanceAdminUiTest {
         Espresso.closeSoftKeyboard()
         refusal=null
         rule.onNodeWithTag("admin-submit").scrollIfScrollable().performClick()
+        rule.onNodeWithTag("admin-save").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {accepted==1}
     }
-    @Test fun savingAnAdminChangeSendsItWithoutAConfirmationDialog() {
+    /** Saves the screen, dialog included, to the app's external files for a visual check of both steps. */
+    private fun shot(name:String) {
+        rule.waitForIdle();val bitmap=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        java.io.File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null),"$name.png").outputStream().use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+    }
+    @Test fun savingAnAdminChangeShowsTheSummaryThenSends() {
         var accepted=0
-        rule.setContent {MaterialTheme {androidx.compose.material3.Text("Admin fixture");AdminHost(session,repository,{accepted++},onClose={})}}
+        rule.setContent {com.inofarm.jogja.core.design.InofarmTheme {androidx.compose.material3.Text("Admin fixture");AdminHost(session,repository,{accepted++},onClose={})}}
         rule.waitUntil(10000) {rule.onAllNodesWithTag("admin-new").fetchSemanticsNodes().isNotEmpty()}
         rule.onNodeWithTag("admin-new").performScrollTo().performClick()
         rule.onNodeWithTag("admin-name").performScrollTo().performTextInput("GH diterima sintetis")
+        Espresso.closeSoftKeyboard();shot("admin-form-step1")
         rule.onNodeWithTag("admin-submit").scrollIfScrollable().performClick()
+        rule.onNodeWithText("Ringkasan greenhouse").assertExists();shot("admin-summary-step2")
+        rule.onNodeWithTag("admin-save").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {accepted==1}
         rule.waitForIdle();assertFalse(repository.read(session,vault.generation).has("pending"))
     }

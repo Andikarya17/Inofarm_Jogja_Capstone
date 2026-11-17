@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.inofarm.jogja.core.contracts.RecordKind
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.session.FinanceSession
+import com.inofarm.jogja.feature.EntryOrigin
 import com.inofarm.jogja.feature.auth.userMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -25,14 +26,25 @@ class FinancialEntryViewModel(private val repository:FinancialEntryRepository):V
         if(scope==session?.scope?.key) return
         scope=session?.scope?.key;pauseAutosave();mutable.value=FinancialEntryState()
     }
-    fun new(kind:RecordKind,gh:String) {pauseAutosave();mutable.value=state.value.copy(draft=FinancialDraft(kind=kind,greenhouseId=gh),errors=emptyMap(),reviewing=false,saved=false,message=null)}
+    private val entry=EntryOrigin<FinancialDraft>()
+    fun new(kind:RecordKind,gh:String) {pauseAutosave();mutable.value=state.value.copy(draft=FinancialDraft(kind=kind,greenhouseId=gh),errors=emptyMap(),reviewing=false,saved=false,message=null);entry.start(null,state.value.draft)}
     fun open(record:LocalRecord,replaceRejected:Boolean=false) {
         pauseAutosave();val kind=RecordKind.entries.single {it.wire==record.kind}
         val draft=FinancialDraft.from(record.id,kind,record.greenhouseId,record.body,record.baseVersion ?: record.serverVersion)
         mutable.value=state.value.copy(draft=draft.copy(replaceValidationRejected=replaceRejected,lockedParents=draft.lockedParents || record.serverVersion!=null || record.latestOperationId!=null),errors=emptyMap(),reviewing=false,saved=true,message=null)
+        entry.start(record,state.value.draft)
+    }
+    fun hasChanges()=entry.changed(state.value.draft)
+    /** "Batal": closes the form and undoes its autosave, so nothing stays behind as a draft. */
+    fun cancel() {
+        val draft=state.value.draft ?: return;pauseAutosave()
+        mutable.value=state.value.copy(draft=null,reviewing=false,errors=emptyMap(),message=null)
+        entry.undo(viewModelScope,vault,draft.id,{session,ticket,id,origin -> repository.discard(session,ticket,id,origin)}) {
+            mutable.value=state.value.copy(changed=state.value.changed+1,message=it)
+        }
     }
     fun edit(change:(FinancialDraft)->FinancialDraft) {
-        val draft=state.value.draft ?: return;val updated=change(draft)
+        val draft=state.value.draft ?: return;val updated=change(draft);entry.touched=true
         mutable.value=state.value.copy(draft=updated,saved=false,reviewing=false,errors=emptyMap())
         pauseAutosave();saveJob=viewModelScope.launch {delay(350);save(updated,false,false)}
     }

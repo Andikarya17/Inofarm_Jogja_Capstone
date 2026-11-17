@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 data class SeasonReportState(val active:Boolean=false,val greenhouse:String="",val season:String="",val draft:SeasonReportDraft?=null,
     val records:List<LocalRecord> = emptyList(),val more:Boolean=false,val selected:LocalRecord?=null,val fresh:Boolean=false,
     val sources:ReportSourcePage?=null,val busy:Boolean=false,val saved:Boolean=false,val message:String?=null,
-    val errors:Map<String,String> = emptyMap(),val changed:Long=0,val accessDenied:Boolean=false)
+    val errors:Map<String,String> = emptyMap(),val changed:Long=0,val accessDenied:Boolean=false,val confirmDiscard:Boolean=false)
 
 class SeasonReportViewModel(private val repository:SeasonReportRepository):ViewModel() {
     private val vault get()=repository.vault
@@ -24,9 +24,26 @@ class SeasonReportViewModel(private val repository:SeasonReportRepository):ViewM
     fun bind(session:FinanceSession?) {if(scope==session?.scope?.key) return;pauseAutosave();read?.cancel();scope=session?.scope?.key;mutable.value=SeasonReportState()}
     fun show(gh:String="") {mutable.value=state.value.copy(active=true,greenhouse=gh,season="",draft=null,selected=null,sources=null,message=null,accessDenied=false);reload()}
     fun filter(gh:String,season:String) {mutable.value=state.value.copy(greenhouse=gh,season=season,selected=null,sources=null);reload()}
-    fun new(gh:String=state.value.greenhouse,season:String="") {pauseAutosave();mutable.value=state.value.copy(active=true,draft=SeasonReportDraft(greenhouseId=gh,seasonId=season),selected=null,sources=null,errors=emptyMap(),message=null,saved=false);val draft=state.value.draft!!;autosave=viewModelScope.launch {save(draft,false)}}
+    private val entry=com.inofarm.jogja.feature.EntryOrigin<SeasonReportDraft>()
+    private var exitAfterDiscard=false
+    fun new(gh:String=state.value.greenhouse,season:String="") {pauseAutosave();mutable.value=state.value.copy(active=true,draft=SeasonReportDraft(greenhouseId=gh,seasonId=season),selected=null,sources=null,errors=emptyMap(),message=null,saved=false);val draft=state.value.draft!!
+        entry.start(null,draft);entry.touched=true;autosave=viewModelScope.launch {save(draft,false)}}
+    /** "Batal" asks first when the evaluation changed since it opened; otherwise it is dropped at once. */
+    private fun requestDiscard(exitWorkspace:Boolean) {
+        exitAfterDiscard=exitWorkspace
+        if(entry.changed(state.value.draft)) mutable.value=state.value.copy(confirmDiscard=true) else discard()
+    }
+    fun keepEditing() {mutable.value=state.value.copy(confirmDiscard=false)}
+    /** Drops the open evaluation and undoes its autosave, so no draft stays behind. */
+    fun discard() {
+        val draft=state.value.draft ?: return;pauseAutosave()
+        mutable.value=state.value.copy(active=state.value.active && !exitAfterDiscard,draft=null,sources=null,errors=emptyMap(),confirmDiscard=false,message=null)
+        entry.undo(viewModelScope,vault,draft.id,{session,ticket,id,origin -> repository.discard(session,ticket,id,origin)}) {
+            mutable.value=state.value.copy(changed=state.value.changed+1,message=it);if(state.value.active) reload()
+        }
+    }
     fun edit(change:(SeasonReportDraft)->SeasonReportDraft) {
-        val current=state.value.draft ?: return;val draft=change(current).copy(previewText=null,previewFetchedAt=null)
+        val current=state.value.draft ?: return;entry.touched=true;val draft=change(current).copy(previewText=null,previewFetchedAt=null)
         mutable.value=state.value.copy(draft=draft,sources=null,saved=false,errors=emptyMap(),message=null)
         pauseAutosave();autosave=viewModelScope.launch {delay(350);save(draft,false)}
     }
@@ -57,8 +74,7 @@ class SeasonReportViewModel(private val repository:SeasonReportRepository):ViewM
     }
     fun back(exitWorkspace:Boolean=false) {
         if(state.value.busy) return
-        val draft=state.value.draft
-        if(draft!=null) {val session=vault.current ?: return;val ticket=vault.generation;pauseAutosave();mutable.value=state.value.copy(busy=true);viewModelScope.launch {try {save(draft,true,exitWorkspace)} finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(busy=false)}}}
+        if(state.value.draft!=null) requestDiscard(exitWorkspace)
         else if(state.value.selected!=null) mutable.value=state.value.copy(active=!exitWorkspace,selected=null,sources=null,message=null)
         else mutable.value=state.value.copy(active=false,sources=null)
     }
@@ -78,7 +94,10 @@ class SeasonReportViewModel(private val repository:SeasonReportRepository):ViewM
             val row=repository.detail(session,id)
             if(row.serverVersion==null && row.body.has("_local_form") && row.syncState in setOf(SyncState.LOCAL,SyncState.REJECTED)) {
                 val draft=SeasonReportDraft.from(row.id,row.greenhouseId,row.body)
-                if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(draft=if(row.syncState==SyncState.REJECTED) draft.copy(previewText=null,previewFetchedAt=null,replaceRejected=true) else draft,selected=null,sources=null,saved=true)
+                if(vault.matches(ticket,session.scope)) {
+                    mutable.value=state.value.copy(draft=if(row.syncState==SyncState.REJECTED) draft.copy(previewText=null,previewFetchedAt=null,replaceRejected=true) else draft,selected=null,sources=null,saved=true)
+                    entry.start(row,state.value.draft)
+                }
             } else {
                 if(row.serverVersion!=null) SeasonReportContract.validate(row.serverBody ?: row.body,true)
                 if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(selected=row,draft=null,sources=null,fresh=false)

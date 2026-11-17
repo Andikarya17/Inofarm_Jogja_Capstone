@@ -471,6 +471,31 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         if(saved.baseVersion==null) db.update("local_records",values("base_version" to baseVersion,"server_version" to baseVersion,"server_body" to encrypt(scope,body)),"scope=? AND entity_id=?",arrayOf(scope,id))
         putQueued(scope,record(scope,id)!!,action,payload)
     }
+    /**
+     * Undoes the autosaved edits of a form the user cancelled, so "Batal" leaves no draft behind. [origin] is the row as
+     * it was when the form opened (null for a new record). Anything queued since then belongs to the outbox and stays.
+     */
+    fun restoreDraft(scope:String,id:String,origin:LocalRecord?) = transaction {
+        val current=record(scope,id) ?: return@transaction
+        requireMutationKind(scope,current.kind)
+        if(current.syncState!=SyncState.LOCAL || current.latestOperationId!=origin?.latestOperationId) return@transaction
+        if(origin==null) {
+            val sent=db.rawQuery("SELECT 1 FROM outbox WHERE scope=? AND entity_id=?",arrayOf(scope,id)).use {it.moveToFirst()}
+            if(sent) return@transaction
+            db.delete("local_record_revisions","scope=? AND entity_id=?",arrayOf(scope,id))
+            db.delete("local_records","scope=? AND entity_id=?",arrayOf(scope,id))
+            return@transaction
+        }
+        archive(scope,current,"discard_local_edit")
+        // An accepted record goes back to the server copy, which a pull may have refreshed while the form was open.
+        val accepted=origin.syncState==SyncState.ACCEPTED && current.serverBody!=null
+        val body=if(accepted) current.serverBody!! else origin.body
+        val patch=values("body" to encrypt(scope,body),"revision" to current.revision+1,
+            "base_version" to if(accepted) current.serverVersion else origin.baseVersion,"sync_state" to origin.syncState.name,
+            "error" to encrypt(scope,origin.error),"updated_at" to System.currentTimeMillis())
+        patch.putAll(indexValues(body))
+        db.update("local_records",patch,"scope=? AND entity_id=?",arrayOf(scope,id))
+    }
     fun discardInvestmentCancel(scope:String,id:String,expectedRevision:Long):LocalRecord = transaction {
         val current=record(scope,id) ?: error("Skenario tidak ditemukan.");requireMutationKind(scope,current.kind)
         require(current.kind=="investment_scenario" && current.revision==expectedRevision && current.greenhouseId in visibleGreenhouses(scope) && pending(scope,id).isEmpty())

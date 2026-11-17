@@ -1,5 +1,9 @@
 # Status implementasi nyata, 11 November 2026
 
+## Status input pengelola, 17 November 2026
+
+Dari membaca source `github/main` `52c8ab9` (bukan tes baru): admin/master/akun, wizard greenhouse, tanam saat ini, tutup/buka musim, selesai panen, keputusan cek catatan, skenario investasi dan pembatalan langsung disimpan. Kegiatan, pengukuran, panen, pengeluaran, alokasi, penjualan, aset dan penyusutan memakai draf lokal + layar Periksa + antrean. Laporan musim dan investasi wajib pratinjau di server. Backend 167 tes dan JVM 121 adalah hasil terakhir yang tercatat (PR #67, #68). [Audit](MANAGER_INPUT_FLOW_AUDIT_20261117.md), [serah terima](HANDOFF_20261117.md).
+
 ## Pengelola super admin dan UI Versi B
 
 **Terbukti (tes baru dari sesi ini):** backend 157 tes/3.972 assertion lulus pada `inofarm_test`; pengelola tanpa penugasan membaca dan mengubah semua greenhouse dan akun, pekerja tetap terbatas penugasan, alasan opsional hanya untuk pengelola, urutan permintaan wizard diterima server. Android: build debug, 89 tes JVM, lint (0 error, 16 warning, 1 hint). **Tidak terbukti:** tampilan di emulator atau perangkat, instrumentasi Android, TalkBack, font 200%, benchmark. Teks di tes instrumentasi sudah diselaraskan dan dikompilasi, tetapi tidak dijalankan. Tidak ada migration; database lokal tidak disentuh. Rincian, string lama yang tersisa dan batas: [bukti](MANAGER_SUPERADMIN_EVIDENCE_20261111.md).
