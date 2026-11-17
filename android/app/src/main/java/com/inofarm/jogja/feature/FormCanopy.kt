@@ -330,7 +330,7 @@ internal fun FarmStepIndicator(step: Int, labels: List<String>) {
 internal fun FarmRoleCards(selected: String, roles: Map<String, String>, tag: String, onSelect: (String) -> Unit) {
     val colors = MaterialTheme.colorScheme
     val about = mapOf(
-        "worker" to "Mencatat kegiatan dan panen di greenhouse yang ditugaskan.",
+        "worker" to "Mencatat kegiatan dan panen di semua greenhouse aktif.",
         "manager" to "Mengelola semua greenhouse, akun, dan keuangan.",
     )
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {

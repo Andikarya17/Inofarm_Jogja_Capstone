@@ -52,6 +52,9 @@ class FinanceEntryUiTest {
     private val gh2 = UUID.randomUUID().toString()
     private val season2 = UUID.randomUUID().toString()
     private val group2 = UUID.randomUUID().toString()
+    /** A third active greenhouse with no season or planting yet, for the "Mulai tanam" path. */
+    private val unplantedGreenhouse = AtomicBoolean(false)
+    private val gh3 = UUID.randomUUID().toString()
     private val agendaSchedule = UUID.randomUUID().toString()
     private val agendaNotes = List(3) { UUID.randomUUID().toString() }
     private val seasonState=java.util.concurrent.atomic.AtomicReference("open");private val seasonVersion=AtomicInteger(1)
@@ -185,9 +188,13 @@ class FinanceEntryUiTest {
     @After fun close() { server.shutdown() }
     private fun managerGreenhouses(): List<JSONObject> {
         val main = JSONObject().put("id", gh).put("name", if (longNames.get()) longGreenhouseName else "GH UI sintetis")
-        return listOf(main) + if (overviewFixture.get()) extraGreenhouses.mapIndexed { index, id ->
+        val extra = if (overviewFixture.get()) extraGreenhouses.mapIndexed { index, id ->
             JSONObject().put("id", id).put("name", "Greenhouse sintetis ${index + 2}")
         }.filter { it.getString("id") != revokedGreenhouse } else emptyList()
+        // Fed greenhouses must be in the manager's scope too, or the pull is refused as out of scope.
+        val unplanted = if (unplantedGreenhouse.get()) listOf(JSONObject().put("id", gh3).put("name", "GH belum tanam"),
+            JSONObject().put("id", gh2).put("name", "Greenhouse kedua sintetis")) else emptyList()
+        return listOf(main) + extra + unplanted
     }
 
     private fun managerHome(selection: String?): JSONObject {
@@ -237,6 +244,7 @@ class FinanceEntryUiTest {
             row("planting_groups", group2, JSONObject().put("season_id", season2).put("name", "Kelompok kedua sintetis").put("active", true)
                 .put("sowing_date", "2026-10-05").put("transplant_date", JSONObject.NULL), gh2)
         }
+        if (unplantedGreenhouse.get()) row("greenhouses", gh3, JSONObject().put("name", "GH belum tanam").put("active", true), gh3)
         if (agenda.get()) {
             val at = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Jakarta")).toString() + "T08:00:00+07:00"
             row("schedules", agendaSchedule, JSONObject().put("planting_group_id", group).put("activity_type", "general")
@@ -275,6 +283,7 @@ class FinanceEntryUiTest {
                 row("harvest_balance",item.getString("id"),JSONObject().put("version",receipt.getInt("version")+financeReceipts.values.count {financeKinds[it.getString("entity_id")]=="sale"}).put("harvest_id",receipt.getString("entity_id")).put("harvest_version",receipt.getInt("version")).put("active",active).put("weight_kg",item.getString("weight_kg")).put("sold_weight_kg",sold.setScale(6).toPlainString()).put("available_weight_kg",if(active) (java.math.BigDecimal(item.getString("weight_kg"))-sold).setScale(6).toPlainString() else "0.000000"))}
         }
         val scope = if (managerAccess) JSONArray(managerGreenhouses()) else JSONArray().put(JSONObject().put("id",gh).put("active",true)).also { if (secondGreenhouse.get()) it.put(JSONObject().put("id",gh2).put("active",true)) }
+        if (unplantedGreenhouse.get() && !managerAccess) scope.put(JSONObject().put("id", gh3).put("active", true))
         return JSONObject().put("schema_version","2").put("sync_epoch",epoch).put("scope",scope).put("data",rows).put("next_cursor","fixture").put("has_more",false)
     }
     private fun financeMutation(request:RecordedRequest,response:MockResponse):MockResponse {
@@ -650,6 +659,8 @@ class FinanceEntryUiTest {
         return rule.onNodeWithTag(tag)
     }
     private fun choose(tag:String,id:String,keepContextOpen:Boolean=false) {
+        // Recording asks only for a greenhouse (17 Nov 2026); season and planting are resolved, not chosen.
+        if(tag=="finance-season" || tag=="finance-group") return
         rule.prepareChoice(tag)
         rule.onNodeWithTag(tag).performScrollTo().performClick()
         val option="$tag-option-$id"
@@ -861,13 +872,13 @@ class FinanceEntryUiTest {
         Espresso.pressBack()
         capture("worker-home")
         gfxInfo("reset")
-        // The context sheet opens from a greenhouse card now, so the greenhouse is already chosen and its season and group are listed.
+        // The context sheet opens from a greenhouse card; only the greenhouse is chosen and its season and variety are shown.
         rule.openHomeContext()
-        rule.onNodeWithTag("finance-season").assertExists()
+        rule.onNodeWithTag("finance-season").assertDoesNotExist()
         choose("finance-gh", gh)
         rule.openHomeContext()
-        rule.onNodeWithTag("finance-season").assertTextContains("Musim UI sintetis", substring = true)
-        rule.onNodeWithTag("finance-group").assertTextContains("Kelompok UI sintetis", substring = true)
+        rule.onNodeWithTag("finance-context-target").assertTextContains("Musim UI sintetis", substring = true)
+        rule.onNodeWithTag("finance-group").assertDoesNotExist()
         rule.onNodeWithTag("finance-context-close").performScrollTo().performClick()
         rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("measurement-card-ec"))
         if (rule.activity.resources.configuration.fontScale > 1.3f) {
@@ -1405,6 +1416,64 @@ class FinanceEntryUiTest {
         readyNode("investment-open").performScrollTo().assertIsDisplayed()
         Espresso.pressBack()
         historyList.assertIsDisplayed()
+    }
+
+    /** F3: Catat asks only for a greenhouse for both roles; an unplanted greenhouse offers "Mulai tanam" to the manager. */
+    @Test fun catatAsksOnlyForTheGreenhouseForBothRoles() {
+        val theme = (rule.activity.application as InofarmApplication).theme
+        managerWalkthroughFixture.set(true)
+        secondGreenhouse.set(true)
+        unplantedGreenhouse.set(true)
+        rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+        try {
+            // Worker: pick a greenhouse, read its season and planting, never choose season or group.
+            readyNode("finance-sync").performClick()
+            val home = rule.onNodeWithTag("finance-home-list")
+            rule.waitUntil(30_000) {
+                runCatching { home.performScrollToNode(hasTestTag("worker-greenhouse-$gh3")) }.isSuccess ||
+                    run { runCatching { rule.onNodeWithTag("finance-sync").performClick() }; false }
+            }
+            rule.onNodeWithTag("finance-home-list").performScrollToIndex(0)
+            readyNode("finance-record-fab").performClick()
+            readyNode("record-greenhouse-option-$gh3").performScrollTo().performClick()
+            readyNode("record-greenhouse-caption").assertTextContains("Minta pengelola", substring = true)
+            rule.onNodeWithTag("record-start-planting").assertDoesNotExist()
+            captureInternal("catat-worker-unplanted")
+            readyNode("record-greenhouse-option-$gh2").performScrollTo().performClick()
+            readyNode("record-greenhouse-caption").assertTextContains("Musim kedua sintetis", substring = true)
+            captureInternal("catat-worker-ready")
+            readyNode("record-activity").performClick()
+            val worker = ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.activities.ActivityViewModel::class.java]
+            rule.waitUntil(10_000) { worker.state.value.draft != null }
+            assertEquals(gh2, worker.state.value.draft!!.greenhouseId)
+            assertEquals(group2, worker.state.value.draft!!.groupId)
+            rule.onNodeWithTag("finance-season").assertDoesNotExist()
+            rule.runOnIdle { worker.discard() }
+
+            // Manager: the same greenhouse choice, plus "Mulai tanam" for the unplanted greenhouse.
+            managerLogin()
+            readyNode("finance-record-fab").performClick()
+            readyNode("record-greenhouse-option-$gh3").performScrollTo().performClick()
+            readyNode("record-start-planting").assertIsDisplayed()
+            captureInternal("catat-manager-unplanted-light")
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.DARK) }
+            readyNode("record-start-planting").assertIsDisplayed()
+            captureInternal("catat-manager-unplanted-dark")
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+            readyNode("record-greenhouse-option-$gh").performScrollTo().performClick()
+            readyNode("record-greenhouse-caption").assertTextContains("Musim UI sintetis", substring = true)
+            rule.onNodeWithTag("record-start-planting").assertDoesNotExist()
+            readyNode("record-greenhouse-option-$gh3").performScrollTo().performClick()
+            readyNode("record-start-planting").performClick()
+            readyNode("wizard-season").assertExists()
+            readyNode("wizard-variety-0").assertExists()
+            rule.onNodeWithTag("wizard-name").assertDoesNotExist()
+            rule.onNodeWithTag("wizard-skip").assertDoesNotExist()
+            readyNode("wizard-step").assertTextContains("GH belum tanam")
+            captureInternal("catat-manager-start-planting")
+        } finally {
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+        }
     }
 
     /** F2: two steps, one or two varieties planted together, each saved as a group named after it, and no worker step. */

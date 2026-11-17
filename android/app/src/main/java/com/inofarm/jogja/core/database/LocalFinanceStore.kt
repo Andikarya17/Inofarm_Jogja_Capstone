@@ -239,7 +239,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         }
     }
     fun blobsFor(scope:String,id:String):List<LocalBlob> {
-        val record=record(scope,id) ?: return emptyList();require(record.greenhouseId in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
+        val record=record(scope,id) ?: return emptyList();require(record.greenhouseId in visibleGreenhouses(scope)) {"Greenhouse ini tidak lagi tersedia untuk akun Anda."}
         return db.rawQuery("SELECT blob_id FROM local_blobs WHERE scope=? AND entity_id=? ORDER BY updated_at DESC,blob_id",arrayOf(scope,id)).use {rows -> buildList {while(rows.moveToNext()) add(blob(scope,rows.getString(0))!!)}}
     }
     fun beginAttachmentCopy(scope:String,id:String,gh:String,kind:String,body:JSONObject,blobId:String,source:JSONObject):LocalRecord=transaction {
@@ -317,7 +317,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         putQueued(scope,saved,"create",payload,blobId)
     }
     fun cacheAudit(scope:String,id:String,gh:String,body:JSONObject,kind:String="activity_audit")=transaction {
-        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit","sale_audit","asset_audit","depreciation_allocation_audit","activity_attachment_audit","harvest_attachment_audit","expense_attachment_audit","investment_scenario_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
+        require(kind in setOf("activity_audit","harvest_audit","expense_audit","cost_allocation_audit","sale_audit","asset_audit","depreciation_allocation_audit","activity_attachment_audit","harvest_attachment_audit","expense_attachment_audit","investment_scenario_audit"));requireKind(scope,kind);require(gh in visibleGreenhouses(scope)) {"Greenhouse ini tidak lagi tersedia untuk akun Anda."}
         db.insertWithOnConflict("cached_records",null,values("scope" to scope,"kind" to kind,"entity_id" to id,"greenhouse_id" to gh,"version" to 1L,
             "tombstone" to 0,"body" to encrypt(scope,body)),SQLiteDatabase.CONFLICT_REPLACE)
     }
@@ -394,7 +394,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         val revision = (old?.revision ?: 0) + 1
         val base = if(old?.syncState == SyncState.ACCEPTED) editingBaseVersion ?: old.serverVersion else old?.baseVersion
         val held=old?.syncState?.takeIf {it==SyncState.EPOCH_REVIEW} ?: if(!visible) SyncState.SCOPE_REVOKED else old?.syncState?.takeIf {it==SyncState.SCOPE_REVOKED}
-        val heldError=if(!visible) JSONObject().put("message","Anda tidak lagi bertugas di greenhouse ini. Draf tersimpan di perangkat dan belum dikirim.") else old?.error
+        val heldError=if(!visible) JSONObject().put("message","Greenhouse ini tidak lagi tersedia untuk akun Anda. Draf tersimpan di perangkat dan belum dikirim.") else old?.error
         val data = values("scope" to scope,"entity_id" to id,"kind" to kind,"greenhouse_id" to gh,"revision" to revision,
             "base_version" to base,"server_version" to old?.serverVersion,"body" to encrypt(scope,body),"server_body" to encrypt(scope,old?.serverBody),
             "latest_operation_id" to old?.latestOperationId,"sync_state" to (held?.name ?: "LOCAL"),"error" to if(held != null) encrypt(scope,heldError) else null,"updated_at" to System.currentTimeMillis())
@@ -448,7 +448,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     private fun pending(scope:String,id:String):List<QueuedOperation> = db.rawQuery("SELECT * FROM outbox WHERE scope=? AND entity_id=? AND state NOT IN ('ACCEPTED','SUPERSEDED')",arrayOf(scope,id)).use {rows -> buildList {while(rows.moveToNext()) add(rows.operation(scope))}}
     fun pendingFor(scope:String,id:String):List<QueuedOperation> {
         val record=record(scope,id) ?: return emptyList()
-        require(record.greenhouseId in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
+        require(record.greenhouseId in visibleGreenhouses(scope)) {"Greenhouse ini tidak lagi tersedia untuk akun Anda."}
         return pending(scope,id)
     }
     fun detail(scope:String,id:String):LocalDetail?=transaction {
@@ -509,7 +509,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         val current=record(scope,id) ?: error("Catatan tidak ditemukan.")
         requireMutationKind(scope,current.kind)
         require(current.revision==expectedRevision) {"Draf berubah. Buka perbandingan lagi."}
-        require(current.greenhouseId in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
+        require(current.greenhouseId in visibleGreenhouses(scope)) {"Greenhouse ini tidak lagi tersedia untuk akun Anda."}
         val pending=pending(scope,id)
         require(pending.isNotEmpty() && pending.all {it.state=="CONFLICT"}) {"Tidak ada perubahan bentrok yang bisa diselesaikan."}
         require(current.serverVersion==reviewedVersion && current.serverBody?.optLong("version")==reviewedVersion) {"Data ini baru diubah di perangkat lain. Perbarui lalu coba lagi."}
@@ -526,13 +526,13 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         val op=db.rawQuery("SELECT * FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,operationId)).use {if(it.moveToFirst()) it.operation(scope) else null} ?: error("Catatan kiriman tidak ditemukan.")
         require(op.state=="REJECTED" && op.error?.optString("code")=="season_closed") {"Catatan ini perlu diperbaiki dengan cara lain."}
         require(op.envelope.getString("sync_epoch")==epoch(scope)) {"Data di server dipulihkan. Beberapa catatan perlu dicek."}
-        val row=record(scope,op.entityId)!!;require(row.greenhouseId in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
+        val row=record(scope,op.entityId)!!;require(row.greenhouseId in visibleGreenhouses(scope)) {"Greenhouse ini tidak lagi tersedia untuk akun Anda."}
         db.update("outbox",values("state" to "QUEUED","next_attempt_at" to 0L,"error" to null),"scope=? AND operation_id=?",arrayOf(scope,operationId))
         if(row.revision==op.revision) db.update("local_records",values("sync_state" to "QUEUED","error" to null),"scope=? AND entity_id=?",arrayOf(scope,row.id))
     }
     fun archived(scope:String,id:String):List<JSONObject> {
         val current=record(scope,id) ?: return emptyList();requireKind(scope,current.kind)
-        require(current.greenhouseId in visibleGreenhouses(scope)) {"Anda tidak lagi bertugas di greenhouse ini."}
+        require(current.greenhouseId in visibleGreenhouses(scope)) {"Greenhouse ini tidak lagi tersedia untuk akun Anda."}
         return db.rawQuery("SELECT body FROM local_record_revisions WHERE scope=? AND entity_id=? ORDER BY revision DESC LIMIT 100",arrayOf(scope,id)).use {rows -> buildList {while(rows.moveToNext()) add(decode(scope,rows.getString(0))!!)}}
     }
     fun next(scope: String, now: Long = System.currentTimeMillis()): QueuedOperation? = db.rawQuery("SELECT * FROM outbox WHERE scope=? AND state='QUEUED' AND next_attempt_at<=? ORDER BY created_at,operation_id",arrayOf(scope,now.toString())).use { rows ->
@@ -630,7 +630,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
                 }
             }
         }
-        val heldError=encrypt(scope,JSONObject().put("message","Anda tidak lagi bertugas di greenhouse ini. Draf tetap tersimpan."))
+        val heldError=encrypt(scope,JSONObject().put("message","Greenhouse ini tidak lagi tersedia untuk akun Anda. Draf tetap tersimpan."))
         db.execSQL("""UPDATE outbox SET state='SCOPE_REVOKED',error=? WHERE scope=? AND state NOT IN ('ACCEPTED','SUPERSEDED','EPOCH_REVIEW')
             AND entity_id IN (SELECT entity_id FROM local_records WHERE scope=? AND greenhouse_id NOT IN (SELECT greenhouse_id FROM scope_access WHERE scope=?))""",arrayOf(heldError,scope,scope,scope))
         db.execSQL("""UPDATE local_records SET sync_state='SCOPE_REVOKED',error=? WHERE scope=? AND sync_state!='EPOCH_REVIEW'

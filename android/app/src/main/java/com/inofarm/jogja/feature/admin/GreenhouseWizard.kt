@@ -38,6 +38,9 @@ import org.json.JSONObject
 import java.time.LocalDate
 import java.util.UUID
 
+/** Start planting in an existing greenhouse; an open season without planting is reused, never duplicated. */
+data class PlantIn(val greenhouseId: String, val name: String, val seasonId: String? = null, val seasonName: String = "", val seasonStart: String = "")
+
 /** Field checks for the "Tambah greenhouse" wizard. Kept free of Compose so they can be unit-tested. */
 internal object WizardRules {
     fun greenhouseNameError(name: String): String? = when {
@@ -85,11 +88,13 @@ fun GreenhouseWizardHost(
     onOpenGreenhouse: (String) -> Unit,
     onRecord: (String) -> Unit,
     onClose: () -> Unit,
+    /** Start planting in an existing greenhouse: only the planting step is shown. */
+    plantIn: PlantIn? = null,
 ) {
     if (session.role != UserRole.MANAGER) { LaunchedEffect(Unit) { onClose() }; return }
     val ticket = repository.vault.generation
     val scope = rememberCoroutineScope()
-    var step by rememberSaveable { mutableIntStateOf(1) }
+    var step by rememberSaveable { mutableIntStateOf(if (plantIn != null) 2 else 1) }
     var finished by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<String?>(null) }
@@ -97,19 +102,19 @@ fun GreenhouseWizardHost(
     var fieldErrors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     val today = remember { LocalDate.now(ActivityDraft.WIB).toString() }
 
-    val ghId = rememberSaveable { UUID.randomUUID().toString() }
-    var ghDone by rememberSaveable { mutableStateOf(false) }
-    var name by rememberSaveable { mutableStateOf("") }
+    val ghId = rememberSaveable { plantIn?.greenhouseId ?: UUID.randomUUID().toString() }
+    var ghDone by rememberSaveable { mutableStateOf(plantIn != null) }
+    var name by rememberSaveable { mutableStateOf(plantIn?.name.orEmpty()) }
 
-    val seasonId = rememberSaveable { UUID.randomUUID().toString() }
+    val seasonId = rememberSaveable { plantIn?.seasonId ?: UUID.randomUUID().toString() }
     val varietyIds = rememberSaveable { listOf(UUID.randomUUID().toString(), UUID.randomUUID().toString()) }
     val groupIds = rememberSaveable { listOf(UUID.randomUUID().toString(), UUID.randomUUID().toString()) }
-    var seasonDone by rememberSaveable { mutableStateOf(false) }
+    var seasonDone by rememberSaveable { mutableStateOf(plantIn?.seasonId != null) }
     var varietyDone by rememberSaveable { mutableStateOf(listOf(false, false)) }
     var groupDone by rememberSaveable { mutableStateOf(listOf(false, false)) }
     var periodDone by rememberSaveable { mutableStateOf(false) }
-    var season by rememberSaveable { mutableStateOf("") }
-    var start by rememberSaveable { mutableStateOf(today) }
+    var season by rememberSaveable { mutableStateOf(plantIn?.seasonName.orEmpty()) }
+    var start by rememberSaveable { mutableStateOf(plantIn?.seasonStart?.takeIf { it.isNotBlank() } ?: today) }
     var names by rememberSaveable { mutableStateOf(listOf("", "")) }
     var populations by rememberSaveable { mutableStateOf(listOf("", "")) }
     var twoVarieties by rememberSaveable { mutableStateOf(false) }
@@ -195,13 +200,13 @@ fun GreenhouseWizardHost(
     }
 
     // Once the greenhouse is saved, leaving goes to the finish screen so the manager sees it already exists.
-    val close: () -> Unit = { if (!busy) { if (ghDone && !finished) finished = true else onClose() } }
+    val close: () -> Unit = { if (!busy) { if (ghDone && !finished && plantIn == null) finished = true else onClose() } }
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false)) {
-        BackHandler { if (!busy) { if (finished) onClose() else if (step > 1) step-- else close() } }
+        BackHandler { if (!busy) { if (finished) onClose() else if (step > 1 && plantIn == null) step-- else close() } }
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             CompositionLocalProvider(LocalCanopyForm provides true) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(horizontal = FarmSpace.Page)) {
-                FarmSheetHeading("Tambah greenhouse", close, !busy)
+                FarmSheetHeading(if (plantIn != null) "Mulai tanam" else "Tambah greenhouse", close, !busy)
                 HorizontalDivider()
                 Column(Modifier.weight(1f).verticalScroll(scroll).padding(vertical = FarmSpace.Medium),
                     verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
@@ -221,8 +226,8 @@ fun GreenhouseWizardHost(
                         OutlinedButton(onClick = { onOpenGreenhouse(ghId) }, shape = FarmShape.Control,
                             modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-open")) { Text("Ke greenhouse") }
                     } else {
-                        FarmStepIndicator(step, listOf("Greenhouse", "Mulai tanam"))
-                        Text(if (step == 1) "Langkah 1 dari 2" else "Langkah 2 dari 2 · bisa dilewati",
+                        if (plantIn == null) FarmStepIndicator(step, listOf("Greenhouse", "Mulai tanam"))
+                        Text(if (plantIn != null) name.trim() else if (step == 1) "Langkah 1 dari 2" else "Langkah 2 dari 2 · bisa dilewati",
                             Modifier.testTag("wizard-step").semantics { liveRegion = LiveRegionMode.Polite },
                             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         progress?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }); LinearProgressIndicator(Modifier.fillMaxWidth()) }
@@ -247,7 +252,7 @@ fun GreenhouseWizardHost(
                                 }
                             }
                             else -> {
-                                Text("Mulai tanam", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
+                                if (plantIn == null) Text("Mulai tanam", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
                                 val saved = listOfNotNull(if (seasonDone) "musim" else null,
                                     (0 until count).filter { groupDone[it] }.takeIf { it.isNotEmpty() }?.joinToString(" dan ") { names[it].trim() })
                                 if (saved.isNotEmpty()) FarmInfoCard { Text(saved.joinToString(", ").replaceFirstChar { it.uppercase() } + " sudah tersimpan.", style = MaterialTheme.typography.bodyMedium) }
@@ -275,7 +280,7 @@ fun GreenhouseWizardHost(
                                 }
                                 if (!twoVarieties && !planted) OutlinedButton(onClick = { twoVarieties = true }, enabled = !busy, shape = FarmShape.Control,
                                     modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-add-variety")) { Text("Tambah varietas kedua") }
-                                TextButton(onClick = { finished = true }, enabled = !busy,
+                                if (plantIn == null) TextButton(onClick = { finished = true }, enabled = !busy,
                                     modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("wizard-skip")) { Text("Lewati langkah ini") }
                             }
                         }
@@ -287,7 +292,7 @@ fun GreenhouseWizardHost(
                 }
                 if (!finished) FarmFormBar("wizard-back", { step-- }, "wizard-next", if (step == 2) "Simpan dan selesai" else "Simpan dan lanjut",
                     { if (step == 1) saveGreenhouse() else savePlanting() },
-                    enabled = !busy, busy = busy, saveLabel = "Kembali", showSave = step > 1)
+                    enabled = !busy, busy = busy, saveLabel = "Kembali", showSave = step > 1 && plantIn == null)
             }
             }
         }

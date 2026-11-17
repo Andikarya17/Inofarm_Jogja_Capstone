@@ -489,6 +489,8 @@ class FinanceBackendDeviceTest {
     }
 
     private fun choose(tag:String,id:String) {
+        // Recording asks only for a greenhouse (17 Nov 2026); season and planting are resolved, not chosen.
+        if(tag=="finance-season" || tag=="finance-group") return
         rule.prepareChoice(tag)
         rule.waitUntil(10000) {rule.onAllNodesWithTag(tag).fetchSemanticsNodes().size==1}
         rule.onNodeWithTag(tag).performScrollTo().performClick()

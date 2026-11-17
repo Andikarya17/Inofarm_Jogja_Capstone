@@ -200,7 +200,7 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
         reviewError?.let { Notice(it,true) }
         when (state) {
             SyncState.AUTH_REQUIRED -> Text("Masuk lagi untuk melanjutkan pengiriman.")
-            SyncState.SCOPE_REVOKED -> Text("Anda tidak lagi bertugas di greenhouse ini. Catatan tetap tersimpan.")
+            SyncState.SCOPE_REVOKED -> Text("Greenhouse ini tidak lagi tersedia untuk akun Anda. Catatan tetap tersimpan.")
             SyncState.EPOCH_REVIEW -> Text("Data di server dipulihkan. Beberapa catatan perlu dicek sebelum dikirim.")
             else -> Unit
         }

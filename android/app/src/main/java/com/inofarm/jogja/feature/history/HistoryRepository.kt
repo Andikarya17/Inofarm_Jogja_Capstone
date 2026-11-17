@@ -52,7 +52,7 @@ class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFin
     }
     suspend fun audit(session:FinanceSession,ticket:Long,record:LocalRecord,cursor:String?,previous:AuditPage?):AuditPage=withContext(Dispatchers.IO) {
         check(session,ticket)
-        require(record.greenhouseId in store.visibleGreenhouses(session.scope.key)) {"Anda tidak lagi bertugas di greenhouse ini."}
+        require(record.greenhouseId in store.visibleGreenhouses(session.scope.key)) {"Greenhouse ini tidak lagi tersedia untuk akun Anda."}
         require(record.kind==kind.wire)
         val result=api.request(session.scope.server,session.token,"${kind.resource}/${record.id}/audit",query=mapOf("limit" to "50")+(cursor?.let {mapOf("cursor" to it)} ?: emptyMap()))
         check(session,ticket)
