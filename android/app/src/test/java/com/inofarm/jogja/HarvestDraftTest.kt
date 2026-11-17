@@ -34,4 +34,36 @@ class HarvestDraftTest {
         assertTrue(restored.validation().containsKey("reason"));val ready=restored.copy(reason="Koreksi uji",referencePolicy="refresh")
         assertEquals("refresh",ready.payload().getString("reference_policy"));assertEquals(ready,HarvestDraft.from(ready.id,gh,ready.localJson(),4))
     }
+    /** Harvests may be weighed only (17 Nov 2026): an empty count is sent as null, never as zero. */
+    @Test fun anEmptyFruitCountIsSentAsNullAndReadBackEmpty() {
+        val weighed=draft().copy(items=listOf(HarvestLine(gradeId=grade,fruitCount="",weightKg="12,5")))
+        assertTrue(weighed.validation().isEmpty())
+        val row=weighed.payload().getJSONArray("items").getJSONObject(0)
+        assertTrue(row.isNull("fruit_count"));assertEquals("12.5",row.getString("weight_kg"))
+        val server=org.json.JSONObject(weighed.payload().toString()).put("planting_group_id",group)
+        assertEquals("",HarvestDraft.from(weighed.id,gh,server,1).items.single().fruitCount)
+    }
+
+    /** Two varieties of one greenhouse are harvested in one form and become one harvest per variety. */
+    @Test fun aSecondVarietyIsItsOwnHarvestSharingTimeAndNotes() {
+        val second=UUID.randomUUID().toString()
+        val both=draft().copy(notes="Panen pagi",runningPeriodVersion=3,companion=HarvestDraft(greenhouseId=gh,groupId=second,
+            items=listOf(HarvestLine(gradeId=grade,fruitCount="",weightKg="8"))))
+        assertTrue(both.validation().isEmpty())
+        val parts=both.parts()
+        assertEquals(listOf(group,second),parts.map { it.groupId })
+        assertEquals(2,parts.map { it.id }.toSet().size)
+        assertTrue(parts.all { it.date==both.date && it.time==both.time && it.notes=="Panen pagi" && it.companion==null })
+        assertEquals(3L,parts[0].runningPeriodVersion);assertNull(parts[1].runningPeriodVersion)
+        assertEquals(second,parts[1].payload().getString("planting_group_id"))
+        // One variety may have nothing to harvest; both empty is refused.
+        assertEquals(listOf(second),both.copy(items=emptyList()).parts().map { it.groupId })
+        assertTrue(both.copy(items=emptyList()).validation().isEmpty())
+        assertEquals(setOf("items"),both.copy(items=emptyList(),companion=both.companion!!.copy(items=emptyList())).validation().keys)
+        // The second variety's errors are reported under its own prefix.
+        val bad=both.copy(companion=both.companion!!.copy(items=listOf(HarvestLine(gradeId=grade,fruitCount="x",weightKg="1"))))
+        assertTrue(bad.validation().keys.any { it.startsWith("companion.items.0") })
+        // The pair survives the device copy, ids included.
+        assertEquals(both,HarvestDraft.from(both.id,gh,both.localJson(),null))
+    }
 }

@@ -135,7 +135,7 @@ private fun HarvestProgressDetail(
     FarmSection(title = "Target dan hasil layak") {
         if (target == null) Text("Target buah belum ditetapkan untuk kelompok ini.")
         else {
-            FarmFact("Target buah", "${target.getInt("fruit_count")} buah")
+            FarmFact("Target buah", target.fruitText() ?: "Tanpa jumlah buah")
             if (!target.isNull("weight_kg")) FarmFact("Target bobot", "${harvestDecimal(target.getString("weight_kg"))} kg")
             Text(target.getString("basis"))
             Text("Versi target ${target.getInt("version")} · ${target.getString("set_by_name")} · ${timeLabel(target.getString("set_at"))}")
@@ -147,11 +147,11 @@ private fun HarvestProgressDetail(
             val totals = progress.getJSONObject("totals")
             listOf("saleable" to "Layak", "defective" to "Cacat").forEach { (key, label) ->
                 val value = totals.getJSONObject(key)
-                FarmFact(label, "${value.getLong("fruit_count")} buah · ${harvestDecimal(value.getString("weight_kg"))} kg")
+                FarmFact(label, value.harvestAmount())
             }
             if (!progress.getBoolean("complete_quality")) {
                 val unknown = totals.getJSONObject("unknown")
-                FarmFact("Kondisi belum diketahui", "${unknown.getLong("fruit_count")} buah · ${harvestDecimal(unknown.getString("weight_kg"))} kg")
+                FarmFact("Kondisi belum diketahui", unknown.harvestAmount())
                 Text("Capaian menunggu klasifikasi rincian lama.")
             }
             if (!progress.isNull("achievement_percent")) {

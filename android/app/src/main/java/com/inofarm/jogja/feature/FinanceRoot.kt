@@ -460,6 +460,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var entryGreenhouse by rememberSaveable { mutableStateOf<String?>(null) }
     var entrySeason by rememberSaveable { mutableStateOf<String?>(null) }
     var entryGroup by rememberSaveable { mutableStateOf<String?>(null) }
+    // The greenhouse's other sown variety, harvested in the same form (17 Nov 2026); null with one variety.
+    fun companionOf(greenhouse: String, group: String): String? =
+        (context.recordingTarget(greenhouse, workerToday) as? com.inofarm.jogja.feature.context.RecordingTarget.Ready)
+            ?.groups?.map { it.getString("id") }?.firstOrNull { it != group }
     managerRecording?.let { destination -> WorkerContextSheet(
         context, HomeContext(entryGreenhouse, entrySeason, entryGroup),
         when (destination) { "harvest" -> "Catat panen"; "measurement" -> "Catat pengukuran"; else -> "Catat kegiatan" },
@@ -471,7 +475,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             if (parent != null && plantingGroup != null) {
                 managerRecording = null
                 val seasonId = context.groups.find { it.optString("id") == plantingGroup }?.optString("season_id")
-                if (destination == "harvest") harvestVm.new(parent, plantingGroup)
+                if (destination == "harvest") harvestVm.new(parent, plantingGroup, null, companionOf(parent, plantingGroup))
                 else if (seasonId != null) vm.newEntry(parent, seasonId)
             }
         },
@@ -624,7 +628,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         contextSheet = null
         val version = selectedGreenhouse.takeIf { it?.optString("running_group_id") == plantingGroup }
             ?.optLong("version")?.takeIf { it > 0 }
-        if (destination == "harvest") harvestVm.new(greenhouse, plantingGroup, version)
+        if (destination == "harvest") harvestVm.new(greenhouse, plantingGroup, version, companionOf(greenhouse, plantingGroup))
         else vm.newEntry(greenhouse, selectedGroup.getString("season_id"), version)
     }
     // Recording from the Catat sheet: the worker picked a greenhouse there, so open its current planting directly.
@@ -640,7 +644,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             runCatching { LocalDate.parse(pickedGroup.getString("sowing_date")) <= workerToday }.getOrDefault(false)
         if (!ready || pickedGroup == null) { contextSheet = destination; return }
         val version = row.takeIf { it.optString("running_group_id") == pickedGroup.getString("id") }?.optLong("version")?.takeIf { it > 0 }
-        if (destination == "harvest") harvestVm.new(row.getString("id"), pickedGroup.getString("id"), version)
+        if (destination == "harvest") harvestVm.new(row.getString("id"), pickedGroup.getString("id"), version, companionOf(row.getString("id"), pickedGroup.getString("id")))
         else vm.newEntry(row.getString("id"), pickedGroup.getString("season_id"), version)
     }
     // --- Nutrition run: one measurement draft per ready greenhouse, then a review of all of them.
@@ -780,7 +784,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         val id = ready.greenhouse.getString("id")
         val plantingGroup = ready.group.getString("id")
         val version = ready.greenhouse.takeIf { it.optString("running_group_id") == plantingGroup }?.optLong("version")?.takeIf { it > 0 }
-        if (destination == "harvest") harvestVm.new(id, plantingGroup, version)
+        if (destination == "harvest") harvestVm.new(id, plantingGroup, version, companionOf(id, plantingGroup))
         else vm.newEntry(id, ready.season.getString("id"), version)
     }
     fun startRecord(choice: RecordChoice, pickedGreenhouse: String? = null) {
@@ -951,7 +955,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         onRecord = { type, schedule ->
                             if (canRecordFromHome) vm.new(gh!!, runningGroup!!, type, schedule, runningVersion)
                         },
-                        onHarvest = { if (canRecordFromHome) harvestVm.new(gh!!, runningGroup!!, runningVersion) },
+                        onHarvest = { if (canRecordFromHome) harvestVm.new(gh!!, runningGroup!!, runningVersion, companionOf(gh!!, runningGroup!!)) },
                         onAdmin = { onAdmin(AdminResource.GREENHOUSE); onAdminGreenhouse(gh, false) },
                         seasonActions = { row -> SeasonActions(row, history.busy, history.message, historyVm::season) },
                         onDesignate = { groupId, reason ->

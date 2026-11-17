@@ -38,7 +38,10 @@ class ActivityRepository(val vault:FinanceSessionVault,private val store:LocalFi
         if(errors.isNotEmpty()) throw DraftValidationFailure(errors,null)
         // Fix the section ids on the device first, so a later retry after any failure reuses the same UUIDs.
         val kept=store.saveDraft(session.scope.key,fixed.id,fixed.greenhouseId,fixed.localJson(),existing?.revision,null)
-        store.queueEntry(session.scope.key,fixed.id,fixed.greenhouseId,fixed.sections().map { it.id to it.payload() },kept.revision)
+        store.queueEntry(session.scope.key,fixed.id,fixed.greenhouseId,fixed.sections().map { section ->
+            val payload=section.payload()
+            com.inofarm.jogja.core.database.QueuedSection(section.id,payload,payload)
+        },kept.revision)
         fixed
     } }
     suspend fun save(session:FinanceSession,ticket:Long,draft:ActivityDraft,queue:Boolean,onlyIfChanged:Boolean=false)=withContext(Dispatchers.IO) { writes.withLock {
