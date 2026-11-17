@@ -1,5 +1,14 @@
 # Gap analysis aktif, 11 November 2026
 
+## Gap dari audit alur input pengelola, 17 November 2026
+
+Semua branch fase 15 November dan Canopy pekerja sudah di-merge ke main (PR #57–#70); daftar "belum ada PR" di bagian 15 November di bawah adalah histori. [Audit dan bukti](MANAGER_INPUT_FLOW_AUDIT_20261117.md).
+
+1. **Android belum aman terhadap `fruit_count: null`** (P1 laten): progres panen, form panen, progres pekerja dan Beranda memakai `getLong`/`getInt`, padahal backend migration 21 mengizinkan `null` dan target kg saja.
+2. **Delapan form domain pengelola wajib layar Periksa** (kegiatan, pengukuran, panen, pengeluaran, alokasi, penjualan, aset, penyusutan). Usulan R1–R4 (simpan langsung untuk operasional, ringkasan di form untuk keuangan) menunggu keputusan pengguna.
+3. **Fitur backend 17 November belum dipakai Android:** salin master, alokasi lintas GH dan bagi rata, pindah musim alokasi, cash flow, perbandingan musim, pemakaian bahan, field QRIS penjualan, momen ukur.
+4. Dialog tutup musim belum menjelaskan penolakan `season_unsold_balance` (catatan wajib bila masih ada sisa panen belum terjual).
+
 ## Gap setelah fase frontend dan deployment 15 November 2026
 
 Branch `codex/frontend-performance` (F1), `-motion` (F3), `-delight` (F4), `-polish` (F5), `codex/deploy-android-release` (D4), `codex/deploy-runbook` (D5), `codex/qa-ui-triage` (Q1) dan `codex/pilot-dry-run` (Q2) sudah di-push; belum ada PR atau merge.
