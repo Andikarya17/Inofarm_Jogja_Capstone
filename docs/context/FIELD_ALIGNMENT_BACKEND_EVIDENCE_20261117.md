@@ -26,9 +26,21 @@ Migration baru: `2026_11_17_000021_align_field_practice` (additive: `harvest_ite
 - `./scripts/test-backend.ps1` pada MySQL `inofarm_test`: guard 4 tes lulus; suite **167 tes, 4.249 assertion lulus** (162 sebelumnya + 5 di `FieldAlignmentTest`). Tiga tes lama disesuaikan dengan aturan baru: alokasi lintas GH, `fruit_count: null`, dilewati tanpa alasan.
 - `scripts/check-finance-contracts.py` lulus; `scripts/check-finance-context.py` lulus. OpenAPI memuat empat path baru, parity route dua arah lulus.
 
+## Penerapan ke database aplikasi, 17 November 2026
+
+| Langkah | Hasil |
+|---|---|
+| Koneksi efektif | MySQL `127.0.0.1:3307`, database `inofarm_finance_local`; hanya migration 21 Pending |
+| Backup `scripts/backup-mysql.ps1` | `outputs/rollout-20261117/inofarm_finance_local-20261117-185314.sql`, 139.344 byte, 55 `CREATE TABLE`, penanda "Dump completed" ada |
+| SHA-256 backup | `d5898d91ad87f478f8600e9858c975522018686242cb24e33c4c8dd05d771e1c` |
+| `migrate --pretend` | Hanya `harvest_items.fruit_count` menjadi nullable dan tiga kolom nullable di `sales` |
+| `migrate` | `2026_11_17_000021_align_field_practice` DONE, 85,20 ms; `migrate:status --pending=1` keluar 0 |
+| Sebelum/sesudah | Jumlah baris 9 tabel inti dan jumlah tabel (55) sama; hanya status kolom yang berubah |
+
+Folder `outputs/` diabaikan Git. Restore backup ini belum diuji.
+
 ## Batas
 
 - **Android belum memakai fitur ini.** Sebelum klien mengirim `fruit_count: null` atau target kg saja, layar progres panen, Beranda dan target perlu menangani `null` (sekarang memakai `getLong`/`getInt`). Pemilih musim alokasi di Android masih terbatas pada GH pembayaran.
-- Migration 21 belum diterapkan ke `inofarm_finance_local`; terapkan dengan cadangan seperti D1.
 - Penjualan satu transaksi dari dua GH (jawaban 6.4) belum didukung; menunggu klarifikasi Inofarm.
 - Target pengukuran belum membedakan sebelum/sesudah inject.
