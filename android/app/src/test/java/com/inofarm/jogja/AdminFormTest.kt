@@ -2,6 +2,8 @@ package com.inofarm.jogja
 
 import com.inofarm.jogja.feature.admin.AdminForm
 import com.inofarm.jogja.feature.admin.AdminResource
+import com.inofarm.jogja.feature.admin.AdminViewModel
+import com.inofarm.jogja.core.network.FinanceApiFailure
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -48,5 +50,24 @@ class AdminFormTest {
         val season=AdminForm(AdminResource.SEASON,values=mapOf("name" to "Musim","greenhouse_id" to id,"start_date" to "2026-11-02","end_date" to "2026-11-01"))
         assertTrue(runCatching {season.payload()}.isFailure)
         assertTrue(runCatching {season.copy(values=season.values+("greenhouse_id" to "invalid")).payload()}.isFailure)
+    }
+    @Test fun finalRefusalsUnlockTheFormButRetryableFailuresKeepTheOperation() {
+        fun failure(status:Int,code:String="")=FinanceApiFailure(status,JSONObject().put("code",code).put("message","x"))
+        listOf(failure(422),failure(409,"season_closed"),failure(409,"entity_exists"),failure(409,"version_conflict"),failure(403),failure(404))
+            .forEach {assertTrue("${it.status} ${it.code}",AdminViewModel.definitive(it))}
+        listOf(failure(401),failure(408),failure(429),failure(500),failure(503)).forEach {assertFalse("${it.status}",AdminViewModel.definitive(it))}
+        assertFalse(AdminViewModel.definitive(java.io.IOException("offline")))
+    }
+    @Test fun openingAnotherRecordIsNotTheSameTargetAsTheUnfinishedForm() {
+        val row=JSONObject().put("id",id).put("version",2).put("name","GH A").put("active",true)
+        val edit=AdminForm.edit(AdminResource.GREENHOUSE,row)
+        val other=AdminForm.edit(AdminResource.GREENHOUSE,JSONObject(row.toString()).put("id","22222222-2222-4222-8222-222222222222"))
+        val create=AdminForm(AdminResource.GREENHOUSE)
+        assertTrue(AdminViewModel.sameTarget(edit,edit.copy(values=edit.values+("name" to "GH B"))))
+        assertFalse(AdminViewModel.sameTarget(edit,other))
+        assertFalse(AdminViewModel.sameTarget(edit,create))
+        assertFalse(AdminViewModel.sameTarget(create,AdminForm(AdminResource.GREENHOUSE)))
+        assertFalse(AdminViewModel.sameTarget(create,AdminForm(AdminResource.SEASON)))
+        assertFalse(AdminViewModel.sameTarget(edit,AdminForm.edit(AdminResource.GREENHOUSE,row,"close")))
     }
 }

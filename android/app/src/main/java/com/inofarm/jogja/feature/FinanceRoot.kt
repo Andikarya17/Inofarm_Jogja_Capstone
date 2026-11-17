@@ -269,7 +269,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         AdminHost(adminSession, runtime.admin, context::refresh, admin,
             onReviewPeriod = { greenhouse -> adminPeriodRequest = greenhouse; adminEntry = null; adminGreenhouse = null; adminEdit = false },
             onClose = { adminEntry = null; adminGreenhouse = null; adminEdit = false },
-            initialGreenhouse = adminGreenhouse, initialEdit = adminEdit)
+            initialGreenhouse = adminGreenhouse, initialEdit = adminEdit,
+            onAddGreenhouse = { adminEntry = null; adminGreenhouse = null; adminEdit = false; wizardOpen = true })
     }
     if (wizardOpen && adminSession?.role == UserRole.MANAGER && !adminSession.rejected) {
         com.inofarm.jogja.feature.admin.GreenhouseWizardHost(adminSession, runtime.admin, context::refresh,

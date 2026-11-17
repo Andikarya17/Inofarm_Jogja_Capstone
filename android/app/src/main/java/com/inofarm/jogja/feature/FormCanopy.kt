@@ -61,16 +61,20 @@ internal fun FarmFormFrame(
     }
 }
 
-/** Close, title and draft state. Close saves the draft and goes back, the same action as the old "Simpan draf dan kembali". */
+/**
+ * Close, title and draft state. In record forms close saves the draft and goes back. Admin forms have no draft:
+ * they pass [showDraftStatus] false and a [closeLabel] of "Batal".
+ */
 @Composable
-internal fun FarmFormHeader(title: String, saved: Boolean, statusTag: String, closeTag: String, onClose: () -> Unit, enabled: Boolean = true) {
+internal fun FarmFormHeader(title: String, saved: Boolean, statusTag: String, closeTag: String, onClose: () -> Unit, enabled: Boolean = true,
+                            showDraftStatus: Boolean = true, closeLabel: String = "Simpan draf dan kembali") {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
         IconButton(onClick = onClose, enabled = enabled, modifier = Modifier.testTag(closeTag)) {
-            FarmControlIcon(FarmIcon.Close, "Simpan draf dan kembali")
+            FarmControlIcon(FarmIcon.Close, closeLabel)
         }
         Column(Modifier.weight(1f)) {
             Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            FarmDraftStatus(saved, Modifier.testTag(statusTag))
+            if (showDraftStatus) FarmDraftStatus(saved, Modifier.testTag(statusTag))
         }
     }
 }
