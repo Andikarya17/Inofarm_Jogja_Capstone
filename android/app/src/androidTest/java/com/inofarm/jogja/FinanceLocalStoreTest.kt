@@ -199,6 +199,66 @@ class FinanceLocalStoreTest {
             assertNull(migrated.pullCursor("migrate"));assertEquals(FinanceDatabase.VERSION,upgraded.readableDatabase.version)
         } finally { upgraded.close();context.deleteDatabase(migrationName) }
     }
+    /**
+     * Schema 11 (17 Nov 2026), through the full upgrade path that runs migrateVersionEleven: an old single-type draft
+     * and a queued operation survive unchanged, are re-indexed, and the entry_batch_id column exists.
+     */
+    @Test fun upgradeToElevenKeepsOldSingleTypeDraftsAndOutbox() {
+        val migrationName="finance-test-migration-${UUID.randomUUID()}.db"
+        val draft=UUID.randomUUID().toString();val queued=UUID.randomUUID().toString();val operationId=UUID.randomUUID().toString()
+        context.openOrCreateDatabase(migrationName,Context.MODE_PRIVATE,null).use { old ->
+            FinanceDatabase.createVersionOne(old);old.version=1
+            old.execSQL("INSERT INTO scope_metadata(scope,epoch,role,visible_greenhouses) VALUES(?,?,?,?)",arrayOf("migrate",epoch,"worker",JSONArray().put(gh).toString()))
+            old.execSQL("INSERT INTO scope_access(scope,greenhouse_id) VALUES(?,?)",arrayOf("migrate",gh))
+            val legacy=JSONObject().put("activity_type","measurement").put("completeness","draft").put("_local_form",JSONObject().put("id",draft)
+                .put("greenhouse_id",gh).put("group_id",UUID.randomUUID().toString()).put("type","measurement").put("date","2026-11-10").put("time","08:00")
+                .put("ec","1.5").put("ppm","800").put("ph","").put("stage","").put("skipped",false).put("skipped_reason","").put("notes","Draf lama satu jenis")
+                .put("materials",JSONArray()))
+            old.execSQL("INSERT INTO local_records(scope,entity_id,kind,greenhouse_id,revision,body,sync_state,updated_at) VALUES(?,?,?,?,?,?,?,?)",arrayOf<Any>("migrate",draft,"activity",gh,1,legacy.toString(),"LOCAL",1))
+            old.execSQL("INSERT INTO local_records(scope,entity_id,kind,greenhouse_id,revision,body,sync_state,updated_at) VALUES(?,?,?,?,?,?,?,?)",arrayOf<Any>("migrate",queued,"activity",gh,1,body("Antrean lama").toString(),"QUEUED",1))
+            old.execSQL("INSERT INTO outbox(scope,operation_id,entity_id,local_revision,envelope,canonical_hash,state,created_at) VALUES(?,?,?,?,?,?,?,?)",arrayOf<Any>("migrate",operationId,queued,1,"{}","fixture","QUEUED",1))
+        }
+        val upgraded=FinanceDatabase(context,migrationName)
+        try {
+            val migrated=LocalFinanceStore(upgraded,FixtureCipher())
+            assertEquals(11,upgraded.readableDatabase.version)
+            val kept=migrated.record("migrate",draft)!!
+            val opened=com.inofarm.jogja.feature.activities.domain.ActivityDraft.from(kept.id,kept.greenhouseId,kept.body,null)
+            assertEquals("Draf lama satu jenis",opened.notes);assertEquals("800",opened.ppm);assertFalse(opened.greenhouseLevel)
+            assertEquals(operationId,migrated.outbox("migrate").single().id)
+            assertEquals(2,migrated.records("migrate",10).size)
+            upgraded.readableDatabase.rawQuery("SELECT entry_batch_id FROM local_records",null).use { assertEquals(2,it.count) }
+        } finally { upgraded.close();context.deleteDatabase(migrationName) }
+    }
+
+    /** One greenhouse entry: every section record and operation is written, and the entry draft goes, or nothing changes. */
+    @Test fun queueEntryWritesAllSectionsAtomicallyAndKeepsTheirIds() {
+        store.initialize("account-a",epoch,UserRole.WORKER)
+        val season=UUID.randomUUID().toString();val group=UUID.randomUUID().toString()
+        val entry=com.inofarm.jogja.feature.activities.domain.EntryDraft(greenhouseId=gh,seasonId=season,date="2026-11-17",time="08:00",
+            ageBasis="hst",ageDay="30",ec="1,8",ppm="900",sprayOpen=true,sprayPeriod="morning",sprayGroups=setOf(group),
+            spray=listOf(com.inofarm.jogja.feature.activities.domain.MaterialDraft(name="Bion M")),notes="Isian uji").withSectionIds()
+        val kept=store.saveDraft("account-a",entry.id,gh,entry.localJson())
+        val sections=entry.sections()
+        val ids=sections.map { it.id }
+        // A section id already taken makes the whole entry fail; nothing is half written.
+        store.saveDraft("account-a",ids.last(),gh,body("Bentrok"))
+        assertThrows(IllegalArgumentException::class.java) {
+            store.queueEntry("account-a",entry.id,gh,sections.map { it.id to it.payload() },kept.revision)
+        }
+        assertNull(store.record("account-a",ids.first()))
+        assertTrue(store.outbox("account-a").isEmpty())
+        assertNotNull(store.record("account-a",entry.id))
+        store.restoreDraft("account-a",ids.last(),null)
+        val queued=store.queueEntry("account-a",entry.id,gh,sections.map { it.id to it.payload() },kept.revision)
+        assertEquals(ids,queued.map { it.id })
+        assertTrue(queued.all { it.syncState==SyncState.QUEUED })
+        assertEquals(ids.toSet(),store.outbox("account-a").map { it.entityId }.toSet())
+        assertNull("The entry draft itself is never sent",store.record("account-a",entry.id))
+        assertEquals(ids.toSet(),store.records("account-a",10,filter=LocalHistoryFilter(entryBatchId=entry.id)).map { it.id }.toSet())
+        // Greenhouse-level records show under a variety filter when its season is given.
+        assertEquals(2,store.records("account-a",10,filter=LocalHistoryFilter(groupId=group,groupSeasons=setOf(season))).size)
+    }
     private fun remote(id:String,version:Int,note:String)=JSONObject().put("entity_type","activity").put("entity_id",id).put("greenhouse_id",gh).put("version",version)
         .put("tombstone",false).put("data",body(note).put("id",id).put("version",version))
     private fun conflict(id:String):com.inofarm.jogja.core.database.QueuedOperation {

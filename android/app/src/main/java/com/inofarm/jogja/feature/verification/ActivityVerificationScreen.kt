@@ -112,10 +112,13 @@ internal fun ActivityVerificationScreen(
     var appliedFrom by rememberSaveable { mutableStateOf("") }
     var appliedUntil by rememberSaveable { mutableStateOf("") }
     var filters by rememberSaveable { mutableStateOf(false) }
+    // The other pending records of the opened entry (17 Nov 2026): one decision covers the whole entry.
+    var siblings by remember { mutableStateOf(emptyList<JSONObject>()) }
     if (selected != null) {
         BackHandler { onSelect(null) }
         key(selected) {
-            VerificationDetail(session, ticket, context, repository, syncRevision, selected, { onSelect(null) }, onOutbox, onSync, kind)
+            VerificationDetail(session, ticket, context, repository, syncRevision, selected, { onSelect(null) }, onOutbox, onSync, kind,
+                siblings.filter { it.getJSONObject(kind.wire).getString("id") != selected })
         }
         return
     }
@@ -185,12 +188,21 @@ internal fun ActivityVerificationScreen(
                     TextButton(onClick = { refresh++ }) { Text("Perbarui") }
                 }
             }
-            items(rows, key = { it.getJSONObject(kind.wire).getString("id") }) { entry ->
+            // Records of one greenhouse entry share entry_batch_id and show as one card.
+            val grouped = rows.groupBy { row -> row.getJSONObject(kind.wire).let { it.text("entry_batch_id") ?: it.getString("id") } }.values.toList()
+            items(grouped, key = { it.first().getJSONObject(kind.wire).getString("id") }) { batch ->
                 // Rows fade and slide into place when the list changes, instead of jumping.
-                Column(Modifier.animateItem()) {
+                Column(Modifier.animateItem(), verticalArrangement = Arrangement.spacedBy(FarmSpace.Tiny)) {
+                    val entry = batch.first()
                     val activity = entry.getJSONObject(kind.wire)
                     val id = activity.getString("id")
-                    VerificationCard(kind, entry, activity, "verification-${kind.wire}-$id") { onSelect(id) }
+                    VerificationCard(kind, entry, activity, "verification-${kind.wire}-$id") {
+                        siblings = batch.filter { it.optString("status") == "pending" }
+                        onSelect(id)
+                    }
+                    if (batch.size > 1) Text("Satu isian: ${batch.joinToString(", ") { recordLabel(kind, it.getJSONObject(kind.wire)).lowercase() }}",
+                        Modifier.testTag("verification-batch-$id"), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (cursor != null && !loading && failure == null) item {
@@ -255,6 +267,7 @@ private fun VerificationDetail(
     onOutbox: () -> Unit,
     onSync: () -> Unit,
     kind: ReviewKind,
+    siblings: List<JSONObject> = emptyList(),
 ) {
     var detail by remember { mutableStateOf<JSONObject?>(null) }
     var history by remember { mutableStateOf(emptyList<JSONObject>()) }
@@ -329,7 +342,7 @@ private fun VerificationDetail(
             }
             if (current && entry.getString("status") == "pending" && activity.optString("record_state") == "active") item {
                 if (kind == ReviewKind.ACTIVITY || entry.optBoolean("can_review")) {
-                    DecisionEditor(session, ticket, repository, kind, entry, draft, onOutbox, onSync) { draft = it }
+                    DecisionEditor(session, ticket, repository, kind, entry, draft, onOutbox, onSync, siblings) { draft = it }
                 } else Text("Panen sendiri perlu diperiksa pengelola lain.")
             }
             if (history.isNotEmpty()) item { FarmSectionHeading("Riwayat keputusan") }
@@ -411,6 +424,7 @@ private fun DecisionEditor(
     draft: LocalRecord?,
     onOutbox: () -> Unit,
     onSync: () -> Unit,
+    siblings: List<JSONObject> = emptyList(),
     onSaved: (LocalRecord) -> Unit,
 ) {
     val activity = entry.getJSONObject(kind.wire)
@@ -426,13 +440,17 @@ private fun DecisionEditor(
         val choice = decision ?: return
         busy = true
         scope.launch {
-            attempt { repository.save(session, ticket, kind, entry, choice, reason, queue) }
+            // The same decision goes to every pending record of the entry; the server keeps one review per record.
+            attempt {
+                siblings.forEach { repository.save(session, ticket, kind, it, choice, reason, queue) }
+                repository.save(session, ticket, kind, entry, choice, reason, queue)
+            }
                 .onSuccess { saved -> onSaved(saved); if (queue) onSync(); confirmation = false }
                 .onFailure { error = it.message; confirmation = false }
             busy = false
         }
     }
-    FarmPanel(title = "Keputusan untuk revisi $version") {
+    FarmPanel(title = if (siblings.isEmpty()) "Keputusan untuk revisi $version" else "Keputusan untuk seluruh isian (${siblings.size + 1} bagian)") {
         val submitted = draft?.syncState?.takeUnless { it == SyncState.LOCAL }
         // Felt once, when a "Sesuai" decision is accepted by the server in front of the manager, not when an old one is reopened.
         val haptics = com.inofarm.jogja.core.design.rememberFarmHaptics()

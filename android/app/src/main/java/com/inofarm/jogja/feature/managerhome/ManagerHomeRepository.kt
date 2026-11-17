@@ -129,7 +129,8 @@ internal class ManagerHomeRepository(
         val gh = snapshot.selection
         val group = snapshot.period?.text("group_id")
         val localGreenhouse = gh?.takeIf { it in store.visibleGreenhouses(key) && snapshot.epoch == store.epoch(key) }
-        val queued = if (localGreenhouse != null && group != null) store.latestMeasurement(key, localGreenhouse, group, today, queuedOnly = true) else null
+        val queued = if (localGreenhouse != null && group != null) store.latestMeasurement(key, localGreenhouse, group, today, queuedOnly = true,
+            season = snapshot.period?.text("season_id")) else null
         val pair = listOfNotNull(accepted, queued).maxWithOrNull(compareBy({ it.at }, { it.id }, { it.queued }))
         return ManagerHomeState(snapshot, pair, localGreenhouse?.let { store.runningPeriodRequest(key, it) },
             loading = false, cached = cached)

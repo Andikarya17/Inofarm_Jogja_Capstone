@@ -311,7 +311,8 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
         FarmSection("Greenhouse dan tanam") {
             Choice("Greenhouse",gh,choices(context.greenhouses),"history-gh") {gh=it;season="";group=""}
             Choice("Musim",season,choices(context.seasons.filter {gh.isBlank() || it.optString("greenhouse_id")==gh}),"history-season") {season=it;group=""}
-            if(!kind.financial) Choice("Kelompok tanam",group,choices(groups),"history-group") {group=it}
+            if(!kind.financial) Choice("Varietas",group,choices(groups.map { row -> JSONObject(row.toString()).put("name",
+                context.varieties.firstOrNull { it.optString("id")==row.optString("variety_id") }?.optString("name") ?: row.optString("name")) }),"history-group") {group=it}
         }
         FarmSection(if (kind == OperationalKind.ACTIVITY) "Jenis dan status" else "Status") {
             if(kind==OperationalKind.ACTIVITY && (badge==null || pickDates)) Choice("Jenis kegiatan",type,choices(ActivityType.entries.map {JSONObject().put("id",it.wire).put("name",it.label)}),"history-type") {type=it}
@@ -340,7 +341,10 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
                     recordState = status.takeIf { it.isNotBlank() },
                     greenhouseId = gh.takeIf { it.isNotBlank() },
                     groups = if (!kind.financial && selectedSeason != null) groups.map { it.getString("id") }.toSet() else null,
-                    seasonId = selectedSeason.takeIf { kind.financial }
+                    seasonId = selectedSeason.takeIf { kind.financial },
+                    // Greenhouse-level activity records carry a season but no variety (17 Nov 2026).
+                    groupSeasons = if (kind == OperationalKind.ACTIVITY) (selectedSeason ?: context.groups.firstOrNull { it.optString("id") == group }?.optString("season_id"))
+                        ?.takeIf { it.isNotBlank() }?.let { setOf(it) } else null
                 ), selectedSeason)
                 expanded=false
             }

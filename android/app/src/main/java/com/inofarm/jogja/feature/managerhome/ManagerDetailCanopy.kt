@@ -49,16 +49,12 @@ internal fun GreenhouseHero(selected: JSONObject, updated: String, onPeriod: () 
         }
         if (ready) {
             val stack = LocalDensity.current.fontScale > 1.3f
-            val hss = age?.text("hss")
-            val hst = age?.text("hst")
+            // Plant age as Inofarm last typed it (K6), not computed from the sowing date.
+            val manual = period.optJSONObject("manual_age")
+            val typed = manual?.let { "${(it.text("basis") ?: "").uppercase()} ${it.text("day").orEmpty()}" }
+            val typedAt = manual?.text("occurred_at")?.let { com.inofarm.jogja.feature.timeLabel(it).substringBeforeLast(' ').substringBeforeLast(' ') }
             Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                if (stack) {
-                    AgeTile("HSS", hss ?: "–", Modifier.fillMaxWidth(), unit = hss?.let { " hari" } ?: "")
-                    AgeTile("HST", hst ?: "Belum berlaku", Modifier.fillMaxWidth(), unit = hst?.let { " hari" } ?: "")
-                } else Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                    AgeTile("HSS", hss ?: "–", Modifier.weight(1f).fillMaxHeight(), unit = hss?.let { " hari" } ?: "")
-                    AgeTile("HST", hst ?: "Belum berlaku", Modifier.weight(1f).fillMaxHeight(), unit = hst?.let { " hari" } ?: "")
-                }
+                AgeTile("Umur tanaman", typed ?: "Belum diisi", Modifier.fillMaxWidth(), unit = typedAt?.let { " · diisi $it" } ?: "")
                 AgeTile("Fase", phase ?: "belum tercatat", Modifier.fillMaxWidth(), small = true)
             }
         }

@@ -98,7 +98,9 @@ private fun readDay(store: LocalFinanceStore, session: FinanceSession, data: Cul
     val due = data.schedules.filter {
         it.optString("planting_group_id") == groupId && it.optBoolean("active", true) && dateWib(it.optString("planned_at")) == today
     }.sortedBy { it.optString("planned_at") }
-    val filter = LocalHistoryFilter(groupId = groupId, greenhouseId = id, from = today.toString(), until = today.toString(), recordState = "active")
+    val season = group.optString("season_id")
+    val filter = LocalHistoryFilter(groupId = groupId, greenhouseId = id, from = today.toString(), until = today.toString(), recordState = "active",
+        groupSeasons = setOf(season))
     val records = dayRecords(store, scope, "activity", filter)
     val realized = records.filter { it.syncState == SyncState.ACCEPTED || it.syncState == SyncState.QUEUED }
         .mapNotNull { row -> row.body.takeUnless { it.isNull("schedule_id") }?.optString("schedule_id")?.takeIf(String::isNotBlank) }.toSet()
@@ -108,14 +110,11 @@ private fun readDay(store: LocalFinanceStore, session: FinanceSession, data: Cul
             taskTitle(schedule.optString("notes"), ActivityType.entries.find { it.wire == type }?.label ?: "Kegiatan"),
             type, schedule.optString("planned_at"), schedule.getString("id") in realized)
     }
-    val measurement = store.latestMeasurement(scope, id, groupId, today)
+    val measurement = store.latestMeasurement(scope, id, groupId, today, season = season)
     val checkedToday = measurement != null && measurement.at.atZone(ActivityDraft.WIB).toLocalDate() == today
-    val age = runCatching {
-        PlantAge.calculate(group.getString("sowing_date"), if (group.isNull("transplant_date")) null else group.getString("transplant_date"),
-            today.atStartOfDay(ActivityDraft.WIB).toOffsetDateTime().toString())
-    }.getOrNull()
-    val unit = if (age?.hst != null) "HST" else if (age?.hss != null) "HSS" else null
-    return GreenhouseDay(greenhouse, true, true, group.optString("name"), varietyName(data, group), unit, age?.hst ?: age?.hss, tasks,
+    // Plant age as Inofarm last typed it (K6), never computed from the sowing date.
+    val typed = store.latestTypedAge(scope, id)
+    return GreenhouseDay(greenhouse, true, true, group.optString("name"), varietyName(data, group), typed?.first?.uppercase(), typed?.second?.toLongOrNull(), tasks,
         measurement, checkedToday, if (measurement != null && checkedToday) measurementPosition(data.targets, groupId, measurement) else PpmPosition.UNKNOWN,
         records.count { it.syncState == SyncState.QUEUED })
 }

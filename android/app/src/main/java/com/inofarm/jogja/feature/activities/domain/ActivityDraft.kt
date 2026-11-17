@@ -22,14 +22,32 @@ enum class ObservationField(val wire: String, val label: String, val unit: Strin
     SAMPLE_BASIS("sample_basis", "Sampel atau cara pengamatan", ""),
 }
 
-data class MaterialDraft(val materialId: String="",val unitId: String="",val quantity: String="")
+/** [name] is a spray material typed by hand; the server turns it into a shared master material (17 Nov 2026). */
+data class MaterialDraft(val materialId: String="",val unitId: String="",val quantity: String="",val name: String="") {
+    val doseGiven: Boolean get() = unitId.isNotBlank() || quantity.isNotBlank()
+}
 data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenhouseId: String,val groupId: String,
     val type: ActivityType=ActivityType.GENERAL,val date: String=LocalDate.now(WIB).toString(),val time: String=LocalTime.now(WIB).format(DateTimeFormatter.ofPattern("HH:mm")),
     val ppm: String="",val ph: String="",val stage: String="",val skipped: Boolean=false,val skippedReason: String="",val notes: String="",
     val materials: List<MaterialDraft> = emptyList(),val scheduleId: String?=null,val reason: String="",val referencePolicy: String="preserve",val baseVersion: Long?=null,val replaceValidationRejected:Boolean=false,val ec:String="",val runningPeriodVersion:Long?=null,
-    val observations: Map<ObservationField, String> = emptyMap()) {
+    val observations: Map<ObservationField, String> = emptyMap(),
+    /** Set for a greenhouse-level record, whose [groupId] is blank (one nutrient tank per greenhouse). */
+    val seasonId: String? = null, val entryBatchId: String? = null, val ageBasis: String = "", val ageDay: String = "",
+    val sprayDate: String = "", val sprayPeriod: String = "",
+    /** "before_injection" or "after_injection" (observations.measurement_moment, backend migration 21); blank when not given. */
+    val measurementMoment: String = "") {
+    val greenhouseLevel: Boolean get() = groupId.isBlank()
     fun validation(reasonRequired:Boolean=true): Map<String,String> = buildMap {
-        if(runCatching { WireContract.uuid(groupId) }.isFailure) put("group","Pilih kelompok tanam.")
+        if(greenhouseLevel) { if(runCatching { WireContract.uuid(seasonId.orEmpty()) }.isFailure) put("group","Greenhouse belum punya musim terbuka.") }
+        else if(runCatching { WireContract.uuid(groupId) }.isFailure) put("group","Pilih kelompok tanam.")
+        val entry = entryBatchId != null
+        if(measurementMoment.isNotBlank() && measurementMoment !in setOf("before_injection","after_injection")) put("moment","Pilih sebelum atau sesudah inject.")
+        if((ageBasis.isBlank() != ageDay.isBlank()) || (entry && ageBasis.isBlank())) put("age","Isi umur tanaman: HSS atau HST dan hari ke berapa.")
+        if(ageDay.isNotBlank() && ageDay.trim().toIntOrNull()?.let { it in 1..1000 } != true) put("age","Hari ke berapa diisi angka 1 sampai 1000.")
+        if(type==ActivityType.SPRAY && entry) {
+            if(greenhouseLevel) put("group","Pilih varietas yang disemprot.")
+            if(runCatching { LocalDate.parse(sprayDate) }.isFailure || sprayPeriod !in setOf("morning","afternoon")) put("spray","Isi tanggal semprot dan pilih pagi atau sore.")
+        }
         if(runCatching { occurredAt() }.isFailure) put("occurred_at","Gunakan tanggal YYYY-MM-DD dan jam HH:mm (detik opsional) yang sah.")
         for((key,text) in listOf("manual_ec" to ec,"manual_ppm" to ppm,"manual_ph" to ph)) {
             if(text.isNotBlank()) {
@@ -45,13 +63,18 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
         }
         if(skipped) { if(skippedReason.isBlank()) put("skipped_reason","Alasan kegiatan dilewati wajib diisi.") }
         else {
-            if(type==ActivityType.NUTRITION) { if(ppm.isBlank()) put("manual_ppm","Isi PPM manual.");if(ph.isBlank()) put("manual_ph","Isi pH manual.") }
+            // In the greenhouse entry form the readings live in its measurement section.
+            if(type==ActivityType.NUTRITION && entryBatchId==null) { if(ppm.isBlank()) put("manual_ppm","Isi PPM manual.");if(ph.isBlank()) put("manual_ph","Isi pH manual.") }
             if(type in setOf(ActivityType.NUTRITION,ActivityType.SPRAY) && materials.isEmpty()) put("materials","Tambahkan sedikitnya satu bahan aktual.")
             if(type==ActivityType.STAGE && stage.isBlank()) put("actual_stage","Isi kondisi stadia aktual.")
             if(type==ActivityType.GENERAL && notes.isBlank()) put("notes","Isi keterangan pekerjaan umum.")
         }
         materials.forEachIndexed { index,row ->
-            if(runCatching { WireContract.uuid(row.materialId);WireContract.uuid(row.unitId);require(numeric(row.quantity)>=BigDecimal.ZERO) }.isFailure) put("materials.$index","Pilih bahan, satuan, dan jumlah tidak negatif yang sah.")
+            // A spray may name a new material and leave its dose empty; nutrition always needs a listed material and a dose.
+            val spray = type==ActivityType.SPRAY
+            val material = runCatching { WireContract.uuid(row.materialId) }.isSuccess || (spray && row.name.isNotBlank() && row.name.trim().length<=150)
+            val dose = if(spray && !row.doseGiven) true else runCatching { WireContract.uuid(row.unitId);require(numeric(row.quantity)>=BigDecimal.ZERO) }.isSuccess
+            if(!material || !dose) put("materials.$index",if(spray) "Pilih atau ketik bahan; dosis boleh kosong, tetapi jumlah dan satuan diisi bersama." else "Pilih bahan, satuan, dan jumlah tidak negatif yang sah.")
         }
         observations.filterValues { it.isNotBlank() }.forEach { (field, value) ->
             val message = when (field) {
@@ -73,14 +96,25 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
     fun occurredAt(): String = ManualTime.encode(date,time)
     fun payload(): JSONObject {
         require(validation(false).isEmpty()) { validation(false).values.joinToString("\n") }
-        return JSONObject().put("planting_group_id",groupId).put("schedule_id",scheduleId ?: JSONObject.NULL).put("activity_type",type.wire).put("occurred_at",occurredAt())
+        return JSONObject().put("planting_group_id",groupId.ifBlank { null } ?: JSONObject.NULL).put("schedule_id",scheduleId ?: JSONObject.NULL).put("activity_type",type.wire).put("occurred_at",occurredAt())
             .put("manual_ec",if(ec.isBlank()) JSONObject.NULL else numeric(ec).toPlainString()).put("manual_ppm",if(ppm.isBlank()) JSONObject.NULL else numeric(ppm).toPlainString()).put("manual_ph",if(ph.isBlank()) JSONObject.NULL else numeric(ph).toPlainString())
             .put("actual_stage",stage.takeIf { it.isNotBlank() } ?: JSONObject.NULL).put("work_state",if(skipped) "skipped" else "completed").put("skipped_reason",skippedReason.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
-            .put("materials",JSONArray().apply { materials.forEach { put(JSONObject().put("material_id",it.materialId).put("unit_id",it.unitId).put("quantity",numeric(it.quantity).toPlainString())) } }).put("notes",notes)
+            .put("materials",JSONArray().apply { materials.forEach { row -> put(JSONObject().apply {
+                if(row.materialId.isNotBlank()) put("material_id",row.materialId) else put("material_name",row.name.trim())
+                put("unit_id",row.unitId.ifBlank { null } ?: JSONObject.NULL)
+                put("quantity",if(row.quantity.isBlank()) JSONObject.NULL else numeric(row.quantity).toPlainString())
+            }) } }).put("notes",notes)
+            .apply {
+                seasonId?.let { put("season_id",it) }
+                entryBatchId?.let { put("entry_batch_id",it) }
+                if(ageBasis.isNotBlank()) put("age_basis",ageBasis).put("age_day",ageDay.trim().toInt())
+                if(sprayDate.isNotBlank()) put("spray_date",sprayDate).put("spray_period",sprayPeriod)
+            }
             .apply {
                 val nonempty = observations.filterValues { it.isNotBlank() }
-                if (nonempty.isNotEmpty() || baseVersion != null) {
-                    put("observations", if (nonempty.isEmpty()) JSONObject.NULL else JSONObject().apply {
+                if (nonempty.isNotEmpty() || measurementMoment.isNotBlank() || baseVersion != null) {
+                    put("observations", if (nonempty.isEmpty() && measurementMoment.isBlank()) JSONObject.NULL else JSONObject().apply {
+                        if (measurementMoment.isNotBlank()) put("measurement_moment", measurementMoment)
                         nonempty.forEach { (field, value) ->
                             put(field.wire, when (field) {
                                 ObservationField.SAMPLE_BASIS -> value
@@ -98,8 +132,10 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
         .put("id",id).put("greenhouse_id",greenhouseId).put("group_id",groupId).put("type",type.wire).put("date",date).put("time",time).put("ec",ec).put("ppm",ppm).put("ph",ph).put("stage",stage)
         .put("skipped",skipped).put("skipped_reason",skippedReason).put("notes",notes).put("schedule_id",scheduleId ?: JSONObject.NULL).put("reason",reason).put("reference_policy",referencePolicy).put("base_version",baseVersion ?: JSONObject.NULL).put("replace_validation_rejected",replaceValidationRejected)
         .put("running_period_version",runningPeriodVersion)
+        .put("season_id",seasonId ?: JSONObject.NULL).put("entry_batch_id",entryBatchId ?: JSONObject.NULL).put("age_basis",ageBasis).put("age_day",ageDay)
+        .put("spray_date",sprayDate).put("spray_period",sprayPeriod).put("measurement_moment",measurementMoment)
         .put("observations", JSONObject().apply { observations.forEach { (field, value) -> put(field.wire, value) } })
-        .put("materials",JSONArray().apply { materials.forEach { put(JSONObject().put("material_id",it.materialId).put("unit_id",it.unitId).put("quantity",it.quantity)) } }))
+        .put("materials",JSONArray().apply { materials.forEach { put(JSONObject().put("material_id",it.materialId).put("unit_id",it.unitId).put("quantity",it.quantity).put("name",it.name)) } }))
     companion object {
         val WIB: ZoneId = ManualTime.WIB
         fun numeric(text: String): BigDecimal = WireContract.decimal(text.trim().replace(',','.'))
@@ -109,16 +145,21 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
             val occurred=if(local==null) OffsetDateTime.parse(body.getString("occurred_at")).atZoneSameInstant(WIB) else null
             val materials=raw.optJSONArray("materials") ?: JSONArray()
             fun nullable(key:String)=raw.optString(key).takeUnless { raw.isNull(key) || it.isBlank() }
-            return ActivityDraft(id,gh,raw.getString(if(local!=null) "group_id" else "planting_group_id"),ActivityType.entries.single { it.wire==raw.getString(if(local!=null) "type" else "activity_type") },
+            fun text(key:String)=if(raw.isNull(key)) "" else raw.optString(key)
+            return ActivityDraft(id,gh,text(if(local!=null) "group_id" else "planting_group_id"),ActivityType.entries.single { it.wire==raw.getString(if(local!=null) "type" else "activity_type") },
                 local?.getString("date") ?: occurred!!.toLocalDate().toString(),local?.getString("time") ?: occurred!!.toLocalTime().format(DateTimeFormatter.ofPattern(if(occurred.second==0) "HH:mm" else "HH:mm:ss")),
                 nullable(if(local!=null) "ppm" else "manual_ppm").orEmpty(),nullable(if(local!=null) "ph" else "manual_ph").orEmpty(),nullable(if(local!=null) "stage" else "actual_stage").orEmpty(),
                 if(local!=null) raw.getBoolean("skipped") else raw.getString("work_state")=="skipped",nullable("skipped_reason").orEmpty(),raw.optString("notes"),
-                (0 until materials.length()).map { materials.getJSONObject(it).let { row -> MaterialDraft(row.getString("material_id"),row.getString("unit_id"),row.getString("quantity")) } },nullable("schedule_id"),nullable("reason").orEmpty(),nullable("reference_policy") ?: "preserve",base,local?.optBoolean("replace_validation_rejected")==true,nullable(if(local!=null) "ec" else "manual_ec").orEmpty(),
+                (0 until materials.length()).map { materials.getJSONObject(it).let { row ->
+                    fun field(key:String)=if(row.isNull(key)) "" else row.optString(key)
+                    MaterialDraft(field("material_id"),field("unit_id"),field("quantity"),field("name").ifBlank { field("material_name") }) } },nullable("schedule_id"),nullable("reason").orEmpty(),nullable("reference_policy") ?: "preserve",base,local?.optBoolean("replace_validation_rejected")==true,nullable(if(local!=null) "ec" else "manual_ec").orEmpty(),
                 raw.optLong("running_period_version").takeIf { it > 0 },
                 ObservationField.entries.mapNotNull { field ->
                     val values = raw.optJSONObject("observations")
                     values?.optString(field.wire)?.takeUnless { values.isNull(field.wire) }?.let { field to it }
-                }.toMap())
+                }.toMap(),
+                nullable("season_id"), nullable("entry_batch_id"), text("age_basis"), text("age_day"), text("spray_date"), text("spray_period"),
+                if(local!=null) text("measurement_moment") else raw.optJSONObject("observations")?.let { o -> if(o.isNull("measurement_moment")) "" else o.optString("measurement_moment") }.orEmpty())
         }
     }
 }

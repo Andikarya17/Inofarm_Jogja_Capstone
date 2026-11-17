@@ -365,8 +365,8 @@ class FinanceEntryUiTest {
         rule.waitUntil(15_000) { runCatching { rule.onNodeWithTag("finance-home-list").performScrollToNode(hasTestTag("worker-greenhouse-$gh")) }.isSuccess }
         readyNode("worker-greenhouse-$gh").performClick()
         capture("worker-alignment-selected")
-        rule.openRecord("measurement")
-        readyNode("finance-ec").assertExists()
+        rule.openRecord("activity")
+        readyNode("entry-ec").assertExists()
     }
 
     @Test fun workerNativePickersAndImeKeepDraftOnNavigation() {
@@ -374,12 +374,12 @@ class FinanceEntryUiTest {
         rule.waitUntil(15_000) { runCatching { home.performScrollToNode(hasTestTag("worker-greenhouse-$gh")) }.isSuccess }
         readyNode("worker-greenhouse-$gh").performClick()
         captureWindow("worker-home-ready")
-        rule.openRecord("measurement")
-        readyNode("finance-pick-date").performScrollTo().assertIsDisplayed().performClick()
+        rule.openRecord("activity")
+        readyNode("entry-date-picker").performScrollTo().assertIsDisplayed().performClick()
         Espresso.onView(isAssignableFrom(android.widget.DatePicker::class.java)).check(matches(isDisplayed()))
         captureWindow("worker-native-date")
         Espresso.pressBack()
-        readyNode("finance-pick-time").performScrollTo().assertIsDisplayed().performClick()
+        readyNode("entry-time-picker").performScrollTo().assertIsDisplayed().performClick()
         Espresso.onView(isAssignableFrom(android.widget.TimePicker::class.java)).check(matches(isDisplayed()))
         captureWindow("worker-native-time")
         Espresso.pressBack()
@@ -412,7 +412,9 @@ class FinanceEntryUiTest {
         for (tab in 0..1) {
             rule.selectFinanceTab(tab)
             readyNode("finance-record-fab").performClick()
-            for (tag in listOf("record-activity", "record-measurement", "record-harvest")) readyNode(tag).assertIsDisplayed()
+            // Readings live in the Kegiatan form (17 Nov 2026), so there is no separate Pengukuran tile.
+            for (tag in listOf("record-activity", "record-harvest")) readyNode(tag).assertIsDisplayed()
+            rule.onNodeWithTag("record-measurement").assertDoesNotExist()
             if (tab == 0) captureSecondary("worker-record-sheet")
             rule.onNodeWithTag("record-expense").assertDoesNotExist()
             rule.onNodeWithTag("record-sale").assertDoesNotExist()
@@ -421,7 +423,7 @@ class FinanceEntryUiTest {
         rule.selectFinanceTab(0)
         offline.set(true)
         chooseContext()
-        rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Catatan belum terkirim sintetis")
+        rule.onNodeWithTag("entry-notes").performScrollTo().performTextReplacement("Catatan belum terkirim sintetis")
         hideKeyboard()
         rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
         readyNode("finance-queue").scrollIfScrollable().performClick()
@@ -465,11 +467,10 @@ class FinanceEntryUiTest {
 
     @Test fun workerHomeCardShowsLastMeasurementAndSaveMessageAfterRecording() {
         offline.set(true)
-        rule.openRecord("measurement")
-        choose("finance-gh",gh,keepContextOpen=true);choose("finance-season",season,keepContextOpen=true);choose("finance-group",group,keepContextOpen=true)
-        readyNode("finance-context-continue").performScrollTo().performClick()
-        readyNode("finance-ec").performScrollTo().performTextReplacement("1,25")
-        readyNode("finance-ppm").performScrollTo().performTextReplacement("625,5")
+        rule.openRecord("activity")
+        readyNode("entry-age-basis-option-hst").performScrollTo().performClick();readyNode("entry-age-day").performScrollTo().performTextReplacement("30");hideKeyboard()
+        readyNode("entry-ec").performScrollTo().performTextReplacement("1,25")
+        readyNode("entry-ppm").performScrollTo().performTextReplacement("625,5")
         hideKeyboard()
         rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
         readyNode("finance-queue").scrollIfScrollable().performClick()
@@ -509,6 +510,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("history-from-clear").assertDoesNotExist()
     }
 
+    @org.junit.Ignore("Pilihan jenis kegiatan dihapus (K4, 17 Nov 2026); EntryDraftTest dan entryFormSendsOneRecordPerSectionForBothRoles menggantikannya.")
     @Test fun workerActivityFormNeverOffersMeasurementAndScheduleLocksTheType() {
         chooseContext()
         captureSecondary("worker-form-activity")
@@ -566,9 +568,11 @@ class FinanceEntryUiTest {
         readyNode("finance-record-fab").performClick()
         captureSecondary("worker-nutrition-run-sheet")
         readyNode("record-nutrition-run").performScrollTo().performClick()
-        // Greenhouses are listed by name, so the first step is "GH UI sintetis".
-        readyNode("finance-ec").performTextReplacement("2,4")
-        readyNode("finance-ppm").performTextReplacement("1250")
+        // Greenhouses are listed by name, so the first step is "GH UI sintetis". Each step is the greenhouse entry form.
+        readyNode("entry-age-basis-option-hst").performScrollTo().performClick()
+        readyNode("entry-age-day").performScrollTo().performTextReplacement("30");hideKeyboard()
+        readyNode("entry-ec").performScrollTo().performTextReplacement("2,4")
+        readyNode("entry-ppm").performScrollTo().performTextReplacement("1250")
         hideKeyboard()
         captureSecondary("worker-nutrition-run-step1")
         rule.onNodeWithTag("nutrition-run-next").assertTextContains("Simpan dan lanjut ke Greenhouse kedua sintetis")
@@ -631,7 +635,9 @@ class FinanceEntryUiTest {
         if (runtime().vault.current?.role == com.inofarm.jogja.core.contracts.UserRole.MANAGER) selectManagerGreenhouse()
         else { choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group) }
         rule.openRecord(if(harvest) "harvest" else "activity")
-        rule.waitUntil(10000) {rule.onAllNodesWithTag(if(harvest) "harvest-notes" else "finance-notes").fetchSemanticsNodes().isNotEmpty()}
+        rule.waitUntil(10000) {rule.onAllNodesWithTag(if(harvest) "harvest-notes" else "entry-notes").fetchSemanticsNodes().isNotEmpty()}
+        // New activity records come from the greenhouse entry form (17 Nov 2026), which needs the typed plant age.
+        if(!harvest) {readyNode("entry-age-basis-option-hst").performScrollTo().performClick();readyNode("entry-age-day").performScrollTo().performTextReplacement("30");hideKeyboard()}
     }
     private fun selectManagerGreenhouse(id: String = gh) {
         rule.waitUntil(15_000) {
@@ -890,7 +896,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-home-list").performTouchInput { swipeUp() }
         rule.openRecord("activity")
         capture("worker-form-start")
-        rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Draf verifikasi tampilan botani")
+        rule.onNodeWithTag("entry-notes").performScrollTo().performTextReplacement("Draf verifikasi tampilan botani")
         hideKeyboard();capture("worker-form")
         rule.onNodeWithTag("finance-save-draft").scrollIfScrollable().performClick()
         rule.selectFinanceTab(1);capture("worker-history")
@@ -1022,7 +1028,7 @@ class FinanceEntryUiTest {
 
     @Test fun offlineQueueRecreationReconnectAndManagerHistoryKeepHonestStatus() {
         chooseContext();offline.set(true)
-        rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Catatan offline UI sintetis")
+        rule.onNodeWithTag("entry-notes").performScrollTo().performTextReplacement("Catatan offline UI sintetis")
         hideKeyboard()
         captureSecondary("activity-form")
         rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
@@ -1051,6 +1057,7 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-1").performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Catatan offline UI sintetis").fetchSemanticsNodes().isNotEmpty()}
         assertEquals(worker,receipts.values.single().getJSONObject("data").getString("recorded_by"))
     }
+    @org.junit.Ignore("Jenis nutrisi tunggal dengan PPM/pH wajib diganti bagian Nutrisi pada form gabungan (K4, 17 Nov 2026).")
     @Test fun multiMaterialDraftRotationAndBackRetainRawFieldsBeforeReview() {
         chooseContext();choose("finance-type","nutrition")
         rule.onNodeWithTag("finance-ppm").assertTextContains("")
@@ -1077,7 +1084,7 @@ class FinanceEntryUiTest {
         val body=receipts.values.single().getJSONObject("data");assertEquals("6.1",body.getString("manual_ph"));assertEquals(2,body.getJSONArray("materials").length())
     }
     private fun createAccepted(note:String):String {
-        chooseContext();rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement(note);hideKeyboard()
+        chooseContext();rule.onNodeWithTag("entry-notes").performScrollTo().performTextReplacement(note);hideKeyboard()
         rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick();readyNode("finance-queue").scrollIfScrollable().performClick()
         rule.waitUntil(10000) {posts.get()==1}
         rule.selectFinanceTab(1)
@@ -1418,6 +1425,83 @@ class FinanceEntryUiTest {
         historyList.assertIsDisplayed()
     }
 
+    /** F4: one "Catat kegiatan" form per greenhouse, sent as one record per section with a shared batch, for both roles. */
+    @Test fun entryFormSendsOneRecordPerSectionForBothRoles() {
+        val theme = (rule.activity.application as InofarmApplication).theme
+        managerWalkthroughFixture.set(true)
+        rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+        try {
+            // Worker: Catat, the greenhouse, Kegiatan; no type choice, no season or group.
+            rule.onNodeWithTag("finance-home-list").performScrollToIndex(0)
+            readyNode("finance-record-fab").performClick()
+            rule.onNodeWithTag("record-measurement").assertDoesNotExist()
+            readyNode("record-greenhouse-option-$gh").performScrollTo().performClick()
+            readyNode("record-activity").performClick()
+            readyNode("entry-age-day").assertExists()
+            rule.onNodeWithTag("finance-type").assertDoesNotExist()
+            rule.onNodeWithTag("finance-skipped").assertDoesNotExist()
+            captureInternal("entry-worker-empty-light")
+            readyNode("finance-review").performClick()
+            readyText("Isi sedikitnya satu bagian", substring = true).assertExists()
+            readyNode("entry-age-basis-option-hst").performScrollTo().performClick()
+            readyNode("entry-age-day").performScrollTo().performTextReplacement("30");hideKeyboard()
+            readyNode("entry-ec").performScrollTo().performTextReplacement("1,8");hideKeyboard()
+            readyNode("finance-review").performClick()
+            readyText("EC dan PPM diisi berpasangan.").assertExists()
+            readyNode("entry-ppm").performScrollTo().performTextReplacement("900");hideKeyboard()
+            readyNode("entry-moment-option-after_injection").performScrollTo().performClick()
+            readyNode("entry-spray-open").performScrollTo().performClick()
+            readyNode("entry-spray-period-option-morning").performScrollTo().performClick()
+            choose("entry-spray-material-0", "__typed")
+            readyNode("entry-spray-name-0").performScrollTo().performTextReplacement("Bion M");hideKeyboard()
+            readyNode("entry-stage").performScrollTo().performTextReplacement("Pembesaran buah");hideKeyboard()
+            captureInternal("entry-worker-filled-light")
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.DARK) }
+            readyNode("entry-spray-name-0").performScrollTo()
+            captureInternal("entry-worker-filled-dark")
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+            readyNode("finance-review").performClick()
+            readyNode("finance-queue").assertExists()
+            captureInternal("entry-worker-review-light")
+            val before = posts.get()
+            readyNode("finance-queue").performClick()
+            rule.waitUntil(15_000) { posts.get() - before == 3 }
+            val sent = receipts.values.map { it.getJSONObject("data") }.filter { it.has("entry_batch_id") && !it.isNull("entry_batch_id") }
+            assertEquals(setOf("measurement", "spray", "stage"), sent.map { it.getString("activity_type") }.toSet())
+            assertEquals(1, sent.map { it.getString("entry_batch_id") }.toSet().size)
+            assertTrue(sent.all { it.getString("season_id") == season && it.getString("age_basis") == "hst" && it.getInt("age_day") == 30 })
+            assertTrue(sent.single { it.getString("activity_type") == "measurement" }.isNull("planting_group_id"))
+            val spray = sent.single { it.getString("activity_type") == "spray" }
+            assertEquals(group, spray.getString("planting_group_id"))
+            assertEquals("morning", spray.getString("spray_period"))
+            assertEquals("Bion M", spray.getJSONArray("materials").getJSONObject(0).getString("material_name"))
+
+            // Manager: same form; Simpan opens the summary, and Batal from the form leaves nothing behind.
+            managerLogin()
+            readyNode("finance-record-fab").performClick()
+            readyNode("record-greenhouse-option-$gh").performScrollTo().performClick()
+            readyNode("record-activity").performClick()
+            readyNode("entry-age-basis-option-hss").performScrollTo().performClick()
+            readyNode("entry-age-day").performScrollTo().performTextReplacement("48");hideKeyboard()
+            readyNode("entry-notes").performScrollTo().performTextReplacement("Cek talang");hideKeyboard()
+            readyNode("finance-review").performClick()
+            readyText("Ringkasan kegiatan", substring = true).assertExists()
+            captureInternal("entry-manager-summary-light")
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.DARK) }
+            readyText("Ringkasan kegiatan", substring = true).assertExists()
+            captureInternal("entry-manager-summary-dark")
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+            readyNode("finance-back").performClick()
+            readyNode("finance-cancel").performClick()
+            runCatching { readyText("Buang").performClick() }
+            val vm = ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.activities.ActivityViewModel::class.java]
+            rule.waitUntil(10_000) { vm.state.value.entry == null }
+            rule.waitUntil(10_000) { vm.state.value.records.none { com.inofarm.jogja.feature.activities.domain.EntryDraft.isEntry(it.body) } }
+        } finally {
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+        }
+    }
+
     /** F3: Catat asks only for a greenhouse for both roles; an unplanted greenhouse offers "Mulai tanam" to the manager. */
     @Test fun catatAsksOnlyForTheGreenhouseForBothRoles() {
         val theme = (rule.activity.application as InofarmApplication).theme
@@ -1444,9 +1528,10 @@ class FinanceEntryUiTest {
             captureInternal("catat-worker-ready")
             readyNode("record-activity").performClick()
             val worker = ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.activities.ActivityViewModel::class.java]
-            rule.waitUntil(10_000) { worker.state.value.draft != null }
-            assertEquals(gh2, worker.state.value.draft!!.greenhouseId)
-            assertEquals(group2, worker.state.value.draft!!.groupId)
+            // Kegiatan opens the greenhouse entry (F4): filed under the greenhouse's open season, no variety chosen.
+            rule.waitUntil(10_000) { worker.state.value.entry != null }
+            assertEquals(gh2, worker.state.value.entry!!.greenhouseId)
+            assertEquals(season2, worker.state.value.entry!!.seasonId)
             rule.onNodeWithTag("finance-season").assertDoesNotExist()
             rule.runOnIdle { worker.discard() }
 
@@ -1611,6 +1696,7 @@ class FinanceEntryUiTest {
         assertEquals(0, posts.get() + financePosts.get() + harvestPosts.get())
     }
 
+    @org.junit.Ignore("\"Kegiatan dilewati\" dihapus dari form (K4, 17 Nov 2026).")
     @Test fun activityMenuEntryKeepsSkippedReasonAndReturnsToHistory() {
         rule.selectFinanceTab(1)
         readyNode("finance-record-fab").performClick()
@@ -2004,7 +2090,7 @@ class FinanceEntryUiTest {
             File(rule.activity.getExternalFilesDir(null),name).outputStream().use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
         }
         overrideContent(true)
-        rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement("Uji font 200 persen")
+        rule.onNodeWithTag("entry-notes").performScrollTo().performTextReplacement("Uji font 200 persen")
         Thread.sleep(500);rule.waitForIdle()
         rule.onNodeWithTag("finance-save-draft").scrollIfScrollable().assertIsDisplayed()
         capture("finance-narrow-ime.png")
@@ -2012,8 +2098,8 @@ class FinanceEntryUiTest {
         rule.runOnUiThread {rule.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}
         rule.waitUntil(10000) {rule.activity.resources.configuration.orientation==Configuration.ORIENTATION_LANDSCAPE}
         overrideContent(false)
-        rule.onNodeWithTag("finance-notes").performScrollTo().assertTextContains("Uji font 200 persen")
-        rule.onNodeWithTag("finance-notes").performTextReplacement("Landscape tetap tersimpan")
+        rule.onNodeWithTag("entry-notes").performScrollTo().assertTextContains("Uji font 200 persen")
+        rule.onNodeWithTag("entry-notes").performTextReplacement("Landscape tetap tersimpan")
         Thread.sleep(500);rule.waitForIdle()
         rule.onNodeWithTag("finance-save-draft").scrollIfScrollable()
         capture("finance-landscape-ime.png")
