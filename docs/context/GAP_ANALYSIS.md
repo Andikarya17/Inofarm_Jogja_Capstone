@@ -9,7 +9,7 @@ Branch F0–F6 sudah di-push dengan PR untuk ditinjau, belum di-merge. [Bukti da
 3. **Belum ada uji terhadap backend nyata:** form gabungan dan panen dua varietas baru diuji dengan fixture sintetis; `FinanceBackendDeviceTest` belum dijalankan terhadap F1.
 4. **Panen dua varietas:** koreksi per catatan; Cek catatan panen belum dikelompokkan per isian.
 5. **Ponsel fisik, TalkBack, font 200%, 360 dp** belum dicek untuk form baru.
-6. **Tes UI:** `FinanceEntryUiTest` masih punya kegagalan baseline lama (lihat bukti); tiga tes lama di-`@Ignore` karena perilakunya dihapus.
+6. **Tes UI:** `FinanceEntryUiTest` masih punya kegagalan baseline lama (lihat bukti); tiga tes lama di-`@Ignore` karena perilakunya dihapus. `investmentWorkspaceRecreationAndLogoutKeepLatestIncompleteRawInput` gagal baru di emulator yang dinyalakan ulang, padahal source investasi tidak berubah; penyebab belum diselidiki. Emulator sempat ANR dan macet di tengah rangkaian penuh.
 7. Butir 1 di bawah (`fruit_count: null`) ditangani di branch F5, belum di main.
 
 ## Gap dari audit alur input pengelola, 17 November 2026
