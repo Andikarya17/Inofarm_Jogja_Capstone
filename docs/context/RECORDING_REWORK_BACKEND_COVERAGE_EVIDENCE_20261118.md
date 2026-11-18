@@ -13,7 +13,7 @@ Lanjutan dari [bukti uji backend nyata pertama](INVESTMENT_TEST_AND_REAL_BACKEND
 
 | Bagian | Branch | Dasar | Isi |
 |---|---|---|---|
-| A | `docs-migration-22-applied-merge-main` | `github/docs-migration-22-applied` (#79) | Merge `github/main` ke #79. Satu konflik di `CLAUDE.md`, diselesaikan dengan menyimpan kedua paragraf. **Belum di-push**, menunggu persetujuan |
+| A | `docs-migration-22-applied-merge-main` | `github/docs-migration-22-applied` (#79) | Merge `github/main` ke #79. Satu konflik di `CLAUDE.md`, diselesaikan dengan menyimpan kedua paragraf. Di-push atas persetujuan pengguna, di-merge lewat PR #79 |
 | B | `recording-rework-backend-coverage` | `github/main` | Empat fase baru di `RecordingReworkBackendDeviceTest`, mode verify di fixture, dokumen ini |
 | C | `device-test-entry-form` | `github/main` | `managerVerifiesWorkerRevisionsThroughGuardedBackend` pindah ke form gabungan |
 
@@ -25,7 +25,7 @@ Lanjutan dari [bukti uji backend nyata pertama](INVESTMENT_TEST_AND_REAL_BACKEND
 - `CLAUDE.md` bentrok di paragraf pembuka: #82 menambah paragraf "Backend nyata …" di atas paragraf rombak, #79 mengubah paragraf rombak menjadi "di-merge … PR #72–#78" dan "migration 22 sudah diterapkan". Penyelesaian: paragraf #82 tetap di atas, paragraf rombak memakai versi #79. Tidak ada paragraf yang hilang. Selisih terhadap `github/main` hanya 6 baris yang memang diubah #79.
 - `check-finance-context.py` di worktree bersih gagal karena `RECORDING_REWORK_DESIGN_20261117.md` menaut ke `HANDOFF_RECORDING_REWORK_20261117.md`, yang hanya ada untracked di laptop pengguna. Ini juga berlaku untuk `github/main`, bukan akibat merge. Di checkout pengguna (file ada) pemeriksa lulus.
 
-Commit merge lokal `62c67e4`, belum di-push.
+Commit merge `62c67e4`, di-push ke `docs-migration-22-applied` atas persetujuan pengguna; PR #79 lalu di-merge ke main. PR #83 (B) dan #84 (C) di-merge sesudahnya, setelah ditinjau.
 
 ## Bagian B: alur yang belum tercakup, terhadap backend nyata
 

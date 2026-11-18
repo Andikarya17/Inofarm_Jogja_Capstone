@@ -2,18 +2,18 @@
 
 ## Gap setelah uji backend nyata lanjutan, 18 November 2026
 
-Branch `recording-rework-backend-coverage` dan `device-test-entry-form`, PR untuk ditinjau. [Bukti](RECORDING_REWORK_BACKEND_COVERAGE_EVIDENCE_20261118.md). Butir 2–4 bagian di bawahnya kini tertutup: koreksi per bagian, isian pengelola dengan periode berjalan, antrean offline dan Cek catatan panen lulus terhadap backend nyata; tes verifikasi lama pindah ke form gabungan; `FinanceEntryUiTest` penuh 15 gagal, semuanya baseline, tes investasi lulus di rangkaian.
+Di-merge ke main lewat PR #83 dan #84 (18 November 2026). [Bukti](RECORDING_REWORK_BACKEND_COVERAGE_EVIDENCE_20261118.md). Butir 2–4 bagian di bawahnya kini tertutup: koreksi per bagian, isian pengelola dengan periode berjalan, antrean offline dan Cek catatan panen lulus terhadap backend nyata; tes verifikasi lama pindah ke form gabungan; `FinanceEntryUiTest` penuh 15 gagal, semuanya baseline, tes investasi lulus di rangkaian.
 
 1. Usulan menunggu persetujuan: jarak label "Memperbarui", pengelompokan Cek catatan panen per isian, 401 alih-alih 500 tanpa token/`Accept`, dan EC mentah `1.800000` di form koreksi.
-2. Merge #79 dengan main siap di `docs-migration-22-applied-merge-main`, belum di-push.
+2. ~~Merge #79 dengan main~~: konflik `CLAUDE.md` diselesaikan dengan menyimpan kedua paragraf, di-merge lewat PR #79.
 3. `managerVerifiesWorkerRevisionsThroughGuardedBackend` lulus 2 dari 3 sesudah perbaikan; satu gagal `multithreaded access to SnapshotStateObserver` tanpa frame kode tes/aplikasi.
 4. Belum: koreksi bagian semprot/nutrisi, koreksi panen setelah "Perlu diperbaiki", Beranda terhadap `inofarm_finance_local`, uji restore backup, ponsel fisik, TalkBack, font 200%, 360 dp.
 
 ## Gap setelah uji backend nyata rombak pencatatan, 18 November 2026
 
-Branch `investment-test-horizon-fix`, `review-greenhouse-level-rows` dan `recording-rework-real-backend`, dengan PR untuk ditinjau. [Bukti](INVESTMENT_TEST_AND_REAL_BACKEND_EVIDENCE_20261118.md).
+Di-merge ke main lewat PR #80–#82 (18 November 2026). [Bukti](INVESTMENT_TEST_AND_REAL_BACKEND_EVIDENCE_20261118.md).
 
-1. **Inbox Cek catatan 500 untuk catatan tingkat GH** sudah diperbaiki di `review-greenhouse-level-rows`. Sampai branch itu di-merge, bug ini juga berlaku di `inofarm_finance_local`.
+1. **Inbox Cek catatan 500 untuk catatan tingkat GH** sudah diperbaiki di `review-greenhouse-level-rows` (PR #81, di main). `inofarm_finance_local` memakai perbaikan ini begitu backend lokal dijalankan dari main; pembacaan dari aplikasi belum dicoba.
 2. Uji backend nyata baru mencakup isian kegiatan pekerja, panen dua varietas dan Cek catatan per isian. Koreksi per bagian, antrean offline, form pengelola dan Cek catatan panen belum diuji terhadap backend nyata.
 3. `FinanceBackendDeviceTest#managerVerifiesWorkerRevisionsThroughGuardedBackend` masih memakai form pengukuran lama.
 4. Tes investasi diperkuat (ulang scroll dan ketik). Kegagalan aslinya tidak muncul lagi, jadi belum terbukti hilang. `FinanceEntryUiTest` penuh belum dijalankan ulang.
