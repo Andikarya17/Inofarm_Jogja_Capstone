@@ -48,11 +48,12 @@ internal val LocalCanopyForm = compositionLocalOf { false }
 internal fun FarmFormFrame(
     header: @Composable () -> Unit,
     bar: @Composable () -> Unit,
+    scroll: androidx.compose.foundation.ScrollState? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     CompositionLocalProvider(LocalCanopyForm provides true) {
         Column(Modifier.fillMaxSize()) {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = FarmSpace.Medium),
+            Column(Modifier.weight(1f).verticalScroll(scroll ?: rememberScrollState()).padding(vertical = FarmSpace.Medium),
                 verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                 header()
                 content()

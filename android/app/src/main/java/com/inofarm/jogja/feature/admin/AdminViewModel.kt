@@ -18,6 +18,17 @@ import org.json.JSONObject
 import java.time.OffsetDateTime
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 
+/** The master lists a greenhouse needs before recording, in the order Kelola shows them. */
+internal val MasterResources = listOf(AdminResource.VARIETY, AdminResource.MATERIAL, AdminResource.UNIT, AdminResource.GRADE, AdminResource.CATEGORY)
+
+/** "Tersalin: 2 varietas, 10 bahan." from the copy-masters counts; nothing new is said plainly. */
+internal fun copiedSummary(copied: JSONObject): String {
+    val parts = listOf("varieties" to "varietas", "materials" to "bahan", "units" to "satuan", "grades" to "grade",
+        "expense_categories" to "kategori biaya").mapNotNull { (key, label) -> copied.optInt(key).takeIf { it > 0 }?.let { "$it $label" } }
+    return if (parts.isEmpty()) "Tidak ada yang disalin. Semua nama sudah ada di greenhouse ini."
+    else "Tersalin: ${parts.joinToString(", ")}."
+}
+
 data class AdminState(val resource:AdminResource=AdminResource.GREENHOUSE,val greenhouse:String?=null,val rows:List<JSONObject> = emptyList(),val cursor:String?=null,
     val form:AdminForm?=null,val editing:Boolean=false,val pending:Boolean=false,val needsPassword:Boolean=false,val busy:Boolean=false,val saved:Boolean=true,
     val options:Map<String,List<JSONObject>> = emptyMap(),val message:String?=null,val rejected:Boolean=false,val server:JSONObject?=null,
@@ -91,6 +102,23 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
         detail(row)
     }
     fun reload(more:Boolean=false) {if(!state.value.busy) viewModelScope.launch {load(more)}}
+    /** Fills the selected greenhouse's master lists from [source]; the caller has already asked the manager. */
+    fun copyMasters(source:String,onAccepted:()->Unit) {
+        val target=state.value.greenhouse ?: return
+        if(state.value.busy) return
+        viewModelScope.launch {
+            mutable.value=state.value.copy(busy=true,message=null)
+            val message=try {
+                val copied=repository.copyMasters(session,ticket,target,source)
+                onAccepted()
+                copiedSummary(copied)
+            } catch(cancelled:CancellationException) {throw cancelled}
+            catch(error:Exception) {userMessage(error)}
+            mutable.value=state.value.copy(busy=false)
+            load()
+            mutable.value=state.value.copy(message=message)
+        }
+    }
     private suspend fun load(more:Boolean=false) {
         mutable.value=state.value.copy(busy=true,message=null,listChecked=false)
         try {

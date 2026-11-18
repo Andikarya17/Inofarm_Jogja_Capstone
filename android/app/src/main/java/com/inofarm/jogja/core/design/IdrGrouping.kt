@@ -48,3 +48,10 @@ internal object IdrGrouping : VisualTransformation {
         return TransformedText(AnnotatedString(shown), mapping)
     }
 }
+
+/**
+ * A measured value as people read it: server decimals such as "2.200000" become "2,2" and "1100.000000" becomes "1100".
+ * Text that is not a number is returned as typed.
+ */
+internal fun measureText(raw: String): String =
+    raw.trim().toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString()?.replace('.', ',') ?: raw

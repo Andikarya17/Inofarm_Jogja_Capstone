@@ -185,6 +185,28 @@ class RecordPerGreenhouseTest extends FinanceTestCase
         $this->patchJson('/api/v2/activities/'.$legacy['id'], $edit)->assertUnprocessable();
     }
 
+    public function test_a_greenhouse_record_realises_a_schedule_of_its_own_season_only(): void
+    {
+        $manager = $this->account();
+        $ctx = $this->twoVarieties($manager);
+        $other = $this->context($manager);
+        $schedule = fn (string $group, string $type = 'measurement') => $this->createMaster('schedules', ['planting_group_id' => $group,
+            'activity_type' => $type, 'planned_at' => '2026-11-17T07:00:00+07:00', 'notes' => 'Jadwal ukur']);
+        $own = $schedule($ctx['group2']['id']);
+        $this->asUser($this->account('worker'));
+        $this->postJson('/api/v2/activities', $this->operation('activity', $this->entry($ctx, (string) Str::uuid(), ['schedule_id' => $own['id']])))
+            ->assertCreated()->assertJsonPath('data.schedule_id', $own['id'])->assertJsonPath('data.planting_group_id', null)
+            ->assertJsonPath('data.reference_snapshot.schedule.id', $own['id']);
+        $this->asUser($manager);
+        $foreign = $schedule($other['group']['id']);
+        $wrongType = $schedule($ctx['group']['id'], 'nutrition');
+        foreach ([$foreign, $wrongType] as $row) {
+            $this->postJson('/api/v2/activities', $this->operation('activity', $this->entry($ctx, (string) Str::uuid(), ['schedule_id' => $row['id']])))
+                ->assertUnprocessable();
+        }
+        $this->assertSame(1, DB::table('activities')->count());
+    }
+
     public function test_worker_without_assignment_records_on_active_greenhouses_but_never_reaches_finance(): void
     {
         $manager = $this->account();

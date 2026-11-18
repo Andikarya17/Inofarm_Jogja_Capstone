@@ -95,7 +95,7 @@ internal fun RecordSheet(
                 if (field.isNotEmpty()) RecordGroup(if (worker != null) null else "Di greenhouse", field, 3, 0, pick,
                     if (worker?.workerDetails == true) WorkerRecordDetails else emptyMap())
                 worker?.onNutritionRun?.let { NutritionRunRow(it) }
-                if (money.isNotEmpty()) RecordGroup("Uang", money, 2, field.size, onPick)
+                if (money.isNotEmpty()) RecordGroup("Uang", money, 2, field.size, pick)
                 if (money.isNotEmpty() && worker == null) Text(
                     "Greenhouse lain? Pilih dulu di Beranda, atau biaya dan penjualan akan menanyakan greenhouse-nya.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

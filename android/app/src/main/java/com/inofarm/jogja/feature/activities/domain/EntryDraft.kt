@@ -27,6 +27,8 @@ data class EntryDraft(
     val sprayGroups: Set<String> = emptySet(), val spray: List<MaterialDraft> = emptyList(),
     val stage: String = "", val notes: String = "", val runningPeriodVersion: Long? = null,
     val sectionIds: Map<String, String> = emptyMap(),
+    /** The schedule this entry carries out, its activity type and planting group; the matching section links to it. */
+    val scheduleId: String = "", val scheduleType: String = "", val scheduleGroup: String = "",
 ) {
     val hasMeasurement: Boolean get() = listOf(ec, ppm, ph, waterTemperature).any { it.isNotBlank() }
     val hasSpray: Boolean get() = sprayOpen && (spray.isNotEmpty() || sprayGroups.isNotEmpty())
@@ -44,6 +46,8 @@ data class EntryDraft(
             if (sprayPeriod !in setOf("morning", "afternoon")) put("spray_period", "Pilih pagi atau sore.")
             if (spray.isEmpty()) put("spray", "Tambahkan sedikitnya satu bahan semprot.")
         }
+        if (scheduleId.isNotBlank() && sections().none { it.scheduleId == scheduleId })
+            put("entry", "Isi bagian ${scheduleSection(scheduleType)} untuk jadwal ini.")
         if (stage.length > 100) put("actual_stage", "Stadia maksimal 100 karakter.")
         if (notes.length > 2000) put("notes", "Catatan maksimal 2.000 karakter.")
         // Each section's own checks (decimals, pH range, material and dose) are reported under its field keys.
@@ -95,6 +99,10 @@ data class EntryDraft(
             }
             if (stage.isNotBlank()) add(base(ActivityType.STAGE).copy(stage = stage.trim()))
             if (onlyNotes) add(base(ActivityType.GENERAL))
+        }.let { rows ->
+            // The schedule goes on the first section of its type; a spray schedule only on the variety it names.
+            val linked = rows.indexOfFirst { it.type.wire == scheduleType && (it.type != ActivityType.SPRAY || it.groupId == scheduleGroup) }
+            if (scheduleId.isBlank() || linked < 0) rows else rows.mapIndexed { i, row -> if (i == linked) row.copy(scheduleId = scheduleId) else row }
         }
     }
 
@@ -107,10 +115,16 @@ data class EntryDraft(
             .put("nutrition", materialsJson(nutrition)).put("spray_open", sprayOpen).put("spray_date", sprayDate)
             .put("spray_period", sprayPeriod).put("spray_groups", JSONArray(sprayGroups.sorted())).put("spray", materialsJson(spray))
             .put("stage", stage).put("notes", notes).put("running_period_version", runningPeriodVersion ?: JSONObject.NULL)
-            .put("section_ids", JSONObject(sectionIds as Map<*, *>)))
+            .put("section_ids", JSONObject(sectionIds as Map<*, *>))
+            .put("schedule_id", scheduleId).put("schedule_type", scheduleType).put("schedule_group", scheduleGroup))
 
     companion object {
         const val TYPE = "entry"
+
+        /** The form section a scheduled activity type is filled in, as its heading reads. */
+        fun scheduleSection(type: String): String = when (type) {
+            "measurement" -> "Pengukuran"; "nutrition" -> "Nutrisi"; "spray" -> "Penyemprotan"; "stage" -> "Stadia"; else -> "Catatan"
+        }
 
         fun isEntry(body: JSONObject): Boolean = body.optJSONObject("_local_form")?.optBoolean("entry") == true
 
@@ -138,6 +152,8 @@ data class EntryDraft(
                 stage = form.optString("stage"), notes = form.optString("notes"),
                 runningPeriodVersion = form.optLong("running_period_version").takeIf { it > 0 },
                 sectionIds = ids?.keys()?.asSequence()?.associateWith { ids.getString(it) } ?: emptyMap(),
+                scheduleId = form.optString("schedule_id"), scheduleType = form.optString("schedule_type"),
+                scheduleGroup = form.optString("schedule_group"),
             )
         }
     }

@@ -14,6 +14,8 @@ import com.inofarm.jogja.core.design.FarmCheckbox
 import com.inofarm.jogja.core.design.FarmDraftStatus
 import com.inofarm.jogja.core.design.FarmFact
 import com.inofarm.jogja.core.design.FarmPageTitle
+import com.inofarm.jogja.core.design.FarmOption
+import com.inofarm.jogja.core.design.FarmPicker
 import com.inofarm.jogja.core.design.FarmPanel
 import com.inofarm.jogja.core.design.FarmSection
 import com.inofarm.jogja.core.design.FarmSectionHeading
@@ -79,6 +81,20 @@ import com.inofarm.jogja.feature.Notice
             state.rows.find { it.optString("id") == initialGreenhouse }?.let { focused = true; if (initialEdit) vm.open(it) else vm.detail(it) }
         }
     }
+    // Opened from an empty picker in a form: once the list for that greenhouse is loaded, go straight to its add form.
+    LaunchedEffect(state.resource, state.greenhouse, state.busy, state.listChecked) {
+        if (!focused && initialEdit && initialResource != AdminResource.GREENHOUSE && initialGreenhouse != null &&
+            state.resource == initialResource && state.greenhouse == initialGreenhouse && !state.busy && state.listChecked) {
+            focused = true
+            vm.open()
+        }
+    }
+    var copyPick by rememberSaveable { mutableStateOf(false) }
+    var copySource by rememberSaveable { mutableStateOf<String?>(null) }
+    val greenhouseNames = state.options["greenhouses"].orEmpty()
+    // Master lists are per greenhouse; any other greenhouse can be the source of a copy.
+    val copySources = if (state.resource in MasterResources && state.greenhouse != null)
+        greenhouseNames.filter { it.optString("id") != state.greenhouse } else emptyList()
     var search by rememberSaveable(state.resource,state.greenhouse) { mutableStateOf("") }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {vm.flush()}
     val close={if(!state.busy && vm.flush()) onClose()}
@@ -187,12 +203,16 @@ import com.inofarm.jogja.feature.Notice
                             }
                             TextButton(onClick={vm.reload()},enabled=!state.busy,
                                 modifier=Modifier.heightIn(min=FarmSpace.Touch)) {Text("Perbarui")}
+                            if(copySources.isNotEmpty()) TextButton(onClick={copyPick=true},enabled=!state.busy,
+                                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("admin-copy-masters")) {Text("Salin dari greenhouse lain")}
                         }
                     }
                     FarmSectionHeading("Daftar ${state.resource.label.lowercase()}")
                     if(state.resource==AdminResource.USER && state.greenhouse==null && state.listChecked) Text("Tambah greenhouse dulu sebelum membuat akun.")
                     else if(state.resource!=AdminResource.GREENHOUSE && state.greenhouse==null) Text("Pilih greenhouse untuk melihat dan menambah data.")
-                    if(state.rows.isEmpty() && state.listChecked) Text("Belum ada ${state.resource.label.lowercase()}.")
+                    if(state.rows.isEmpty() && state.listChecked) Text(if(copySources.isNotEmpty())
+                        "Belum ada ${state.resource.label.lowercase()}. Tambah satu per satu, atau salin daftar dari greenhouse lain."
+                        else "Belum ada ${state.resource.label.lowercase()}.")
                     if(searchable && state.rows.isNotEmpty()) FinanceField("Cari ${state.resource.label.lowercase()}",search,{search=it},"admin-search")
                     if(visibleRows.isEmpty() && state.rows.isNotEmpty()) Text("Tidak ada kecocokan dalam daftar yang dimuat.")
                     } }
@@ -226,6 +246,24 @@ import com.inofarm.jogja.feature.Notice
                 }
                 }
             }
+        }
+        if (copyPick) FarmPicker(
+            title = "Salin dari greenhouse",
+            options = copySources.map { FarmOption(it.getString("id"), it.optString("name")) },
+            selected = null,
+            optionTag = { "admin-copy-source-$it" },
+            onDismiss = { copyPick = false },
+            onSelect = { copyPick = false; copySource = it },
+            sheet = false)
+        copySource?.let { source ->
+            val from = greenhouseNames.find { it.optString("id") == source }?.optString("name").orEmpty()
+            val to = greenhouseNames.find { it.optString("id") == state.greenhouse }?.optString("name").orEmpty()
+            AlertDialog(onDismissRequest = { copySource = null }, containerColor = MaterialTheme.colorScheme.surface,
+                title = { Text("Salin data master ke $to?") },
+                text = { Text("Varietas, bahan, satuan, grade dan kategori biaya dari $from ditambahkan ke $to. Nama yang sudah ada di $to dilewati, tidak ada yang diubah atau dihapus.") },
+                confirmButton = { Button(onClick = { copySource = null; vm.copyMasters(source, onAccepted) }, shape = FarmShape.Control,
+                    modifier = Modifier.testTag("admin-copy-confirm")) { Text("Salin") } },
+                dismissButton = { TextButton(onClick = { copySource = null }) { Text("Batal") } })
         }
         toggle?.let { row ->
             val activate = !row.optBoolean("active", true)

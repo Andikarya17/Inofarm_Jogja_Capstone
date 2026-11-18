@@ -40,7 +40,9 @@ internal fun FarmPicker(
     onSelect: (String) -> Unit,
     sheet: Boolean,
     loading: Boolean = false,
-    emptyMessage: String = "Belum ada pilihan pada data yang tersedia."
+    emptyMessage: String = "Belum ada pilihan pada data yang tersedia.",
+    /** A way out of an empty list, such as adding the missing data: a button label and its action. */
+    emptyAction: Pair<String, () -> Unit>? = null
 ) {
     val colors = MaterialTheme.colorScheme
     val list = rememberLazyListState(options.indexOfFirst { it.id == selected }.takeIf { it >= 5 } ?: 0)
@@ -50,6 +52,10 @@ internal fun FarmPicker(
                 Column(Modifier.padding(FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                     Text(if (loading) "Memuat pilihan…" else emptyMessage, color = colors.onSurfaceVariant)
                     if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    else emptyAction?.let { (label, action) ->
+                        Button(onClick = action, shape = FarmShape.Control,
+                            modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("farm-picker-empty-action")) { Text(label) }
+                    }
                 }
             }
             itemsIndexed(options, key = { _, option -> option.id }) { index, option ->

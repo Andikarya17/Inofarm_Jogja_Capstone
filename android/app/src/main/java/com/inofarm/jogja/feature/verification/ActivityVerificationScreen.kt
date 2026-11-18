@@ -393,16 +393,16 @@ private fun ReferenceFacts(activity: JSONObject) {
             listOf("manual_ec" to "EC", "manual_ppm" to "PPM", "manual_ph" to "pH").forEach { (key, label) ->
                 val check = checks?.optJSONObject(key)
                 val target = check?.optJSONObject("target")
-                val value = target?.text("target_value") ?: target?.text("minimum")?.let { low ->
-                    target.text("maximum")?.let { high -> "$low–$high" }
+                val value = target?.text("target_value")?.let(::measureText) ?: target?.text("minimum")?.let { low ->
+                    target.text("maximum")?.let { high -> "${measureText(low)}–${measureText(high)}" }
                 }
                 FarmFact(label, if (target == null || value == null) "Acuan belum tersedia"
                     else "$value ${target.optString("unit")} · versi ${target.optInt("version")}")
-                target?.text("tolerance")?.let { Text("Toleransi $it ${target.optString("unit")}") }
+                target?.text("tolerance")?.let { Text("Toleransi ${measureText(it)} ${target.optString("unit")}") }
                 val comparison = when (check?.text("status")) {
                     "within_range" -> "Dalam rentang acuan"
                     "outside_range" -> "Di luar rentang acuan"
-                    "delta_only" -> "Selisih ${check.text("delta").orEmpty()}"
+                    "delta_only" -> "Selisih ${check.text("delta")?.let(::measureText).orEmpty()}"
                     else -> "Belum dapat dibandingkan"
                 }
                 Text(comparison, style = MaterialTheme.typography.bodySmall)
@@ -579,8 +579,8 @@ private fun VerificationCard(kind: ReviewKind, entry: JSONObject, activity: JSON
     val title = recordLabel(kind, activity)
     val who = listOfNotNull(activity.text("recorded_by_name"), activity.text("occurred_at")?.let(::timeLabel)).joinToString(" · ")
     val context = listOfNotNull(names.text("greenhouse"), names.text("season"), names.text("group")).joinToString(" · ")
-    val ec = activity.text("manual_ec")
-    val ppm = activity.text("manual_ppm")
+    val ec = activity.text("manual_ec")?.let(::measureText)
+    val ppm = activity.text("manual_ppm")?.let(::measureText)
     val large = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
     Surface(
         Modifier.fillMaxWidth().testTag(tag).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onOpen)
