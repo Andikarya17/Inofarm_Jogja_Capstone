@@ -74,7 +74,8 @@ final class RunningPeriod
     public function assertHomeParent(array $context, int $reviewedVersion): void
     {
         $gh = $context['greenhouse'];
-        if ($gh->running_group_id !== $context['group']->id || $gh->version !== $reviewedVersion) {
+        // A greenhouse-level record has no group; it only needs the period it was drafted under to be unchanged.
+        if (($context['group'] !== null && $gh->running_group_id !== $context['group']->id) || $gh->version !== $reviewedVersion) {
             throw new DomainFailure('running_period_changed', 'Periode tanam berubah. Tinjau draf dengan konteks aslinya.', 422);
         }
     }

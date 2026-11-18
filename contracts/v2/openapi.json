@@ -29240,7 +29240,14 @@
                 "type": "string"
               },
               "group": {
-                "type": "string"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "variety": {
                 "anyOf": [
@@ -29369,7 +29376,14 @@
                 "type": "string"
               },
               "group": {
-                "type": "string"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "variety": {
                 "anyOf": [
