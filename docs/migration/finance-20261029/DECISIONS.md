@@ -1,5 +1,20 @@
 # Decision register target baru
 
+## Pencatatan per greenhouse, 17 November 2026
+
+Keputusan pengguna (K1–K7 handoff rombak pencatatan, dengan jawaban 17 November yang mengatasinya):
+
+- **Catat cukup memilih greenhouse.** Musim dan kelompok tanam dipilih aplikasi; kelompok tanam tidak tampil, varietas menjadi pembeda.
+- **Satuan penyimpanan per greenhouse.** Pengukuran, nutrisi, stadia dan pekerjaan umum disimpan sebagai satu catatan per musim GH (`activities.season_id`, `planting_group_id` kosong), karena satu GH punya satu tandon nutrisi. Menyalin catatan ke tiap varietas ditolak karena menggandakan pemakaian bahan. Hanya **penyemprotan** disimpan per varietas.
+- **Satu form "Catat kegiatan"** untuk kedua peran, satu halaman. Satu isian menjadi satu catatan per bagian dengan `entry_batch_id` yang sama. HSS/HST diketik dan wajib, bukan dihitung. Koreksi dan Cek catatan per bagian; Cek catatan menampilkan satu kartu per isian.
+- **Penyemprotan** mencatat tanggal dan pagi/sore, bukan jam; dosis opsional. **Daftar awal bahan semprot** dari pengguna, bukan dari makalah: Nisozin, Demolish, Regent, Antracol, Agrept, Amistartop, Bion M, Daconil, Besromil, Sop 3g/L. Bahan baru yang diketik dibuat di semua greenhouse.
+- **Pekerja tidak lagi ditugaskan:** pekerja mengakses semua greenhouse aktif. Keuangan tetap khusus pengelola.
+- **Panen** GH dengan dua varietas diisi berdampingan dalam satu form, satu panen per varietas. Jumlah buah opsional karena Inofarm menimbang.
+- **Tema** terang sebagai bawaan, diatur di menu avatar, tidak mengikuti sistem.
+- Keuangan tidak diubah (K7).
+
+Status: di branch F0–F6, belum di-merge; migration 22 belum dijalankan di database aplikasi. [Bukti dan batas](../../context/RECORDING_REWORK_EVIDENCE_20261118.md).
+
 ## Input pengelola tanpa draf, 17 November 2026
 
 Keputusan pengguna: semua input pengelola hanya punya Batal dan Simpan. Simpan membuka Ringkasan (langkah 2 dari 2) berisi apa yang diisi, dan Simpan di sana yang menyimpan. Pengelola tidak lagi punya tombol Simpan draf; isian tetap tersimpan otomatis selama form terbuka (KNF-03) dan Batal mengembalikannya. Alur pekerja tetap memakai draf, Periksa dan Kirim. Backend tidak berubah. [Bukti](../../context/MANAGER_SAVE_SUMMARY_EVIDENCE_20261117.md).
