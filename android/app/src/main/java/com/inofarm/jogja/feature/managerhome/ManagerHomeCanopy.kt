@@ -159,7 +159,9 @@ internal fun GreenhouseCard(card: JSONObject, index: Int, outsideRange: Boolean,
     val ready = state == "ready"
     val inactive = state == "inactive"
     val age = if (ready) period.getJSONObject("age") else null
-    val figure = ageFigure(age?.text("hst")?.toIntOrNull(), age?.text("hss")?.toIntOrNull())
+    // Plant age as Inofarm last typed it (K6, period.manual_age), not computed from the sowing date.
+    val manualAge = if (ready) period.optJSONObject("manual_age") else null
+    val figure = manualAge?.let { m -> m.text("day")?.toIntOrNull()?.let { it to (m.text("basis") ?: "").uppercase() } }
     val line = when {
         ready -> listOfNotNull(period.getString("variety"), period.text("group_name")?.let { "Kelompok $it" }).joinToString(" · ")
         state == "needs_review" -> "Tanam saat ini belum dipilih"

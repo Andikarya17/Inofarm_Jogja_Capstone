@@ -50,12 +50,12 @@ internal fun dayRecords(store: LocalFinanceStore, scope: String, kind: String, f
 }
 
 private fun readWorkerDay(
-    store: LocalFinanceStore, session: FinanceSession, greenhouse: String, group: String, today: LocalDate,
+    store: LocalFinanceStore, session: FinanceSession, greenhouse: String, group: String, today: LocalDate, season: String? = null,
 ): WorkerDay? {
     val scope = session.scope.key
     if (greenhouse !in store.visibleGreenhouses(scope)) return null
     val filter = LocalHistoryFilter(groupId = group, greenhouseId = greenhouse,
-        from = today.toString(), until = today.toString(), recordState = "active")
+        from = today.toString(), until = today.toString(), recordState = "active", groupSeasons = season?.let { setOf(it) })
     val activity = dayRecords(store, scope, "activity", filter)
     val notes = (activity + dayRecords(store, scope, "harvest", filter)).filter {
         it.recorderId() == session.scope.accountId ||
@@ -108,14 +108,14 @@ internal fun workerCorrectionItems(store: LocalFinanceStore, session: FinanceSes
 internal fun WorkerDayAgenda(
     runtime: FinanceRuntime, session: FinanceSession, greenhouse: String, group: String,
     today: LocalDate, schedules: List<JSONObject>, changed: Any?, syncUpdate: Long, canRecord: Boolean,
-    onSchedule: (ActivityType, String) -> Unit, onRecord: (LocalRecord) -> Unit, onQueue: () -> Unit,
+    onSchedule: (ActivityType, String) -> Unit, onRecord: (LocalRecord) -> Unit, onQueue: () -> Unit, season: String? = null,
 ) {
     var snapshot by remember(session.scope.key, greenhouse, group, today) { mutableStateOf<WorkerDay?>(null) }
     var failed by remember(session.scope.key, greenhouse, group, today) { mutableStateOf(false) }
     LaunchedEffect(session.scope.key, greenhouse, group, today, changed, syncUpdate) {
         val generation = runtime.vault.generation
         try {
-            val next = withContext(Dispatchers.IO) { readWorkerDay(runtime.store, session, greenhouse, group, today) }
+            val next = withContext(Dispatchers.IO) { readWorkerDay(runtime.store, session, greenhouse, group, today, season) }
             if (runtime.vault.matches(generation, session.scope)) {
                 snapshot = next
                 failed = false

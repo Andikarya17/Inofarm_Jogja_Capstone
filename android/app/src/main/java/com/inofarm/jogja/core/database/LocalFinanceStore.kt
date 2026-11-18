@@ -20,7 +20,9 @@ import com.inofarm.jogja.core.contracts.AttachmentBytes
 data class LocalRecord(val id: String, val kind: String, val greenhouseId: String, val revision: Long, val baseVersion: Long?, val serverVersion: Long?,
     val body: JSONObject, val serverBody: JSONObject?, val latestOperationId: String?, val syncState: SyncState, val error: JSONObject?)
 data class QueuedOperation(val id: String, val entityId: String, val revision: Long, val envelope: JSONObject, val hash: String, val state: String, val attempts: Int, val error: JSONObject?,val blobId:String?=null)
-data class LocalHistoryFilter(val groupId:String?=null,val type:String?=null,val from:String?=null,val until:String?=null,val recordState:String?=null,val greenhouseId:String?=null,val groups:Set<String>?=null,val seasonId:String?=null,val expenseId:String?=null,val ownerId:String?=null,val scenarioId:String?=null)
+/** [groupSeasons]: with a group filter, also keep greenhouse-level records (no group) of these seasons (17 Nov 2026). */
+data class LocalHistoryFilter(val groupId:String?=null,val type:String?=null,val from:String?=null,val until:String?=null,val recordState:String?=null,val greenhouseId:String?=null,val groups:Set<String>?=null,val seasonId:String?=null,val expenseId:String?=null,val ownerId:String?=null,val scenarioId:String?=null,
+    val groupSeasons:Set<String>?=null,val entryBatchId:String?=null)
 data class LocalBlob(val id:String,val entityId:String,val kind:String,val greenhouseId:String,val state:String,val body:JSONObject)
 data class LocalDetail(val record:LocalRecord,val pending:List<QueuedOperation>,val archives:List<JSONObject>)
 
@@ -122,20 +124,43 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     }
     fun record(scope: String, id: String): LocalRecord? = db.rawQuery("SELECT * FROM local_records WHERE scope=? AND entity_id=?",arrayOf(scope,id)).use { if(it.moveToFirst()) it.record(scope).also {row -> requireKind(scope,row.kind)} else null }
     /** Scan indexed candidates in bounded batches, independent of loaded history pages or the 1000-row UI cap. */
-    fun latestMeasurement(scope:String,gh:String,group:String,today:LocalDate,queuedOnly:Boolean=false):com.inofarm.jogja.feature.activities.domain.ManualMeasurement? = transaction {
+    /** [season]: one tank per greenhouse, so the group's season's greenhouse-level readings count too (17 Nov 2026). */
+    fun latestMeasurement(scope:String,gh:String,group:String,today:LocalDate,queuedOnly:Boolean=false,season:String?=null):com.inofarm.jogja.feature.activities.domain.ManualMeasurement? = transaction {
         ensureIndexed(scope)
         var offset=0
         while(true) {
-            val rows=db.rawQuery("""SELECT * FROM local_records r WHERE scope=? AND greenhouse_id=? AND group_id=? AND kind='activity'
+            val rows=db.rawQuery("""SELECT * FROM local_records r WHERE scope=? AND greenhouse_id=? AND (group_id=? OR (group_id IS NULL AND season_id=?)) AND kind='activity'
                 AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)
                 AND sync_state IN ('ACCEPTED','QUEUED') ${if (queuedOnly) "AND sync_state='QUEUED'" else ""} AND record_state='active' AND occurred_date<=?
-                ORDER BY occurred_millis DESC,entity_id DESC LIMIT 100 OFFSET ?""",arrayOf(scope,gh,group,scope,today.toString(),offset.toString())).use {cursor -> buildList {while(cursor.moveToNext()) add(cursor.record(scope))}}
+                ORDER BY occurred_millis DESC,entity_id DESC LIMIT 100 OFFSET ?""",arrayOf(scope,gh,group,season.orEmpty(),scope,today.toString(),offset.toString())).use {cursor -> buildList {while(cursor.moveToNext()) add(cursor.record(scope))}}
             for(row in rows) {
                 val cancel=row.syncState==SyncState.QUEUED && row.latestOperationId?.let {id -> db.rawQuery("SELECT envelope FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,id)).use {c -> c.moveToFirst() && decode(scope,c.getString(0))?.optString("action")=="cancel"}}==true
                 if (cancel) continue
                 val pair = com.inofarm.jogja.feature.activities.domain.ManualMeasurement.from(row,today) ?: continue
                 val decision = if (pair.queued) null else measurementDecision(scope, gh, row.id, row.serverVersion)
                 if (decision != "invalid") return@transaction pair.copy(verification = decision ?: pair.verification)
+            }
+            if(rows.size<100) return@transaction null
+            offset+=rows.size
+        }
+        @Suppress("UNREACHABLE_CODE") null
+    }
+    /**
+     * The plant age as Inofarm last typed it in this greenhouse (K6, 17 Nov 2026): basis, day and when, from sent or
+     * queued records only. Null when never typed; the computed age is not a fallback.
+     */
+    fun latestTypedAge(scope:String,gh:String):Triple<String,String,java.time.OffsetDateTime>? = transaction {
+        ensureIndexed(scope)
+        var offset=0
+        while(true) {
+            val rows=db.rawQuery("""SELECT * FROM local_records WHERE scope=? AND greenhouse_id=? AND kind='activity' AND record_state='active'
+                AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?) AND sync_state IN ('ACCEPTED','QUEUED')
+                ORDER BY occurred_millis DESC,entity_id DESC LIMIT 100 OFFSET ?""",arrayOf(scope,gh,scope,offset.toString())).use {c -> buildList {while(c.moveToNext()) add(c.record(scope))}}
+            for(row in rows) {
+                val basis=row.body.optString("age_basis").takeIf {it=="hss" || it=="hst"} ?: continue
+                val day=row.body.optString("age_day").takeUnless {it.isBlank() || it=="null"} ?: continue
+                val at=runCatching {java.time.OffsetDateTime.parse(row.body.optString("occurred_at"))}.getOrNull() ?: continue
+                return@transaction Triple(basis,day,at)
             }
             if(rows.size<100) return@transaction null
             offset+=rows.size
@@ -158,9 +183,10 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         val timestamp=listOf("occurred_at","paid_at","created_at").firstNotNullOfOrNull {key -> body.optString(key).takeUnless {it.isBlank() || it=="null"}}
         val day=runCatching { if(form?.has("date")==true) LocalDate.parse(form.getString("date")).toString() else OffsetDateTime.parse(timestamp).atZoneSameInstant(ZoneId.of("Asia/Jakarta")).toLocalDate().toString() }.getOrNull()
         return values("occurred_date" to day,"activity_type" to (form?.optString("type") ?: body.optString("activity_type")).takeIf {it.isNotBlank()},
-            "group_id" to (form?.optString("group_id") ?: body.optString("planting_group_id")).takeIf {it.isNotBlank()},
+            "group_id" to (form?.optString("group_id") ?: body.optString("planting_group_id")).takeUnless {it.isBlank() || it=="null"},
             "record_state" to body.optString("record_state","active"),"occurred_millis" to runCatching {OffsetDateTime.parse(timestamp).toInstant().toEpochMilli()}.getOrNull(),
-            "season_id" to (form?.optString("season_id") ?: body.optString("season_id")).takeIf {it.isNotBlank()},
+            "season_id" to (form?.optString("season_id") ?: body.optString("season_id")).takeUnless {it.isBlank() || it=="null"},
+            "entry_batch_id" to (if(form?.optBoolean("entry")==true) form.optString("id") else (form?.optString("entry_batch_id") ?: body.optString("entry_batch_id"))).takeUnless {it.isNullOrBlank() || it=="null"},
             "expense_id" to (form?.optString("expense_id") ?: body.optString("expense_id")).takeIf {it.isNotBlank()},"asset_id" to (form?.optString("asset_id") ?: body.optString("asset_id")).takeIf {it.isNotBlank()},"scenario_id" to (form?.optString("scenario_id") ?: body.optString("scenario_id")).takeUnless {it.isBlank() || it=="null"},"owner_id" to body.optString("owner_id").ifBlank { body.optString("activity_id") }.ifBlank { body.optString("harvest_id") }.takeIf {it.isNotBlank()},"indexed" to 1)
     }
     private fun ensureIndexed(scope:String)=transaction {
@@ -175,7 +201,10 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         require(offset>=0);requireKind(scope,kind);ensureIndexed(scope)
         val where=StringBuilder("scope=? AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?) AND kind=?")
         val args=mutableListOf(scope,scope,kind)
-        for((column,value) in listOf("group_id" to filter.groupId,"activity_type" to filter.type,"record_state" to filter.recordState)) if(value!=null) {where.append(" AND $column=?");args.add(value)}
+        val seasons=filter.groupSeasons.orEmpty().toList()
+        fun greenhouseLevel():String = if(seasons.isEmpty()) "" else " OR (group_id IS NULL AND season_id IN (${seasons.joinToString(",") {"?"}}))"
+        filter.groupId?.let {where.append(" AND (group_id=?${greenhouseLevel()})");args.add(it);args.addAll(seasons)}
+        for((column,value) in listOf("activity_type" to filter.type,"record_state" to filter.recordState,"entry_batch_id" to filter.entryBatchId)) if(value!=null) {where.append(" AND $column=?");args.add(value)}
         filter.greenhouseId?.let {where.append(" AND greenhouse_id=?");args.add(it)}
         filter.expenseId?.let {where.append(" AND expense_id=?");args.add(it)}
         filter.ownerId?.let {where.append(" AND owner_id=?");args.add(it)}
@@ -187,7 +216,8 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         }
         filter.groups?.let { groups ->
             require(groups.size<=1000)
-            if(groups.isEmpty()) where.append(" AND 0=1") else {where.append(" AND group_id IN (${groups.joinToString(",") {"?"}})");args.addAll(groups)}
+            if(groups.isEmpty() && seasons.isEmpty()) where.append(" AND 0=1")
+            else {where.append(" AND (group_id IN (${(groups.ifEmpty { setOf("") }).joinToString(",") {"?"}})${greenhouseLevel()})");args.addAll(groups.ifEmpty { setOf("") });args.addAll(seasons)}
         }
         filter.from?.let {LocalDate.parse(it);where.append(" AND occurred_date>=?");args.add(it)}
         filter.until?.let {LocalDate.parse(it);where.append(" AND occurred_date<=?");args.add(it)}
@@ -417,6 +447,28 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         val saved = persistDraft(scope,id,gh,body,expectedRevision,editingBaseVersion,kind)
         afterRecordWrite()
         putQueued(scope,saved,if(saved.baseVersion==null) "create" else "update",queuePayload ?: body,blobId)
+    }
+    /**
+     * One greenhouse entry becomes several activity records queued together: every record and operation, or none.
+     * The entry's own local draft goes away in the same transaction; it was never sent. [sections] are id to payload.
+     */
+    fun queueEntry(scope:String,entryId:String,gh:String,sections:List<Pair<String,JSONObject>>,expectedEntryRevision:Long?):List<LocalRecord> = transaction {
+        requireMutationKind(scope,"activity")
+        require(sections.isNotEmpty()) {"Isian belum punya bagian yang terisi."}
+        val entry=record(scope,entryId)
+        if(entry!=null) require(entry.syncState==SyncState.LOCAL && entry.revision==expectedEntryRevision && entry.latestOperationId==null) {"Draf berubah. Perbarui sebelum mengirim."}
+        else require(expectedEntryRevision==null) {"Draf berubah. Perbarui sebelum mengirim."}
+        val queued=sections.map { (id,payload) ->
+            require(id!=entryId && record(scope,id)==null) {"Isian ini sudah tersimpan untuk dikirim."}
+            val saved=persistDraft(scope,id,gh,payload,null,null,"activity")
+            putQueued(scope,saved,"create",payload)
+        }
+        if(entry!=null) {
+            db.delete("local_record_revisions","scope=? AND entity_id=?",arrayOf(scope,entryId))
+            db.delete("local_records","scope=? AND entity_id=?",arrayOf(scope,entryId))
+        }
+        afterRecordWrite()
+        queued
     }
     private fun putQueued(scope:String,saved:LocalRecord,action:String,payload:JSONObject,blobId:String?=null):LocalRecord {
         requireMutationKind(scope,saved.kind)

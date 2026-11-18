@@ -75,7 +75,8 @@ internal fun FinanceTestRule.logoutFromAccount() {
         return
     }
     onNodeWithTag("finance-account").performClick()
-    onNodeWithTag("finance-logout").performClick()
+    // The account menu also lists Tampilan (F0), so Keluar may sit below the fold of the menu.
+    onNodeWithTag("finance-logout").performScrollTo().performClick()
 }
 
 internal fun FinanceTestRule.openHomeContext() {

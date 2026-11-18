@@ -470,11 +470,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             val plantingGroup = entryGroup
             if (parent != null && plantingGroup != null) {
                 managerRecording = null
-                when (destination) {
-                    "harvest" -> harvestVm.new(parent, plantingGroup)
-                    "measurement" -> vm.new(parent, plantingGroup, ActivityType.MEASUREMENT)
-                    else -> vm.new(parent, plantingGroup)
-                }
+                val seasonId = context.groups.find { it.optString("id") == plantingGroup }?.optString("season_id")
+                if (destination == "harvest") harvestVm.new(parent, plantingGroup)
+                else if (seasonId != null) vm.newEntry(parent, seasonId)
             }
         },
         onSync = onSync,
@@ -492,7 +490,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             if (season == null || selectedGroup == null) group = null
         }
     }
-    val backEnabled = harvestProgressOpen || correctionsOpen || !manager && selectedGreenhouse != null || investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0
+    val backEnabled = harvestProgressOpen || correctionsOpen || !manager && selectedGreenhouse != null || investments.state.active || reports.state.active || asset.entry.draft!=null || asset.history.selected!=null || asset.depreciation.selected!=null || sale.draft!=null || saleHistory.selected!=null || attachment.parent!=null || writing || activity.draft!=null || activity.entry!=null || harvest.draft!=null || financial.draft!=null || history.selected!=null || harvestHistory.selected!=null || expenseHistory.selected!=null || allocationHistory.selected!=null || tab!=0
     // One back action for the system Back button, the gesture and the predictive preview below.
     val handleBack: () -> Unit = {
         when {
@@ -513,7 +511,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             sale.draft!=null -> saleVm.saveAndClose()
             saleHistory.comparison!=null -> saleHistoryVm.closeComparison()
             saleHistory.selected!=null -> saleHistoryVm.close()
-            activity.draft!=null && activity.reviewing -> vm.backToForm()
+            (activity.draft!=null || activity.entry!=null) && activity.reviewing -> vm.backToForm()
+            activity.entry!=null -> vm.saveEntryAndClose()
             activity.draft!=null -> vm.saveAndClose()
             harvest.draft!=null && harvest.reviewing -> harvestVm.backToForm()
             harvest.draft!=null -> harvestVm.saveAndClose()
@@ -544,7 +543,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         manager && asset.entry.draft != null -> if (asset.entry.reviewing) FinanceDestination.Review("asset") else FinanceDestination.Form("asset")
         manager && asset.history.selected != null -> FinanceDestination.Detail("asset")
         manager && asset.depreciation.selected != null -> FinanceDestination.Detail("depreciation")
-        activity.draft != null -> if (activity.reviewing) FinanceDestination.Review("activity") else FinanceDestination.Form("activity")
+        activity.draft != null || activity.entry != null -> if (activity.reviewing) FinanceDestination.Review("activity") else FinanceDestination.Form("activity")
         harvest.draft != null -> if (harvest.reviewing) FinanceDestination.Review("harvest") else FinanceDestination.Form("harvest")
         manager && sale.draft != null -> if (sale.reviewing) FinanceDestination.Review("sale") else FinanceDestination.Form("sale")
         manager && saleHistory.selected != null -> FinanceDestination.Detail("sale")
@@ -596,10 +595,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             throw cancelled
         }
     }
-    val showNavigation = runPhase != 3 && !harvestProgressOpen && !(tab == 1 && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
+    val showNavigation = runPhase != 3 && !harvestProgressOpen && !(tab == 1 && reviewActivity != null) && !investments.state.active && !reports.state.active && asset.entry.draft==null && asset.history.selected==null && asset.depreciation.selected==null && sale.draft==null && saleHistory.selected==null && attachment.parent==null && activity.draft==null && activity.entry==null && harvest.draft==null && financial.draft==null && history.selected==null && harvestHistory.selected==null && expenseHistory.selected==null && allocationHistory.selected==null
     val sessionExpired = session.expired()
     val detailOpen = history.selected != null || harvestHistory.selected != null
-    val formOpen = activity.draft != null || harvest.draft != null
+    val formOpen = activity.draft != null || activity.entry != null || harvest.draft != null
     LaunchedEffect(detailOpen, formOpen) {
         if (formOpen) detailFromOutbox = false
         else if (!manager && detailFromOutbox && !detailOpen) { showOutbox = true; detailFromOutbox = false }
@@ -626,8 +625,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         val version = selectedGreenhouse.takeIf { it?.optString("running_group_id") == plantingGroup }
             ?.optLong("version")?.takeIf { it > 0 }
         if (destination == "harvest") harvestVm.new(greenhouse, plantingGroup, version)
-        else vm.new(greenhouse, plantingGroup, if (destination == "measurement") ActivityType.MEASUREMENT else ActivityType.GENERAL,
-            runningPeriodVersion = version)
+        else vm.newEntry(greenhouse, selectedGroup.getString("season_id"), version)
     }
     // Recording from the Catat sheet: the worker picked a greenhouse there, so open its current planting directly.
     fun recordWorkerIn(greenhouseId: String?, choice: RecordChoice) {
@@ -643,8 +641,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         if (!ready || pickedGroup == null) { contextSheet = destination; return }
         val version = row.takeIf { it.optString("running_group_id") == pickedGroup.getString("id") }?.optLong("version")?.takeIf { it > 0 }
         if (destination == "harvest") harvestVm.new(row.getString("id"), pickedGroup.getString("id"), version)
-        else vm.new(row.getString("id"), pickedGroup.getString("id"),
-            if (destination == "measurement") ActivityType.MEASUREMENT else ActivityType.GENERAL, runningPeriodVersion = version)
+        else vm.newEntry(row.getString("id"), pickedGroup.getString("season_id"), version)
     }
     // --- Nutrition run: one measurement draft per ready greenhouse, then a review of all of them.
     val runList = runIds.split(',').filter { it.isNotBlank() }
@@ -653,7 +650,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         val ctx = context.workerDefault(row, workerToday)
         val grp = context.groups.find { it.optString("id") == ctx.group } ?: return
         val version = row.takeIf { it.optString("running_group_id") == grp.getString("id") }?.optLong("version")?.takeIf { it > 0 }
-        vm.new(greenhouseId, grp.getString("id"), ActivityType.MEASUREMENT, runningPeriodVersion = version)
+        vm.newEntry(greenhouseId, grp.getString("season_id"), version)
     }
     fun runEnd() { runPhase = 0; runIds = ""; runSaved = ""; runSkipped = ""; runNotReady = ""; runIndex = 0; runPendingId = "" }
     fun runAdvance() {
@@ -676,42 +673,42 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         runPhase = 1
         runOpen(ready.first().getString("id"))
     }
-    LaunchedEffect(runPhase, activity.draft == null) {
+    LaunchedEffect(runPhase, activity.entry == null) {
         val live = vm.state.value
-        if (runPhase == 2 && live.draft == null && !live.busy) {
+        if (runPhase == 2 && live.entry == null && !live.busy) {
             runSaved = listOf(runSaved, runPendingId).filter { it.isNotBlank() }.joinToString(",")
             runAdvance()
-        } else if (runPhase == 1 && live.draft == null && !live.busy) runEnd() // the worker left the form
+        } else if (runPhase == 1 && live.entry == null && !live.busy) runEnd() // the worker left the form
     }
     LaunchedEffect(runPhase) {
         if (runPhase == 4) {
             for (id in runSaved.split(',').filter { it.isNotBlank() }) {
                 val row = vm.state.value.records.find { it.id == id } ?: continue
                 vm.open(row)
-                vm.queue()
-                kotlinx.coroutines.withTimeoutOrNull(15_000) { vm.state.first { it.draft == null } } ?: vm.discard()
+                vm.queueEntry()
+                kotlinx.coroutines.withTimeoutOrNull(15_000) { vm.state.first { it.entry == null && !it.busy } } ?: vm.discard()
             }
             runEnd()
         }
     }
     BackHandler(enabled = runPhase == 3) { runEnd() }
     BackHandler(enabled = runPhase == 4) { /* Each queued record is being saved; wait for the local persistence boundary. */ }
-    val nutritionForm: NutritionRunForm? = if (runPhase == 1 && runList.isNotEmpty()) {
+    val nutritionForm: com.inofarm.jogja.feature.activities.EntryRun? = if (runPhase == 1 && runList.isNotEmpty()) {
         val names = runList.map { id -> context.greenhouses.find { it.optString("id") == id }?.optString("name").orEmpty() }
-        NutritionRunForm(runIndex + 1, names, nutritionMainLabel(runIndex + 1, names),
+        com.inofarm.jogja.feature.activities.EntryRun(runIndex + 1, names, nutritionMainLabel(runIndex + 1, names),
             onSkip = {
                 runSkipped = listOf(runSkipped, names[runIndex]).filter { it.isNotBlank() }.joinToString("|")
                 vm.discard()
                 runAdvance()
             },
             onMain = {
-                val draft = vm.state.value.draft
-                if (draft != null) {
-                    if (draft.validation().isNotEmpty()) vm.review()
+                val entry = vm.state.value.entry
+                if (entry != null) {
+                    if (entry.validation().isNotEmpty()) vm.reviewEntry()
                     else {
-                        runPendingId = draft.id
+                        runPendingId = entry.id
                         runPhase = 2
-                        vm.saveAndClose()
+                        vm.saveEntryAndClose()
                     }
                 }
             })
@@ -783,11 +780,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         val id = ready.greenhouse.getString("id")
         val plantingGroup = ready.group.getString("id")
         val version = ready.greenhouse.takeIf { it.optString("running_group_id") == plantingGroup }?.optLong("version")?.takeIf { it > 0 }
-        when (destination) {
-            "harvest" -> harvestVm.new(id, plantingGroup, version)
-            "measurement" -> vm.new(id, plantingGroup, ActivityType.MEASUREMENT, runningPeriodVersion = version)
-            else -> vm.new(id, plantingGroup, ActivityType.GENERAL, runningPeriodVersion = version)
-        }
+        if (destination == "harvest") harvestVm.new(id, plantingGroup, version)
+        else vm.newEntry(id, ready.season.getString("id"), version)
     }
     fun startRecord(choice: RecordChoice, pickedGreenhouse: String? = null) {
         recordSheet = false
@@ -818,11 +812,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         )
     }
     if (recordSheet) RecordSheet(::startRecord,
-        { recordSheet = false }, if (manager) RecordChoice.entries else WorkerRecordChoices,
+        { recordSheet = false }, if (manager) ManagerRecordChoices else WorkerRecordChoices,
         worker = WorkerRecordTarget(
             context.greenhouses.filter { it.optBoolean("active", true) }, gh ?: lastGreenhouse ?: context.greenhouses.singleOrNull { it.optBoolean("active", true) }?.optString("id"),
             caption = { id -> context.recordingTarget(id, workerToday).caption(manager) },
-            onPick = { choice, id -> if (choice in WorkerRecordChoices) startRecord(choice, id) else startRecord(choice) },
+            onPick = { choice, id -> if (choice in setOf(RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST)) startRecord(choice, id) else startRecord(choice) },
             onNutritionRun = if (!manager && nutritionRunTargets(context, workerToday).first.isNotEmpty()) ({ runStart() }) else null,
             notPlanted = { id -> context.recordingTarget(id, workerToday) is com.inofarm.jogja.feature.context.RecordingTarget.NotPlanted },
             onStartPlanting = if (manager) ({ id -> recordSheet = false; onStartPlanting(id) }) else null,
@@ -836,7 +830,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     val translucentNavigation = false
     val wibNow = remember { java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Jakarta")) }
     val managerBar: ManagerBar? = if (!manager) when {
-        activity.draft != null || harvest.draft != null || runPhase >= 3 -> null
+        activity.draft != null || activity.entry != null || harvest.draft != null || runPhase >= 3 -> null
         tab == 0 && !correctionsOpen && !harvestProgressOpen && selectedGreenhouse == null -> ManagerBar("${greetingForWib(wibNow.hour, wibNow.minute)}, ${session.name.trim().substringBefore(' ')}",
             dateLabel(wibNow.toLocalDate()), null)
         tab == 0 && correctionsOpen -> ManagerBar("Perlu diperbaiki", null, { correctionsOpen = false }, "Kembali ke Beranda")
@@ -856,7 +850,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     }
     val snackbar = remember { SnackbarHostState() }
     // A worker's save message belongs to the screen the form returned to, so it shows there and clears itself.
-    val savedMessage = if (manager || activity.draft != null || harvest.draft != null) null else activity.message ?: harvest.message
+    val savedMessage = if (manager || activity.draft != null || activity.entry != null || harvest.draft != null) null else activity.message ?: harvest.message
     LaunchedEffect(savedMessage) {
         if (savedMessage != null) {
             snackbar.showSnackbar(savedMessage)
@@ -871,7 +865,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .padding(horizontal=FarmSpace.Page)
         ) {
-        if((attachment.parent!=null && (ime || LocalDensity.current.fontScale>1.5f || LocalConfiguration.current.screenHeightDp<400)) || (ime && (investments.state.scenarioDraft!=null || investments.state.reportDraft!=null || investments.state.cancelReason!=null || reports.state.draft!=null || (!manager && (asset.entry.draft!=null || sale.draft!=null || activity.draft!=null || harvest.draft!=null || financial.draft!=null))))) {
+        if((attachment.parent!=null && (ime || LocalDensity.current.fontScale>1.5f || LocalConfiguration.current.screenHeightDp<400)) || (ime && (investments.state.scenarioDraft!=null || investments.state.reportDraft!=null || investments.state.cancelReason!=null || reports.state.draft!=null || (!manager && (asset.entry.draft!=null || sale.draft!=null || activity.draft!=null || activity.entry!=null || harvest.draft!=null || financial.draft!=null))))) {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(if(attachment.parent!=null) "Lampiran" else if(investments.state.active) "Investasi" else if(reports.state.draft!=null) "Evaluasi" else if(asset.entry.draft!=null) "Aset" else if(sale.draft!=null) "Penjualan" else if(financial.draft!=null && LocalDensity.current.fontScale>1.5f) "Isian" else if(financial.draft!=null) "Catat ${financial.draft.kind.label}" else if(harvest.draft!=null) "Catat panen" else "Catat kegiatan",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick={keyboard?.hide();if(attachment.parent!=null) {if(attachment.selected!=null) attachmentVm.closeSelected() else attachmentVm.close()} else if(investments.state.active) investments.vm.back() else if(reports.state.draft!=null) reports.vm.back() else if(asset.entry.draft!=null) asset.vm.saveAndClose() else if(sale.draft!=null) saleVm.saveAndClose() else if(financial.draft!=null) financialVm.saveAndClose() else if(harvest.draft!=null) harvestVm.saveAndClose() else vm.saveAndClose()},enabled=!writing) {Text(if(attachment.parent!=null) "Kembali" else if(manager) "Batal" else "Simpan draf")} }
         } else {
             FinanceToolbar(session, context.loading, writing, sessionExpired, onSync, onLogout, onAdmin,
@@ -909,7 +903,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         val runItems = remember(runSaved, activity.records, context.greenhouses) {
             runSaved.split(',').filter { it.isNotBlank() }.mapNotNull { id ->
                 activity.records.find { it.id == id }?.let { record ->
-                    val draft = ActivityDraft.from(record.id, record.greenhouseId, record.body, record.baseVersion ?: record.serverVersion)
+                    val draft = com.inofarm.jogja.feature.activities.domain.EntryDraft.from(record.body)
                     fun value(text: String) = text.replace('.', ',')
                     NutritionRunItem(context.greenhouses.find { it.optString("id") == record.greenhouseId }?.optString("name") ?: "Greenhouse",
                         listOfNotNull(draft.ec.takeIf { it.isNotBlank() }?.let { "EC ${value(it)} mS/cm" },
@@ -935,7 +929,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 session.role==UserRole.MANAGER && asset.entry.draft!=null -> if(asset.entry.reviewing) FarmReviewEntrance { AssetReview(asset.entry.draft,context,asset.entry.busy,asset.vm::backToForm,asset.vm::queue) } else AssetForm(asset.entry,context,asset.vm)
                 session.role==UserRole.MANAGER && asset.history.selected!=null -> HistoryScreen(session,context,asset.history,asset.historyVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.historyVm.close()},kind=OperationalKind.ASSET,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && asset.depreciation.selected!=null -> HistoryScreen(session,context,asset.depreciation,asset.depreciationVm,activity.queue,onEdit={record,replace -> asset.vm.open(record,replace);asset.depreciationVm.close()},kind=OperationalKind.DEPRECIATION,returnToQueue=tab==1)
-                activity.draft!=null -> if(activity.reviewing) FarmReviewEntrance { ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue,worker = !manager) } else ActivityForm(activity,context,vm,worker = !manager,run = nutritionForm)
+                activity.entry!=null -> if(activity.reviewing) FarmReviewEntrance { com.inofarm.jogja.feature.activities.EntryReview(activity,context,vm,worker = !manager) }
+                    else com.inofarm.jogja.feature.activities.EntryForm(activity,context,vm,worker = !manager,run = nutritionForm)
+                activity.draft!=null -> if(activity.reviewing) FarmReviewEntrance { ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue,worker = !manager) } else ActivityForm(activity,context,vm,worker = !manager)
                 harvest.draft!=null -> if(harvest.reviewing) FarmReviewEntrance { HarvestReview(harvest.draft,context,harvest.busy,harvestVm::backToForm,harvestVm::queue,worker = !manager) } else HarvestForm(harvest,context,harvestVm,worker = !manager)
                 session.role==UserRole.MANAGER && sale.draft!=null -> if(sale.reviewing) FarmReviewEntrance { SaleReview(sale.draft,context,sale.busy,saleVm::backToForm,saleVm::queue) } else SaleForm(sale,context,saleVm)
                 session.role==UserRole.MANAGER && saleHistory.selected!=null -> HistoryScreen(session,context,saleHistory,saleHistoryVm,activity.queue,onEdit={record,replace -> saleVm.open(record,replace);saleHistoryVm.close()},kind=OperationalKind.SALE,returnToQueue=tab==1)
@@ -1028,7 +1024,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             com.inofarm.jogja.feature.activities.MeasurementDashboard(
                                 runtime, session, greenhouseId, groupId, activity.records, context.lastSyncedAt,
                                 context.message.takeUnless { sessionExpired },
-                                lastKnown = context.check in setOf(ContextCheck.OFFLINE, ContextCheck.FAILED)
+                                lastKnown = context.check in setOf(ContextCheck.OFFLINE, ContextCheck.FAILED),
+                                season = selectedSeason.optString("id")
                             )
                         }
                         item("worker-day") {
@@ -1038,7 +1035,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                 onRecord = { row ->
                                     if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
                                 },
-                                onQueue = { queueFocus = null; showOutbox = true })
+                                onQueue = { queueFocus = null; showOutbox = true }, season = selectedSeason.optString("id"))
                         }
                     }
                     if (selectedGreenhouse != null) item("harvest-progress-link") {
@@ -1466,8 +1463,11 @@ internal fun ExpiredSessionNotice() {
 
 @Composable private fun ColumnScope.ActivityReviewFacts(draft:ActivityDraft,context:CultivationUiState,readable:Boolean=false) {
             if (draft.runningPeriodVersion != null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
-            FarmFact("Kelompok tanam", context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
+            FarmFact(if (draft.greenhouseLevel) "Berlaku untuk" else "Varietas", if (draft.greenhouseLevel) "Seluruh greenhouse"
+                else com.inofarm.jogja.feature.harvest.varietyName(context, context.groups.find {it.optString("id")==draft.groupId})
+                    ?: context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Nama belum tersedia")
             FarmFact("Waktu kejadian", if (readable) whenLabel(draft.date, draft.time) else "${draft.date} ${draft.time} WIB")
+            if (draft.ageBasis.isNotBlank()) FarmFact("Umur tanaman", "${draft.ageBasis.uppercase()} ${draft.ageDay}")
             if (draft.skipped) FarmFact("Alasan kegiatan dilewati", draft.skippedReason)
             else Text("Kegiatan selesai",style=MaterialTheme.typography.labelMedium)
             if(draft.ec.isNotBlank()) FarmFact("EC manual", "${draft.ec} mS/cm", prominent = true)
@@ -1519,16 +1519,34 @@ internal fun ExpiredSessionNotice() {
 
 @Composable internal fun ActivityFacts(record:LocalRecord,session:FinanceSession,context:CultivationUiState, showComparison: Boolean = true) {
         if(record.body.optString("record_state")=="cancelled") Text("Dibatalkan",color=MaterialTheme.colorScheme.error)
+        if(com.inofarm.jogja.feature.activities.domain.EntryDraft.isEntry(record.body)) {
+            // A greenhouse entry still on the device: it becomes one record per section when sent.
+            val entry=com.inofarm.jogja.feature.activities.domain.EntryDraft.from(record.body)
+            Text("Isian kegiatan · ${entry.date} ${entry.time} WIB")
+            if(entry.ageBasis.isNotBlank()) Text("Umur tanaman: ${entry.ageBasis.uppercase()} ${entry.ageDay}")
+            if(entry.hasMeasurement) Text("EC ${entry.ec} · PPM ${entry.ppm}${if(entry.ph.isNotBlank()) " · pH ${entry.ph}" else ""}")
+            if(entry.nutrition.isNotEmpty()) Text("Nutrisi: ${entry.nutrition.size} bahan")
+            if(entry.hasSpray) Text("Penyemprotan: ${entry.spray.size} bahan")
+            if(entry.stage.isNotBlank()) Text("Stadia: ${entry.stage}")
+            if(entry.notes.isNotBlank()) Text(entry.notes)
+            return
+        }
         val shown=runCatching {ActivityDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion)}.getOrNull()
         shown?.let { draft ->
-            Text(context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Kelompok tanam")
+            // Greenhouse-level records cover every variety; only a spray names one (17 Nov 2026).
+            Text(if(draft.greenhouseLevel) "Seluruh greenhouse" else com.inofarm.jogja.feature.harvest.varietyName(context, context.groups.find {it.optString("id")==draft.groupId})
+                ?: context.groups.find {it.optString("id")==draft.groupId}?.optString("name") ?: "Varietas")
             Text("${draft.type.label} · ${draft.date} ${draft.time} WIB")
+            if(draft.ageBasis.isNotBlank()) Text("Umur tanaman: ${draft.ageBasis.uppercase()} ${draft.ageDay}")
+            if(draft.sprayDate.isNotBlank()) Text("Disemprot ${draft.sprayDate} · ${com.inofarm.jogja.feature.activities.SprayPeriods[draft.sprayPeriod].orEmpty()}")
+            com.inofarm.jogja.feature.activities.MeasureMoments[draft.measurementMoment]?.let { Text("Diukur $it".replaceFirstChar { c -> c.uppercase() }) }
             Text(if(draft.skipped) "Dilewati: ${draft.skippedReason}" else "Kegiatan selesai")
             if(draft.ec.isNotBlank()) Text("EC manual: ${draft.ec} mS/cm")
             if(draft.ppm.isNotBlank()) Text("PPM manual: ${draft.ppm} ppm")
             if(draft.ph.isNotBlank()) Text("pH manual: ${draft.ph}")
             if(draft.stage.isNotBlank()) Text("Stadia aktual: ${draft.stage}")
-            draft.materials.forEach { material -> Text("${context.materials.find {it.optString("id")==material.materialId}?.optString("name") ?: "Bahan ${material.materialId.take(8)}"}: ${material.quantity} ${context.units.find {it.optString("id")==material.unitId}?.optString("name").orEmpty()}") }
+            draft.materials.forEach { material -> Text("${context.materials.find {it.optString("id")==material.materialId}?.optString("name") ?: material.name.trim().ifBlank { "Bahan ${material.materialId.take(8)}" }}: ${
+                if(material.quantity.isBlank()) "dosis tidak dicatat" else "${material.quantity} ${context.units.find {it.optString("id")==material.unitId}?.optString("name").orEmpty()}"}") }
             ObservationFacts(draft)
             Text(draft.notes)
         } ?: Text(record.body.optString("notes"))
@@ -1538,8 +1556,12 @@ internal fun ExpiredSessionNotice() {
         Text("Pencatat: $recorder")
         if(session.role==UserRole.MANAGER) Text("Versi: ${record.serverVersion ?: "belum terkirim"}")
         val snapshot=record.body.optJSONObject("reference_snapshot")
-        snapshot?.let { snap -> val age=snap.optJSONObject("age");Text("HSS ${if(age?.isNull("hss")==false) age.optString("hss") else "belum tersedia"} · HST ${if(age?.isNull("hst")==false) age.optString("hst") else "belum berlaku"}")
-            age?.optJSONArray("reasons")?.let { a -> repeat(a.length()) {Text(a.getString(it))} }
+        snapshot?.let { snap -> val age=snap.optJSONObject("age")
+            // A typed plant age (K6) replaces the computed one; the computed age stays for older records only.
+            if(shown?.ageBasis.isNullOrBlank()) {
+                Text("HSS ${if(age?.isNull("hss")==false) age.optString("hss") else "belum tersedia"} · HST ${if(age?.isNull("hst")==false) age.optString("hst") else "belum berlaku"}")
+                age?.optJSONArray("reasons")?.let { a -> repeat(a.length()) {Text(a.getString(it))} }
+            }
             if (showComparison) snap.optJSONObject("checks")?.let { checks -> checks.keys().forEach { parameter -> val check=checks.getJSONObject(parameter)
                 val worker=session.role==UserRole.WORKER
                 val verdict=when(check.optString("status")) {"delta_only" -> if(worker) null else "selisih ${check.optString("delta")}";"within_range" -> "dalam rentang";"outside_range" -> "di luar rentang";else -> if(worker) null else "belum dapat dibandingkan"}

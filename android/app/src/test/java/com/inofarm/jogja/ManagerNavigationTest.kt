@@ -38,6 +38,8 @@ class ManagerNavigationTest {
     }
 
     @Test fun workerRecordButtonOffersNoMoneyEntries() {
-        assertEquals(listOf("Kegiatan", "Pengukuran", "Panen"), WorkerRecordChoices.map { it.label })
+        // One "Kegiatan" form holds readings too (17 Nov 2026), so Pengukuran is no longer its own tile.
+        assertEquals(listOf("Kegiatan", "Panen"), WorkerRecordChoices.map { it.label })
+        assertEquals(listOf("Kegiatan", "Panen", "Biaya", "Penjualan"), com.inofarm.jogja.feature.ManagerRecordChoices.map { it.label })
     }
 }

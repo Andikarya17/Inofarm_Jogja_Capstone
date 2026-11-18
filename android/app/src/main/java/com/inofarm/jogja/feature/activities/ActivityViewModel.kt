@@ -7,6 +7,7 @@ import com.inofarm.jogja.core.database.QueuedOperation
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.activities.domain.ActivityType
+import com.inofarm.jogja.feature.activities.domain.EntryDraft
 import com.inofarm.jogja.feature.auth.userMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -18,7 +19,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 data class ActivityUiState(val records:List<LocalRecord> = emptyList(),val queue:List<QueuedOperation> = emptyList(),val draft:ActivityDraft?=null,val errors:Map<String,String> = emptyMap(),val busy:Boolean=false,val reviewing:Boolean=false,val saved:Boolean=false,val message:String?=null,
-    val queueLoaded:Boolean=false,val queueLoadError:String?=null)
+    val queueLoaded:Boolean=false,val queueLoadError:String?=null,
+    /** The greenhouse entry form ("Catat kegiatan", 17 Nov 2026); open instead of [draft]. */
+    val entry:EntryDraft?=null)
 class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
     private val vault get()=repository.vault
     private val reasonRequired get()=vault.current?.role!=com.inofarm.jogja.core.contracts.UserRole.MANAGER
@@ -52,6 +55,7 @@ class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
     private val entry=com.inofarm.jogja.feature.EntryOrigin<ActivityDraft>()
     fun new(gh:String,group:String,type:ActivityType=ActivityType.GENERAL,scheduleId:String?=null,runningPeriodVersion:Long?=null) { saveJob?.cancel();mutable.value=state.value.copy(draft=ActivityDraft(greenhouseId=gh,groupId=group,type=type,scheduleId=scheduleId,runningPeriodVersion=runningPeriodVersion),errors=emptyMap(),saved=false,reviewing=false,message=null);entry.start(null,state.value.draft) }
     fun open(record:LocalRecord,replaceRejected:Boolean=false) {
+        if(EntryDraft.isEntry(record.body)) return openEntry(record)
         saveJob?.cancel()
         mutable.value=state.value.copy(draft=ActivityDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion ?: record.serverVersion).let {if(replaceRejected) it.copy(replaceValidationRejected=true) else it},saved=true,errors=emptyMap(),reviewing=false,message=null)
         entry.start(record,state.value.draft)
@@ -72,11 +76,63 @@ class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
     }
     fun review() { val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty()) }
     /** Drops the open draft without saving it again; anything already autosaved stays on the device as a draft. */
-    fun discard() { saveJob?.cancel(); mutable.value = state.value.copy(draft = null, reviewing = false, errors = emptyMap(), message = null) }
+    fun discard() { saveJob?.cancel(); mutable.value = state.value.copy(draft = null, entry = null, reviewing = false, errors = emptyMap(), message = null) }
     fun backToForm() { mutable.value=state.value.copy(reviewing=false) }
     fun pauseAutosave() {saveJob?.cancel();saveJob=null}
     fun saveAndClose() { val draft=state.value.draft ?: return;saveJob?.cancel();viewModelScope.launch { save(draft,false,true) } }
     fun queue() { val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);if(errors.isNotEmpty()) { mutable.value=state.value.copy(errors=errors,reviewing=false);return };saveJob?.cancel();viewModelScope.launch { save(draft,true,true) } }
+    // --- Greenhouse entry form ---
+    private val entryOrigin=com.inofarm.jogja.feature.EntryOrigin<EntryDraft>()
+    fun newEntry(gh:String,season:String,runningPeriodVersion:Long?=null) {
+        saveJob?.cancel()
+        mutable.value=state.value.copy(draft=null,entry=EntryDraft(greenhouseId=gh,seasonId=season,runningPeriodVersion=runningPeriodVersion),
+            errors=emptyMap(),saved=false,reviewing=false,message=null)
+        entryOrigin.start(null,state.value.entry)
+    }
+    private fun openEntry(record:LocalRecord) {
+        saveJob?.cancel()
+        mutable.value=state.value.copy(draft=null,entry=EntryDraft.from(record.body),saved=true,errors=emptyMap(),reviewing=false,message=null)
+        entryOrigin.start(record,state.value.entry)
+    }
+    fun entryChanged()=entryOrigin.changed(state.value.entry)
+    fun editEntry(change:(EntryDraft)->EntryDraft) {
+        val entry=state.value.entry ?: return;entryOrigin.touched=true
+        val updated=change(entry);mutable.value=state.value.copy(entry=updated,saved=false,reviewing=false,errors=emptyMap())
+        saveJob?.cancel();saveJob=viewModelScope.launch { delay(350);saveEntry(updated,queue=false,close=false) }
+    }
+    fun reviewEntry() { val entry=state.value.entry ?: return;val errors=entry.validation();mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty()) }
+    fun queueEntry() {
+        val entry=state.value.entry ?: return;val errors=entry.validation()
+        if(errors.isNotEmpty()) { mutable.value=state.value.copy(errors=errors,reviewing=false);return }
+        saveJob?.cancel();viewModelScope.launch { saveEntry(entry,queue=true,close=true) }
+    }
+    /** Worker "Simpan sebagai draf": keeps the entry on the device and closes it. */
+    fun saveEntryAndClose() { val entry=state.value.entry ?: return;saveJob?.cancel();viewModelScope.launch { saveEntry(entry,queue=false,close=true) } }
+    /** Manager "Batal": closes the entry and undoes its autosave. */
+    fun cancelEntry() {
+        val entry=state.value.entry ?: return;saveJob?.cancel()
+        mutable.value=state.value.copy(entry=null,reviewing=false,errors=emptyMap(),message=null)
+        entryOrigin.undo(viewModelScope,vault,entry.id,{session,ticket,id,origin -> repository.discard(session,ticket,id,origin)}) {
+            mutable.value=state.value.copy(message=it);reload()
+        }
+    }
+    fun closeEntry() { saveJob?.cancel(); mutable.value=state.value.copy(entry=null,reviewing=false,errors=emptyMap(),message=null) }
+    private suspend fun saveEntry(entry:EntryDraft,queue:Boolean,close:Boolean) {
+        val session=vault.current ?: return;val ticket=vault.generation
+        if(queue || close) mutable.value=state.value.copy(busy=true)
+        try {
+            val saved=repository.saveEntry(session,ticket,entry,queue)
+            if(vault.matches(ticket,session.scope) && state.value.entry?.id==entry.id) {
+                mutable.value=state.value.copy(entry=if(close) null else state.value.entry?.let { if(it==entry) saved else it },
+                    saved=state.value.entry==entry,reviewing=if(close) false else state.value.reviewing,
+                    message=if(queue) "Tersimpan. Terkirim otomatis saat ada internet." else if(close) "Draf tersimpan di perangkat." else state.value.message)
+                reload()
+            }
+        } catch(cancelled:CancellationException) { throw cancelled }
+        catch(error:DraftValidationFailure) { if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(errors=error.fields,reviewing=false,message=error.message) }
+        catch(error:Exception) { if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error)) }
+        finally { if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(busy=false) }
+    }
     private suspend fun save(draft:ActivityDraft,queue:Boolean,close:Boolean) {
         val session=vault.current ?: return;val ticket=vault.generation
         if(queue || close) mutable.value=state.value.copy(busy=true)

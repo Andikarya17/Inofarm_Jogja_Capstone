@@ -29,7 +29,7 @@ private typealias Admin = com.inofarm.jogja.feature.admin.AdminResource
 
 /** What the manager can record from the "Catat" button. */
 internal enum class RecordChoice(val label: String, val detail: String, val icon: FarmIcon) {
-    ACTIVITY("Kegiatan", "Pekerjaan harian", FarmIcon.Schedule),
+    ACTIVITY("Kegiatan", "Ukur, nutrisi, semprot", FarmIcon.Schedule),
     MEASUREMENT("Pengukuran", "EC dan PPM", FarmIcon.Droplet),
     HARVEST("Panen", "Hasil per grade", FarmIcon.Basket),
     EXPENSE("Biaya", "Uang keluar", FarmIcon.Wallet),
@@ -48,12 +48,13 @@ internal class WorkerRecordTarget(
 )
 
 private val WorkerRecordDetails = mapOf(
-    RecordChoice.ACTIVITY to "Pekerjaan harian dan bahan",
-    RecordChoice.MEASUREMENT to "EC, PPM, pH",
+    RecordChoice.ACTIVITY to "Ukur, nutrisi, semprot, stadia",
     RecordChoice.HARVEST to "Hasil per grade",
 )
 
-internal val WorkerRecordChoices = listOf(RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST)
+/** One "Kegiatan" form holds readings too (17 Nov 2026), so Pengukuran is no longer a separate tile. */
+internal val WorkerRecordChoices = listOf(RecordChoice.ACTIVITY, RecordChoice.HARVEST)
+internal val ManagerRecordChoices = RecordChoice.entries.filter { it != RecordChoice.MEASUREMENT }
 private val FieldChoices = setOf(RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST)
 
 @OptIn(ExperimentalMaterial3Api::class)

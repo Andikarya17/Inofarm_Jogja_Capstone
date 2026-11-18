@@ -36,7 +36,7 @@ import java.time.LocalDate
 
 @Composable internal fun MeasurementDashboard(
     runtime: FinanceRuntime, session: FinanceSession, gh: String, group: String, changed: Any?,
-    lastSync: Long?, syncMessage: String?, lastKnown: Boolean
+    lastSync: Long?, syncMessage: String?, lastKnown: Boolean, season: String? = null
 ) {
     val lifecycle=LocalLifecycleOwner.current.lifecycle
     val android=LocalContext.current
@@ -52,7 +52,7 @@ import java.time.LocalDate
             while(true) {
                 today=LocalDate.now(ActivityDraft.WIB)
                 val result:Result<Pair<ManualMeasurement?,Long?>> = try {
-                    Result.success(withContext(Dispatchers.IO) {runtime.store.latestMeasurement(session.scope.key,gh,group,today) to runtime.store.lastSyncedAt(session.scope.key)})
+                    Result.success(withContext(Dispatchers.IO) {runtime.store.latestMeasurement(session.scope.key,gh,group,today,season=season) to runtime.store.lastSyncedAt(session.scope.key)})
                 } catch(cancelled:CancellationException) {throw cancelled}
                 catch(error:Exception) {Result.failure(error)}
                 if(!runtime.vault.matches(ticket,session.scope)) {pair=null;return@repeatOnLifecycle}
