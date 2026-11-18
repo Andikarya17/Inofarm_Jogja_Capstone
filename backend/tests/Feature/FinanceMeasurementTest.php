@@ -67,7 +67,8 @@ class FinanceMeasurementTest extends FinanceTestCase
         $this->patchJson('/api/v2/activities/'.$op['entity_id'], $edit)->assertConflict();
         $this->postJson('/api/v2/activities/'.$op['entity_id'].'/cancel', $this->operation('activity', ['reason' => 'Salah ukur'], 'cancel', $op['entity_id'], 2))->assertOk();
         $this->getJson($url)->assertOk()->assertJsonPath('data', null);
-        DB::table('greenhouse_assignments')->where('id', $assignment['id'])->update(['active' => false]);
+        // Assignments no longer limit workers (17 Nov 2026); an inactive greenhouse still does.
+        DB::table('greenhouses')->where('id', $ctx['gh']['id'])->update(['active' => false]);
         $this->asUser($worker)->getJson($url)->assertNotFound();
         $this->asUser($this->account())->getJson($url)->assertOk();
     }

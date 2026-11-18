@@ -73,6 +73,8 @@ class FinanceHarvestTest extends FinanceTestCase
         $foreignWorker = $this->account('worker');
         $this->createMaster('greenhouse_assignments', ['greenhouse_id' => $foreign['gh']['id'], 'user_id' => $foreignWorker->public_id,
             'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
+        // Assignments no longer limit workers (17 Nov 2026); an inactive greenhouse still does.
+        DB::table('greenhouses')->where('id', $ctx['gh']['id'])->update(['active' => false]);
         $this->asUser($foreignWorker)->getJson($progress)->assertNotFound();
         $this->asUser($foreignManager)->getJson($progress)->assertOk();
     }
@@ -223,7 +225,8 @@ class FinanceHarvestTest extends FinanceTestCase
         $this->asUser($ctx['worker'])->getJson($url)->assertJsonPath('records', 2)->assertJsonPath('verification.invalid.saleable.fruit_count', 0);
         DB::table('seasons')->where('id', $ctx['season']['id'])->update(['status' => 'closed']);
         $this->getJson($url)->assertOk()->assertJsonPath('season_status', 'closed');
-        DB::table('greenhouse_assignments')->where('greenhouse_id', $ctx['gh']['id'])->where('user_id', $ctx['worker']->id)->update(['active' => false]);
+        // Assignments no longer limit workers (17 Nov 2026); an inactive greenhouse still does.
+        DB::table('greenhouses')->where('id', $ctx['gh']['id'])->update(['active' => false]);
         $this->getJson($url)->assertNotFound();
         $this->getJson($source)->assertNotFound();
     }
@@ -251,6 +254,8 @@ class FinanceHarvestTest extends FinanceTestCase
         $foreignWorker = $this->account('worker');
         $this->createMaster('greenhouse_assignments', ['greenhouse_id' => $foreign['gh']['id'], 'user_id' => $foreignWorker->public_id,
             'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
+        // Assignments no longer limit workers (17 Nov 2026); an inactive greenhouse still does.
+        DB::table('greenhouses')->where('id', $ctx['gh']['id'])->update(['active' => false]);
         $this->asUser($foreignWorker);
         foreach (['', '/audit', '/availability'] as $suffix) {
             $this->getJson('/api/v2/harvests/'.$op['entity_id'].$suffix)->assertNotFound();

@@ -17,11 +17,15 @@ final class ActivityController extends Controller
 {
     public function latestMeasurement(Request $request, ActivityService $service)
     {
-        $input = $request->validate(['planting_group_id' => ['required', OperationInput::UUID]]);
+        $input = $request->validate(['planting_group_id' => ['required_without:season_id', 'nullable', OperationInput::UUID],
+            'season_id' => ['required_without:planting_group_id', 'nullable', OperationInput::UUID]]);
         return app(ScopedRead::class)->run($request, function (User $actor) use ($service, $input) {
-            app(\App\Domain\Cultivation\GroupContext::class)->get($actor, $input['planting_group_id']);
+            // One nutrient tank per greenhouse: a group's latest reading includes its season's greenhouse-level rows.
+            $ctx = app(\App\Domain\Cultivation\GroupContext::class)->activity($actor, $input);
+            $group = $input['planting_group_id'] ?? null;
             $tomorrow = CarbonImmutable::now('Asia/Jakarta')->startOfDay()->addDay()->utc()->format('Y-m-d H:i:s');
-            $row = $service->scope($actor)->where('planting_group_id', $input['planting_group_id'])
+            $row = $service->scope($actor)->where('season_id', $ctx['season']->id)
+                ->where(fn ($q) => $q->whereNull('planting_group_id')->when($group !== null, fn ($q) => $q->orWhere('planting_group_id', $group)))
                 ->where('record_state', 'active')->where('work_state', 'completed')->whereNotNull('manual_ppm')
                 ->whereNotExists(ActivityReviewService::current('invalid'))
                 ->where('occurred_at', '<', $tomorrow)->orderByDesc('occurred_at')->orderByDesc('id')->first();
@@ -32,25 +36,21 @@ final class ActivityController extends Controller
 
     public function index(Request $request, ActivityService $service, MasterService $masters)
     {
-        $input = $request->validate(['planting_group_id' => 'nullable|uuid', 'activity_type' => 'nullable|in:nutrition,spray,general,stage,measurement',
+        $input = $request->validate(['planting_group_id' => 'nullable|uuid', 'entry_batch_id' => 'nullable|uuid', 'activity_type' => 'nullable|in:nutrition,spray,general,stage,measurement',
             'greenhouse_id' => 'nullable|uuid', 'season_id' => 'nullable|uuid', 'record_state' => 'nullable|in:active,cancelled',
             'from' => 'nullable|date_format:Y-m-d', 'until' => 'nullable|date_format:Y-m-d'.($request->filled('from') ? '|after_or_equal:from' : ''), 'limit' => 'sometimes|integer|min:1|max:100', 'cursor' => 'nullable|string|max:512']);
         return app(ScopedRead::class)->run($request, function (User $actor) use ($request, $service, $masters, $input) {
             $q = $service->scope($actor);
-            foreach (['planting_group_id', 'activity_type', 'record_state'] as $key) {
+            foreach (['planting_group_id', 'entry_batch_id', 'activity_type', 'record_state'] as $key) {
                 if (isset($input[$key])) {
                     $q->where($key, $input[$key]);
                 }
             }
-            if (isset($input['season_id']) || isset($input['greenhouse_id'])) {
-                $groups = $masters->scope($actor, 'planting_groups')->select('id');
-                if (isset($input['season_id'])) {
-                    $groups->where('season_id', $input['season_id']);
-                }
-                if (isset($input['greenhouse_id'])) {
-                    $groups->whereIn('season_id', DB::table('seasons')->select('id')->where('greenhouse_id', $input['greenhouse_id']));
-                }
-                $q->whereIn('planting_group_id', $groups);
+            if (isset($input['season_id'])) {
+                $q->where('season_id', $input['season_id']);
+            }
+            if (isset($input['greenhouse_id'])) {
+                $q->whereIn('season_id', DB::table('seasons')->select('id')->where('greenhouse_id', $input['greenhouse_id']));
             }
             if (isset($input['from'])) {
                 $q->where('occurred_at', '>=', CarbonImmutable::parse($input['from'], 'Asia/Jakarta')->utc()->format('Y-m-d H:i:s'));
@@ -112,12 +112,17 @@ final class ActivityController extends Controller
     private function perform(Request $request, ActivityService $service, string $action, ?string $id = null)
     {
         $rules = $action === 'cancel' ? [] : [
-            'planting_group_id' => ['required', OperationInput::UUID], 'schedule_id' => ['sometimes', 'nullable', OperationInput::UUID],
+            'planting_group_id' => ['sometimes', 'nullable', OperationInput::UUID], 'season_id' => ['sometimes', 'nullable', OperationInput::UUID],
+            'schedule_id' => ['sometimes', 'nullable', OperationInput::UUID], 'entry_batch_id' => ['sometimes', 'nullable', OperationInput::UUID],
+            'age_basis' => 'sometimes|nullable|in:hss,hst', 'age_day' => 'sometimes|nullable|integer:strict|min:1|max:1000',
+            'spray_date' => 'sometimes|nullable|date_format:Y-m-d', 'spray_period' => 'sometimes|nullable|in:morning,afternoon',
             'activity_type' => 'required|in:nutrition,spray,general,stage,measurement', 'occurred_at' => 'required|date_format:Y-m-d\TH:i:sP',
             'manual_ec' => 'sometimes|nullable|string|max:30', 'manual_ppm' => 'sometimes|nullable|string|max:30', 'manual_ph' => 'sometimes|nullable|string|max:30',
             'work_state' => 'required|in:completed,skipped', 'skipped_reason' => 'sometimes|nullable|string|max:1000', 'actual_stage' => 'sometimes|nullable|string|max:100',
-            'materials' => 'present|array|max:30', 'materials.*' => 'required|array:material_id,unit_id,quantity',
-            'materials.*.material_id' => ['required', OperationInput::UUID], 'materials.*.unit_id' => ['required', OperationInput::UUID], 'materials.*.quantity' => 'required|string|max:30',
+            'materials' => 'present|array|max:30', 'materials.*' => 'required|array:material_id,material_name,unit_id,quantity',
+            'materials.*.material_id' => ['sometimes', 'nullable', OperationInput::UUID],
+            'materials.*.material_name' => 'sometimes|nullable|string|min:1|max:150',
+            'materials.*.unit_id' => ['sometimes', 'nullable', OperationInput::UUID], 'materials.*.quantity' => 'sometimes|nullable|string|max:30',
             'observations' => 'sometimes|nullable|array:dissolved_oxygen_mg_l,water_temperature_c,plant_height_cm,leaf_count,leaf_width_cm,sample_basis,measurement_moment',
             'observations.measurement_moment' => 'nullable|in:before_injection,after_injection',
             'observations.dissolved_oxygen_mg_l' => 'nullable|string|max:30', 'observations.water_temperature_c' => 'nullable|string|max:30',

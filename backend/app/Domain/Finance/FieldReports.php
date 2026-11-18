@@ -100,10 +100,10 @@ final class FieldReports
     public function materialUsage(User $actor, string $seasonId): array
     {
         $season = $this->masters->scope($actor, 'seasons')->where('id', $seasonId)->first() ?? abort(404, 'Data tidak ditemukan.');
+        // Greenhouse-level activities have no group, so the season is read from the activity row; a spray without a dose has no unit.
         $items = DB::table('activity_materials as used')->join('activities as activity', 'activity.id', '=', 'used.activity_id')
-            ->join('planting_groups as grp', 'grp.id', '=', 'activity.planting_group_id')
-            ->join('materials as material', 'material.id', '=', 'used.material_id')->join('units as unit', 'unit.id', '=', 'used.unit_id')
-            ->where('grp.season_id', $seasonId)->where('activity.record_state', 'active')->where('activity.work_state', 'completed')
+            ->join('materials as material', 'material.id', '=', 'used.material_id')->leftJoin('units as unit', 'unit.id', '=', 'used.unit_id')
+            ->where('activity.season_id', $seasonId)->where('activity.record_state', 'active')->where('activity.work_state', 'completed')
             ->groupBy('used.material_id', 'material.name', 'used.unit_id', 'unit.name')->orderBy('material.name')->orderBy('unit.name')
             ->selectRaw('used.material_id, material.name AS material_name, used.unit_id, unit.name AS unit_name, CAST(SUM(used.quantity) AS CHAR) AS quantity, COUNT(DISTINCT activity.id) AS activities')
             ->get()->map(fn ($row) => [...(array) $row, 'activities' => (int) $row->activities])->all();

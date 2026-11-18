@@ -92,7 +92,7 @@ final class ActivityReviewService
             abort_unless($row->recorded_by_role === 'worker', 422, 'Verifikasi hanya tersedia untuk catatan pekerja dengan peran asal tercatat.');
         }, function (User $actor) use ($op, $payload) {
             $row = $this->find($actor, $payload['activity_id']);
-            $ctx = $this->context->get($actor, $row->planting_group_id, true);
+            $ctx = $this->context->activity($actor, $row, true);
             if ($row->version !== $payload['activity_version']) {
                 throw new DomainFailure('activity_revision_changed', 'Catatan sudah berubah. Buka revisi terbaru sebelum memeriksa.');
             }
@@ -128,8 +128,7 @@ final class ActivityReviewService
         $query = $this->activities->scope($actor);
         if ($greenhouse !== null) {
             $this->access->require($actor, $greenhouse);
-            $query->whereIn('planting_group_id', DB::table('planting_groups')->join('seasons', 'seasons.id', '=', 'planting_groups.season_id')
-                ->where('seasons.greenhouse_id', $greenhouse)->select('planting_groups.id'));
+            $query->whereIn('season_id', DB::table('seasons')->where('greenhouse_id', $greenhouse)->select('id'));
         }
 
         return $query;
@@ -142,7 +141,7 @@ final class ActivityReviewService
 
     private function entry(User $actor, object $row, array $snapshot): array
     {
-        $ctx = $this->context->get($actor, $row->planting_group_id);
+        $ctx = $this->context->activity($actor, $row);
         $review = $this->review($row->id, $snapshot['version']);
         $status = $review->decision ?? match ($row->recorded_by_role) {
             'worker' => 'pending',

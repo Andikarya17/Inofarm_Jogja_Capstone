@@ -24,6 +24,24 @@ for key in ('manual_ec', 'manual_ppm'):
     sample = json.loads(json.dumps(measurement['operation']))
     del sample['payload'][key]
     assert not validator.is_valid(sample), key
+# Greenhouse entry form (17 Nov 2026): typed HSS/HST, spray per variety, spray material by name, optional dose.
+entry = json.loads((root / 'fixtures/activity-entry-operation.json').read_text(encoding='utf-8'))
+validator.validate(entry['operation'])
+assert hashlib.sha256(json.dumps(entry['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest() == entry['canonical_sha256']
+for path, invalid in ((('age_basis',), 'umur'), (('age_day',), 0), (('spray_period',), 'malam'), (('materials', 0, 'unit_id'), 'ml')):
+    sample = json.loads(json.dumps(entry['operation']))
+    target = sample['payload']
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = invalid
+    assert not validator.is_valid(sample), (path, invalid)
+sample = json.loads(json.dumps(entry['operation']))
+sample['payload']['materials'] = [{'unit_id': None, 'quantity': None}]
+assert not validator.is_valid(sample), 'material needs an id or a name'
+sample = json.loads(json.dumps(entry['operation']))
+del sample['payload']['planting_group_id'], sample['payload']['season_id']
+assert not validator.is_valid(sample), 'activity needs a group or a season'
+print('Greenhouse entry activity fixture, typed age, spray name and optional dose: PASS')
 canonical = json.dumps(fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
 assert hashlib.sha256(canonical.encode()).hexdigest() == fixture['canonical_sha256']
 api = json.loads((root / 'openapi.json').read_text(encoding='utf-8'))

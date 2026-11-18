@@ -56,7 +56,11 @@ class FinanceReferenceTest extends FinanceTestCase
         $ctx = $this->context($this->account());
         $schedule = $this->createMaster('schedules', ['planting_group_id' => $ctx['group']['id'], 'activity_type' => 'spray', 'planned_at' => '2026-10-29T08:00:00+07:00', 'notes' => 'Uji bertahap']);
         $this->assertArrayNotHasKey('completed', $schedule);
-        $this->asUser($this->account('worker'))->getJson('/api/v2/schedules/'.$schedule['id'])->assertNotFound();
+        $worker = $this->account('worker');
+        $this->asUser($worker)->getJson('/api/v2/schedules/'.$schedule['id'])->assertOk();
+        // Assignments no longer limit workers (17 Nov 2026); an inactive greenhouse still does.
+        DB::table('greenhouses')->where('id', $ctx['gh']['id'])->update(['active' => false]);
+        $this->getJson('/api/v2/schedules/'.$schedule['id'])->assertNotFound();
         $this->getJson('/api/v2/targets')->assertJsonCount(0, 'data');
         $this->postJson('/api/v2/schedules', $this->operation('schedules', ['planting_group_id' => $ctx['group']['id'], 'activity_type' => 'general', 'planned_at' => '2026-10-29T08:00:00+07:00', 'notes' => 'Uji']))->assertForbidden();
     }

@@ -28,7 +28,7 @@ final class AttachmentOwner
             abort_unless(in_array($kind, ['activity', 'harvest'], true), 422, 'Jenis catatan lampiran tidak didukung.');
             $service = $kind === 'activity' ? app(ActivityService::class) : app(HarvestService::class);
             $row = $service->scope($actor)->where('id', $id)->first() ?? abort(404);
-            $ctx = app(GroupContext::class)->get($actor, $row->planting_group_id, $write);
+            $ctx = $kind === 'activity' ? app(GroupContext::class)->activity($actor, $row, $write) : app(GroupContext::class)->get($actor, $row->planting_group_id, $write);
             $gh = $ctx['greenhouse']->id;
         }
         if ($write) {

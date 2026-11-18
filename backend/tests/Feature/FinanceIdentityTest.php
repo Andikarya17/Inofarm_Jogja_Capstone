@@ -57,6 +57,8 @@ class FinanceIdentityTest extends FinanceTestCase
         $foreign = $this->context($this->account());
         $foreignWorker = $this->account('worker');
         $this->createMaster('greenhouse_assignments', ['greenhouse_id' => $foreign['gh']['id'], 'user_id' => $foreignWorker->public_id, 'effective_from' => now()->subDay()->format('Y-m-d\TH:i:sP'), 'effective_until' => null]);
+        // Every worker reaches active greenhouses now, so the hidden case is an inactive one: still 404, never 409.
+        DB::table('greenhouses')->where('id', $ctx['gh']['id'])->update(['active' => false]);
         $this->asUser($foreignWorker)->postJson('/api/v2/harvests', $this->operation('harvest', $this->harvest($ctx, $grade['id']), id: $activity['entity_id']))->assertNotFound();
     }
 

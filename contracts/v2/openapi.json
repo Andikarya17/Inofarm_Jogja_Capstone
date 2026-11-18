@@ -2335,6 +2335,16 @@
             }
           },
           {
+            "name": "entry_batch_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Satu isian form Catat kegiatan."
+          },
+          {
             "name": "activity_type",
             "in": "query",
             "required": false,
@@ -16363,11 +16373,22 @@
           {
             "name": "planting_group_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Wajib bila season_id kosong; hasil memuat catatan tingkat greenhouse pada musim kelompok itu."
+          },
+          {
+            "name": "season_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Wajib bila planting_group_id kosong."
           }
         ],
         "responses": {
@@ -19420,8 +19441,16 @@
         "additionalProperties": false,
         "properties": {
           "planting_group_id": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wajib untuk spray dan payload lama; null untuk catatan tingkat greenhouse (season_id wajib)."
           },
           "schedule_id": {
             "anyOf": [
@@ -19503,39 +19532,175 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
+              "description": "material_id dari master, atau material_name (hanya spray) yang server ubah menjadi bahan master bersama. Dosis spray opsional: unit_id dan quantity keduanya ada atau keduanya null; nutrisi wajib keduanya.",
               "properties": {
                 "material_id": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "material_name": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 150
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "unit_id": {
-                  "type": "string",
-                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "quantity": {
-                  "type": "string",
-                  "pattern": "^-?(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^-?(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
-              "required": [
-                "material_id",
-                "unit_id",
-                "quantity"
+              "anyOf": [
+                {
+                  "required": [
+                    "material_id"
+                  ],
+                  "properties": {
+                    "material_id": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "required": [
+                    "material_name"
+                  ],
+                  "properties": {
+                    "material_name": {
+                      "type": "string"
+                    }
+                  }
+                }
               ]
             }
           },
           "notes": {
             "type": "string",
             "maxLength": 2000
+          },
+          "season_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "entry_batch_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "age_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "hss",
+                  "hst"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Umur tanaman diisi manual oleh Inofarm, bukan hitungan aplikasi."
+          },
+          "age_day": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spray_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hanya spray; tanggal semprot terpisah dari occurred_at."
+          },
+          "spray_period": {
+            "anyOf": [
+              {
+                "enum": [
+                  "morning",
+                  "afternoon"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hanya spray; pagi/sore tanpa jam karangan."
           }
         },
         "required": [
-          "planting_group_id",
           "activity_type",
           "occurred_at",
           "work_state",
           "materials",
           "notes"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "planting_group_id"
+            ]
+          },
+          {
+            "required": [
+              "season_id"
+            ]
+          }
         ]
       },
       "ActivityPublic": {
@@ -19544,6 +19709,7 @@
           "id",
           "version",
           "planting_group_id",
+          "season_id",
           "activity_type",
           "occurred_at",
           "recorded_by",
@@ -19563,8 +19729,12 @@
             "minimum": 1
           },
           "planting_group_id": {
-            "type": "string",
-            "format": "uuid"
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Null untuk catatan tingkat greenhouse; terisi untuk spray dan catatan lama."
           },
           "activity_type": {
             "enum": [
@@ -19641,11 +19811,17 @@
                   "format": "uuid"
                 },
                 "unit_id": {
-                  "type": "string",
+                  "type": [
+                    "string",
+                    "null"
+                  ],
                   "format": "uuid"
                 },
                 "quantity": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               }
             }
@@ -19684,6 +19860,46 @@
             "type": [
               "object",
               "null"
+            ]
+          },
+          "season_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entry_batch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Satu isian form Catat kegiatan; Riwayat dan Cek catatan mengelompokkan per batch."
+          },
+          "age_basis": {
+            "enum": [
+              "hss",
+              "hst",
+              null
+            ]
+          },
+          "age_day": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "spray_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "spray_period": {
+            "enum": [
+              "morning",
+              "afternoon",
+              null
             ]
           }
         }
@@ -27156,6 +27372,13 @@
                 "type": "null"
               }
             ]
+          },
+          "purpose": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "'spray' untuk daftar bahan semprot bersama; null untuk bahan lain."
           }
         },
         "required": [
@@ -27166,7 +27389,8 @@
           "active",
           "version",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "purpose"
         ]
       },
       "MaterialsPublicPage": {

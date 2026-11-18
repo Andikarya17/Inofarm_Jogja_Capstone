@@ -29,9 +29,8 @@ class FinanceReplayStateTest extends FinanceTestCase
         $this->postJson('/api/v2/varieties', $master)->assertCreated()->assertExactJson($masterReceipt);
         $this->postJson('/api/v2/varieties', $this->operation('varieties', $master['payload']))->assertUnprocessable();
         $this->postJson('/api/v2/schedules', $reference)->assertCreated()->assertExactJson($referenceReceipt);
-        $this->asUser($worker)->postJson('/api/v2/activities', $activity)->assertCreated()->assertExactJson($activityReceipt);
-        DB::table('greenhouse_assignments')->where('user_id', $worker->id)->update(['active' => false]);
-        $this->postJson('/api/v2/activities', $activity)->assertNotFound();
+        // An inactive greenhouse leaves the worker's scope (17 Nov 2026), so even a replay is refused; the manager keeps it.
+        $this->asUser($worker)->postJson('/api/v2/activities', $activity)->assertNotFound();
         foreach ([$activity, $reference, $master] as $op) {
             $this->assertSame(1, DB::table('sync_operations')->where('operation_id', $op['operation_id'])->count());
             $this->assertSame(1, DB::table('audit_logs')->where('operation_id', $op['operation_id'])->count());

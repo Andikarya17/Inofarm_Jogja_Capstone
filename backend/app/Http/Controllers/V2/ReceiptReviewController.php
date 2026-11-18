@@ -80,9 +80,9 @@ final class ReceiptReviewController extends Controller
         }
         if ($op['entity_type'] === 'activity_review') {
             $id = DB::table('activity_reviews')->where('id', $op['entity_id'])->value('activity_id') ?? $op['payload']['activity_id'] ?? null;
-            $group = DB::table('activities')->where('id', $id)->value('planting_group_id');
+            $season = DB::table('activities')->where('id', $id)->value('season_id');
 
-            return $group === null ? null : $this->groupGreenhouse($group);
+            return $season === null ? null : DB::table('seasons')->where('id', $season)->value('greenhouse_id');
         }
         if ($op['entity_type'] === 'harvest_review') {
             $id = DB::table('harvest_reviews')->where('id', $op['entity_id'])->value('harvest_id') ?? $op['payload']['harvest_id'] ?? null;
@@ -93,7 +93,8 @@ final class ReceiptReviewController extends Controller
         $tables = ['activity' => 'activities', 'harvest' => 'harvests', 'expense' => 'expenses', 'cost_allocation' => 'cost_allocations', 'sale' => 'sales', 'asset' => 'assets', 'depreciation_allocation' => 'depreciation_allocations', 'investment_scenario' => 'investment_scenarios', 'season_report' => 'report_snapshots', 'investment_report' => 'report_snapshots', 'activity_attachment' => 'record_attachments', 'harvest_attachment' => 'record_attachments', 'expense_attachment' => 'record_attachments'];
         $current = DB::table($tables[$op['entity_type']])->where('id', $op['entity_id'])->first();
         if ($current) {
-            return $current->greenhouse_id ?? (isset($current->planting_group_id) ? $this->groupGreenhouse($current->planting_group_id) : null);
+            return $current->greenhouse_id ?? (isset($current->planting_group_id) ? $this->groupGreenhouse($current->planting_group_id)
+                : (isset($current->season_id) ? DB::table('seasons')->where('id', $current->season_id)->value('greenhouse_id') : null));
         }
         $p = $op['payload'];
         if (isset($p['planting_group_id'])) {
@@ -108,7 +109,8 @@ final class ReceiptReviewController extends Controller
             abort_unless($op['entity_type'] === $p['owner_type'].'_attachment' && in_array($p['owner_type'], ['activity', 'harvest', 'expense'], true), 422);
             $row = DB::table(['activity' => 'activities', 'harvest' => 'harvests', 'expense' => 'expenses'][$p['owner_type']])->where('id', $p['owner_id'])->first();
 
-            return $row?->greenhouse_id ?? (isset($row->planting_group_id) ? $this->groupGreenhouse($row->planting_group_id) : null);
+            return $row?->greenhouse_id ?? (isset($row->planting_group_id) ? $this->groupGreenhouse($row->planting_group_id)
+                : (isset($row->season_id) ? DB::table('seasons')->where('id', $row->season_id)->value('greenhouse_id') : null));
         }
 
         return $p['greenhouse_id'] ?? null;

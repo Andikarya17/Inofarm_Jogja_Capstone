@@ -46,6 +46,8 @@ class FinanceActivitySyncTest extends FinanceTestCase
         $foreignManager = $this->account();
         $other = $this->context($foreignManager);
         $foreignWorker = $this->assignedWorker($other);
+        // Assignments no longer limit workers (17 Nov 2026); an inactive greenhouse still does.
+        DB::table('greenhouses')->where('id', $ctx['gh']['id'])->update(['active' => false]);
         $this->asUser($foreignWorker)->getJson('/api/v2/activities/'.$first['entity_id'])->assertNotFound();
         $this->postJson('/api/v2/sync/operations', $this->operation('activity', $this->payload($ctx['group']['id'])))->assertNotFound();
         $this->asUser($foreignManager)->getJson('/api/v2/activities/'.$first['entity_id'])->assertOk();
@@ -115,6 +117,8 @@ class FinanceActivitySyncTest extends FinanceTestCase
         $foreignManager = $this->account();
         $foreign = $this->context($foreignManager);
         $foreignWorker = $this->assignedWorker($foreign);
+        // Assignments no longer limit workers (17 Nov 2026); an inactive greenhouse still does.
+        DB::table('greenhouses')->where('id', $ctx['gh']['id'])->update(['active' => false]);
         $this->asUser($foreignWorker)->getJson('/api/v2/activities?season_id='.$ctx['season']['id'])->assertJsonCount(0, 'data');
         $this->getJson('/api/v2/activities/'.$first['entity_id'].'/audit')->assertNotFound();
         $this->asUser($foreignManager)->getJson('/api/v2/activities?season_id='.$ctx['season']['id'])->assertJsonCount(2, 'data');

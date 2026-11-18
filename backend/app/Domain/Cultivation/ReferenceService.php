@@ -108,6 +108,26 @@ final class ReferenceService
         }
     }
 
+    /**
+     * Greenhouse-level record (one tank per greenhouse). Targets and computed age are per group, so they apply
+     * only when the season has exactly one active group; otherwise the comparison is honestly unavailable.
+     */
+    public function seasonSnapshot(object $season, string $type, string $occurredAt, array $actual): array
+    {
+        $groups = DB::table('planting_groups')->where('season_id', $season->id)->where('active', true)->limit(2)->get();
+        if ($groups->count() === 1) {
+            return [...$this->snapshot($groups[0], $type, $occurredAt, $actual), 'scope' => 'greenhouse'];
+        }
+        $reason = 'Target per varietas; catatan tingkat greenhouse tidak dibandingkan.';
+        $checks = [];
+        foreach (['manual_ec', 'manual_ppm', 'manual_ph'] as $parameter) {
+            $checks[$parameter] = ['actual' => $actual[$parameter] ?? null, 'target' => null, 'delta' => null, 'status' => 'unavailable', 'reasons' => [$reason]];
+        }
+
+        return ['comparator_version' => '1', 'scope' => 'greenhouse', 'planting_group_version' => null, 'sowing_date' => null, 'transplant_date' => null,
+            'age' => ['hss' => null, 'hst' => null, 'status' => 'unavailable', 'reasons' => ['Umur tanaman diisi manual (HSS/HST).']], 'checks' => $checks];
+    }
+
     public function snapshot(object $group, string $type, string $occurredAt, array $actual): array
     {
         $at = CarbonImmutable::parse($occurredAt)->utc()->format('Y-m-d H:i:s.u');
