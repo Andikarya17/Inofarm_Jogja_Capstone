@@ -34,6 +34,8 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
         if(resource==AdminResource.USER) require(!greenhouse.isNullOrBlank()) {"Pilih greenhouse untuk daftar akun."}
         val query=mutableMapOf("limit" to "100")
         if(forAssignment) query["for_assignment"]="1"
+        // Every account, not only those assigned to the greenhouse; the API still needs a greenhouse to place the record.
+        else if(resource==AdminResource.USER) query["all_accounts"]="1"
         if(resource !in setOf(AdminResource.SCHEDULE,AdminResource.TARGET) && !greenhouse.isNullOrBlank()) query["greenhouse_id"]=greenhouse
         cursor?.let {query["cursor"]=it}
         val page=api.request(session.scope.server,session.token,resource.path,query=query)

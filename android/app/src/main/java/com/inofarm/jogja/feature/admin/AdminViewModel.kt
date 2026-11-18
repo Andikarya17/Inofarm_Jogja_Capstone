@@ -97,6 +97,11 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
             val greenhouses=repository.options(session,ticket,"greenhouses",null)
             mutable.value=state.value.copy(options=state.value.options+("greenhouses" to greenhouses))
             val resource=state.value.resource
+            // Accounts are listed whole; the first greenhouse only satisfies the API's required placement.
+            if(resource==AdminResource.USER && state.value.greenhouse==null) {
+                val placement=(greenhouses.firstOrNull {it.optBoolean("active",true)} ?: greenhouses.firstOrNull())?.getString("id")
+                mutable.value=state.value.copy(greenhouse=placement,listChecked=placement==null)
+            }
             val greenhouse=state.value.greenhouse
             if(resource!=AdminResource.GREENHOUSE && greenhouse==null) return
             val page=repository.list(session,ticket,resource,greenhouse,if(more) state.value.cursor else null)
@@ -114,14 +119,11 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
             try {
                 val id=row.getString("id")
                 val resource=state.value.resource
-                val greenhouse=if(resource==AdminResource.GREENHOUSE) id else state.value.greenhouse
-                val assignments=repository.options(session,ticket,"assignments",greenhouse)
-                val counts=if(resource==AdminResource.USER) {
-                    mapOf("Bertugas di greenhouse ini" to assignments.count {it.optString("user_id")==id})
-                } else {
+                // Workers reach every active greenhouse (17 Nov 2026), so assignments are no longer counted.
+                val counts=if(resource==AdminResource.USER) null else {
                     val seasons=repository.options(session,ticket,"seasons",id)
                         .filter {it.optString("status")=="open"}.map {it.getString("id")}.toSet()
-                    mapOf("Pekerja terdaftar" to assignments.size, "Musim terbuka" to seasons.size,
+                    mapOf("Musim terbuka" to seasons.size,
                         "Kelompok aktif pada musim terbuka" to repository.options(session,ticket,"planting-groups",id)
                             .count {it.optBoolean("active") && it.optString("season_id") in seasons},
                         "Bahan aktif" to repository.options(session,ticket,"materials",id).count {it.optBoolean("active")},
@@ -282,7 +284,7 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
                 journal=JSONObject();mutable.value=state.value.copy(form=null,editing=false,pending=false,needsPassword=false,rejected=false,server=null,dirty=false,
                     greenhouse=if(form.resource==AdminResource.GREENHOUSE && form.version==null) form.id else state.value.greenhouse)
                 persist(snapshot());onAccepted();load()
-                val saved=done ?: if(form.resource==AdminResource.USER && form.version==null) "Akun tersimpan dan sudah ditambahkan ke greenhouse ini." else "Tersimpan."
+                val saved=done ?: if(form.resource==AdminResource.USER && form.version==null) "Akun tersimpan." else "Tersimpan."
                 mutable.value=state.value.copy(message=if(state.value.listChecked) saved else "$saved ${state.value.message ?: "Daftar belum diperbarui."}")
             } catch(cancelled:CancellationException) {throw cancelled}
             catch(error:Exception) {

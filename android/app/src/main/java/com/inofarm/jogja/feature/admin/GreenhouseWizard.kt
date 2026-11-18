@@ -36,7 +36,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.time.LocalDate
-import java.time.OffsetDateTime
 import java.util.UUID
 
 /** Field checks for the "Tambah greenhouse" wizard. Kept free of Compose so they can be unit-tested. */
@@ -47,13 +46,20 @@ internal object WizardRules {
         else -> null
     }
 
-    fun plantingErrors(season: String, start: String, variety: String, group: String, population: String,
+    /** One planting per variety, 1 or 2 varieties (Inofarm 2.4). [varieties] holds name to plant count. */
+    fun plantingErrors(season: String, start: String, varieties: List<Pair<String, String>>,
                        sowing: String, transplant: String): Map<String, String> = buildMap {
         if (season.isBlank()) put("season", "Isi nama musim.")
         if (runCatching { LocalDate.parse(start) }.isFailure) put("start", "Isi tanggal mulai, contoh 2026-11-10.")
-        if (variety.isBlank()) put("variety", "Isi nama varietas.")
-        if (group.isBlank()) put("group", "Isi nama kelompok tanam.")
-        if (population.toIntOrNull()?.let { it >= 0 } != true) put("population", "Isi jumlah tanaman sebagai angka bulat.")
+        varieties.forEachIndexed { index, (name, population) ->
+            when {
+                name.isBlank() -> put("variety$index", "Isi nama varietas.")
+                name.trim().length > 150 -> put("variety$index", "Nama maksimal 150 karakter.")
+                varieties.take(index).any { it.first.trim().equals(name.trim(), ignoreCase = true) } ->
+                    put("variety$index", "Nama varietas kedua harus berbeda dari yang pertama.")
+            }
+            if (population.toIntOrNull()?.let { it >= 0 } != true) put("population$index", "Isi jumlah tanaman sebagai angka bulat.")
+        }
         val sown = runCatching { LocalDate.parse(sowing) }.getOrNull()
         if (sown == null) put("sowing", "Isi tanggal semai, contoh 2026-11-10.")
         if (transplant.isNotBlank()) {
@@ -63,16 +69,13 @@ internal object WizardRules {
         }
     }
 
-    fun workerErrors(name: String, email: String, password: String): Map<String, String> = buildMap {
-        if (name.isBlank()) put("name", "Isi nama pekerja.")
-        if (!email.trim().matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))) put("email", "Isi email yang benar.")
-        if (password.length < 12) put("password", "Password minimal 12 karakter.")
-    }
 }
 
 /**
- * Three steps: greenhouse, first planting (optional), workers (optional). Each step saves as soon as the
- * user continues, so a failure leaves earlier steps intact. Operation ids are reused on retry.
+ * Two steps: greenhouse, then first planting (optional) with one or two varieties planted together. Each variety
+ * becomes a planting group named after it, which the recording screens never show. Workers need no assignment
+ * (17 Nov 2026), so there is no worker step. Each step saves as soon as the user continues, so a failure leaves
+ * earlier steps intact. Operation ids are reused on retry.
  */
 @Composable
 fun GreenhouseWizardHost(
@@ -99,28 +102,19 @@ fun GreenhouseWizardHost(
     var name by rememberSaveable { mutableStateOf("") }
 
     val seasonId = rememberSaveable { UUID.randomUUID().toString() }
-    val varietyId = rememberSaveable { UUID.randomUUID().toString() }
-    val groupId = rememberSaveable { UUID.randomUUID().toString() }
+    val varietyIds = rememberSaveable { listOf(UUID.randomUUID().toString(), UUID.randomUUID().toString()) }
+    val groupIds = rememberSaveable { listOf(UUID.randomUUID().toString(), UUID.randomUUID().toString()) }
     var seasonDone by rememberSaveable { mutableStateOf(false) }
-    var varietyDone by rememberSaveable { mutableStateOf(false) }
-    var groupDone by rememberSaveable { mutableStateOf(false) }
+    var varietyDone by rememberSaveable { mutableStateOf(listOf(false, false)) }
+    var groupDone by rememberSaveable { mutableStateOf(listOf(false, false)) }
     var periodDone by rememberSaveable { mutableStateOf(false) }
     var season by rememberSaveable { mutableStateOf("") }
     var start by rememberSaveable { mutableStateOf(today) }
-    var variety by rememberSaveable { mutableStateOf("") }
-    var group by rememberSaveable { mutableStateOf("") }
-    var population by rememberSaveable { mutableStateOf("") }
+    var names by rememberSaveable { mutableStateOf(listOf("", "")) }
+    var populations by rememberSaveable { mutableStateOf(listOf("", "")) }
+    var twoVarieties by rememberSaveable { mutableStateOf(false) }
     var sowing by rememberSaveable { mutableStateOf(today) }
     var transplant by rememberSaveable { mutableStateOf("") }
-
-    var workers by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
-    var workersLoaded by remember { mutableStateOf(false) }
-    var picked by rememberSaveable { mutableStateOf(setOf<String>()) }
-    var newName by rememberSaveable { mutableStateOf("") }
-    var newEmail by rememberSaveable { mutableStateOf("") }
-    var newPassword by remember { mutableStateOf("") }
-    var addedWorkers by rememberSaveable { mutableIntStateOf(0) }
-    var showPassword by remember { mutableStateOf(false) }
     val scroll = rememberScrollState()
     LaunchedEffect(error) { if (error != null) scroll.animateScrollTo(0) }
     LaunchedEffect(step) { fieldErrors = emptyMap() }
@@ -163,8 +157,9 @@ fun GreenhouseWizardHost(
         }
     }
 
+    val count = if (twoVarieties) 2 else 1
     fun savePlanting() {
-        val problems = WizardRules.plantingErrors(season, start, variety, group, population, sowing, transplant)
+        val problems = WizardRules.plantingErrors(season, start, (0 until count).map { names[it] to populations[it] }, sowing, transplant)
         fieldErrors = problems
         if (problems.isNotEmpty()) return
         run("Menyimpan tanam…") {
@@ -173,60 +168,27 @@ fun GreenhouseWizardHost(
                 send(AdminForm(AdminResource.SEASON, id = seasonId, values = mapOf("greenhouse_id" to ghId, "name" to season.trim(), "start_date" to start)))
                 seasonDone = true
             }
-            if (!varietyDone) {
-                progress = "Menyimpan varietas…"
-                send(AdminForm(AdminResource.VARIETY, id = varietyId, values = mapOf("greenhouse_id" to ghId, "name" to variety.trim())))
-                varietyDone = true
-            }
-            if (!groupDone) {
-                progress = "Menyimpan kelompok tanam…"
-                send(AdminForm(AdminResource.GROUP, id = groupId, values = mapOf("season_id" to seasonId, "variety_id" to varietyId,
-                    "name" to group.trim(), "population" to population.trim(), "sowing_date" to sowing, "transplant_date" to transplant)))
-                groupDone = true
+            for (index in 0 until count) {
+                val name = names[index].trim()
+                if (!varietyDone[index]) {
+                    progress = "Menyimpan varietas $name…"
+                    send(AdminForm(AdminResource.VARIETY, id = varietyIds[index], values = mapOf("greenhouse_id" to ghId, "name" to name)))
+                    varietyDone = varietyDone.toMutableList().also { it[index] = true }
+                }
+                if (!groupDone[index]) {
+                    // The planting group carries the variety's name; recording screens show varieties, not groups.
+                    send(AdminForm(AdminResource.GROUP, id = groupIds[index], values = mapOf("season_id" to seasonId, "variety_id" to varietyIds[index],
+                        "name" to name, "population" to populations[index].trim(), "sowing_date" to sowing, "transplant_date" to transplant)))
+                    groupDone = groupDone.toMutableList().also { it[index] = true }
+                }
             }
             if (!periodDone) {
                 progress = "Menetapkan tanam saat ini…"
                 val version = repository.options(session, ticket, "greenhouses", null).firstOrNull { it.getString("id") == ghId }
                     ?.getLong("version") ?: error("Greenhouse belum muncul di daftar. Perbarui lalu coba lagi.")
-                val operation = operations.getOrPut("period|$version|$groupId") { repository.designateOperation(session, ticket, ghId, version, groupId) }
+                val operation = operations.getOrPut("period|$version|${groupIds[0]}") { repository.designateOperation(session, ticket, ghId, version, groupIds[0]) }
                 repository.sendDesignation(session, ticket, ghId, operation)
                 periodDone = true
-            }
-            step = 3
-        }
-    }
-
-    fun loadWorkers() {
-        if (workersLoaded || busy) return
-        busy = true
-        scope.launch {
-            try { workers = repository.options(session, ticket, "assignment-users", ghId); workersLoaded = true }
-            catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { error = userMessage(failure) }
-            finally { busy = false }
-        }
-    }
-    if (step == 3 && ghDone) LaunchedEffect(Unit) { loadWorkers() }
-
-    fun saveWorkers() {
-        val creating = newName.isNotBlank() || newEmail.isNotBlank() || newPassword.isNotBlank()
-        val problems = if (creating) WizardRules.workerErrors(newName, newEmail, newPassword) else emptyMap()
-        fieldErrors = problems
-        if (problems.isNotEmpty()) return
-        run("Menyimpan pekerja…") {
-            val from = OffsetDateTime.now(ActivityDraft.WIB).withNano(0).toString()
-            picked.toList().forEach { userId ->
-                send(AdminForm(AdminResource.ASSIGNMENT, id = UUID.nameUUIDFromBytes("wizard:$ghId:$userId".toByteArray()).toString(),
-                    values = mapOf("greenhouse_id" to ghId, "user_id" to userId, "effective_from" to from)))
-                addedWorkers++
-                picked = picked - userId
-            }
-            if (creating) {
-                val form = AdminForm(AdminResource.USER, id = UUID.nameUUIDFromBytes("wizard-user:$ghId:${newEmail.trim().lowercase()}".toByteArray()).toString(),
-                    values = mapOf("greenhouse_id" to ghId, "name" to newName.trim(), "email" to newEmail.trim(), "role" to "worker"))
-                send(form, newPassword)
-                addedWorkers++
-                newName = ""; newEmail = ""; newPassword = ""
             }
             finished = true
         }
@@ -251,17 +213,16 @@ fun GreenhouseWizardHost(
                     if (done) {
                         Text("Greenhouse siap dicatat", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
                         Text(name.trim(), style = MaterialTheme.typography.titleMedium)
-                        val facts = listOfNotNull(
-                            if (periodDone) "Tanam saat ini sudah ditetapkan." else "Belum ada tanam saat ini.",
-                            if (addedWorkers > 0) "$addedWorkers pekerja sudah ditambahkan." else null)
-                        facts.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                        val planted = (0 until count).filter { groupDone[it] }.map { names[it].trim() }
+                        Text(if (periodDone) "Mulai tanam ${planted.joinToString(" dan ")}. Semua pekerja sudah bisa mencatat di sini."
+                            else "Belum mulai tanam. Mulai tanam dari halaman greenhouse sebelum mencatat.", style = MaterialTheme.typography.bodyMedium)
                         if (periodDone) Button(onClick = { onRecord(ghId) }, shape = FarmShape.Control,
                             modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-record")) { Text("Catat kegiatan") }
                         OutlinedButton(onClick = { onOpenGreenhouse(ghId) }, shape = FarmShape.Control,
                             modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-open")) { Text("Ke greenhouse") }
                     } else {
-                        FarmStepIndicator(step, listOf("Greenhouse", "Mulai tanam", "Pekerja"))
-                        Text(if (step == 1) "Langkah 1 dari 3" else "Langkah $step dari 3 · bisa dilewati",
+                        FarmStepIndicator(step, listOf("Greenhouse", "Mulai tanam"))
+                        Text(if (step == 1) "Langkah 1 dari 2" else "Langkah 2 dari 2 · bisa dilewati",
                             Modifier.testTag("wizard-step").semantics { liveRegion = LiveRegionMode.Polite },
                             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         progress?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }); LinearProgressIndicator(Modifier.fillMaxWidth()) }
@@ -285,45 +246,36 @@ fun GreenhouseWizardHost(
                                     FinanceField("Nama greenhouse", name, { name = it }, "wizard-name", fieldErrors["name"], enabled = !busy && !ghDone)
                                 }
                             }
-                            2 -> {
+                            else -> {
                                 Text("Mulai tanam", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
-                                val saved = listOfNotNull(if (seasonDone) "musim" else null, if (varietyDone) "varietas" else null, if (groupDone) "kelompok tanam" else null)
+                                val saved = listOfNotNull(if (seasonDone) "musim" else null,
+                                    (0 until count).filter { groupDone[it] }.takeIf { it.isNotEmpty() }?.joinToString(" dan ") { names[it].trim() })
                                 if (saved.isNotEmpty()) FarmInfoCard { Text(saved.joinToString(", ").replaceFirstChar { it.uppercase() } + " sudah tersimpan.", style = MaterialTheme.typography.bodyMedium) }
                                 FarmFormSection("Musim") {
                                     FinanceField("Nama musim", season, { season = it }, "wizard-season", fieldErrors["season"], enabled = !busy && !seasonDone)
                                     FinanceDateField("Tanggal mulai musim", start, { start = it }, "wizard-start", fieldErrors["start"], hint = "contoh 2026-11-10", enabled = !busy && !seasonDone)
                                 }
-                                FarmFormSection("Kelompok tanam") {
-                                    FinanceField("Nama varietas", variety, { variety = it }, "wizard-variety", fieldErrors["variety"], enabled = !busy && !varietyDone)
-                                    FinanceField("Nama kelompok tanam", group, { group = it }, "wizard-group", fieldErrors["group"], enabled = !busy && !groupDone)
-                                    FinanceField("Jumlah tanaman", population, { population = it }, "wizard-population", fieldErrors["population"], KeyboardType.Number, enabled = !busy && !groupDone, suffix = "tanaman")
-                                    FinanceDateField("Tanggal semai", sowing, { sowing = it }, "wizard-sowing", fieldErrors["sowing"], hint = "contoh 2026-11-10", enabled = !busy && !groupDone)
-                                    FinanceDateField("Tanggal pindah tanam (opsional)", transplant, { transplant = it }, "wizard-transplant", fieldErrors["transplant"], hint = "contoh 2026-11-10", enabled = !busy && !groupDone)
+                                val planted = groupDone.any { it }
+                                FarmFormSection("Tanam") {
+                                    Text("Semua varietas di greenhouse ini ditanam serentak.", style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    FinanceDateField("Tanggal semai", sowing, { sowing = it }, "wizard-sowing", fieldErrors["sowing"], hint = "contoh 2026-11-10", enabled = !busy && !planted)
+                                    FinanceDateField("Tanggal pindah tanam (opsional)", transplant, { transplant = it }, "wizard-transplant", fieldErrors["transplant"], hint = "contoh 2026-11-10", enabled = !busy && !planted)
                                 }
-                                TextButton(onClick = { step = 3 }, enabled = !busy,
-                                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("wizard-skip")) { Text("Lewati langkah ini") }
-                            }
-                            else -> {
-                                Text("Pekerja", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
-                                if (workers.isNotEmpty()) FarmFormSection("Pekerja yang sudah ada") {
-                                    workers.forEach { worker ->
-                                        val id = worker.getString("id")
-                                        FarmCheckbox(worker.optString("name").ifBlank { worker.optString("email") }, id in picked,
-                                            { checked -> picked = if (checked) picked + id else picked - id }, Modifier.testTag("wizard-worker-$id"))
+                                for (index in 0 until count) {
+                                    FarmFormSection(if (count == 1) "Varietas" else "Varietas ${index + 1}") {
+                                        val locked = busy || varietyDone[index]
+                                        FinanceField("Nama varietas", names[index], { value -> names = names.toMutableList().also { it[index] = value }; fieldErrors = fieldErrors - "variety$index" },
+                                            "wizard-variety-$index", fieldErrors["variety$index"], enabled = !locked)
+                                        FinanceField("Jumlah tanaman", populations[index], { value -> populations = populations.toMutableList().also { it[index] = value }; fieldErrors = fieldErrors - "population$index" },
+                                            "wizard-population-$index", fieldErrors["population$index"], KeyboardType.Number, enabled = !busy && !groupDone[index], suffix = "tanaman")
+                                        if (index == 1 && !varietyDone[1]) TextButton(onClick = { twoVarieties = false; names = listOf(names[0], ""); populations = listOf(populations[0], "") },
+                                            enabled = !busy, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("wizard-remove-variety")) { Text("Hapus varietas kedua") }
                                     }
                                 }
-                                FarmFormSection("Buat akun pekerja baru") {
-                                    FinanceField("Nama", newName, { newName = it }, "wizard-user-name", fieldErrors["name"])
-                                    FinanceField("Email", newEmail, { newEmail = it }, "wizard-user-email", fieldErrors["email"], KeyboardType.Email,
-                                        leadingIcon = { FarmControlIcon(FarmIcon.Mail, null) })
-                                    FinanceField("Password (minimal 12 karakter)", newPassword, { newPassword = it }, "wizard-user-password", fieldErrors["password"],
-                                        KeyboardType.Password, enabled = !busy, visual = if (showPassword) androidx.compose.ui.text.input.VisualTransformation.None
-                                            else androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                                        leadingIcon = { FarmControlIcon(FarmIcon.Lock, null) })
-                                    FarmCheckbox("Tampilkan password", showPassword, { showPassword = it }, Modifier.testTag("wizard-show-password"))
-                                }
-                                TextButton(onClick = { finished = true },
-                                    enabled = !busy && picked.isEmpty() && newName.isBlank() && newEmail.isBlank() && newPassword.isEmpty(),
+                                if (!twoVarieties && !planted) OutlinedButton(onClick = { twoVarieties = true }, enabled = !busy, shape = FarmShape.Control,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-add-variety")) { Text("Tambah varietas kedua") }
+                                TextButton(onClick = { finished = true }, enabled = !busy,
                                     modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("wizard-skip")) { Text("Lewati langkah ini") }
                             }
                         }
@@ -333,8 +285,8 @@ fun GreenhouseWizardHost(
                     }
                     }
                 }
-                if (!finished) FarmFormBar("wizard-back", { step-- }, "wizard-next", if (step == 3) "Selesai" else "Simpan dan lanjut",
-                    { when (step) { 1 -> saveGreenhouse(); 2 -> savePlanting(); else -> saveWorkers() } },
+                if (!finished) FarmFormBar("wizard-back", { step-- }, "wizard-next", if (step == 2) "Simpan dan selesai" else "Simpan dan lanjut",
+                    { if (step == 1) saveGreenhouse() else savePlanting() },
                     enabled = !busy, busy = busy, saveLabel = "Kembali", showSave = step > 1)
             }
             }
