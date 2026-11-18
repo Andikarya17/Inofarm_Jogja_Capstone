@@ -19,6 +19,17 @@ class FinanceAuthScopeTest extends TestCase
         $this->assertSame($locale, app()->getLocale());
     }
 
+    public function test_guest_without_json_accept_gets_401_not_500(): void
+    {
+        // No token and no "Accept: application/json": auth must answer 401, never redirect to a missing login route.
+        foreach (['/api/v2/me', '/api/v2/sync/status', '/api/v2/greenhouses'] as $path) {
+            $this->get($path)->assertUnauthorized()->assertJsonPath('code', 'authentication_required');
+        }
+        $this->get('/api/v2/me', ['Authorization' => 'Bearer not-a-real-token'])->assertUnauthorized()
+            ->assertJsonPath('code', 'authentication_required');
+        $this->post('/api/v2/sync/operations')->assertUnauthorized()->assertJsonPath('code', 'authentication_required');
+    }
+
     private function account(string $role = 'worker'): User
     {
         return User::create(['public_id' => (string) Str::uuid(), 'name' => 'Akun sintetis',
