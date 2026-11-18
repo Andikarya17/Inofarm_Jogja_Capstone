@@ -1,0 +1,8 @@
+
+   INFO  Running migrations.  
+
+  2026_11_17_000022_record_per_greenhouse .............................................................. 567.57ms DONE
+
+pending_exit=0
+activities_with_season=2/2
+fks=78

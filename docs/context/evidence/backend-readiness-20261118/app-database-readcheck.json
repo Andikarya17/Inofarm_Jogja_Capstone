@@ -1,0 +1,40 @@
+{
+    "database": "inofarm_finance_local",
+    "host": "127.0.0.1:3307",
+    "tables": 55,
+    "migrate_status_pending_exit": 0,
+    "last_migration": "2026_11_17_000022_record_per_greenhouse",
+    "greenhouse_level_activities": 0,
+    "greenhouse_level_unreviewed_worker": 0,
+    "managers": [
+        {
+            "manager": "pengelola 1",
+            "inbox_pending": 0,
+            "inbox_decided": 0,
+            "home_greenhouses": 5,
+            "home_periods": {
+                "ready": 3,
+                "needs_review": 1,
+                "no_active_period": 1
+            },
+            "home_detail_reads": 5
+        }
+    ],
+    "rows_unchanged": true,
+    "row_counts": {
+        "activities": 2,
+        "activity_reviews": 0,
+        "audit_logs": 82,
+        "change_feed": 86,
+        "expenses": 0,
+        "greenhouses": 5,
+        "harvest_items": 2,
+        "harvest_reviews": 0,
+        "harvests": 1,
+        "materials": 50,
+        "planting_groups": 4,
+        "sales": 0,
+        "seasons": 4,
+        "users": 2
+    }
+}

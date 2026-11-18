@@ -27,6 +27,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->convertEmptyStringsToNull(except: [fn (Request $request) => $request->is('api/v2/*')]);
         $middleware->alias(['finance-session' => FinanceSession::class, 'finance-manager' => FinanceManager::class]);
         $middleware->api(prepend: [PayloadLimit::class]);
+        // There is no web login page: a guest is never redirected, so auth throws and the handler below answers 401 JSON.
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (Throwable $e, Request $request) {

@@ -1,0 +1,26 @@
+﻿tables                       restored=55                                            app=55
+fks                          restored=77                                            app=78
+last_migration               restored=2026_11_17_000021_align_field_practice        app=2026_11_17_000022_record_per_greenhouse
+users rows                   restored=2                                             app=2
+greenhouses rows             restored=5                                             app=5
+seasons rows                 restored=4                                             app=4
+planting_groups rows         restored=4                                             app=4
+varieties rows               restored=4                                             app=4
+grades rows                  restored=2                                             app=2
+units rows                   restored=0                                             app=0
+activities rows              restored=2                                             app=2
+harvests rows                restored=1                                             app=1
+harvest_items rows           restored=2                                             app=2
+harvest_reviews rows         restored=0                                             app=0
+materials rows               restored=0                                             app=50
+audit_logs rows              restored=32                                            app=82
+change_feed rows             restored=36                                            app=86
+entity_identities rows       restored=34                                            app=84
+sync_operations rows         restored=32                                            app=32
+users checksum               restored=1914258991                                    app=1914258991
+seasons checksum             restored=1005224100                                    app=1005224100
+planting_groups checksum     restored=1580138326                                    app=1580138326
+varieties checksum           restored=651969384                                     app=651969384
+grades checksum              restored=3072261555                                    app=3072261555
+harvests checksum            restored=3258134882                                    app=3258134882
+harvest_items checksum       restored=3056745744                                    app=3056745744
