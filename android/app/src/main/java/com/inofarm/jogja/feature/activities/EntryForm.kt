@@ -19,7 +19,9 @@ import com.inofarm.jogja.core.design.FarmFact
 import com.inofarm.jogja.core.design.FarmIcon
 import com.inofarm.jogja.core.design.FarmShape
 import com.inofarm.jogja.core.design.FarmSpace
+import com.inofarm.jogja.core.design.measureText
 import com.inofarm.jogja.feature.Choice
+import com.inofarm.jogja.feature.MasterGap
 import com.inofarm.jogja.feature.FarmContextStrip
 import com.inofarm.jogja.feature.FarmDetailCard
 import com.inofarm.jogja.feature.FarmFieldPair
@@ -101,6 +103,11 @@ internal fun EntryForm(state: ActivityUiState, context: CultivationUiState, vm: 
     ) {
         if (run != null) Text("Greenhouse ${run.step} dari ${run.names.size}", style = MaterialTheme.typography.labelLarge)
         FarmContextStrip(greenhouse, varieties.joinToString(" dan ") { it.getString("name") }.ifBlank { null }, null)
+        if (entry.scheduleId.isNotBlank()) {
+            val type = com.inofarm.jogja.feature.activities.domain.ActivityType.entries.find { it.wire == entry.scheduleType }?.label ?: "Kegiatan"
+            Text("Dari jadwal: $type. Isi bagian ${EntryDraft.scheduleSection(entry.scheduleType)} supaya jadwal tercatat selesai.",
+                Modifier.testTag("entry-schedule"), style = MaterialTheme.typography.bodyMedium)
+        }
         EntryFields(state, context, vm, entry, varieties, worker)
     }
 }
@@ -157,13 +164,14 @@ private fun ColumnScope.EntryFields(state: ActivityUiState, context: Cultivation
             FarmDetailCard("Hapus bahan ${index + 1}", { vm.editEntry { it.copy(nutrition = it.nutrition.filterIndexed { i, _ -> i != index }) } },
                 "entry-nutrition-remove-$index") {
                 val material = materials.find { it.optString("id") == row.materialId }
-                Choice("Bahan ${index + 1}", row.materialId, materials, "entry-nutrition-material-$index") { change(row.copy(materialId = it, unitId = "")) }
+                Choice("Bahan ${index + 1}", row.materialId, materials, "entry-nutrition-material-$index",
+                    master = MasterGap(com.inofarm.jogja.feature.admin.AdminResource.MATERIAL, entry.greenhouseId)) { change(row.copy(materialId = it, unitId = "")) }
                 FarmFieldPair({
                     FinanceField("Jumlah", row.quantity, { change(row.copy(quantity = it)) }, "entry-nutrition-quantity-$index",
                         errors["nutrition.$index"], KeyboardType.Decimal)
                 }, {
                     Choice("Satuan", row.unitId, units.filter { it.optString("dimension") == material?.optString("dimension") },
-                        "entry-nutrition-unit-$index") { change(row.copy(unitId = it)) }
+                        "entry-nutrition-unit-$index", master = MasterGap(com.inofarm.jogja.feature.admin.AdminResource.UNIT, entry.greenhouseId)) { change(row.copy(unitId = it)) }
                 }, minPairWidth = 360.dp) // inside a card the pair stacks before a unit name has to break
             }
         }
@@ -217,7 +225,7 @@ private fun ColumnScope.EntryFields(state: ActivityUiState, context: Cultivation
                         FinanceField("Dosis (opsional)", row.quantity, { change(row.copy(quantity = it)) }, "entry-spray-quantity-$index",
                             errors["spray.$index"], KeyboardType.Decimal)
                     }, {
-                        Choice("Satuan", row.unitId, units, "entry-spray-unit-$index") { change(row.copy(unitId = it)) }
+                        Choice("Satuan", row.unitId, units, "entry-spray-unit-$index", master = MasterGap(com.inofarm.jogja.feature.admin.AdminResource.UNIT, entry.greenhouseId)) { change(row.copy(unitId = it)) }
                     }, minPairWidth = 360.dp)
                 }
             }
@@ -261,8 +269,8 @@ internal fun EntryReview(state: ActivityUiState, context: CultivationUiState, vm
             if (entry.notes.isNotBlank()) FarmFact("Catatan", entry.notes)
         }
         if (entry.hasMeasurement) FarmFormSection("Pengukuran") {
-            FarmFact("EC", "${entry.ec} mS/cm"); FarmFact("PPM", "${entry.ppm} ppm")
-            if (entry.ph.isNotBlank()) FarmFact("pH", entry.ph)
+            FarmFact("EC", "${measureText(entry.ec)} mS/cm"); FarmFact("PPM", "${measureText(entry.ppm)} ppm")
+            if (entry.ph.isNotBlank()) FarmFact("pH", measureText(entry.ph))
             if (entry.waterTemperature.isNotBlank()) FarmFact("Suhu air", "${entry.waterTemperature} °C")
             MeasureMoments[entry.moment]?.let { FarmFact("Diukur", it) }
         }

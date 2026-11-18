@@ -66,6 +66,13 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
         current(session,ticket)
         result.getJSONObject("data")
     }
+    /** Copies the active master lists of [source] into [target]; names that already exist are skipped, so a repeat is safe. */
+    suspend fun copyMasters(session:FinanceSession,ticket:Long,target:String,source:String):JSONObject=withContext(Dispatchers.IO) {
+        current(session,ticket)
+        val result=api.request(session.scope.server,session.token,"greenhouses/$target/copy-masters","POST",JSONObject().put("source_greenhouse_id",source))
+        current(session,ticket)
+        result.getJSONObject("data").also { require(it.getString("greenhouse_id")==target) }.getJSONObject("copied")
+    }
     suspend fun greenhousePeriod(session: FinanceSession, ticket: Long, greenhouse: String): JSONObject = withContext(Dispatchers.IO) {
         current(session, ticket)
         val snapshot = api.request(session.scope.server, session.token, "manager-home", query = mapOf("greenhouse_id" to greenhouse))

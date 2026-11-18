@@ -12,7 +12,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.inofarm.jogja.FinanceRuntime
-import com.inofarm.jogja.core.cultivation.PlantAge
 import com.inofarm.jogja.core.design.*
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.feature.activities.domain.ActivityDraft
@@ -25,7 +24,7 @@ import java.time.OffsetDateTime
 internal fun latestStage(stages: List<Pair<String, String>>): String? =
     stages.filter { it.second.isNotBlank() }.maxByOrNull { runCatching { OffsetDateTime.parse(it.first).toInstant() }.getOrNull() ?: java.time.Instant.MIN }?.second?.trim()
 
-/** Forest hero for one greenhouse: date and season, variety and group, then days since sowing, since transplant and the stage. */
+/** Forest hero for one greenhouse: date and season, variety and group, then the age Inofarm last typed and the stage. */
 @Composable
 internal fun WorkerGreenhouseHero(
     runtime: FinanceRuntime, session: FinanceSession, data: CultivationUiState, selected: HomeContext, today: LocalDate,
@@ -34,34 +33,43 @@ internal fun WorkerGreenhouseHero(
     val greenhouse = selected.greenhouse
     val group = data.groups.find { it.optString("id") == selected.group }
     val season = data.seasons.find { it.optString("id") == selected.season }
-    val stage by produceState<String?>(null, session.scope.key, greenhouse, selected.group, changed, syncUpdate) {
+    // Stadia is recorded once per greenhouse season since 18 Nov 2026 (no planting group), older records per group.
+    val stage by produceState<String?>(null, session.scope.key, greenhouse, selected.season, selected.group, changed, syncUpdate) {
         value = if (greenhouse == null || selected.group == null) null else withContext(Dispatchers.IO) {
             runCatching {
                 latestStage(runtime.store.cachedAll(session.scope.key, "activity", greenhouse)
-                    .filter { it.optString("planting_group_id") == selected.group && it.optString("record_state", "active") == "active" }
-                    .map { it.optString("occurred_at") to it.optString("actual_stage") })
+                    .filter { (it.optString("planting_group_id") == selected.group || it.optString("season_id") == selected.season) &&
+                        it.optString("record_state", "active") == "active" }
+                    .map { it.optString("occurred_at") to if (it.isNull("actual_stage")) "" else it.optString("actual_stage") })
             }.getOrNull()
         }
     }
-    val age = group?.let {
-        runCatching {
-            PlantAge.calculate(it.getString("sowing_date"), if (it.isNull("transplant_date")) null else it.getString("transplant_date"),
-                today.atStartOfDay(ActivityDraft.WIB).toOffsetDateTime().toString())
-        }.getOrNull()
+    // Plant age as Inofarm last typed it, never computed from the sowing date (decision 17 Nov 2026).
+    val age by produceState<Triple<String, String, OffsetDateTime>?>(null, session.scope.key, greenhouse, changed, syncUpdate) {
+        value = if (greenhouse == null) null else withContext(Dispatchers.IO) {
+            runCatching { runtime.store.latestTypedAge(session.scope.key, greenhouse) }.getOrNull()
+        }
     }
     FarmHeroCard(Modifier.testTag("worker-greenhouse-hero")) {
         Text(listOfNotNull(dateLabel(today), season?.optString("name")?.takeIf { it.isNotBlank() }).joinToString(" · "),
             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(if (group == null) "Kelompok tanam belum dipilih" else listOfNotNull(
+        val designated = data.greenhouses.find { it.optString("id") == greenhouse }?.optString("running_group_id")
+            ?.let { it.isNotBlank() && it != "null" } == true
+        Text(if (group == null) "Kelompok tanam belum dipilih" else if (!designated) "Tanam saat ini belum dipilih" else listOfNotNull(
             com.inofarm.jogja.feature.harvest.varietyName(data, group), group.optString("name")).joinToString(" · "),
             Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         if (group != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-            HeroTile(age?.hss?.toString() ?: "-", "hari sejak semai", Modifier.weight(1f))
-            HeroTile(age?.hst?.toString() ?: "-", if (age?.hst != null) "hari sejak pindah tanam" else "belum pindah tanam", Modifier.weight(1f))
+            val typed = age
+            HeroTile(typed?.let { "${it.first.uppercase()} ${it.second}" } ?: "-",
+                typed?.let { "umur diisi ${shortDate(it.third)}" } ?: "umur belum dicatat", Modifier.weight(1f).testTag("worker-hero-age"))
             HeroTile(stage ?: "-", if (stage != null) "stadia tercatat" else "stadia belum dicatat", Modifier.weight(1f), text = true)
         }
     }
 }
+
+/** "18 Nov" in WIB, the way the form's "Terakhir" line reads. */
+private fun shortDate(at: OffsetDateTime): String =
+    at.atZoneSameInstant(ActivityDraft.WIB).format(java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.forLanguageTag("id-ID")))
 
 @Composable
 private fun HeroTile(value: String, label: String, modifier: Modifier, text: Boolean = false) {

@@ -199,7 +199,10 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
     val draft=state.draft ?: return
     val greenhouse=context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse terakhir tersimpan"
     val cancel = rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
-    FarmFormFrame(
+    val scroll = androidx.compose.foundation.rememberScrollState()
+    // A refused Simpan scrolls back up so the first marked field is in view instead of the form seeming not to react.
+    LaunchedEffect(state.errors) { if (state.errors.isNotEmpty()) scroll.animateScrollTo(0) }
+    FarmFormFrame(scroll = scroll,
         header = { FarmFormHeader("${if(draft.baseVersion==null) "Catat" else "Koreksi"} ${draft.kind.label}", state.saved, "expense-draft-status", "expense-close", cancel, !state.busy,
             showDraftStatus = false, closeLabel = "Batal", step = 1) },
         bar = { FarmFormBar("expense-cancel", cancel, "expense-review", "Simpan", vm::review, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }
@@ -212,9 +215,10 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
         }
         FarmFormSection(if (draft.kind == RecordKind.EXPENSE) "Pembayaran" else "Sumber dan musim tujuan") {
         if(draft.kind==RecordKind.EXPENSE) {
-            Choice("Kategori pengeluaran",draft.categoryId,context.expenseCategories.filter {it.optString("greenhouse_id")==draft.greenhouseId && (it.optBoolean("active",true) || it.optString("id")==draft.categoryId)},"expense-category") {v -> vm.edit {it.copy(categoryId=v)}}
+            Choice("Kategori pengeluaran",draft.categoryId,context.expenseCategories.filter {it.optString("greenhouse_id")==draft.greenhouseId && (it.optBoolean("active",true) || it.optString("id")==draft.categoryId)},"expense-category",error=state.errors["category"],master=com.inofarm.jogja.feature.MasterGap(com.inofarm.jogja.feature.admin.AdminResource.CATEGORY,draft.greenhouseId)) {v -> vm.edit {it.copy(categoryId=v)}}
             if(draft.lockedParents) Text(if(draft.paymentKind=="asset_acquisition") "Pembelian aset" else "Pembayaran operasi")
             else FarmChoiceChips("Jenis pembayaran",draft.paymentKind,listOf(option("operating","Pembayaran operasi"),option("asset_acquisition","Pembelian aset")),"expense-payment-kind") {v -> vm.edit {it.copy(paymentKind=v)}}
+            state.errors["payment_kind"]?.let { FieldError(it) }
             FinanceDateField("Tanggal pembayaran (YYYY-MM-DD)",draft.date,{v -> vm.edit {it.copy(date=v)}},"expense-date",state.errors["paid_at"])
             FinanceTimeField("Jam pembayaran WIB (HH:mm)",draft.time,{v -> vm.edit {it.copy(time=v)}},"expense-time",hint="Detik boleh ditulis HH:mm:ss.")
         } else {
@@ -224,11 +228,12 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
                 Text(context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "Musim tujuan terakhir tersimpan")
                 Notice("Sumber pembayaran dan musim dipertahankan. Perpindahan memerlukan pembatalan lalu alokasi baru.")
             } else {
-                Choice("Pembayaran sumber yang diterima",draft.expenseId,context.expenses.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("record_state")=="active" && it.optString("payment_kind")=="operating"}.map {option(it.getString("id"),sourceName(it))},"allocation-source") {v -> vm.edit {it.copy(expenseId=v)}}
-                Choice("Musim tujuan",draft.seasonId,context.seasons.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("status")=="open"},"allocation-season") {v -> vm.edit {it.copy(seasonId=v)}}
+                Choice("Pembayaran sumber yang diterima",draft.expenseId,context.expenses.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("record_state")=="active" && it.optString("payment_kind")=="operating"}.map {option(it.getString("id"),sourceName(it))},"allocation-source",error=state.errors["expense"]) {v -> vm.edit {it.copy(expenseId=v)}}
+                Choice("Musim tujuan",draft.seasonId,context.seasons.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("status")=="open"},"allocation-season",error=state.errors["season"]) {v -> vm.edit {it.copy(seasonId=v)}}
             }
             ExpenseBalanceCard(source,context)
             FarmChoiceChips("Kelas biaya",draft.costClass,listOf(option("FC","Biaya tetap / FC"),option("VC","Biaya variabel / VC")),"allocation-class") {v -> vm.edit {it.copy(costClass=v)}}
+            state.errors["cost_class"]?.let { FieldError(it) }
             FinanceField("Dasar alokasi",draft.basis,{v -> vm.edit {it.copy(basis=v)}},"allocation-basis",state.errors["basis"],singleLine=false,hint="Jelaskan dasar nominal untuk musim ini. Tidak dihitung otomatis.")
         }
         }
@@ -236,9 +241,12 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
             FinanceField("Keterangan pembayaran",draft.notes,{v -> vm.edit {it.copy(notes=v)}},"expense-notes",state.errors["notes"],singleLine=false)
         }
         if(draft.baseVersion!=null) FinanceField(vm.reasonLabel,draft.reason,{v -> vm.edit {it.copy(reason=v)}},"expense-reason",state.errors["reason"],singleLine=false)
-        state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
+        // Each error sits under its own field; only those without a field (the greenhouse) are listed here.
+        state.errors.filterKeys { it !in InlineExpenseErrors }.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
     }
 }
+
+private val InlineExpenseErrors = setOf("amount", "category", "payment_kind", "paid_at", "notes", "basis", "reason", "expense", "season", "cost_class")
 
 @Composable fun FinancialReview(draft:FinancialDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit) {
     val greenhouse=context.greenhouses.find {it.optString("id")==draft.greenhouseId}?.optString("name") ?: "Greenhouse terakhir tersimpan"

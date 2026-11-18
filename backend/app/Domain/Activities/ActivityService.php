@@ -165,8 +165,13 @@ final class ActivityService
                 'Bahan/satuan harus aktif, berdimensi sama dan berasal dari greenhouse yang sama.');
         }
         if (($p['schedule_id'] ?? null) !== null) {
-            abort_if(($p['planting_group_id'] ?? null) === null, 422, 'Jadwal hanya untuk catatan per kelompok.');
-            $schedule = DB::table('schedules')->where('id', $p['schedule_id'])->where('planting_group_id', $p['planting_group_id'])->where('activity_type', $p['activity_type'])->first();
+            // A greenhouse-level record (18 Nov 2026) may realise a schedule of any planting group in its own season.
+            $group = $p['planting_group_id'] ?? null;
+            $schedule = DB::table('schedules')->where('id', $p['schedule_id'])->where('activity_type', $p['activity_type'])
+                ->when($group !== null, fn ($q) => $q->where('planting_group_id', $group))
+                ->when($group === null, fn ($q) => $q->whereIn('planting_group_id',
+                    DB::table('planting_groups')->select('id')->where('season_id', $p['season_id'] ?? null)))
+                ->first();
             abort_unless($schedule && ($schedule->active || ($before['schedule_id'] ?? null) === $schedule->id), 422, 'Jadwal tidak cocok atau sudah tidak aktif.');
         }
         $errors = $this->entryErrors($p);

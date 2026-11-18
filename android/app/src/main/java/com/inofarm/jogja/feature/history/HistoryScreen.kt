@@ -84,8 +84,8 @@ import java.util.Locale
                 Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                     historyKindPicker?.invoke()
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                        Text(historyScope(context, state, kind), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(historyScope(context, state, kind, chipGreenhouse = session.role == UserRole.WORKER), Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         HistoryFilters(context, state.filter, state.filterSeason, vm::filter, kind, pickDates = session.role == UserRole.WORKER,
                             badge = activeFilterCount(state.filter, state.filterSeason), keepType = state.filter.type.takeIf { chipType })
                     }
@@ -266,19 +266,20 @@ private fun WorkerRecordStatus(record: LocalRecord, account: String, checks: Map
 private fun activeFilterCount(filter: LocalHistoryFilter, season: String?): Int =
     listOfNotNull(filter.greenhouseId, season ?: filter.seasonId, filter.groupId, filter.from, filter.until, filter.recordState).size
 
-private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:OperationalKind):String {
+/** The filter in words. A worker picks the greenhouse with chips above, so [chipGreenhouse] leaves it out and blank means no filter. */
+private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:OperationalKind,chipGreenhouse:Boolean=false):String {
     val filter=state.filter
     fun name(rows:List<JSONObject>,id:String?,fallback:String) =
         id?.let { rows.find { row -> row.optString("id")==it }?.optString("name") ?: fallback }
     val season=name(context.seasons,state.filterSeason,"Musim terpilih")
-    val greenhouse=name(context.greenhouses,filter.greenhouseId,"Greenhouse terpilih")
+    val greenhouse=if(chipGreenhouse) null else name(context.greenhouses,filter.greenhouseId,"Greenhouse terpilih")
     val group=name(context.groups,filter.groupId,"Kelompok terpilih")
     val period=listOfNotNull(filter.from?.let { "Dari $it" },filter.until?.let { "Sampai $it" })
         .joinToString(" · ").takeIf { it.isNotEmpty() }?.plus(" WIB")
     val type=ActivityType.entries.find { it.wire==filter.type }?.label
     val status=when(filter.recordState) {"active" -> "Aktif"; "cancelled" -> "Dibatalkan"; else -> null}
     val scope=listOfNotNull(greenhouse,season,group,type,status,period).joinToString(" · ")
-    if(scope.isBlank()) return "Semua greenhouse"
+    if(scope.isBlank()) return if(chipGreenhouse) "" else "Semua greenhouse"
     return when {
         season!=null && kind==OperationalKind.EXPENSE -> "Pembayaran yang dialokasikan · $scope"
         season!=null && kind==OperationalKind.ASSET -> "Aset dengan alokasi penyusutan · $scope"
@@ -308,8 +309,9 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
             verticalArrangement=Arrangement.spacedBy(FarmSpace.Medium)) {
         fun choices(rows:List<JSONObject>)=listOf(JSONObject().put("id","").put("name","Semua"))+rows
         val groups=context.groups.filter {row -> (season.isBlank() || row.optString("season_id")==season) && (gh.isBlank() || context.seasons.any {it.optString("id")==row.optString("season_id") && it.optString("greenhouse_id")==gh})}
-        FarmSection("Greenhouse dan tanam") {
-            Choice("Greenhouse",gh,choices(context.greenhouses),"history-gh") {gh=it;season="";group=""}
+        FarmSection(if (pickDates) "Musim dan tanam" else "Greenhouse dan tanam") {
+            // A worker already picks the greenhouse with the chips above the list.
+            if(!pickDates) Choice("Greenhouse",gh,choices(context.greenhouses),"history-gh") {gh=it;season="";group=""}
             Choice("Musim",season,choices(context.seasons.filter {gh.isBlank() || it.optString("greenhouse_id")==gh}),"history-season") {season=it;group=""}
             if(!kind.financial) Choice("Varietas",group,choices(groups.map { row -> JSONObject(row.toString()).put("name",
                 context.varieties.firstOrNull { it.optString("id")==row.optString("variety_id") }?.optString("name") ?: row.optString("name")) }),"history-group") {group=it}

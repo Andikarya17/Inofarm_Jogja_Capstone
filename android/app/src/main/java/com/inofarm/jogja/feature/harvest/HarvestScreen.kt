@@ -137,7 +137,8 @@ import java.math.BigDecimal
             if(line.id in part.lockedItems) {
                 Text("Grade: ${line.gradeName.ifBlank {context.grades.find {it.optString("id")==line.gradeId}?.optString("name") ?: "belum tersedia"}}")
                 Text("Untuk mengganti grade, hapus rincian ini dan tambahkan rincian baru.",style=MaterialTheme.typography.bodySmall)
-            } else Choice("Grade",line.gradeId,grades,"${tagPrefix}grade-$index",loading=context.loading) {value -> edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(gradeId=value,gradeName=grades.find {grade -> grade.optString("id")==value}?.optString("name").orEmpty()) else row})}}
+            } else Choice("Grade",line.gradeId,grades,"${tagPrefix}grade-$index",loading=context.loading,
+                master=com.inofarm.jogja.feature.MasterGap(com.inofarm.jogja.feature.admin.AdminResource.GRADE,part.greenhouseId)) {value -> edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(gradeId=value,gradeName=grades.find {grade -> grade.optString("id")==value}?.optString("name").orEmpty()) else row})}}
             state.errors["${errorPrefix}items.$index.grade"]?.let {Notice(it,true)}
             val qualityOptions = HarvestQuality.entries.map { JSONObject().put("id", it.wire).put("name", it.label) }
             val pickQuality = { value: String ->

@@ -68,8 +68,10 @@ private fun readWorkerDay(
             OffsetDateTime.parse(at).toInstant()
         }.getOrNull()
     }
+    // Greenhouse-level records of the same season (no planting group, 18 Nov 2026) also carry out this group's schedules.
     val synchronizedActivities = store.cachedAll(scope, "activity", greenhouse).filter {
-        it.optString("planting_group_id") == group && it.optString("record_state", "active") == "active" &&
+        (it.optString("planting_group_id") == group || season != null && it.isNull("planting_group_id") && it.optString("season_id") == season) &&
+            it.optString("record_state", "active") == "active" &&
             dateWib(it.optString("occurred_at")) == today
     }
     val corrections = workerCorrections(store, session, greenhouse, group)
@@ -218,7 +220,7 @@ private fun TodayScheduleCard(due: List<JSONObject>, day: WorkerDay, canRecord: 
                 }
             }
         }
-        Text("Catat dari jadwal membuka form dengan jenis terisi.", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        Text("Catat dari jadwal membuka form kegiatan greenhouse ini dan menandai jadwalnya selesai setelah dikirim.", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
     }
 }
 

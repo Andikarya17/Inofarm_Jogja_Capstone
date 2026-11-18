@@ -83,9 +83,12 @@ class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
     fun queue() { val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);if(errors.isNotEmpty()) { mutable.value=state.value.copy(errors=errors,reviewing=false);return };saveJob?.cancel();viewModelScope.launch { save(draft,true,true) } }
     // --- Greenhouse entry form ---
     private val entryOrigin=com.inofarm.jogja.feature.EntryOrigin<EntryDraft>()
-    fun newEntry(gh:String,season:String,runningPeriodVersion:Long?=null) {
+    fun newEntry(gh:String,season:String,runningPeriodVersion:Long?=null,schedule:org.json.JSONObject?=null) {
         saveJob?.cancel()
-        mutable.value=state.value.copy(draft=null,entry=EntryDraft(greenhouseId=gh,seasonId=season,runningPeriodVersion=runningPeriodVersion),
+        val type=schedule?.optString("activity_type").orEmpty()
+        mutable.value=state.value.copy(draft=null,entry=EntryDraft(greenhouseId=gh,seasonId=season,runningPeriodVersion=runningPeriodVersion,
+            scheduleId=schedule?.optString("id").orEmpty(),scheduleType=type,scheduleGroup=schedule?.optString("planting_group_id").orEmpty(),
+            sprayOpen=type=="spray",sprayGroups=if(type=="spray") setOfNotNull(schedule?.optString("planting_group_id")?.takeIf(String::isNotBlank)) else emptySet()),
             errors=emptyMap(),saved=false,reviewing=false,message=null)
         entryOrigin.start(null,state.value.entry)
     }

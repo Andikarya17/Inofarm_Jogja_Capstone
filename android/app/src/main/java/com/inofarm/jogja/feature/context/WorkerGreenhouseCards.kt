@@ -62,6 +62,8 @@ internal data class GreenhouseDay(
 ) {
     val id: String get() = greenhouse.getString("id")
     val name: String get() = greenhouse.optString("name")
+    /** The manager has set "Tanam saat ini" for this greenhouse. */
+    val designated: Boolean get() = greenhouse.optString("running_group_id").let { it.isNotBlank() && it != "null" }
     val tasksLeft: Int get() = tasks.count { !it.done }
 }
 
@@ -270,6 +272,8 @@ private fun WorkerGreenhouseCard(day: GreenhouseDay, index: Int, onOpen: () -> U
                     val detail = when {
                         !day.active -> "Greenhouse nonaktif. Belum bisa dicatat."
                         day.unreadable -> "Belum bisa dibaca dari perangkat"
+                        // The manager decides the current planting; until then the worker reads the same words the manager does.
+                        day.hasGroup && !day.designated -> "Tanam saat ini belum dipilih"
                         day.hasGroup -> listOfNotNull(day.variety, day.groupName).joinToString(" · ")
                         else -> null
                     }

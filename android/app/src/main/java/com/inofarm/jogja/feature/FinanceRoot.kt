@@ -249,7 +249,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             val session = requireNotNull(authState.session)
             key(session.scope.key, session.role, session.token) {
                 Box(Modifier.fillMaxSize().farmFadeEntrance()) {
-                    CompositionLocalProvider(LocalAttachmentAction provides attachments::open) {
+                    val addMaster: ((AdminResource, String) -> Unit)? = if (session.role == UserRole.MANAGER)
+                        ({ resource, greenhouse -> adminGreenhouse = greenhouse; adminEdit = true; adminEntry = resource }) else null
+                    CompositionLocalProvider(LocalAttachmentAction provides attachments::open, LocalAddMaster provides addMaster) {
                         com.inofarm.jogja.feature.exports.ReportExportHost(session, runtime.reportExports) {
                             com.inofarm.jogja.feature.recovery.RecoveryHost(session, runtime.recovery, activities::reload) {
                                 FinanceHome(session, contextState, activityState, context::refresh, logout, activities,
@@ -631,6 +633,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         if (destination == "harvest") harvestVm.new(greenhouse, plantingGroup, version, companionOf(greenhouse, plantingGroup))
         else vm.newEntry(greenhouse, selectedGroup.getString("season_id"), version)
     }
+    // A schedule (or a planned activity type) opens the one greenhouse form; the matching section carries the schedule.
+    fun openScheduled(greenhouseId: String, groupId: String, scheduleId: String?, version: Long?) {
+        val seasonId = context.groups.find { it.optString("id") == groupId }?.optString("season_id") ?: return
+        vm.newEntry(greenhouseId, seasonId, version, scheduleId?.let { id -> context.schedules.find { it.optString("id") == id } })
+    }
     // Recording from the Catat sheet: the worker picked a greenhouse there, so open its current planting directly.
     fun recordWorkerIn(greenhouseId: String?, choice: RecordChoice) {
         val destination = when (choice) { RecordChoice.HARVEST -> "harvest"; RecordChoice.MEASUREMENT -> "measurement"; else -> "activity" }
@@ -820,7 +827,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         worker = WorkerRecordTarget(
             context.greenhouses.filter { it.optBoolean("active", true) }, gh ?: lastGreenhouse ?: context.greenhouses.singleOrNull { it.optBoolean("active", true) }?.optString("id"),
             caption = { id -> context.recordingTarget(id, workerToday).caption(manager) },
-            onPick = { choice, id -> if (choice in setOf(RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST)) startRecord(choice, id) else startRecord(choice) },
+            // The greenhouse picked in the sheet applies to every choice, money included, so it is never asked twice.
+            onPick = { choice, id -> startRecord(choice, id) },
             onNutritionRun = if (!manager && nutritionRunTargets(context, workerToday).first.isNotEmpty()) ({ runStart() }) else null,
             notPlanted = { id -> context.recordingTarget(id, workerToday) is com.inofarm.jogja.feature.context.RecordingTarget.NotPlanted },
             onStartPlanting = if (manager) ({ id -> recordSheet = false; onStartPlanting(id) }) else null,
@@ -952,8 +960,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         managerRefresh++
                         onSync()
                     }, openHomeDestination, { operation -> queueFocus = operation.id; showOutbox = true },
-                        onRecord = { type, schedule ->
-                            if (canRecordFromHome) vm.new(gh!!, runningGroup!!, type, schedule, runningVersion)
+                        onRecord = { _, schedule ->
+                            if (canRecordFromHome) openScheduled(gh!!, runningGroup!!, schedule, runningVersion)
                         },
                         onHarvest = { if (canRecordFromHome) harvestVm.new(gh!!, runningGroup!!, runningVersion, companionOf(gh!!, runningGroup!!)) },
                         onAdmin = { onAdmin(AdminResource.GREENHOUSE); onAdminGreenhouse(gh, false) },
@@ -1002,8 +1010,6 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             WorkerGreenhouseHero(runtime, session, context, HomeContext(gh, season, group), workerToday,
                                 Triple(activity.records, harvest.records, activity.queue), syncUpdates)
                             WorkerGroupChips(context, HomeContext(gh, season, group), workerToday) { picked -> group = picked }
-                            TextButton(onClick = { contextSheet = "context" }, shape = FarmShape.Control,
-                                modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-context-open")) { Text("Ubah musim atau kelompok") }
                         }
                     }
                     if (homeState != null && workerCorrections.isNotEmpty()) item("corrections") {
@@ -1035,7 +1041,10 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         item("worker-day") {
                             WorkerDayAgenda(runtime, session, greenhouseId, groupId, workerToday, context.schedules,
                                 Triple(activity.records, harvest.records, activity.queue), syncUpdates, open,
-                                onSchedule = { type, schedule -> vm.new(greenhouseId, groupId, type, schedule) },
+                                onSchedule = { _, schedule ->
+                                    val version = selectedGreenhouse?.takeIf { it.optString("running_group_id") == groupId }?.optLong("version")?.takeIf { it > 0 }
+                                    openScheduled(greenhouseId, groupId, schedule, version)
+                                },
                                 onRecord = { row ->
                                     if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
                                 },
@@ -1382,8 +1391,8 @@ internal fun ExpiredSessionNotice() {
                 fun change(updated:MaterialDraft) { vm.edit {it.copy(materials=it.materials.toMutableList().apply {set(index,updated)})} }
                 val material=materials.find {it.optString("id")==row.materialId}
                 val compatibleUnits=units.filter {it.optString("dimension")==material?.optString("dimension") && (it.optBoolean("active",true) || it.optString("id")==row.unitId)}
-                Choice("Bahan ${index+1}",row.materialId,materials.filter {it.optBoolean("active",true) || it.optString("id")==row.materialId},"finance-material-$index") {change(row.copy(materialId=it,unitId=""))}
-                Choice("Satuan ${index+1}",row.unitId,compatibleUnits,"finance-unit-$index") {change(row.copy(unitId=it))}
+                Choice("Bahan ${index+1}",row.materialId,materials.filter {it.optBoolean("active",true) || it.optString("id")==row.materialId},"finance-material-$index",master=MasterGap(AdminResource.MATERIAL,draft.greenhouseId)) {change(row.copy(materialId=it,unitId=""))}
+                Choice("Satuan ${index+1}",row.unitId,compatibleUnits,"finance-unit-$index",master=MasterGap(AdminResource.UNIT,draft.greenhouseId)) {change(row.copy(unitId=it))}
                 if(material!=null && compatibleUnits.isEmpty() && !context.loading)
                     Text("Belum ada satuan aktif dengan dimensi yang sesuai. Minta pengelola menambahkannya.")
                 FinanceField("Jumlah ${index+1}",row.quantity,{change(row.copy(quantity=it))},"finance-quantity-$index",state.errors["materials.$index"],KeyboardType.Decimal,hint="Desimal boleh koma; tanpa pemisah ribuan")
@@ -1474,9 +1483,9 @@ internal fun ExpiredSessionNotice() {
             if (draft.ageBasis.isNotBlank()) FarmFact("Umur tanaman", "${draft.ageBasis.uppercase()} ${draft.ageDay}")
             if (draft.skipped) FarmFact("Alasan kegiatan dilewati", draft.skippedReason)
             else Text("Kegiatan selesai",style=MaterialTheme.typography.labelMedium)
-            if(draft.ec.isNotBlank()) FarmFact("EC manual", "${draft.ec} mS/cm", prominent = true)
-            if(draft.ppm.isNotBlank()) FarmFact("PPM manual", "${draft.ppm} ppm", prominent = true)
-            if(draft.ph.isNotBlank()) FarmFact("pH manual", draft.ph)
+            if(draft.ec.isNotBlank()) FarmFact("EC manual", "${measureText(draft.ec)} mS/cm", prominent = true)
+            if(draft.ppm.isNotBlank()) FarmFact("PPM manual", "${measureText(draft.ppm)} ppm", prominent = true)
+            if(draft.ph.isNotBlank()) FarmFact("pH manual", measureText(draft.ph))
             if(draft.stage.isNotBlank()) FarmFact("Stadia aktual", draft.stage)
             draft.materials.forEach { item ->
                 val name=context.materials.find {it.optString("id")==item.materialId}?.optString("name") ?: "Bahan"
@@ -1545,12 +1554,12 @@ internal fun ExpiredSessionNotice() {
             if(draft.sprayDate.isNotBlank()) Text("Disemprot ${draft.sprayDate} · ${com.inofarm.jogja.feature.activities.SprayPeriods[draft.sprayPeriod].orEmpty()}")
             com.inofarm.jogja.feature.activities.MeasureMoments[draft.measurementMoment]?.let { Text("Diukur $it".replaceFirstChar { c -> c.uppercase() }) }
             Text(if(draft.skipped) "Dilewati: ${draft.skippedReason}" else "Kegiatan selesai")
-            if(draft.ec.isNotBlank()) Text("EC manual: ${draft.ec} mS/cm")
-            if(draft.ppm.isNotBlank()) Text("PPM manual: ${draft.ppm} ppm")
-            if(draft.ph.isNotBlank()) Text("pH manual: ${draft.ph}")
+            if(draft.ec.isNotBlank()) Text("EC manual: ${measureText(draft.ec)} mS/cm")
+            if(draft.ppm.isNotBlank()) Text("PPM manual: ${measureText(draft.ppm)} ppm")
+            if(draft.ph.isNotBlank()) Text("pH manual: ${measureText(draft.ph)}")
             if(draft.stage.isNotBlank()) Text("Stadia aktual: ${draft.stage}")
             draft.materials.forEach { material -> Text("${context.materials.find {it.optString("id")==material.materialId}?.optString("name") ?: material.name.trim().ifBlank { "Bahan ${material.materialId.take(8)}" }}: ${
-                if(material.quantity.isBlank()) "dosis tidak dicatat" else "${material.quantity} ${context.units.find {it.optString("id")==material.unitId}?.optString("name").orEmpty()}"}") }
+                if(material.quantity.isBlank()) "dosis tidak dicatat" else "${measureText(material.quantity)} ${context.units.find {it.optString("id")==material.unitId}?.optString("name").orEmpty()}"}") }
             ObservationFacts(draft)
             Text(draft.notes)
         } ?: Text(record.body.optString("notes"))
@@ -1616,6 +1625,11 @@ internal fun ExpiredSessionNotice() {
     }
     messages.distinct().forEach { Text(it,color=MaterialTheme.colorScheme.error) }
 }
+/** A field's error in the same place and style as a text field's supporting text, for pickers and chips. */
+@Composable internal fun FieldError(message: String) {
+    Text(message, Modifier.padding(start = FarmSpace.Medium).semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+}
 @Composable internal fun Notice(message:String,error:Boolean=false) {
     val colors = MaterialTheme.colorScheme
     Surface(
@@ -1655,10 +1669,17 @@ internal fun ExpiredSessionNotice() {
         )
     }
 }
+/** A picker whose list comes from one greenhouse's master data, so an empty list can say what is missing and where to add it. */
+internal class MasterGap(val resource: AdminResource, val greenhouseId: String)
+
+/** Opens Kelola on [AdminResource] for a greenhouse with its add form open. Provided for the manager only; a worker asks a manager. */
+internal val LocalAddMaster = staticCompositionLocalOf<((AdminResource, String) -> Unit)?> { null }
+
 @Composable internal fun Choice(
     label: String, selected: String?, options: List<JSONObject>, tag: String,
-    loading: Boolean = false, onSelect: (String) -> Unit
+    loading: Boolean = false, master: MasterGap? = null, error: String? = null, onSelect: (String) -> Unit
 ) {
+    val addMaster = LocalAddMaster.current
     var expanded by rememberSaveable { mutableStateOf(false) }
     var sheet by rememberSaveable { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
@@ -1680,7 +1701,7 @@ internal fun ExpiredSessionNotice() {
             expanded = true
         }, shape = FarmShape.Control,
         colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        border = BorderStroke(if (error != null) 2.dp else 1.dp, if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline),
         modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag(tag)
             .focusRequester(focus).onFocusChanged { focused = it.isFocused }
     ) {
@@ -1691,6 +1712,7 @@ internal fun ExpiredSessionNotice() {
         Spacer(Modifier.width(FarmSpace.Small))
         FarmControlIcon(FarmIcon.ChevronDown, null)
     }
+    error?.let { FieldError(it) }
     if (expanded) FarmPicker(
         title = "Pilih ${label.replaceFirstChar { it.lowercaseChar() }}",
         options = options.map {
@@ -1702,7 +1724,15 @@ internal fun ExpiredSessionNotice() {
         onDismiss = { expanded = false },
         onSelect = { expanded = false; onSelect(it) },
         sheet = sheet && !dialogOnly,
-        loading = loading
+        loading = loading,
+        emptyMessage = master?.let { gap ->
+            val thing = gap.resource.label.lowercase()
+            if (addMaster != null) "Belum ada $thing di greenhouse ini. Tambahkan dulu, isian ini tetap tersimpan."
+            else "Belum ada $thing di greenhouse ini. Minta pengelola menambahkannya di Kelola."
+        } ?: "Belum ada pilihan pada data yang tersedia.",
+        emptyAction = if (master != null && addMaster != null)
+            "Tambah ${master.resource.label.lowercase()}" to { expanded = false; addMaster(master.resource, master.greenhouseId) }
+            else null
     )
 }
 
