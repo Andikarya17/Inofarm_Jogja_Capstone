@@ -1,5 +1,15 @@
 # Gap analysis aktif, 11 November 2026
 
+## Gap setelah uji backend nyata rombak pencatatan, 18 November 2026
+
+Branch `investment-test-horizon-fix`, `review-greenhouse-level-rows` dan `recording-rework-real-backend`, dengan PR untuk ditinjau. [Bukti](INVESTMENT_TEST_AND_REAL_BACKEND_EVIDENCE_20261118.md).
+
+1. **Inbox Cek catatan 500 untuk catatan tingkat GH** sudah diperbaiki di `review-greenhouse-level-rows`. Sampai branch itu di-merge, bug ini juga berlaku di `inofarm_finance_local`.
+2. Uji backend nyata baru mencakup isian kegiatan pekerja, panen dua varietas dan Cek catatan per isian. Koreksi per bagian, antrean offline, form pengelola dan Cek catatan panen belum diuji terhadap backend nyata.
+3. `FinanceBackendDeviceTest#managerVerifiesWorkerRevisionsThroughGuardedBackend` masih memakai form pengukuran lama.
+4. Tes investasi diperkuat (ulang scroll dan ketik). Kegagalan aslinya tidak muncul lagi, jadi belum terbukti hilang. `FinanceEntryUiTest` penuh belum dijalankan ulang.
+5. Label "Memperbarui" menempel ke judul inbox Cek catatan.
+
 ## Gap setelah rombak pencatatan per greenhouse, 18 November 2026
 
 Branch F0–F6 sudah di-push dengan PR untuk ditinjau, belum di-merge. [Bukti dan batas](RECORDING_REWORK_EVIDENCE_20261118.md).

@@ -1,0 +1,42 @@
+{
+    "activities": [
+        {
+            "type": "measurement",
+            "planting_group_id": null,
+            "entry_batch_id": "dda7c848-7a89-46d5-ba10-e736507db02d",
+            "age": "hst 30"
+        },
+        {
+            "type": "nutrition",
+            "planting_group_id": null,
+            "entry_batch_id": "dda7c848-7a89-46d5-ba10-e736507db02d",
+            "age": "hst 30"
+        },
+        {
+            "type": "spray",
+            "planting_group_id": "01e6dba3-d192-4e78-bdd9-7483015de711",
+            "entry_batch_id": "dda7c848-7a89-46d5-ba10-e736507db02d",
+            "age": "hst 30"
+        },
+        {
+            "type": "spray",
+            "planting_group_id": "d3b74e14-387a-41a6-a201-e469bcae89f8",
+            "entry_batch_id": "dda7c848-7a89-46d5-ba10-e736507db02d",
+            "age": "hst 30"
+        },
+        {
+            "type": "stage",
+            "planting_group_id": null,
+            "entry_batch_id": "dda7c848-7a89-46d5-ba10-e736507db02d",
+            "age": "hst 30"
+        }
+    ],
+    "typed_material_greenhouses": 2,
+    "active_greenhouses": 2,
+    "harvest_fruit_count": [
+        null,
+        null
+    ],
+    "reviews": 5
+}
+PASS: guarded inofarm_test holds one row per section with one entry_batch_id, greenhouse rows without planting_group_id, one spray per variety, the typed spray in every active greenhouse, two harvests with fruit_count null and five manager decisions; worker unassigned.

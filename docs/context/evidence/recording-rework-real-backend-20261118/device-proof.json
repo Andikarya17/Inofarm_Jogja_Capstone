@@ -1,0 +1,13 @@
+{
+  "worker_greenhouses": 2,
+  "entry_batch_id": "dda7c848-7a89-46d5-ba10-e736507db02d",
+  "activity_ids": [
+    "3ea9f11f-3657-4f4f-b1cd-0327731cd474",
+    "ef83c761-5ae1-45a4-a70b-dec915409215",
+    "911da5f0-2258-429a-be3a-69653602eb95",
+    "fca8d909-db89-401b-b773-bde1eecc77cf",
+    "b86ac2f4-7fcd-4191-995c-b3e71f36d6aa"
+  ],
+  "worker_expenses_status": 403,
+  "manager_decisions": 5
+}

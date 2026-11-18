@@ -21,6 +21,7 @@ $fixtureName = match ($argv[2] ?? '') {
     '' => 'finance-device-fixture.json',
     'manager-home' => 'manager-home-device-fixture.json',
     'worker-alignment' => 'worker-alignment-device-fixture.json',
+    'recording-rework' => 'recording-rework-device-fixture.json',
     default => throw new InvalidArgumentException('Unknown synthetic device fixture name.'),
 };
 $path = dirname(__DIR__).'/tmp/'.$fixtureName;
@@ -32,6 +33,68 @@ if ($mode === 'create') {
     $baseUrl = getenv('FINANCE_DEVICE_TEST_BASE_URL') ?: 'http://10.0.2.2:8001/api/v2/';
     if (! in_array($baseUrl, ['http://10.0.2.2:8001/api/v2/', 'http://127.0.0.1:8001/api/v2/'], true)) {
         throw new RuntimeException('Device fixture URL must use the isolated localhost test API.');
+    }
+    if ($fixtureName === 'recording-rework-device-fixture.json') {
+        // Recording rework (18 Nov 2026): GH A with two varieties sown together, GH B active, GH C inactive.
+        // The worker has no assignment at all; greenhouses are created through MasterService, so the starting
+        // spray list (SprayMaterialCatalog) is added exactly as for a greenhouse made in the app.
+        $fixture = DB::transaction(function () use ($baseUrl) {
+            DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();
+            $id = (string) Str::uuid();
+            $password = 'device-fixture-only-password';
+            $managerId = (string) Str::uuid();$workerId = (string) Str::uuid();
+            app(EntityIdentity::class)->claim('users', $managerId);app(EntityIdentity::class)->claim('users', $workerId);
+            $manager = User::create(['public_id' => $managerId, 'name' => 'Pengelola rombak sintetis', 'email' => 'device-manager-'.$id.'@example.invalid', 'role' => 'manager', 'password' => $password]);
+            $worker = User::create(['public_id' => $workerId, 'name' => 'Pekerja rombak sintetis', 'email' => 'device-worker-'.$id.'@example.invalid', 'role' => 'worker', 'password' => $password]);
+            $epoch = DB::table('sync_state')->where('id', 1)->value('epoch');
+            $mutate = function (string $type, string $action, ?string $entity, ?int $base, array $payload) use ($manager, $epoch) {
+                return app(MasterService::class)->mutate($manager, $type, ['schema_version' => '2', 'sync_epoch' => $epoch, 'operation_id' => (string) Str::uuid(),
+                    'entity_id' => $entity ?? (string) Str::uuid(), 'entity_type' => $type, 'action' => $action, 'base_version' => $base, 'payload' => $payload])['body']['data'];
+            };
+            $create = fn (string $type, array $payload) => $mutate($type, 'create', null, null, $payload);
+            $contexts = [];
+            $extra = [];
+            foreach (['A' => ['Melon Alfa sintetis', 'Melon Beta sintetis'], 'B' => ['Melon Gamma sintetis'], 'C' => ['Melon Delta sintetis']] as $name => $varieties) {
+                $gh = $create('greenhouses', ['name' => 'GH '.$name.' rombak sintetis']);
+                $season = $create('seasons', ['greenhouse_id' => $gh['id'], 'name' => 'Musim '.$name.' rombak', 'start_date' => '2026-10-01', 'end_date' => null]);
+                $groups = [];
+                foreach ($varieties as $varietyName) {
+                    $variety = $create('varieties', ['greenhouse_id' => $gh['id'], 'name' => $varietyName]);
+                    $groups[] = ['group' => $create('planting_groups', ['season_id' => $season['id'], 'variety_id' => $variety['id'], 'name' => $varietyName,
+                        'population' => 10, 'sowing_date' => '2026-10-01', 'transplant_date' => null]), 'variety' => $variety];
+                }
+                $grades = [];
+                foreach (['A', 'B'] as $gradeName) {
+                    $grades[] = $create('grades', ['greenhouse_id' => $gh['id'], 'name' => 'Grade '.$gradeName.' rombak'])['id'];
+                }
+                $unit = $create('units', ['greenhouse_id' => $gh['id'], 'name' => 'gram', 'dimension' => 'mass']);
+                $mix = $create('materials', ['greenhouse_id' => $gh['id'], 'name' => 'AB mix rombak', 'dimension' => 'mass']);
+                $category = $create('expense_categories', ['greenhouse_id' => $gh['id'], 'name' => 'Kategori biaya rombak']);
+                $contexts[] = ['greenhouse_id' => $gh['id'], 'season_id' => $season['id'], 'group_id' => $groups[0]['group']['id'],
+                    'variety_id' => $groups[0]['variety']['id'], 'grade_ids' => $grades, 'category_id' => $category['id'],
+                    'unit_id' => $unit['id'], 'nutrition_material_id' => $mix['id']];
+                foreach (array_slice($groups, 1) as $more) {
+                    $extra[] = ['greenhouse_id' => $gh['id'], 'group_id' => $more['group']['id'], 'variety_id' => $more['variety']['id']];
+                }
+                if ($name === 'C') {
+                    $row = DB::table('greenhouses')->where('id', $gh['id'])->first();
+                    $mutate('greenhouses', 'update', $gh['id'], $row->version, ['name' => $row->name, 'active' => false]);
+                }
+            }
+            $sprayA = DB::table('materials')->where('greenhouse_id', $contexts[0]['greenhouse_id'])->where('purpose', 'spray')->where('name', 'Antracol')->value('id')
+                ?? throw new RuntimeException('Starting spray list was not added to GH A.');
+
+            return ['database' => 'inofarm_test', 'fixture_id' => $id, 'base_url' => $baseUrl,
+                'manager_id' => $manager->public_id, 'manager_email' => $manager->email, 'worker_id' => $worker->public_id, 'worker_email' => $worker->email,
+                'password' => $password, 'contexts' => $contexts, 'extra_groups' => $extra, 'inactive_greenhouse_id' => $contexts[2]['greenhouse_id'],
+                'spray_material_id' => $sprayA, 'typed_spray_name' => 'Bahan uji '.substr($id, 0, 8)];
+        });
+        if (DB::table('greenhouses')->where('id', $fixture['inactive_greenhouse_id'])->value('active')) {
+            throw new RuntimeException('GH C must be inactive.');
+        }
+        file_put_contents($path, json_encode($fixture, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+        echo 'Synthetic recording-rework fixture (GH A two varieties, GH B active, GH C inactive, worker unassigned) created only in guarded inofarm_test.'.PHP_EOL;
+        exit(0);
     }
     $fixture = DB::transaction(function () use ($baseUrl, $fixtureName) {
         DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();
@@ -88,9 +151,18 @@ foreach ($actors as $actor) {
         throw new RuntimeException('Refusing unrelated user rows.');
     }
 }
-$groups = array_column($fixture['contexts'], 'group_id');
+$groups = [...array_column($fixture['contexts'], 'group_id'), ...array_column($fixture['extra_groups'] ?? [], 'group_id')];
 $greenhouses = array_column($fixture['contexts'], 'greenhouse_id');
+$seasons = array_column($fixture['contexts'], 'season_id');
 $manager = $actors->firstWhere('public_id', $fixture['manager_id']);
+foreach ($fixture['extra_groups'] ?? [] as $more) {
+    if (! in_array($more['greenhouse_id'], $greenhouses, true) || ! DB::table('planting_groups')->where('id', $more['group_id'])->whereIn('season_id', $seasons)->where('variety_id', $more['variety_id'])->exists()) {
+        throw new RuntimeException('Extra fixture planting does not match; cleanup refused.');
+    }
+}
+// A typed spray name becomes a material in every active greenhouse, including ones outside the fixture.
+$typedSpray = isset($fixture['typed_spray_name']) && str_contains($fixture['typed_spray_name'], substr($fixture['fixture_id'], 0, 8))
+    ? DB::table('materials')->where('purpose', 'spray')->where('name', $fixture['typed_spray_name'])->pluck('id')->all() : [];
 foreach ($fixture['contexts'] as $context) {
     if (! DB::table('greenhouses')->where('id', $context['greenhouse_id'])->where('created_by', $manager->id)->exists()
         || ! DB::table('seasons')->where('id', $context['season_id'])->where('greenhouse_id', $context['greenhouse_id'])->exists()
@@ -262,6 +334,79 @@ if ($mode === 'race-worker-review' && $fixtureName === 'worker-alignment-device-
     }
     exit(0);
 }
+if ($mode === 'verify-recording-rework' && $fixtureName === 'recording-rework-device-fixture.json') {
+    $worker = $actors->firstWhere('public_id', $fixture['worker_id']);
+    $a = $fixture['contexts'][0];
+    $fail = function (string $why, mixed $seen = null) {
+        throw new RuntimeException('Recording rework SQL reconciliation failed: '.$why.($seen === null ? '' : ' '.json_encode($seen)));
+    };
+    $note = 'Isian rombak '.$fixture['fixture_id'];
+    $rows = DB::table('activities')->where('season_id', $a['season_id'])->where('recorded_by', $worker->id)->where('notes', $note)->orderBy('activity_type')->get();
+    $report = ['activities' => $rows->map(fn ($r) => ['type' => $r->activity_type, 'planting_group_id' => $r->planting_group_id,
+        'entry_batch_id' => $r->entry_batch_id, 'age' => $r->age_basis.' '.$r->age_day])->all()];
+    if ($rows->pluck('activity_type')->all() !== ['measurement', 'nutrition', 'spray', 'spray', 'stage']) {
+        $fail('one entry must be one row per section (measurement, nutrition, two sprays, stage)', $rows->pluck('activity_type'));
+    }
+    if ($rows->pluck('entry_batch_id')->unique()->count() !== 1 || ! Str::isUuid((string) $rows[0]->entry_batch_id)) {
+        $fail('rows of one entry must share one entry_batch_id');
+    }
+    foreach ($rows as $row) {
+        if ($row->age_basis !== 'hst' || (int) $row->age_day !== 30 || $row->recorded_by_role !== 'worker' || $row->record_state !== 'active') {
+            $fail('age/role/state', $row);
+        }
+        $greenhouseLevel = $row->activity_type !== 'spray';
+        if ($greenhouseLevel !== ($row->planting_group_id === null)) {
+            $fail('only spray rows name a planting group', $row);
+        }
+    }
+    $sprayGroups = $rows->where('activity_type', 'spray')->pluck('planting_group_id')->sort()->values()->all();
+    $expectedGroups = [$a['group_id'], $fixture['extra_groups'][0]['group_id']];
+    sort($expectedGroups);
+    if ($sprayGroups !== $expectedGroups) {
+        $fail('one spray row per variety', $sprayGroups);
+    }
+    $measurement = $rows->firstWhere('activity_type', 'measurement');
+    if ($measurement->manual_ec !== '1.800000' || $measurement->manual_ppm !== '900.000000') {
+        $fail('measurement pair', [$measurement->manual_ec, $measurement->manual_ppm]);
+    }
+    $nutrition = DB::table('activity_materials')->where('activity_id', $rows->firstWhere('activity_type', 'nutrition')->id)->get();
+    if ($nutrition->count() !== 1 || $nutrition[0]->material_id !== $a['nutrition_material_id'] || $nutrition[0]->quantity !== '250.000000') {
+        $fail('nutrition material', $nutrition);
+    }
+    $typed = DB::table('materials')->where('purpose', 'spray')->where('name', $fixture['typed_spray_name'])->get();
+    $activeGreenhouses = DB::table('greenhouses')->where('active', true)->pluck('id')->sort()->values()->all();
+    if ($typed->pluck('greenhouse_id')->sort()->values()->all() !== $activeGreenhouses || $typed->contains('greenhouse_id', $fixture['inactive_greenhouse_id'])) {
+        $fail('a typed spray name must become a material in every active greenhouse', $typed->pluck('greenhouse_id'));
+    }
+    $typedInA = $typed->firstWhere('greenhouse_id', $a['greenhouse_id'])->id;
+    foreach ($rows->where('activity_type', 'spray') as $spray) {
+        $materials = DB::table('activity_materials')->where('activity_id', $spray->id)->pluck('material_id')->sort()->values()->all();
+        $expected = [$fixture['spray_material_id'], $typedInA];
+        sort($expected);
+        if ($materials !== $expected || $spray->spray_period !== 'morning' || $spray->spray_date === null) {
+            $fail('spray materials (one from the list, one typed) and period', [$materials, $spray->spray_period]);
+        }
+    }
+    $harvests = DB::table('harvests')->whereIn('planting_group_id', $expectedGroups)->where('recorded_by', $worker->id)
+        ->where('notes', 'Panen rombak '.$fixture['fixture_id'])->get();
+    $harvestItems = DB::table('harvest_items')->whereIn('harvest_id', $harvests->pluck('id'))->get();
+    if ($harvests->count() !== 2 || $harvests->pluck('planting_group_id')->sort()->values()->all() !== $expectedGroups
+        || $harvests->pluck('occurred_at')->unique()->count() !== 1 || $harvestItems->count() !== 2 || $harvestItems->contains(fn ($i) => $i->fruit_count !== null)) {
+        $fail('two harvests, one per variety, same time, fruit_count null', $harvestItems->pluck('fruit_count'));
+    }
+    $reviews = DB::table('activity_reviews')->whereIn('activity_id', $rows->pluck('id'))->where('reviewer_id', $manager->id)->get();
+    if ($reviews->count() !== 5 || $reviews->pluck('decision')->unique()->all() !== ['valid']) {
+        $fail('one manager decision per section of the entry', $reviews->pluck('decision'));
+    }
+    if (DB::table('greenhouse_assignments')->where('user_id', $worker->id)->exists()) {
+        $fail('the worker must have no assignment');
+    }
+    $report += ['typed_material_greenhouses' => $typed->count(), 'active_greenhouses' => count($activeGreenhouses),
+        'harvest_fruit_count' => $harvestItems->pluck('fruit_count')->all(), 'reviews' => $reviews->count()];
+    echo json_encode($report, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR).PHP_EOL;
+    echo 'PASS: guarded inofarm_test holds one row per section with one entry_batch_id, greenhouse rows without planting_group_id, one spray per variety, the typed spray in every active greenhouse, two harvests with fruit_count null and five manager decisions; worker unassigned.'.PHP_EOL;
+    exit(0);
+}
 if (in_array($mode, ['verify', 'verify-measurements'], true)) {
     $activities = DB::table('activities')->whereIn('planting_group_id', $groups)->limit(10)->get();
     if ($mode === 'verify-measurements' && ($activities->count() !== 1 || $activities[0]->activity_type !== 'measurement' || $activities[0]->manual_ec !== '1.250000' || $activities[0]->manual_ppm !== '625.500000')) {
@@ -363,10 +508,11 @@ if ($mode !== 'cleanup') {
     throw new RuntimeException('Use create, verify or cleanup.');
 }
 $privateFiles = DB::table('record_attachments')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->get();
-DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
+DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses, $seasons, $typedSpray) {
     $ownedSales = DB::table('sales')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->pluck('id')->all();
     $registryIds = [...DB::table('change_feed')->whereIn('greenhouse_id', $greenhouses)->pluck('entity_id')->all(),
-        ...DB::table('greenhouse_assignments')->whereIn('greenhouse_id', $greenhouses)->pluck('id')->all(), ...$actors->pluck('public_id')->all(), ...DB::table('sale_items')->whereIn('sale_id', $ownedSales)->pluck('id')->all()];
+        ...DB::table('greenhouse_assignments')->whereIn('greenhouse_id', $greenhouses)->pluck('id')->all(), ...$actors->pluck('public_id')->all(), ...DB::table('sale_items')->whereIn('sale_id', $ownedSales)->pluck('id')->all(),
+        ...$typedSpray];
     DB::table('record_attachments')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
     DB::table('sale_items')->whereIn('sale_id', $ownedSales)->delete();DB::table('sales')->whereIn('id', $ownedSales)->delete();
     DB::table('entity_identities')->whereIn('entity_id', array_unique($registryIds))->delete();
@@ -379,17 +525,22 @@ DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses) {
         DB::table($table)->whereIn('harvest_id', $harvests)->delete();
     }
     DB::table('harvests')->whereIn('planting_group_id', $groups)->delete();
-    $activities = DB::table('activities')->whereIn('planting_group_id', $groups)->select('id');
-    foreach (['activity_materials', 'activity_reference_snapshots'] as $table) {
-        DB::table($table)->whereIn('activity_id', $activities)->delete();
+    // Greenhouse-level records (migration 22) have no planting group, so activities are found by season too.
+    $activityIds = DB::table('activities')->where(fn ($q) => $q->whereIn('planting_group_id', $groups)->orWhereIn('season_id', $seasons))->pluck('id')->all();
+    foreach (['activity_reviews', 'activity_materials', 'activity_reference_snapshots'] as $table) {
+        DB::table($table)->whereIn('activity_id', $activityIds)->delete();
     }
-    DB::table('activities')->whereIn('planting_group_id', $groups)->delete();
+    DB::table('activities')->whereIn('id', $activityIds)->delete();
     DB::table('audit_logs')->whereIn('actor_id', $actors->pluck('id'))->delete();
     DB::table('sync_operations')->whereIn('actor_id', $actors->pluck('id'))->delete();
     DB::table('change_feed')->whereIn('greenhouse_id', $greenhouses)->delete();
+    DB::table('change_feed')->where('entity_type', 'materials')->whereIn('entity_id', $typedSpray)->delete();
+    DB::table('materials')->whereIn('id', $typedSpray)->delete();
+    DB::table('materials')->whereIn('greenhouse_id', $greenhouses)->delete();
+    DB::table('units')->whereIn('greenhouse_id', $greenhouses)->delete();
     DB::table('planting_groups')->whereIn('id', $groups)->delete();
     DB::table('seasons')->whereIn('id', array_column($fixture['contexts'], 'season_id'))->delete();
-    DB::table('varieties')->whereIn('id', array_column($fixture['contexts'], 'variety_id'))->delete();
+    DB::table('varieties')->whereIn('id', [...array_column($fixture['contexts'], 'variety_id'), ...array_column($fixture['extra_groups'] ?? [], 'variety_id')])->delete();
     DB::table('grades')->whereIn('greenhouse_id', $greenhouses)->delete();
     DB::table('expense_categories')->whereIn('greenhouse_id', $greenhouses)->delete();
     DB::table('greenhouse_assignments')->whereIn('greenhouse_id', $greenhouses)->delete();
