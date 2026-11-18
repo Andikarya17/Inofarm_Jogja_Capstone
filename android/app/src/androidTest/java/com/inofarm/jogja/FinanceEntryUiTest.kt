@@ -2267,14 +2267,16 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",gh);rule.clickFinanceTool("investment-open")
         rule.waitUntil(10000) {rule.onAllNodesWithTag("investment-list").fetchSemanticsNodes().isNotEmpty()}
         fun scroll(tag:String) {rule.onNodeWithTag("investment-list").performScrollToNode(hasTestTag(tag))}
-        scroll("investment-new");rule.onNodeWithTag("investment-new").performClick();scroll("investment-name")
-        rule.onNodeWithTag("investment-name").performScrollTo().performTextReplacement("  Skenario root α  ")
+        // The list can re-lay out after a scroll (IME inset or top bar change arriving outside Compose idling), so a field
+        // scrolled into view may briefly leave the tree before it is typed into. Scroll and type again until it lands.
+        fun fill(tag:String,value:String) {rule.waitUntil(10000) {runCatching {scroll(tag);rule.onNodeWithTag(tag).performTextReplacement(value)}.isSuccess};hideKeyboard()}
+        scroll("investment-new");rule.onNodeWithTag("investment-new").performClick()
+        fill("investment-name","  Skenario root α  ")
         rule.onNodeWithTag("investment-name").assertTextContains("  Skenario root α  ")
-        hideKeyboard()
-        scroll("investment-horizon");rule.onNodeWithTag("investment-horizon").performTextReplacement("2");hideKeyboard()
+        fill("investment-horizon","2")
         val model=runtime();val session=model.vault.current!!;val vm=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.investments.InvestmentViewModel::class.java];val id=vm.state.value.scenarioDraft!!.id
         rule.activityRule.scenario.recreate();readyNode("investment-name").performScrollTo().assertTextContains("  Skenario root α  ")
-        scroll("investment-initial");rule.onNodeWithTag("investment-initial").performTextReplacement("1,");hideKeyboard();rule.logoutFromAccount()
+        fill("investment-initial","1,");rule.logoutFromAccount()
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()}
         val saved=model.store.record(session.scope.key,id)!!;assertEquals("1,",saved.body.getJSONObject("_local_form").getString("initial"));assertEquals("2",saved.body.getJSONObject("_local_form").getString("horizon"));assertNull(saved.serverVersion)
         assertTrue(model.store.outbox(session.scope.key).none {it.entityId==id})
