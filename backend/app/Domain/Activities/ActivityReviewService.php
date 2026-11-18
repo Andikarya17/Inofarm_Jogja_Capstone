@@ -151,8 +151,9 @@ final class ActivityReviewService
 
         return ['activity' => $snapshot, 'status' => $status, 'decision' => $review ? $this->decision($review) : null,
             'context' => ['greenhouse_id' => $ctx['greenhouse']->id, 'greenhouse' => $ctx['greenhouse']->name,
-                'season' => $ctx['season']->name, 'group' => $ctx['group']->name,
-                'variety' => DB::table('varieties')->where('id', $ctx['group']->variety_id)->value('name')]];
+                // Greenhouse-level records (migration 22) belong to the season, not to a planting group.
+                'season' => $ctx['season']->name, 'group' => $ctx['group']?->name,
+                'variety' => $ctx['group'] ? DB::table('varieties')->where('id', $ctx['group']->variety_id)->value('name') : null]];
     }
 
     private function decision(object $row): array

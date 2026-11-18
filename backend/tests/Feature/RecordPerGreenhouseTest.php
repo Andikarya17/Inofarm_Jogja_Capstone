@@ -95,6 +95,42 @@ class RecordPerGreenhouseTest extends FinanceTestCase
             ->assertJsonPath('greenhouses.0.period.phase.value', 'Pembesaran buah, teks bebas');
     }
 
+    /** Found on the emulator against the real API, 18 Nov 2026: the review inbox answered 500 for a greenhouse-level row. */
+    public function test_manager_reviews_greenhouse_level_rows_and_running_period_drafts_accept_them(): void
+    {
+        $manager = $this->account();
+        $ctx = $this->twoVarieties($manager);
+        $worker = $this->account('worker');
+        $batch = (string) Str::uuid();
+        $this->asUser($worker);
+        $measurement = $this->postJson('/api/v2/activities', $this->operation('activity', $this->entry($ctx, $batch)))->assertCreated()->json('data');
+        $this->postJson('/api/v2/activities', $this->operation('activity', $this->spray($ctx, $batch, $ctx['group']['id'],
+            [['material_name' => 'Bion M', 'unit_id' => null, 'quantity' => null]])))->assertCreated();
+
+        $this->asUser($manager);
+        $inbox = collect($this->getJson('/api/v2/activity-reviews')->assertOk()->assertJsonCount(2, 'data')->json('data'));
+        $greenhouseRow = $inbox->firstWhere('activity.id', $measurement['id']);
+        $this->assertNull($greenhouseRow['context']['group']);
+        $this->assertNull($greenhouseRow['context']['variety']);
+        $this->assertSame($ctx['season']['name'], $greenhouseRow['context']['season']);
+        $this->assertNotNull($inbox->firstWhere('activity.activity_type', 'spray')['context']['group']);
+        $this->getJson('/api/v2/activities/'.$measurement['id'].'/verification')->assertOk()
+            ->assertJsonPath('context.group', null)->assertJsonPath('status', 'pending');
+        $this->postJson('/api/v2/activity-reviews', $this->operation('activity_review',
+            ['activity_id' => $measurement['id'], 'activity_version' => 1, 'decision' => 'valid']))->assertCreated();
+        $this->getJson('/api/v2/activity-reviews')->assertOk()->assertJsonCount(1, 'data');
+
+        // A manager's entry opened from Beranda carries the running period version; greenhouse rows have no group to compare.
+        $version = (int) DB::table('greenhouses')->where('id', $ctx['gh']['id'])->value('version');
+        $this->postJson('/api/v2/greenhouses/'.$ctx['gh']['id'].'/running-period', $this->operation('greenhouses',
+            ['planting_group_id' => $ctx['group']['id']], 'designate_period', $ctx['gh']['id'], $version))->assertOk();
+        $current = (int) DB::table('greenhouses')->where('id', $ctx['gh']['id'])->value('version');
+        $this->postJson('/api/v2/activities', $this->operation('activity', $this->entry($ctx, (string) Str::uuid(),
+            ['running_period_version' => $current])))->assertCreated();
+        $this->postJson('/api/v2/activities', $this->operation('activity', $this->entry($ctx, (string) Str::uuid(),
+            ['running_period_version' => $current - 1])))->assertUnprocessable()->assertJsonPath('code', 'running_period_changed');
+    }
+
     public function test_a_typed_spray_name_reaches_every_greenhouse_and_other_users_through_sync(): void
     {
         $manager = $this->account();
