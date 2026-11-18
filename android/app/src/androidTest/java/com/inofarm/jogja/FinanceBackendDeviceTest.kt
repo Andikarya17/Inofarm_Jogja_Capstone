@@ -289,16 +289,23 @@ class FinanceBackendDeviceTest {
         }
 
         login(fixture, "worker")
-        choose("finance-gh", first.getString("greenhouse_id"))
-        choose("finance-season", first.getString("season_id"))
-        choose("finance-group", first.getString("group_id"))
-        rule.openRecord("measurement")
-        rule.onNodeWithTag("finance-ec").performScrollTo().performTextReplacement("1,25")
-        rule.onNodeWithTag("finance-ppm").performScrollTo().performTextReplacement("625,5")
-        rule.onNodeWithTag("finance-notes").performScrollTo().performTextReplacement(note)
-        hideKeyboard()
-        rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
-        rule.onNodeWithTag("finance-queue").scrollIfScrollable().performClick()
+        // Recording rework (18 Nov 2026): Catat asks only for the greenhouse and opens the combined "Catat kegiatan" form;
+        // a reading alone becomes one greenhouse-level measurement record.
+        waitFor("finance-record-fab")
+        rule.onNodeWithTag("finance-record-fab").performClick()
+        waitFor("record-greenhouse-option-${first.getString("greenhouse_id")}")
+        rule.onNodeWithTag("record-greenhouse-option-${first.getString("greenhouse_id")}").performScrollTo().performClick()
+        waitFor("record-activity")
+        rule.onNodeWithTag("record-activity").performClick()
+        waitFor("entry-age-basis-option-hst")
+        rule.onNodeWithTag("entry-age-basis-option-hst").performScrollTo().performClick()
+        for ((tag, value) in listOf("entry-age-day" to "30", "entry-ec" to "1,25", "entry-ppm" to "625,5", "entry-notes" to note)) {
+            rule.waitUntil(15_000) { runCatching { rule.onNodeWithTag(tag).performScrollTo().performTextReplacement(value) }.isSuccess }
+            hideKeyboard()
+        }
+        rule.onNodeWithTag("finance-review").performClick()
+        waitFor("finance-queue")
+        rule.onNodeWithTag("finance-queue").performClick()
         val worker = model.vault.current!!
         fun workerOperation() = model.store.outbox(worker.scope.key).firstOrNull {
             it.envelope.optJSONObject("payload")?.optString("notes") == note
@@ -373,6 +380,8 @@ class FinanceBackendDeviceTest {
         rule.captureBotanicalWindow("pg1-worker-feedback")
         val payload = JSONObject(original.envelope.getJSONObject("payload").toString()).put("manual_ppm", "630")
             .put("reason", "Koreksi uji").put("reference_policy", "preserve")
+            // Like the app (ActivityDraft), an update never carries running_period_version; it is only checked on create.
+            .apply { remove("running_period_version") }
         val correction = JSONObject(original.envelope.toString()).put("operation_id", UUID.randomUUID().toString())
             .put("action", "update").put("base_version", 1).put("payload", payload)
         val updated = runBlocking { model.api.request(currentWorker.scope.server, currentWorker.token, "sync/operations", "POST", correction) }
