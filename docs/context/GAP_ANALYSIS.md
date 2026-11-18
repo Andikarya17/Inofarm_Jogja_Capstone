@@ -1,5 +1,17 @@
 # Gap analysis aktif, 11 November 2026
 
+## Gap setelah rombak pencatatan per greenhouse, 18 November 2026
+
+Branch F0–F6 sudah di-push dengan PR untuk ditinjau, belum di-merge. [Bukti dan batas](RECORDING_REWORK_EVIDENCE_20261118.md).
+
+1. **Urutan merge:** Android F3–F5 mengirim payload baru yang ditolak backend main. F1 (`backend-record-per-greenhouse`) harus masuk lebih dulu atau bersamaan.
+2. **Migration 22 dan daftar bahan semprot** belum dijalankan di `inofarm_finance_local`. Perlu backup, izin, `migrate`, lalu `inofarm:spray-materials`.
+3. **Belum ada uji terhadap backend nyata:** form gabungan dan panen dua varietas baru diuji dengan fixture sintetis; `FinanceBackendDeviceTest` belum dijalankan terhadap F1.
+4. **Panen dua varietas:** koreksi per catatan; Cek catatan panen belum dikelompokkan per isian.
+5. **Ponsel fisik, TalkBack, font 200%, 360 dp** belum dicek untuk form baru.
+6. **Tes UI:** `FinanceEntryUiTest` masih punya kegagalan baseline lama (lihat bukti); tiga tes lama di-`@Ignore` karena perilakunya dihapus.
+7. Butir 1 di bawah (`fruit_count: null`) ditangani di branch F5, belum di main.
+
 ## Gap dari audit alur input pengelola, 17 November 2026
 
 Semua branch fase 15 November dan Canopy pekerja sudah di-merge ke main (PR #57–#70); daftar "belum ada PR" di bagian 15 November di bawah adalah histori. [Audit dan bukti](MANAGER_INPUT_FLOW_AUDIT_20261117.md).
