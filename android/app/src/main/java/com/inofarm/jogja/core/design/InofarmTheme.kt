@@ -1,7 +1,6 @@
 package com.inofarm.jogja.core.design
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -139,12 +138,16 @@ internal val ForestScheme = darkColorScheme(
     errorContainer = Color(0xFF712820), onErrorContainer = Color(0xFFFFDAD4)
 )
 
-@Composable internal fun InofarmTheme(content: @Composable () -> Unit) {
+/** The app theme follows [control], the in-app setting, never the system theme. Tests get light with no setter. */
+@Composable internal fun InofarmTheme(
+    control: FarmThemeControl = FarmThemeControl(ThemeMode.LIGHT) {},
+    content: @Composable () -> Unit
+) {
     fun style(size: Int, line: Int, weight: FontWeight = FontWeight.Normal, tracking: Double = 0.0) =
         TextStyle(fontFamily = FarmFamily, fontSize = size.sp, lineHeight = line.sp,
             fontWeight = weight, letterSpacing = tracking.sp)
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) ForestScheme else lightColorScheme(
+        colorScheme = if (control.dark) ForestScheme else lightColorScheme(
             primary = FarmColors.Brand, onPrimary = Color.White,
             inverseSurface = FarmColors.Ink, inverseOnSurface = FarmColors.Background, inversePrimary = FarmColors.Sage,
             primaryContainer = FarmColors.Sage, onPrimaryContainer = FarmColors.Ink,
@@ -176,8 +179,10 @@ internal val ForestScheme = darkColorScheme(
         ),
         shapes = Shapes(small = FarmShape.Control, medium = FarmShape.Card, large = FarmShape.Hero),
         content = {
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                Box(Modifier.fillMaxSize()) { content() }
+            CompositionLocalProvider(LocalFarmTheme provides control) {
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    Box(Modifier.fillMaxSize()) { content() }
+                }
             }
         }
     )

@@ -8,7 +8,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -392,7 +391,7 @@ internal val rupiahGroupSeparator = Regex("(?<=\\d)\\.(?=\\d{3}(?:[.,]|$))")
 }
 
 @Composable internal fun FarmAttention(message: String) {
-    val dark = isSystemInDarkTheme()
+    val dark = LocalFarmTheme.current.dark
     Surface(
         Modifier.fillMaxWidth(),
         shape = FarmShape.Control,

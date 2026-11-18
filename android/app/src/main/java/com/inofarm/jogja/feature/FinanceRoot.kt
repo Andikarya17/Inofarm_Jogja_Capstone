@@ -38,6 +38,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -1219,6 +1221,8 @@ internal class ManagerBar(val title: String, val subtitle: String?, val onBack: 
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 HorizontalDivider(Modifier.padding(horizontal = FarmSpace.Page))
+                ThemeMenuItems()
+                HorizontalDivider(Modifier.padding(horizontal = FarmSpace.Page))
                 DropdownMenuItem(
                     text = { Text("Keluar") },
                     leadingIcon = { FarmControlIcon(FarmIcon.Logout, null) },
@@ -1724,4 +1728,23 @@ internal fun FarmPullRefresh(syncing: Boolean, onSync: () -> Unit, content: @Com
     LaunchedEffect(pulled) { if (pulled) { kotlinx.coroutines.delay(FarmMotion.BusyReveal); if (!syncing) pulled = false } }
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = pulled && syncing,
         onRefresh = { pulled = true; onSync() }, modifier = Modifier.fillMaxSize()) { content() }
+}
+
+/** Light or dark, chosen in the app for both roles. The menu stays open so the switch is visible at once. */
+@Composable private fun ThemeMenuItems() {
+    val theme = LocalFarmTheme.current
+    Text("Tampilan", Modifier.padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Small).semantics { heading() },
+        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    listOf(ThemeMode.LIGHT to "Terang", ThemeMode.DARK to "Gelap").forEach { (mode, label) ->
+        val chosen = theme.mode == mode
+        DropdownMenuItem(
+            text = { Text(label) },
+            trailingIcon = { if (chosen) FarmControlIcon(FarmIcon.Check, null) },
+            onClick = { theme.select(mode) },
+            modifier = Modifier.testTag(if (mode == ThemeMode.DARK) "theme-dark" else "theme-light").semantics {
+                role = androidx.compose.ui.semantics.Role.RadioButton
+                selected = chosen
+            }
+        )
+    }
 }

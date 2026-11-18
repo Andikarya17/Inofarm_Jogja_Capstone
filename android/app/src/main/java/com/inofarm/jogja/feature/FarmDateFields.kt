@@ -29,7 +29,7 @@ internal fun FinanceDateField(
     error: String? = null, hint: String? = null, enabled: Boolean = true
 ) {
     val context = LocalContext.current
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    val dark = com.inofarm.jogja.core.design.LocalFarmTheme.current.dark
     val day = runCatching { LocalDate.parse(value.trim()) }.getOrNull()
     val shownHint = day?.let { readable -> if (hint != null && "YYYY" !in hint) "${dateLabel(readable)} · $hint" else dateLabel(readable) } ?: hint
     FinanceField(label, value, onChange, tag, error = error, hint = shownHint,
@@ -52,7 +52,7 @@ internal fun FinanceTimeField(
     error: String? = null, hint: String? = null, enabled: Boolean = true
 ) {
     val context = LocalContext.current
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    val dark = com.inofarm.jogja.core.design.LocalFarmTheme.current.dark
     val time = runCatching { LocalTime.parse(value.trim()) }.getOrNull()
     FinanceField(label, value, onChange, tag, error = error, hint = hint, keyboard = KeyboardType.Text, enabled = enabled) {
         IconButton(onClick = {
