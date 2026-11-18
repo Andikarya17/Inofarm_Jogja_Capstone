@@ -13,7 +13,7 @@ Keputusan pengguna (K1–K7 handoff rombak pencatatan, dengan jawaban 17 Novembe
 - **Tema** terang sebagai bawaan, diatur di menu avatar, tidak mengikuti sistem.
 - Keuangan tidak diubah (K7).
 
-Status: di branch F0–F6, belum di-merge; migration 22 belum dijalankan di database aplikasi. [Bukti dan batas](../../context/RECORDING_REWORK_EVIDENCE_20261118.md).
+Status: di-merge ke main lewat PR #72–#78; migration 22 dan daftar bahan semprot diterapkan ke `inofarm_finance_local` pada 18 November 2026. [Bukti dan batas](../../context/RECORDING_REWORK_EVIDENCE_20261118.md).
 
 ## Input pengelola tanpa draf, 17 November 2026
 
