@@ -1,0 +1,2 @@
+﻿{"type":"measurement","group":null,"version":2,"ppm":"630.000000","age":"hst 30","reviews":["invalid v1","valid v2"],"audit":2,"receipts":2}
+{"type":"measurement","group":null,"version":1,"ppm":"625.500000","age":"hst 30","reviews":["invalid v1"],"audit":1,"receipts":1}

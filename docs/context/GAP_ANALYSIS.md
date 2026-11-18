@@ -1,5 +1,14 @@
 # Gap analysis aktif, 11 November 2026
 
+## Gap setelah uji backend nyata lanjutan, 18 November 2026
+
+Branch `recording-rework-backend-coverage` dan `device-test-entry-form`, PR untuk ditinjau. [Bukti](RECORDING_REWORK_BACKEND_COVERAGE_EVIDENCE_20261118.md). Butir 2–4 bagian di bawahnya kini tertutup: koreksi per bagian, isian pengelola dengan periode berjalan, antrean offline dan Cek catatan panen lulus terhadap backend nyata; tes verifikasi lama pindah ke form gabungan; `FinanceEntryUiTest` penuh 15 gagal, semuanya baseline, tes investasi lulus di rangkaian.
+
+1. Usulan menunggu persetujuan: jarak label "Memperbarui", pengelompokan Cek catatan panen per isian, 401 alih-alih 500 tanpa token/`Accept`, dan EC mentah `1.800000` di form koreksi.
+2. Merge #79 dengan main siap di `docs-migration-22-applied-merge-main`, belum di-push.
+3. `managerVerifiesWorkerRevisionsThroughGuardedBackend` lulus 2 dari 3 sesudah perbaikan; satu gagal `multithreaded access to SnapshotStateObserver` tanpa frame kode tes/aplikasi.
+4. Belum: koreksi bagian semprot/nutrisi, koreksi panen setelah "Perlu diperbaiki", Beranda terhadap `inofarm_finance_local`, uji restore backup, ponsel fisik, TalkBack, font 200%, 360 dp.
+
 ## Gap setelah uji backend nyata rombak pencatatan, 18 November 2026
 
 Branch `investment-test-horizon-fix`, `review-greenhouse-level-rows` dan `recording-rework-real-backend`, dengan PR untuk ditinjau. [Bukti](INVESTMENT_TEST_AND_REAL_BACKEND_EVIDENCE_20261118.md).
