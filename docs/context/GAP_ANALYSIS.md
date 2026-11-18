@@ -21,15 +21,15 @@ Branch `investment-test-horizon-fix`, `review-greenhouse-level-rows` dan `record
 
 ## Gap setelah rombak pencatatan per greenhouse, 18 November 2026
 
-Branch F0–F6 sudah di-push dengan PR untuk ditinjau, belum di-merge. [Bukti dan batas](RECORDING_REWORK_EVIDENCE_20261118.md).
+Semua fase di-merge ke main lewat PR #72–#78 (18 November 2026). [Bukti dan batas](RECORDING_REWORK_EVIDENCE_20261118.md).
 
-1. **Urutan merge:** Android F3–F5 mengirim payload baru yang ditolak backend main. F1 (`backend-record-per-greenhouse`) harus masuk lebih dulu atau bersamaan.
-2. **Migration 22 dan daftar bahan semprot** belum dijalankan di `inofarm_finance_local`. Perlu backup, izin, `migrate`, lalu `inofarm:spray-materials`.
+1. ~~Urutan merge~~: F1 di-merge lebih dulu (PR #72), lalu F0–F6.
+2. ~~Migration 22 dan daftar bahan semprot~~: diterapkan ke `inofarm_finance_local` 18 November 2026 dengan backup ([bukti](RECORDING_REWORK_EVIDENCE_20261118.md#penerapan-ke-database-aplikasi-18-november-2026)). Restore backup belum diuji.
 3. **Belum ada uji terhadap backend nyata:** form gabungan dan panen dua varietas baru diuji dengan fixture sintetis; `FinanceBackendDeviceTest` belum dijalankan terhadap F1.
 4. **Panen dua varietas:** koreksi per catatan; Cek catatan panen belum dikelompokkan per isian.
 5. **Ponsel fisik, TalkBack, font 200%, 360 dp** belum dicek untuk form baru.
 6. **Tes UI:** `FinanceEntryUiTest` masih punya kegagalan baseline lama (lihat bukti); tiga tes lama di-`@Ignore` karena perilakunya dihapus. `investmentWorkspaceRecreationAndLogoutKeepLatestIncompleteRawInput` gagal baru di emulator yang dinyalakan ulang, padahal source investasi tidak berubah; penyebab belum diselidiki. Emulator sempat ANR dan macet di tengah rangkaian penuh.
-7. Butir 1 di bawah (`fruit_count: null`) ditangani di branch F5, belum di main.
+7. Butir 1 di bawah (`fruit_count: null`) ditangani di F5, kini di main.
 
 ## Gap dari audit alur input pengelola, 17 November 2026
 

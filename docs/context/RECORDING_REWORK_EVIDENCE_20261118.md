@@ -2,7 +2,7 @@
 
 Pekerjaan ini mengikuti `MASTER_PROMPT_RECORDING_REWORK_20261117.md` dan keputusan K1–K7 di `HANDOFF_RECORDING_REWORK_20261117.md`. Kedua dokumen itu milik pengguna dan **belum di-commit**, jadi tautannya baru berfungsi di laptop pengguna. Jawaban pengguna 17 November 2026 mengatasi K2/K4 handoff bila bertentangan. Jawaban itu dan rancangan migration 22 ada di rancangan backend `docs/context/RECORDING_REWORK_DESIGN_20261117.md`, yang ikut branch F1 dan baru ada di sini setelah F1 di-merge.
 
-Tidak ada branch yang di-merge ke main. Fitur keuangan tidak disentuh (K7).
+Semua fase di-merge ke main pada 18 November 2026 lewat PR #72 (F1) lalu #73–#78 (F0, F2–F6), atas permintaan pengguna. Fitur keuangan tidak disentuh (K7).
 
 ## Keputusan pengguna yang dipakai
 
@@ -19,7 +19,7 @@ Tidak ada branch yang di-merge ke main. Fitur keuangan tidak disentuh (K7).
 
 ## Branch dan isi
 
-Branch Android bertumpuk; F1 berdiri sendiri di atas main. Pull request disiapkan untuk ditinjau dan tidak di-merge.
+Branch Android bertumpuk; F1 berdiri sendiri di atas main. PR #72–#78, sudah di-merge.
 
 | Fase | Branch | Commit | Isi |
 |---|---|---|---|
@@ -87,11 +87,27 @@ Emulator `Inofarm_Botanical_API30`, fixture sintetis.
 
 ## Batas
 
-1. **Android F3–F5 membutuhkan backend F1.** Form gabungan mengirim `planting_group_id: null`, `season_id`, `entry_batch_id`, HSS/HST dan `material_name`. Backend main menolak payload itu. Merge F1 dan pasang migration 22 sebelum, atau bersama, branch Android.
+1. ~~Android F3–F5 membutuhkan backend F1~~: F1 sudah di main bersama Android.
 2. **Integrasi Android dengan backend Laravel nyata belum diuji.** Semua tes UI memakai fixture. `FinanceBackendDeviceTest` belum dijalankan terhadap F1.
-3. **Migration 22 belum dijalankan di `inofarm_finance_local`.** Setelah F1 di-merge, perlu backup, izin pengguna, `php artisan migrate`, lalu `php artisan inofarm:spray-materials <email-pengelola>` agar GH lama mendapat daftar bahan semprot.
+3. ~~Migration 22 belum dijalankan~~: diterapkan 18 November 2026 (bagian di bawah).
 4. **Ponsel fisik, TalkBack, font 200% dan lebar 360 dp** belum dicek untuk form gabungan dan panen dua varietas.
 5. **Panen dua varietas:** koreksi tetap per catatan panen, dan Cek catatan panen belum dikelompokkan per isian seperti kegiatan.
 6. **Akses pekerja:** pekerja kini membaca pemakaian bahan per musim (`seasons/{id}/material-usage`) di semua GH aktif. Itu perilaku lama yang dulu dibatasi penugasan. GH nonaktif keluar dari scope pekerja, sehingga replay pekerja ke GH yang dinonaktifkan sebelum antrean terkirim mendapat 404.
 7. **Beranda pengelola** tetap butuh satu kelompok periode berjalan per GH; catatan tingkat GH dibaca dari musimnya.
 8. Tabel dan endpoint `assignments` tetap ada untuk kompatibilitas, tetapi tidak lagi menentukan akses atau tampil di UI.
+
+## Penerapan ke database aplikasi, 18 November 2026
+
+Atas permintaan pengguna, setelah semua PR di-merge dan main lulus pemeriksaan (backend 173 tes / 4.724 assertion, JVM 137, lint 0 error, checker kontrak dan context).
+
+| Langkah | Hasil |
+|---|---|
+| Koneksi efektif | MySQL `127.0.0.1:3307`, database `inofarm_finance_local`; hanya migration 22 Pending |
+| Backup `scripts/backup-mysql.ps1` | `outputs/rollout-20261118/inofarm_finance_local-20261118-144430.sql`, 163.957 byte, 55 `CREATE TABLE`, penanda "Dump completed" ada |
+| SHA-256 backup | `5d470ea6cf37c7f073616bad8254e427795726d3f4def78803ee741d7c036f74` |
+| `migrate --pretend` | Hanya kolom baru, backfill `activities.season_id` dari `planting_groups`, FK dan index baru, serta kolom yang menjadi nullable |
+| `migrate` | `2026_11_17_000022_record_per_greenhouse` DONE, 462,63 ms; `migrate:status --pending=1` keluar 0 |
+| Sebelum/sesudah | 55 tabel; jumlah baris `users` 2, `greenhouses` 5, `seasons` 4, `planting_groups` 4, `activities` 2, `harvests` 1, `harvest_items` 2, `sales` 0, `expenses` 0, `audit_logs` 32, `change_feed` 36 sama. Kedua kegiatan lama terisi `season_id` |
+| `php artisan inofarm:spray-materials <pengelola>` | Satu-satunya akun pengelola aktif sebagai aktor. 5 GH, 50 bahan semprot dibuat (10 per GH), masing-masing dengan audit dan change feed (`audit_logs` 82, `change_feed` 86). Dijalankan ulang: 0 dibuat |
+
+Folder `outputs/` diabaikan Git. Restore backup ini belum diuji. Pembacaan Beranda dari aplikasi terhadap database ini belum dicoba.
