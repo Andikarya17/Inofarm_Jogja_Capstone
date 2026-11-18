@@ -1,0 +1,17 @@
+{
+  "worker_greenhouses": 2,
+  "entry_batch_id": "e89a2d45-aaeb-44e4-b983-3e1f2e3a826a",
+  "activity_ids": [
+    "25e9851c-de75-4da7-b7a8-f5a895b6fbcc",
+    "69e9f68b-5007-4938-b5f0-161e5f61ebe1",
+    "69db140c-e4ce-4561-8b4b-71e0e2073c43",
+    "370e70f5-f897-4f0d-831c-0eaf64ceb692",
+    "4afe08cf-fbb7-4219-8233-573bd77e2484"
+  ],
+  "worker_expenses_status": 403,
+  "manager_decisions": 5,
+  "harvest_ids": [
+    "c018619f-c4c0-4d32-acc8-4353b6f1fe74",
+    "3594fae2-fa1f-4b27-8611-da476c4b091f"
+  ]
+}
