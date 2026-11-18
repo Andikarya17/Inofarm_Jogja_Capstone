@@ -1,0 +1,109 @@
+﻿===== verify-recording-rework (16:35:29)
+{
+    "activities": [
+        {
+            "type": "measurement",
+            "planting_group_id": null,
+            "entry_batch_id": "e89a2d45-aaeb-44e4-b983-3e1f2e3a826a",
+            "age": "hst 30"
+        },
+        {
+            "type": "nutrition",
+            "planting_group_id": null,
+            "entry_batch_id": "e89a2d45-aaeb-44e4-b983-3e1f2e3a826a",
+            "age": "hst 30"
+        },
+        {
+            "type": "spray",
+            "planting_group_id": "011321fb-fc61-4f93-acbc-8e9374fe9102",
+            "entry_batch_id": "e89a2d45-aaeb-44e4-b983-3e1f2e3a826a",
+            "age": "hst 30"
+        },
+        {
+            "type": "spray",
+            "planting_group_id": "30e76823-274b-4068-8ed6-7ecec6429cde",
+            "entry_batch_id": "e89a2d45-aaeb-44e4-b983-3e1f2e3a826a",
+            "age": "hst 30"
+        },
+        {
+            "type": "stage",
+            "planting_group_id": null,
+            "entry_batch_id": "e89a2d45-aaeb-44e4-b983-3e1f2e3a826a",
+            "age": "hst 30"
+        }
+    ],
+    "typed_material_greenhouses": 2,
+    "active_greenhouses": 2,
+    "harvest_fruit_count": [
+        null,
+        null
+    ],
+    "reviews": 5,
+    "harvest_reviews": [
+        "invalid v1",
+        "valid v1"
+    ]
+}
+PASS: guarded inofarm_test holds one row per section with one entry_batch_id, greenhouse rows without planting_group_id, one spray per variety, the typed spray in every active greenhouse, two harvests with fruit_count null, five manager decisions and two harvest decisions (one per variety); worker unassigned.
+
+===== verify-rework-correction (16:35:52)
+{
+    "measurement": {
+        "version": 2,
+        "manual_ppm": "950.000000",
+        "reason": "PPM terbaca ulang f13fa307"
+    },
+    "stage": {
+        "version": 2,
+        "stage": "Panen",
+        "manager_reason": null
+    },
+    "untouched_versions": [
+        1,
+        1,
+        1
+    ]
+}
+PASS: worker corrected one section with a reason, manager corrected another without one; the other three sections stay at version 1; two audit/receipt/feed rows per corrected section.
+
+===== verify-rework-manager-home (16:36:12)
+{
+    "running_group_id": "011321fb-fc61-4f93-acbc-8e9374fe9102",
+    "greenhouse_version": 2,
+    "rows": [
+        {
+            "type": "measurement",
+            "planting_group_id": null,
+            "role": "manager"
+        },
+        {
+            "type": "stage",
+            "planting_group_id": null,
+            "role": "manager"
+        }
+    ]
+}
+PASS: manager designated the running period, then one entry became two greenhouse-level rows accepted with running_period_version; one ledger row each.
+
+===== verify-rework-offline (16:36:48)
+{
+    "rows": [
+        {
+            "type": "measurement",
+            "version": 1,
+            "audit_logs": 1,
+            "sync_operations": 1,
+            "change_feed": 1
+        },
+        {
+            "type": "stage",
+            "version": 1,
+            "audit_logs": 1,
+            "sync_operations": 1,
+            "change_feed": 1
+        }
+    ]
+}
+PASS: the offline entry reached MySQL once: two rows, version 1, one audit, one receipt and one feed row each after the automatic send and a manual replay.
+
+

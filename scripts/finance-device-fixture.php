@@ -401,10 +401,100 @@ if ($mode === 'verify-recording-rework' && $fixtureName === 'recording-rework-de
     if (DB::table('greenhouse_assignments')->where('user_id', $worker->id)->exists()) {
         $fail('the worker must have no assignment');
     }
+    // Cek catatan panen: one decision per harvest of the two-variety entry, one Sesuai and one Perlu diperbaiki with its reason.
+    $harvestReviews = DB::table('harvest_reviews')->whereIn('harvest_id', $harvests->pluck('id'))->where('reviewer_id', $manager->id)->orderBy('decision')->get();
+    if ($harvestReviews->count() !== 2 || $harvestReviews->pluck('decision')->all() !== ['invalid', 'valid']
+        || $harvestReviews->pluck('harvest_id')->unique()->count() !== 2 || $harvestReviews->pluck('harvest_version')->unique()->all() !== [1]
+        || trim((string) $harvestReviews[0]->reason) === '') {
+        $fail('one harvest review per variety (invalid with reason, valid)', $harvestReviews);
+    }
+    foreach (['audit_logs', 'sync_operations', 'change_feed'] as $table) {
+        if (DB::table($table)->where('entity_type', 'harvest_review')->whereIn('entity_id', $harvestReviews->pluck('id'))->count() !== 2) {
+            $fail('harvest review ledger in '.$table);
+        }
+    }
     $report += ['typed_material_greenhouses' => $typed->count(), 'active_greenhouses' => count($activeGreenhouses),
-        'harvest_fruit_count' => $harvestItems->pluck('fruit_count')->all(), 'reviews' => $reviews->count()];
+        'harvest_fruit_count' => $harvestItems->pluck('fruit_count')->all(), 'reviews' => $reviews->count(),
+        'harvest_reviews' => $harvestReviews->map(fn ($r) => $r->decision.' v'.$r->harvest_version)->all()];
     echo json_encode($report, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR).PHP_EOL;
-    echo 'PASS: guarded inofarm_test holds one row per section with one entry_batch_id, greenhouse rows without planting_group_id, one spray per variety, the typed spray in every active greenhouse, two harvests with fruit_count null and five manager decisions; worker unassigned.'.PHP_EOL;
+    echo 'PASS: guarded inofarm_test holds one row per section with one entry_batch_id, greenhouse rows without planting_group_id, one spray per variety, the typed spray in every active greenhouse, two harvests with fruit_count null, five manager decisions and two harvest decisions (one per variety); worker unassigned.'.PHP_EOL;
+    exit(0);
+}
+// Ledger rows of one entity: audit, receipt and feed, each exactly $n.
+$ledger = function (string $id, int $n, string $why) {
+    foreach (['audit_logs', 'sync_operations', 'change_feed'] as $table) {
+        $count = DB::table($table)->where('entity_id', $id)->count();
+        if ($count !== $n) {
+            throw new RuntimeException("Recording rework SQL reconciliation failed: $why: $table has $count rows for $id, expected $n.");
+        }
+    }
+};
+if ($mode === 'verify-rework-correction' && $fixtureName === 'recording-rework-device-fixture.json') {
+    $worker = $actors->firstWhere('public_id', $fixture['worker_id']);
+    $rows = DB::table('activities')->where('season_id', $fixture['contexts'][0]['season_id'])->where('notes', 'Isian rombak '.$fixture['fixture_id'])->get()->keyBy('activity_type');
+    $all = DB::table('activities')->where('season_id', $fixture['contexts'][0]['season_id'])->where('notes', 'Isian rombak '.$fixture['fixture_id'])->get();
+    $measurement = $rows['measurement'];
+    $stage = $rows['stage'];
+    $workerUpdate = DB::table('audit_logs')->where('entity_id', $measurement->id)->where('action', 'update')->sole();
+    $managerUpdate = DB::table('audit_logs')->where('entity_id', $stage->id)->where('action', 'update')->sole();
+    if ($measurement->version !== 2 || $measurement->manual_ppm !== '950.000000' || $measurement->planting_group_id !== null
+        || $workerUpdate->actor_id !== $worker->id || trim((string) $workerUpdate->reason) === '') {
+        throw new RuntimeException('Worker correction of the measurement section did not reconcile.');
+    }
+    if ($stage->version !== 2 || $stage->actual_stage !== 'Panen' || $managerUpdate->actor_id !== $manager->id) {
+        throw new RuntimeException('Manager correction of the stage section did not reconcile.');
+    }
+    $others = $all->whereNotIn('id', [$measurement->id, $stage->id]);
+    if ($others->count() !== 3 || $others->pluck('version')->unique()->all() !== [1] || $all->pluck('entry_batch_id')->unique()->count() !== 1) {
+        throw new RuntimeException('Sections that were not corrected must stay at version 1 in the same entry.');
+    }
+    $ledger($measurement->id, 2, 'measurement create + worker update');
+    $ledger($stage->id, 2, 'stage create + manager update');
+    if (DB::table('activity_reviews')->where('activity_id', $measurement->id)->where('activity_version', 2)->exists()) {
+        throw new RuntimeException('The corrected revision must wait for a new decision.');
+    }
+    echo json_encode(['measurement' => ['version' => $measurement->version, 'manual_ppm' => $measurement->manual_ppm, 'reason' => $workerUpdate->reason],
+        'stage' => ['version' => $stage->version, 'stage' => $stage->actual_stage, 'manager_reason' => $managerUpdate->reason],
+        'untouched_versions' => $others->pluck('version')->all()], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR).PHP_EOL;
+    echo 'PASS: worker corrected one section with a reason, manager corrected another without one; the other three sections stay at version 1; two audit/receipt/feed rows per corrected section.'.PHP_EOL;
+    exit(0);
+}
+if ($mode === 'verify-rework-manager-home' && $fixtureName === 'recording-rework-device-fixture.json') {
+    $a = $fixture['contexts'][0];
+    $greenhouse = DB::table('greenhouses')->where('id', $a['greenhouse_id'])->sole();
+    $rows = DB::table('activities')->where('season_id', $a['season_id'])->where('notes', 'Isian pengelola '.$fixture['fixture_id'])->orderBy('activity_type')->get();
+    if ($greenhouse->running_group_id !== $a['group_id'] || ! $greenhouse->running_period_reviewed
+        || ! DB::table('audit_logs')->where('entity_id', $greenhouse->id)->where('action', 'designate_period')->where('actor_id', $manager->id)->exists()) {
+        throw new RuntimeException('Running period designation did not reconcile.');
+    }
+    if ($rows->pluck('activity_type')->all() !== ['measurement', 'stage'] || $rows->contains(fn ($r) => $r->planting_group_id !== null
+        || $r->recorded_by !== $manager->id || $r->recorded_by_role !== 'manager' || (int) $r->age_day !== 31)
+        || $rows->pluck('entry_batch_id')->unique()->count() !== 1 || $rows[0]->manual_ec !== '2.100000' || $rows[0]->manual_ppm !== '1050.000000') {
+        throw new RuntimeException('Manager entry rows did not reconcile: '.json_encode($rows));
+    }
+    foreach ($rows as $row) {
+        $ledger($row->id, 1, 'manager entry');
+    }
+    echo json_encode(['running_group_id' => $greenhouse->running_group_id, 'greenhouse_version' => $greenhouse->version,
+        'rows' => $rows->map(fn ($r) => ['type' => $r->activity_type, 'planting_group_id' => $r->planting_group_id, 'role' => $r->recorded_by_role])->all()],
+        JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR).PHP_EOL;
+    echo 'PASS: manager designated the running period, then one entry became two greenhouse-level rows accepted with running_period_version; one ledger row each.'.PHP_EOL;
+    exit(0);
+}
+if ($mode === 'verify-rework-offline' && $fixtureName === 'recording-rework-device-fixture.json') {
+    $worker = $actors->firstWhere('public_id', $fixture['worker_id']);
+    $rows = DB::table('activities')->where('season_id', $fixture['contexts'][0]['season_id'])->where('notes', 'Isian offline '.$fixture['fixture_id'])->orderBy('activity_type')->get();
+    if ($rows->pluck('activity_type')->all() !== ['measurement', 'stage'] || $rows->contains(fn ($r) => $r->version !== 1 || $r->recorded_by !== $worker->id)
+        || $rows->pluck('entry_batch_id')->unique()->count() !== 1) {
+        throw new RuntimeException('Offline entry rows did not reconcile: '.json_encode($rows));
+    }
+    foreach ($rows as $row) {
+        $ledger($row->id, 1, 'offline entry after replay');
+    }
+    echo json_encode(['rows' => $rows->map(fn ($r) => ['type' => $r->activity_type, 'version' => $r->version,
+        'audit_logs' => DB::table('audit_logs')->where('entity_id', $r->id)->count(), 'sync_operations' => DB::table('sync_operations')->where('entity_id', $r->id)->count(),
+        'change_feed' => DB::table('change_feed')->where('entity_id', $r->id)->count()])->all()], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR).PHP_EOL;
+    echo 'PASS: the offline entry reached MySQL once: two rows, version 1, one audit, one receipt and one feed row each after the automatic send and a manual replay.'.PHP_EOL;
     exit(0);
 }
 if (in_array($mode, ['verify', 'verify-measurements'], true)) {
@@ -538,6 +628,8 @@ DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses, $seas
     DB::table('materials')->whereIn('id', $typedSpray)->delete();
     DB::table('materials')->whereIn('greenhouse_id', $greenhouses)->delete();
     DB::table('units')->whereIn('greenhouse_id', $greenhouses)->delete();
+    // A designated running period points the greenhouse at one of the fixture groups.
+    DB::table('greenhouses')->whereIn('id', $greenhouses)->update(['running_group_id' => null]);
     DB::table('planting_groups')->whereIn('id', $groups)->delete();
     DB::table('seasons')->whereIn('id', array_column($fixture['contexts'], 'season_id'))->delete();
     DB::table('varieties')->whereIn('id', [...array_column($fixture['contexts'], 'variety_id'), ...array_column($fixture['extra_groups'] ?? [], 'variety_id')])->delete();

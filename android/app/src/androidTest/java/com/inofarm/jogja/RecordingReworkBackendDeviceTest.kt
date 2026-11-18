@@ -127,8 +127,8 @@ class RecordingReworkBackendDeviceTest {
         val head = shown.single().config[SemanticsProperties.TestTag].removePrefix("verification-activity-")
         rule.onNodeWithTag("verification-batch-$head").assertExists()
         capture("rework-manager-inbox")
-        rule.onNodeWithTag("verification-activity-$head").performClick()
-        rule.waitUntil(20_000) { rule.onAllNodesWithTag("activity-verification-detail").fetchSemanticsNodes().isNotEmpty() }
+        // The inbox reloads (and empties for a moment) when a sync finishes, so scroll and click together until it lands.
+        openFromList("activity-verification-list", "verification-activity-$head", "activity-verification-detail")
         val detail = rule.onNodeWithTag("activity-verification-detail")
         rule.waitUntil(20_000) { runCatching { detail.performScrollToNode(hasTestTag("verification-decision")) }.isSuccess }
         rule.onNodeWithText("seluruh isian (5 bagian)", substring = true).assertExists()
@@ -144,8 +144,267 @@ class RecordingReworkBackendDeviceTest {
         }
         rule.waitUntil(30_000) { decisions().size == 5 && decisions().all { it.state == "ACCEPTED" } }
         proof.put("manager_decisions", decisions().size)
+
+        // Cek catatan panen: the two-variety harvest is two records, one decision each (one Sesuai, one Perlu diperbaiki).
+        val harvestIds = harvestOps().map { it.entityId }
+        androidx.test.espresso.Espresso.pressBack()
+        rule.waitUntil(20_000) { rule.onAllNodesWithTag("activity-verification-list").fetchSemanticsNodes().isNotEmpty() }
+        readyNode("verification-kind-option-harvest").performClick()
+        rule.waitUntil(20_000) { rule.onAllNodesWithTag("harvest-verification-list").fetchSemanticsNodes().isNotEmpty() }
+        harvestIds.forEach { id -> rule.waitUntil(20_000) {
+            runCatching { rule.onNodeWithTag("harvest-verification-list").performScrollToNode(hasTestTag("verification-harvest-$id")) }.isSuccess } }
+        capture("rework-manager-harvest-inbox")
+        val harvestReason = "Berat varietas kedua perlu ditimbang ulang."
+        harvestIds.forEachIndexed { index, id ->
+            openFromList("harvest-verification-list", "verification-harvest-$id", "harvest-verification-detail")
+            decide("harvest-verification-detail", if (index == 0) "valid" else "invalid", if (index == 0) null else harvestReason)
+            rule.waitUntil(30_000) { model.store.outbox(manager.scope.key).any { op -> op.envelope.optString("entity_type") == "harvest_review" &&
+                op.envelope.getJSONObject("payload").optString("harvest_id") == id && op.state == "ACCEPTED" } }
+            if (index == 0) {
+                androidx.test.espresso.Espresso.pressBack()
+                rule.waitUntil(20_000) { rule.onAllNodesWithTag("harvest-verification-list").fetchSemanticsNodes().isNotEmpty() }
+            }
+        }
+        capture("rework-manager-harvest-decision")
+        proof.put("harvest_ids", org.json.JSONArray(harvestIds))
         File(evidence(), "rework-device-proof.json").writeText(proof.toString(2))
         rule.logoutFromAccount()
+    }
+
+    /**
+     * Correction per section of a combined entry, after [workerRecordsOneEntryPerGreenhouseAndManagerChecksItAsOneEntry] on the same
+     * fixture: the worker corrects the measurement section (reason required, client and server), the manager the stage section
+     * (no reason). `-e devicePhase rework-correction`.
+     */
+    @Test fun workerAndManagerCorrectOneSectionOfTheEntry() {
+        val fixture = phase("rework-correction")
+        val note = "Isian rombak ${fixture.getString("fixture_id")}"
+        val model = runtime()
+
+        login(fixture, "worker")
+        val worker = model.vault.current!!
+        val measurement = section(worker.scope.key, note, "measurement")
+        assertEquals(1L, measurement.serverVersion)
+        openHistoryRecord(measurement.id)
+        readyNode("finance-edit").performScrollTo().performClick()
+        type("finance-ppm", "950")
+        readyNode("finance-review").performClick()
+        // Without a reason the worker stays on the form with the reason error.
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Isi alasan koreksi.", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("finance-queue").assertDoesNotExist()
+        capture("rework-correction-worker-reason-required")
+        // The server refuses it too: a worker update without reason.
+        val queued = model.store.outbox(worker.scope.key).first { it.entityId == measurement.id && it.envelope.optString("action") == "create" }
+        val bare = JSONObject(queued.envelope.toString()).put("operation_id", java.util.UUID.randomUUID().toString())
+            .put("action", "update").put("base_version", 1)
+            .put("payload", JSONObject(queued.envelope.getJSONObject("payload").toString()).put("manual_ppm", "950").put("reference_policy", "preserve").apply { remove("reason") })
+        val refused = runCatching { runBlocking { model.api.request(worker.scope.server, worker.token, "sync/operations", "POST", bare) } }.exceptionOrNull()
+        assertEquals(422, (refused as FinanceApiFailure).status)
+        type("finance-reason", "PPM terbaca ulang ${fixture.getString("fixture_id").take(8)}")
+        readyNode("finance-review").performClick()
+        readyNode("finance-queue").performClick()
+        rule.waitUntil(30_000) { model.store.outbox(worker.scope.key).any { it.entityId == measurement.id && it.envelope.optString("action") == "update" && it.state == "ACCEPTED" } }
+        val corrected = read("activities/${measurement.id}")
+        assertEquals(2, corrected.getInt("version"))
+        assertEquals("950.000000", corrected.getString("manual_ppm"))
+        assertTrue(corrected.isNull("planting_group_id"))
+        assertEquals("pending", read("activities/${measurement.id}/verification").getString("status"))
+        capture("rework-correction-worker-sent")
+
+        login(fixture, "manager")
+        val manager = model.vault.current!!
+        val stage = section(manager.scope.key, note, "stage")
+        openHistoryRecord(stage.id)
+        readyNode("finance-edit").performScrollTo().performClick()
+        type("finance-stage", "Panen")
+        readyNode("finance-review").performClick()
+        readyNode("finance-queue").assertExists()
+        capture("rework-correction-manager-summary")
+        readyNode("finance-queue").performClick()
+        rule.waitUntil(30_000) { model.store.outbox(manager.scope.key).any { it.entityId == stage.id && it.envelope.optString("action") == "update" && it.state == "ACCEPTED" } }
+        val stageNow = read("activities/${stage.id}")
+        assertEquals(2, stageNow.getInt("version"))
+        assertEquals("Panen", stageNow.getString("actual_stage"))
+        // The other sections of the same entry stay at version 1.
+        val untouched = model.store.records(manager.scope.key, 200).filter { it.body.optString("notes") == note && it.id !in setOf(measurement.id, stage.id) }
+        assertEquals(3, untouched.size)
+        untouched.forEach { assertEquals(1, read("activities/${it.id}").getInt("version")) }
+        File(evidence(), "rework-correction-proof.json").writeText(JSONObject().put("measurement_id", measurement.id).put("stage_id", stage.id)
+            .put("untouched", org.json.JSONArray(untouched.map { it.id })).put("worker_without_reason_status", 422).toString(2))
+        rule.logoutFromAccount()
+    }
+
+    /**
+     * Manager entry from Beranda after designating the running period: every greenhouse-level row carries running_period_version
+     * and the server accepts it (fixed in #81). `-e devicePhase rework-manager-home`.
+     */
+    @Test fun managerEntryAfterDesignatingTheRunningPeriodCarriesItsVersion() {
+        val fixture = phase("rework-manager-home")
+        val a = fixture.getJSONArray("contexts").getJSONObject(0)
+        val ghA = a.getString("greenhouse_id")
+        val group = a.getString("group_id")
+        val note = "Isian pengelola ${fixture.getString("fixture_id")}"
+        val model = runtime()
+
+        login(fixture, "manager")
+        val home = rule.onNodeWithTag("finance-home-list")
+        rule.waitUntil(20_000) { runCatching { home.performScrollToNode(hasTestTag("manager-greenhouse-$ghA")) }.isSuccess }
+        rule.onNodeWithTag("manager-greenhouse-$ghA").performClick()
+        rule.waitUntil(15_000) { runCatching { home.performScrollToNode(hasTestTag("manager-period-history")) }.isSuccess }
+        rule.onNodeWithTag("manager-period-history").performClick()
+        rule.waitUntil(15_000) { runCatching { rule.onNodeWithTag("manager-period-list").performScrollToNode(hasTestTag("manager-period-option-$group")) }.isSuccess }
+        rule.onNodeWithTag("manager-period-option-$group").performClick()
+        rule.onNodeWithTag("manager-period-reason").performTextReplacement("Penetapan rombak sintetis")
+        hideKeyboard()
+        rule.onNodeWithTag("manager-period-list").performScrollToNode(hasTestTag("manager-period-confirm"))
+        capture("rework-manager-period")
+        rule.onNodeWithTag("manager-period-confirm").performClick()
+        val manager = model.vault.current!!
+        var version = 0L
+        rule.waitUntil(20_000) {
+            val gh = runCatching { runBlocking { model.api.request(manager.scope.server, manager.token, "manager-home", query = mapOf("greenhouse_id" to ghA)) }
+                .getJSONArray("greenhouses").getJSONObject(0) }.getOrNull()
+            (gh?.optJSONObject("period")?.optString("group_id") == group).also { if (it) version = gh!!.getLong("version") }
+        }
+        // Catat waits until the designation reached the local cache, so the form takes the new version.
+        rule.waitUntil(30_000) { model.store.cachedOne(manager.scope.key, "greenhouses", ghA)?.optLong("version") == version }
+        openCatat()
+        readyNode("record-greenhouse-option-$ghA").performScrollTo().performClick()
+        readyNode("record-activity").performClick()
+        readyNode("entry-age-basis-option-hst").performScrollTo().performClick()
+        type("entry-age-day", "31")
+        type("entry-ec", "2,1")
+        type("entry-ppm", "1050")
+        type("entry-stage", "Pembesaran buah")
+        type("entry-notes", note)
+        readyNode("finance-review").performClick()
+        readyNode("finance-queue").assertExists()
+        capture("rework-manager-entry-summary")
+        readyNode("finance-queue").performClick()
+        fun ops() = model.store.outbox(manager.scope.key).filter { it.envelope.optJSONObject("payload")?.optString("notes") == note }
+        rule.waitUntil(30_000) { ops().size == 2 && ops().all { it.state == "ACCEPTED" } }
+        ops().forEach { op ->
+            val payload = op.envelope.getJSONObject("payload")
+            assertEquals(version, payload.getLong("running_period_version"))
+            assertTrue(payload.isNull("planting_group_id"))
+        }
+        File(evidence(), "rework-manager-home-proof.json").writeText(JSONObject().put("greenhouse_version", version)
+            .put("activity_ids", org.json.JSONArray(ops().map { it.entityId })).toString(2))
+        rule.logoutFromAccount()
+    }
+
+    /**
+     * Offline queue, first half: the worker logs in, the host stops the backend once `rework-offline-ready.txt` appears, and the entry
+     * is saved while the API is unreachable. `-e devicePhase rework-offline-queue`.
+     */
+    @Test fun workerQueuesAnEntryWhileTheBackendIsDown() {
+        val fixture = phase("rework-offline-queue")
+        val ghA = fixture.getJSONArray("contexts").getJSONObject(0).getString("greenhouse_id")
+        val note = "Isian offline ${fixture.getString("fixture_id")}"
+        val model = runtime()
+        login(fixture, "worker")
+        val worker = model.vault.current!!
+        File(evidence(), "rework-offline-ready.txt").writeText(fixture.getString("fixture_id"))
+        val deadline = System.nanoTime() + 120_000_000_000L
+        var down = false
+        while (System.nanoTime() < deadline && !down) {
+            down = runCatching { runBlocking { model.api.request(worker.scope.server, worker.token, "sync/status") } }.exceptionOrNull() is java.io.IOException
+            if (!down) Thread.sleep(1000)
+        }
+        assertTrue("the host must stop the backend before the offline entry", down)
+        openCatat()
+        readyNode("record-greenhouse-option-$ghA").performScrollTo().performClick()
+        readyNode("record-activity").performClick()
+        readyNode("entry-age-basis-option-hst").performScrollTo().performClick()
+        type("entry-age-day", "32")
+        type("entry-ec", "1,6")
+        type("entry-ppm", "800")
+        type("entry-stage", "Pembesaran buah")
+        type("entry-notes", note)
+        readyNode("finance-review").performClick()
+        readyNode("finance-queue").performClick()
+        fun ops() = model.store.outbox(worker.scope.key).filter { it.envelope.optJSONObject("payload")?.optString("notes") == note }
+        rule.waitUntil(15_000) { ops().size == 2 }
+        Thread.sleep(3000)
+        assertTrue(ops().none { it.state == "ACCEPTED" })
+        capture("rework-offline-queued")
+        File(evidence(), "rework-offline-proof.json").writeText(JSONObject().put("pid", android.os.Process.myPid())
+            .put("operations", org.json.JSONArray(ops().map { JSONObject().put("operation_id", it.id).put("entity_id", it.entityId).put("hash", it.hash).put("state", it.state) }))
+            .toString(2))
+    }
+
+    /** Offline queue, second half, in a new process after the host restarted the backend. `-e devicePhase rework-offline-replay`. */
+    @Test fun queuedEntryReplaysOnceAfterTheBackendReturns() {
+        val fixture = phase("rework-offline-replay")
+        val proof = JSONObject(File(evidence(), "rework-offline-proof.json").readText())
+        assertNotEquals(proof.getInt("pid"), android.os.Process.myPid())
+        val expected = proof.getJSONArray("operations").let { rows -> (0 until rows.length()).map { rows.getJSONObject(it) } }
+        val model = runtime()
+        rule.waitUntil(20_000) { model.vault.current != null }
+        val worker = model.vault.current!!
+        assertEquals(fixture.getString("worker_id"), worker.scope.accountId)
+        rule.waitUntil(60_000) { expected.all { e -> model.store.outbox(worker.scope.key).any { it.id == e.getString("operation_id") && it.state == "ACCEPTED" } } }
+        expected.forEach { e ->
+            val op = model.store.outbox(worker.scope.key).single { it.id == e.getString("operation_id") }
+            assertEquals(e.getString("entity_id"), op.entityId)
+            assertEquals(e.getString("hash"), op.hash)
+            // A second send of the same envelope returns the stored receipt instead of a new row.
+            val replay = runBlocking { model.api.request(worker.scope.server, worker.token, "sync/operations", "POST", op.envelope) }
+            assertEquals(op.id, replay.getString("operation_id"))
+            assertEquals(1, replay.getInt("version"))
+            assertEquals(1, read("activities/${op.entityId}/audit").getJSONArray("data").length())
+        }
+        capture("rework-offline-replayed")
+        rule.logoutFromAccount()
+    }
+
+    private fun phase(name: String): JSONObject {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("devicePhase") == name)
+        val fixture = JSONObject(android.util.Base64.decode(requireNotNull(args.getString("recordingFixture")),
+            android.util.Base64.NO_WRAP).toString(Charsets.UTF_8))
+        assertEquals("inofarm_test", fixture.getString("database"))
+        assertTrue(context.packageName.endsWith(".finance"))
+        return fixture
+    }
+    /** The one cached section of type [type] from the entry with [note], waiting for the pull after login. */
+    private fun section(scope: String, note: String, type: String): com.inofarm.jogja.core.database.LocalRecord {
+        val model = runtime()
+        fun find() = model.store.records(scope, 200).filter { it.body.optString("notes") == note && it.body.optString("activity_type") == type }
+        rule.waitUntil(30_000) { find().size == 1 }
+        return find().single()
+    }
+    private fun openHistoryRecord(id: String) {
+        readyNode("finance-tab-1").performClick()
+        val tag = "finance-record-$id"
+        rule.waitUntil(30_000) { runCatching { rule.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasTestTag(tag)) }.isSuccess }
+        rule.onNodeWithTag(tag).performClick()
+    }
+    private fun openFromList(list: String, row: String, detail: String) {
+        rule.waitUntil(30_000) {
+            runCatching {
+                if (rule.onAllNodesWithTag(detail).fetchSemanticsNodes().isEmpty()) {
+                    rule.onNodeWithTag(list).performScrollToNode(hasTestTag(row))
+                    rule.onNodeWithTag(row).performClick()
+                    rule.waitForIdle()
+                }
+                rule.onAllNodesWithTag(detail).fetchSemanticsNodes().isNotEmpty()
+            }.getOrDefault(false)
+        }
+    }
+    private fun decide(detailTag: String, choice: String, reason: String?) {
+        val detail = rule.onNodeWithTag(detailTag)
+        rule.waitUntil(20_000) { runCatching { detail.performScrollToNode(hasTestTag("verification-decision")) }.isSuccess }
+        rule.onNodeWithTag("verification-decision").performClick()
+        rule.onNodeWithTag("verification-decision-option-$choice").performClick()
+        if (reason != null) {
+            detail.performScrollToNode(hasTestTag("verification-reason"))
+            rule.onNodeWithTag("verification-reason").performTextReplacement(reason)
+            hideKeyboard()
+        }
+        detail.performScrollToNode(hasTestTag("verification-review"))
+        rule.onNodeWithTag("verification-review").performClick()
+        rule.onNodeWithTag("verification-save").performClick()
     }
 
     /** App-private evidence folder; the host reads it with `adb exec-out run-as <package> cat files/evidence/<name>`. */

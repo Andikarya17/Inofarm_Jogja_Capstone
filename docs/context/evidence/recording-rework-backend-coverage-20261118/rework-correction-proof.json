@@ -1,0 +1,10 @@
+{
+  "measurement_id": "4afe08cf-fbb7-4219-8233-573bd77e2484",
+  "stage_id": "25e9851c-de75-4da7-b7a8-f5a895b6fbcc",
+  "untouched": [
+    "370e70f5-f897-4f0d-831c-0eaf64ceb692",
+    "69db140c-e4ce-4561-8b4b-71e0e2073c43",
+    "69e9f68b-5007-4938-b5f0-161e5f61ebe1"
+  ],
+  "worker_without_reason_status": 422
+}
