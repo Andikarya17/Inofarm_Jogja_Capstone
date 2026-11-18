@@ -54,6 +54,9 @@ class FinanceEntryUiTest {
     private val group2 = UUID.randomUUID().toString()
     /** A third active greenhouse with no season or planting yet, for the "Mulai tanam" path. */
     private val unplantedGreenhouse = AtomicBoolean(false)
+    /** A second sown variety in the main greenhouse's season (two varieties in one greenhouse, 17 Nov 2026). */
+    private val secondVariety = AtomicBoolean(false)
+    private val groupV2 = UUID.randomUUID().toString()
     private val gh3 = UUID.randomUUID().toString()
     private val agendaSchedule = UUID.randomUUID().toString()
     private val agendaNotes = List(3) { UUID.randomUUID().toString() }
@@ -244,6 +247,8 @@ class FinanceEntryUiTest {
             row("planting_groups", group2, JSONObject().put("season_id", season2).put("name", "Kelompok kedua sintetis").put("active", true)
                 .put("sowing_date", "2026-10-05").put("transplant_date", JSONObject.NULL), gh2)
         }
+        if (secondVariety.get()) row("planting_groups", groupV2, JSONObject().put("season_id", season).put("name", "Varietas kedua sintetis")
+            .put("active", true).put("sowing_date", "2026-10-01").put("transplant_date", JSONObject.NULL))
         if (unplantedGreenhouse.get()) row("greenhouses", gh3, JSONObject().put("name", "GH belum tanam").put("active", true), gh3)
         if (agenda.get()) {
             val at = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Jakarta")).toString() + "T08:00:00+07:00"
@@ -344,7 +349,7 @@ class FinanceEntryUiTest {
             created=true;val version=(previous?.getInt("version") ?: 0)+1
             val payload=op.getJSONObject("payload");assertFalse(payload.has("_local_form"))
             val data=if(op.getString("action")=="cancel") JSONObject(previous!!.getJSONObject("data").toString()).put("record_state","cancelled") else JSONObject(payload.toString()).put("record_state","active")
-            val items=data.getJSONArray("items");repeat(items.length()) {index -> val item=items.getJSONObject(index);assertTrue(item.get("fruit_count") is Int)
+            val items=data.getJSONArray("items");repeat(items.length()) {index -> val item=items.getJSONObject(index);assertTrue(item.isNull("fruit_count") || item.get("fruit_count") is Int)
                 item.put("grade_name",if(item.getString("grade_id")==gradeA) "Grade A sintetis" else "Grade B sintetis").put("grade_version",1).put("weight_kg",java.math.BigDecimal(item.getString("weight_kg")).setScale(6).toPlainString())}
             val recorder=previous?.getJSONObject("data")?.getString("recorded_by") ?: if(request.getHeader("Authorization").orEmpty().contains("manager-fixture")) manager else worker
             data.put("id",id).put("version",version).put("recorded_by",recorder).put("recorded_by_name",if(recorder==worker) "Pekerja sintetis" else "Pengelola sintetis").put("completeness","ready")
@@ -383,17 +388,12 @@ class FinanceEntryUiTest {
         Espresso.onView(isAssignableFrom(android.widget.TimePicker::class.java)).check(matches(isDisplayed()))
         captureWindow("worker-native-time")
         Espresso.pressBack()
-        readyNode("finance-manual-time").performScrollTo().performClick()
-        readyNode("finance-time").performScrollTo().performTextReplacement("07:26:41")
-        readyNode("finance-ec").performScrollTo().performTextReplacement("1,25")
+        // The greenhouse entry form (F4) picks the time with the native picker only; typed readings survive recreation.
+        readyNode("entry-ec").performScrollTo().performTextReplacement("1,25")
         captureWindow("worker-measurement-ime")
         hideKeyboard()
         rule.activityRule.scenario.recreate()
-        if (rule.onAllNodesWithTag("finance-time").fetchSemanticsNodes().isEmpty()) {
-            readyNode("finance-manual-time").performScrollTo().performClick()
-        }
-        readyNode("finance-time").performScrollTo().assertTextContains("07:26:41")
-        readyNode("finance-ec").performScrollTo().assertTextContains("1,25")
+        readyNode("entry-ec").performScrollTo().assertTextContains("1,25")
         readyNode("finance-save-draft").scrollIfScrollable().assertIsEnabled().performClick()
         rule.onNodeWithTag("finance-unsent").assertDoesNotExist()
         rule.selectFinanceTab(1)
@@ -993,14 +993,16 @@ class FinanceEntryUiTest {
 
     @Test fun manualMeasurementAutosaveBackRecreationQueueAndDashboardKeepOnePair() {
         choose("finance-gh",gh);choose("finance-season",season);choose("finance-group",group)
-        rule.openRecord("measurement")
-        rule.onNodeWithTag("finance-ec").performScrollTo().performTextReplacement("1,25")
-        rule.onNodeWithTag("finance-ppm").performScrollTo().performTextReplacement("625,5")
+        // Readings are a section of the greenhouse entry form (F4), with the typed plant age.
+        rule.openRecord("activity")
+        readyNode("entry-age-basis-option-hst").performScrollTo().performClick();readyNode("entry-age-day").performScrollTo().performTextReplacement("30");hideKeyboard()
+        rule.onNodeWithTag("entry-ec").performScrollTo().performTextReplacement("1,25")
+        rule.onNodeWithTag("entry-ppm").performScrollTo().performTextReplacement("625,5")
         hideKeyboard();rule.activityRule.scenario.recreate()
-        rule.onNodeWithTag("finance-ec").performScrollTo().assertTextContains("1,25")
+        rule.onNodeWithTag("entry-ec").performScrollTo().assertTextContains("1,25")
         Espresso.pressBack()
         rule.selectFinanceTab(1)
-        readyText("Pengukuran manual",true).performScrollTo().performClick()
+        readyText("Draf kegiatan",true).performScrollTo().performClick()
         readyNode("finance-edit").performScrollTo().performClick()
         offline.set(true)
         rule.onNodeWithTag("finance-review").scrollIfScrollable().performClick()
@@ -1423,6 +1425,50 @@ class FinanceEntryUiTest {
         readyNode("investment-open").performScrollTo().assertIsDisplayed()
         Espresso.pressBack()
         historyList.assertIsDisplayed()
+    }
+
+    /** F5: a greenhouse with two varieties harvests both in one form, one harvest per variety; the fruit count may stay empty. */
+    @Test fun harvestTwoVarietiesSideBySideSendsOneHarvestEach() {
+        val theme = (rule.activity.application as InofarmApplication).theme
+        secondVariety.set(true)
+        rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+        try {
+            readyNode("finance-sync").performClick()
+            val vm = ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.context.ContextViewModel::class.java]
+            rule.waitUntil(30_000) { vm.state.value.groups.any { it.optString("id") == groupV2 } ||
+                run { runCatching { rule.onNodeWithTag("finance-sync").performClick() }; false } }
+            rule.onNodeWithTag("finance-home-list").performScrollToIndex(0)
+            readyNode("finance-record-fab").performClick()
+            readyNode("record-greenhouse-option-$gh").performScrollTo().performClick()
+            readyNode("record-harvest").performClick()
+            readyNode("harvest-add-item").performScrollTo().performClick()
+            choose("harvest-grade-0", gradeA)
+            readyNode("harvest-quality-0-option-saleable").performScrollTo().performClick()
+            readyNode("harvest-weight-0").performScrollTo().performTextReplacement("15,5");hideKeyboard()
+            readyNode("harvest-v2-add-item").performScrollTo().performClick()
+            choose("harvest-v2-grade-0", gradeA)
+            readyNode("harvest-v2-quality-0-option-saleable").performScrollTo().performClick()
+            readyNode("harvest-v2-weight-0").performScrollTo().performTextReplacement("8");hideKeyboard()
+            assertTrue(rule.onAllNodesWithText("Varietas kedua sintetis", substring = true).fetchSemanticsNodes().isNotEmpty())
+            readyNode("harvest-v2-weight-0").performScrollTo()
+            captureInternal("harvest-two-light")
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.DARK) }
+            readyNode("harvest-v2-weight-0").performScrollTo()
+            captureInternal("harvest-two-dark")
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+            readyNode("harvest-review").performClick()
+            readyNode("harvest-queue").assertExists()
+            captureInternal("harvest-two-review")
+            val before = harvestPosts.get()
+            readyNode("harvest-queue").performClick()
+            rule.waitUntil(20_000) { harvestPosts.get() - before == 2 }
+            val sent = harvestReceipts.values.map { it.getJSONObject("data") }
+            assertEquals(setOf(group, groupV2), sent.map { it.getString("planting_group_id") }.toSet())
+            assertTrue(sent.all { it.getJSONArray("items").getJSONObject(0).isNull("fruit_count") })
+            assertEquals(1, sent.map { it.getString("occurred_at") }.toSet().size)
+        } finally {
+            rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
+        }
     }
 
     /** F4: one "Catat kegiatan" form per greenhouse, sent as one record per section with a shared batch, for both roles. */

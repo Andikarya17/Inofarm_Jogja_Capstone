@@ -244,13 +244,13 @@ class FinanceLocalStoreTest {
         // A section id already taken makes the whole entry fail; nothing is half written.
         store.saveDraft("account-a",ids.last(),gh,body("Bentrok"))
         assertThrows(IllegalArgumentException::class.java) {
-            store.queueEntry("account-a",entry.id,gh,sections.map { it.id to it.payload() },kept.revision)
+            store.queueEntry("account-a",entry.id,gh,sections.map { com.inofarm.jogja.core.database.QueuedSection(it.id,it.payload(),it.payload()) },kept.revision)
         }
         assertNull(store.record("account-a",ids.first()))
         assertTrue(store.outbox("account-a").isEmpty())
         assertNotNull(store.record("account-a",entry.id))
         store.restoreDraft("account-a",ids.last(),null)
-        val queued=store.queueEntry("account-a",entry.id,gh,sections.map { it.id to it.payload() },kept.revision)
+        val queued=store.queueEntry("account-a",entry.id,gh,sections.map { com.inofarm.jogja.core.database.QueuedSection(it.id,it.payload(),it.payload()) },kept.revision)
         assertEquals(ids,queued.map { it.id })
         assertTrue(queued.all { it.syncState==SyncState.QUEUED })
         assertEquals(ids.toSet(),store.outbox("account-a").map { it.entityId }.toSet())

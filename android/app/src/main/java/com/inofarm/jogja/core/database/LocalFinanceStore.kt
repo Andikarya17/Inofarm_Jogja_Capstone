@@ -23,6 +23,8 @@ data class QueuedOperation(val id: String, val entityId: String, val revision: L
 /** [groupSeasons]: with a group filter, also keep greenhouse-level records (no group) of these seasons (17 Nov 2026). */
 data class LocalHistoryFilter(val groupId:String?=null,val type:String?=null,val from:String?=null,val until:String?=null,val recordState:String?=null,val greenhouseId:String?=null,val groups:Set<String>?=null,val seasonId:String?=null,val expenseId:String?=null,val ownerId:String?=null,val scenarioId:String?=null,
     val groupSeasons:Set<String>?=null,val entryBatchId:String?=null)
+/** One record of a multi-record entry: [body] is stored on the device, [payload] is sent. */
+data class QueuedSection(val id:String,val body:JSONObject,val payload:JSONObject)
 data class LocalBlob(val id:String,val entityId:String,val kind:String,val greenhouseId:String,val state:String,val body:JSONObject)
 data class LocalDetail(val record:LocalRecord,val pending:List<QueuedOperation>,val archives:List<JSONObject>)
 
@@ -452,18 +454,20 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
      * One greenhouse entry becomes several activity records queued together: every record and operation, or none.
      * The entry's own local draft goes away in the same transaction; it was never sent. [sections] are id to payload.
      */
-    fun queueEntry(scope:String,entryId:String,gh:String,sections:List<Pair<String,JSONObject>>,expectedEntryRevision:Long?):List<LocalRecord> = transaction {
-        requireMutationKind(scope,"activity")
+    fun queueEntry(scope:String,entryId:String,gh:String,sections:List<QueuedSection>,expectedEntryRevision:Long?,kind:String="activity"):List<LocalRecord> = transaction {
+        requireMutationKind(scope,kind)
         require(sections.isNotEmpty()) {"Isian belum punya bagian yang terisi."}
         val entry=record(scope,entryId)
-        if(entry!=null) require(entry.syncState==SyncState.LOCAL && entry.revision==expectedEntryRevision && entry.latestOperationId==null) {"Draf berubah. Perbarui sebelum mengirim."}
+        if(entry!=null) require(entry.kind==kind && entry.syncState==SyncState.LOCAL && entry.revision==expectedEntryRevision && entry.latestOperationId==null) {"Draf berubah. Perbarui sebelum mengirim."}
         else require(expectedEntryRevision==null) {"Draf berubah. Perbarui sebelum mengirim."}
-        val queued=sections.map { (id,payload) ->
-            require(id!=entryId && record(scope,id)==null) {"Isian ini sudah tersimpan untuk dikirim."}
-            val saved=persistDraft(scope,id,gh,payload,null,null,"activity")
-            putQueued(scope,saved,"create",payload)
+        // A section may reuse the entry's own draft record (a harvest form is the first variety's record).
+        val queued=sections.map { section ->
+            val reuse=section.id==entryId && entry!=null
+            require(reuse || record(scope,section.id)==null) {"Isian ini sudah tersimpan untuk dikirim."}
+            val saved=persistDraft(scope,section.id,gh,section.body,if(reuse) expectedEntryRevision else null,null,kind)
+            putQueued(scope,saved,"create",section.payload)
         }
-        if(entry!=null) {
+        if(entry!=null && sections.none { it.id==entryId }) {
             db.delete("local_record_revisions","scope=? AND entity_id=?",arrayOf(scope,entryId))
             db.delete("local_records","scope=? AND entity_id=?",arrayOf(scope,entryId))
         }

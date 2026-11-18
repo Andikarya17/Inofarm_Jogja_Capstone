@@ -1,5 +1,6 @@
 package com.inofarm.jogja.feature.managerhome
 
+import com.inofarm.jogja.feature.harvest.fruitText
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
@@ -220,7 +221,7 @@ internal fun ManagerHomeScreen(
                     harvest.getInt("records") == 0 -> "Belum ada panen" to null
                     else -> {
                         val weight = BigDecimal(harvest.getString("weight_kg")).stripTrailingZeros().toPlainString().replace('.', ',')
-                        "$weight kg · ${harvest.getLong("fruit_count")} buah" to "${harvest.getInt("records")} catatan panen"
+                        listOfNotNull("$weight kg", harvest.fruitText()).joinToString(" · ") to "${harvest.getInt("records")} catatan panen"
                     }
                 }
                 HarvestRow(title, headline, note) { onOpen(HomeDestination(OperationalKind.HARVEST, activities, seasonLabelId = periodId)) }

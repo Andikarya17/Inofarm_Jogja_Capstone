@@ -38,7 +38,9 @@ class HarvestViewModel(private val repository:HarvestRepository):ViewModel() {
     }
     fun clearMessage() {mutable.value=state.value.copy(message=null)}
     private val entry=com.inofarm.jogja.feature.EntryOrigin<HarvestDraft>()
-    fun new(gh:String,group:String,runningPeriodVersion:Long?=null) {saveJob?.cancel();mutable.value=state.value.copy(draft=HarvestDraft(greenhouseId=gh,groupId=group,runningPeriodVersion=runningPeriodVersion, requireQuality=true),errors=emptyMap(),saved=false,reviewing=false,message=null);entry.start(null,state.value.draft)}
+    /** [companionGroup]: the greenhouse's second variety, harvested in the same form (17 Nov 2026). */
+    fun new(gh:String,group:String,runningPeriodVersion:Long?=null,companionGroup:String?=null) {saveJob?.cancel();mutable.value=state.value.copy(draft=HarvestDraft(greenhouseId=gh,groupId=group,runningPeriodVersion=runningPeriodVersion, requireQuality=true,
+        companion=companionGroup?.let { HarvestDraft(greenhouseId=gh,groupId=it,requireQuality=true) }),errors=emptyMap(),saved=false,reviewing=false,message=null);entry.start(null,state.value.draft)}
     fun hasChanges()=entry.changed(state.value.draft)
     /** Manager "Batal": closes the form and undoes its autosave, so nothing stays behind as a draft. */
     fun cancel() {

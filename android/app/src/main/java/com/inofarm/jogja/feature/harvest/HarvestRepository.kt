@@ -110,6 +110,13 @@ class HarvestRepository(val vault:FinanceSessionVault,private val store:LocalFin
             val effective=draft.copy(baseVersion=draft.baseVersion ?: existing?.baseVersion)
             val errors=effective.validation(session.role!=UserRole.MANAGER)
             if(errors.isNotEmpty()) throw HarvestValidationFailure(errors,effective.baseVersion)
+            if(effective.companion!=null && effective.baseVersion==null) {
+                // Two varieties harvested together: one harvest per variety, queued in one local transaction.
+                val kept=store.saveDraft(session.scope.key,draft.id,draft.greenhouseId,draft.localJson(),existing?.revision,null,kind="harvest")
+                return@withLock store.queueEntry(session.scope.key,draft.id,draft.greenhouseId,effective.parts().map { part ->
+                    com.inofarm.jogja.core.database.QueuedSection(part.id,part.copy(lockedItems=part.items.map {it.id}.toSet()).localJson().put("completeness","ready"),part.payload())
+                },kept.revision,kind="harvest").first()
+            }
             val local=effective.copy(lockedItems=effective.lockedItems+effective.items.map {it.id}).localJson().put("completeness","ready")
             store.saveAndQueue(session.scope.key,draft.id,draft.greenhouseId,local,existing?.revision,effective.baseVersion,effective.replaceValidationRejected,kind="harvest",queuePayload=effective.payload())
         }

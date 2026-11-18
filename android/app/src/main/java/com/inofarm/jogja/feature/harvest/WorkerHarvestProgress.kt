@@ -191,7 +191,7 @@ private fun ProgressSummary(data: JSONObject, saved: Boolean, showSources: Boole
                 Text(formatHarvestAmount(saleable), style = MaterialTheme.typography.headlineSmall)
                 if (target == null) Text("Target belum ditetapkan.")
                 else {
-                    Text("Target layak ${target.getLong("fruit_count")} buah" +
+                    Text("Target layak ${target.fruitText() ?: "tanpa jumlah buah"}" +
                         if (target.isNull("weight_kg")) "" else " · ${harvestDecimal(target.getString("weight_kg"))} kg")
                     Text(target.getString("basis"), style = MaterialTheme.typography.bodySmall)
                     if (percent != null) {
@@ -232,4 +232,4 @@ private fun ProgressSummary(data: JSONObject, saved: Boolean, showSources: Boole
 }
 
 private fun formatHarvestAmount(value: JSONObject): String =
-    "${value.getLong("fruit_count")} buah · ${harvestDecimal(value.getString("weight_kg"))} kg"
+    value.harvestAmount()
