@@ -1,5 +1,14 @@
 # Gap analysis aktif, 11 November 2026
 
+## Gap setelah pemeriksaan kesiapan backend, 18 November 2026
+
+Branch `api-guest-401`. [Bukti](BACKEND_READINESS_EVIDENCE_20261118.md). Ditutup: tamu tanpa token mendapat 401, bukan 500; pembacaan server terhadap `inofarm_finance_local` setelah #81; uji restore backup 18 November (ke instance sementara, lalu migrate ke 22).
+
+1. Login dan Beranda dari aplikasi dengan akun nyata pada `inofarm_finance_local` dilakukan pengguna sendiri. Dua GH masih `needs_review` atau tanpa periode berjalan.
+2. Penjaga "minimal satu pengelola aktif" belum diuji lewat API.
+3. Usulan Android E1, E2 dan E4 belum dikerjakan.
+4. Pilot: HTTPS, keystore, Q07/Q08, UAT dan pentest.
+
 ## Gap setelah uji backend nyata lanjutan, 18 November 2026
 
 Di-merge ke main lewat PR #83 dan #84 (18 November 2026). [Bukti](RECORDING_REWORK_BACKEND_COVERAGE_EVIDENCE_20261118.md). Butir 2–4 bagian di bawahnya kini tertutup: koreksi per bagian, isian pengelola dengan periode berjalan, antrean offline dan Cek catatan panen lulus terhadap backend nyata; tes verifikasi lama pindah ke form gabungan; `FinanceEntryUiTest` penuh 15 gagal, semuanya baseline, tes investasi lulus di rangkaian.
