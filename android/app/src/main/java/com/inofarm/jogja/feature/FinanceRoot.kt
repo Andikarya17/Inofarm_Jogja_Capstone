@@ -80,6 +80,8 @@ import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.context.HomeContext
 import com.inofarm.jogja.feature.context.HomeContextCard
 import com.inofarm.jogja.feature.context.WorkerContextSheet
+import com.inofarm.jogja.feature.context.recordingTarget
+import com.inofarm.jogja.feature.context.caption
 import com.inofarm.jogja.feature.context.WorkerCorrectionsCard
 import com.inofarm.jogja.feature.context.NutritionRunForm
 import com.inofarm.jogja.feature.context.NutritionRunItem
@@ -221,7 +223,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var adminEntry by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<AdminResource?>(null) }
     var adminPeriodRequest by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<String?>(null) }
     var adminGreenhouse by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<String?>(null) }
-    var wizardOpen by rememberSaveable(authState.session?.scope?.key) { mutableStateOf(false) }
+    // null: closed; "": a new greenhouse; an id: start planting in that existing greenhouse.
+    var wizardOpen by rememberSaveable(authState.session?.scope?.key) { mutableStateOf<String?>(null) }
     var wizardTarget by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var adminEdit by rememberSaveable(authState.session?.scope?.key) { mutableStateOf(false) }
     val openAdmin: (AdminResource) -> Unit = { adminGreenhouse = null; adminEdit = false; adminEntry = it }
@@ -256,7 +259,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                                     sales, saleHistoryState, saleHistory, assetWorkspace, reportWorkspace,
                                     investmentWorkspace, openAdmin, { adminEntry = null },
                                     adminPeriodRequest, { adminPeriodRequest = null }, { id, edit -> adminGreenhouse = id; adminEdit = edit },
-                                    { wizardOpen = true }, wizardTarget, { wizardTarget = null })
+                                    { wizardOpen = "" }, wizardTarget, { wizardTarget = null }, { id -> wizardOpen = id })
                             }
                         }
                     }
@@ -272,13 +275,20 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             onReviewPeriod = { greenhouse -> adminPeriodRequest = greenhouse; adminEntry = null; adminGreenhouse = null; adminEdit = false },
             onClose = { adminEntry = null; adminGreenhouse = null; adminEdit = false },
             initialGreenhouse = adminGreenhouse, initialEdit = adminEdit,
-            onAddGreenhouse = { adminEntry = null; adminGreenhouse = null; adminEdit = false; wizardOpen = true })
+            onAddGreenhouse = { adminEntry = null; adminGreenhouse = null; adminEdit = false; wizardOpen = "" })
     }
-    if (wizardOpen && adminSession?.role == UserRole.MANAGER && !adminSession.rejected) {
+    val wizard = wizardOpen
+    if (wizard != null && adminSession?.role == UserRole.MANAGER && !adminSession.rejected) {
+        val plantIn = wizard.takeIf { it.isNotEmpty() }?.let { id ->
+            contextState.greenhouses.find { it.optString("id") == id }?.let { row ->
+                val open = contextState.seasons.firstOrNull { it.optString("greenhouse_id") == id && it.optString("status") == "open" }
+                com.inofarm.jogja.feature.admin.PlantIn(id, row.optString("name"), open?.optString("id"), open?.optString("name").orEmpty(),
+                    open?.optString("start_date").orEmpty())
+            } }
         com.inofarm.jogja.feature.admin.GreenhouseWizardHost(adminSession, runtime.admin, context::refresh,
-            onOpenGreenhouse = { id -> wizardTarget = id to false; wizardOpen = false },
-            onRecord = { id -> wizardTarget = id to true; wizardOpen = false },
-            onClose = { wizardOpen = false })
+            onOpenGreenhouse = { id -> wizardTarget = id to false; wizardOpen = null },
+            onRecord = { id -> wizardTarget = id to true; wizardOpen = null },
+            onClose = { wizardOpen = null }, plantIn = plantIn)
     }
     if(authState.session!=null && !authState.loading && authState.error!=null) AlertDialog(onDismissRequest=auth::clearError,title={Text("Belum keluar")},text={Text(authState.error!!)},confirmButton={TextButton(onClick=auth::clearError) {Text("Kembali ke isian")}})
 }
@@ -288,7 +298,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     harvest:HarvestUiState,harvestVm:HarvestViewModel,harvestHistory:HistoryUiState,harvestHistoryVm:HistoryViewModel,financial:FinancialEntryState,financialVm:FinancialEntryViewModel,
     expenseHistory:HistoryUiState,expenseHistoryVm:HistoryViewModel,allocationHistory:HistoryUiState,allocationHistoryVm:HistoryViewModel,attachment:AttachmentUiState,attachmentVm:AttachmentViewModel,ticket:Long,sale:SaleEntryState,saleVm:SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:AssetWorkspace,reports:SeasonReportWorkspace,investments:InvestmentWorkspace,onAdmin:(AdminResource)->Unit,onAccessDenied:()->Unit,
     adminPeriodRequest: String?, onAdminPeriodOpened: () -> Unit, onAdminGreenhouse: (String?, Boolean) -> Unit,
-    onAddGreenhouse: () -> Unit, wizardTarget: Pair<String, Boolean>?, onWizardTargetUsed: () -> Unit) {
+    onAddGreenhouse: () -> Unit, wizardTarget: Pair<String, Boolean>?, onWizardTargetUsed: () -> Unit,
+    onStartPlanting: (String) -> Unit) {
     val runtime:FinanceRuntime=viewModel()
     val tabState = rememberSaveableStateHolder()
     var tab by rememberSaveable { mutableStateOf(0) };var gh by rememberSaveable { mutableStateOf<String?>(null) };var season by rememberSaveable { mutableStateOf<String?>(null) };var group by rememberSaveable { mutableStateOf<String?>(null) }
@@ -467,15 +478,14 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             }
         },
         onSync = onSync,
-        onSetup = { managerRecording = null; onAdmin(AdminResource.GREENHOUSE) },
-        chooseSingleGroup = destination == "harvest",
+        onStartPlanting = { id -> managerRecording = null; onStartPlanting(id) },
     ) }
     LaunchedEffect(context.lastSyncedAt, context.greenhouses, context.seasons, context.groups) {
         if (!manager && (context.lastSyncedAt != null || context.greenhouses.isNotEmpty())) {
             if (gh != null && selectedGreenhouse == null) {
                 contextChange = if (context.greenhouses.any { it.optString("id") == gh })
                     "Greenhouse yang dipilih sekarang nonaktif. Draf tetap tersimpan."
-                else "Anda tidak lagi bertugas di greenhouse ini. Draf tetap tersimpan."
+                else "Greenhouse ini tidak lagi tersedia. Draf tetap tersimpan."
                 gh = null
             }
             if (gh == null || selectedSeason == null) season = null
@@ -712,8 +722,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             "activity" -> "Catat kegiatan"
             "measurement" -> "Catat pengukuran"
             else -> null
-        }, onSelect = ::setWorkerContext, onClose = { contextSheet = null }, onContinue = { recordWorker(destination) }, onSync = onSync,
-            preferRunningPeriod = true, startableOnly = true)
+        }, onSelect = ::setWorkerContext, onClose = { contextSheet = null }, onContinue = { recordWorker(destination) }, onSync = onSync)
     }
     val queueScreen: @Composable () -> Unit = {
         QueueScreen(activity, context, sessionExpired, queueReviewOperation, queueReviewError, queueOpening, vm::reload,
@@ -760,22 +769,32 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             title = "Belum terkirim", worker = !manager)
     }
     val unsent = activity.queue.count { it.state != "ACCEPTED" && it.state != "SUPERSEDED" }
+    // Manager recording asks only for the greenhouse; season and planting follow from it (see recordingTarget).
+    fun recordManagerIn(greenhouseId: String?, choice: RecordChoice) {
+        val destination = when (choice) { RecordChoice.HARVEST -> "harvest"; RecordChoice.MEASUREMENT -> "measurement"; else -> "activity" }
+        val ready = context.recordingTarget(greenhouseId, workerToday) as? com.inofarm.jogja.feature.context.RecordingTarget.Ready
+        if (ready == null) {
+            entryGreenhouse = greenhouseId
+            entrySeason = null
+            entryGroup = null
+            managerRecording = destination
+            return
+        }
+        val id = ready.greenhouse.getString("id")
+        val plantingGroup = ready.group.getString("id")
+        val version = ready.greenhouse.takeIf { it.optString("running_group_id") == plantingGroup }?.optLong("version")?.takeIf { it > 0 }
+        when (destination) {
+            "harvest" -> harvestVm.new(id, plantingGroup, version)
+            "measurement" -> vm.new(id, plantingGroup, ActivityType.MEASUREMENT, runningPeriodVersion = version)
+            else -> vm.new(id, plantingGroup, ActivityType.GENERAL, runningPeriodVersion = version)
+        }
+    }
     fun startRecord(choice: RecordChoice, pickedGreenhouse: String? = null) {
         recordSheet = false
         if (!manager) return recordWorkerIn(pickedGreenhouse ?: gh, choice)
-        val target = gh ?: lastGreenhouse ?: context.greenhouses.singleOrNull()?.optString("id")
+        val target = pickedGreenhouse ?: gh ?: lastGreenhouse ?: context.greenhouses.singleOrNull()?.optString("id")
         when (choice) {
-            RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST ->
-                if (canRecordFromHome) when (choice) {
-                    RecordChoice.HARVEST -> harvestVm.new(gh!!, runningGroup!!, runningVersion)
-                    RecordChoice.MEASUREMENT -> vm.new(gh!!, runningGroup!!, ActivityType.MEASUREMENT, null, runningVersion)
-                    else -> vm.new(gh!!, runningGroup!!, ActivityType.GENERAL, null, runningVersion)
-                } else {
-                    entryGreenhouse = target
-                    entrySeason = null
-                    entryGroup = null
-                    managerRecording = when (choice) { RecordChoice.HARVEST -> "harvest"; RecordChoice.MEASUREMENT -> "measurement"; else -> "activity" }
-                }
+            RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST -> recordManagerIn(target, choice)
             RecordChoice.EXPENSE ->
                 if (target != null) financialVm.new(com.inofarm.jogja.core.contracts.RecordKind.EXPENSE, target)
                 else moneyPick = "expense"
@@ -799,20 +818,15 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         )
     }
     if (recordSheet) RecordSheet(::startRecord,
-        if (manager && gh != null && runningGroup == null && !managerHome.loading) ({ recordSheet = false; onAdmin(AdminResource.GROUP) }) else null,
         { recordSheet = false }, if (manager) RecordChoice.entries else WorkerRecordChoices,
-        worker = if (manager) null else WorkerRecordTarget(
-            context.greenhouses.filter { it.optBoolean("active", true) }, gh ?: lastGreenhouse,
-            caption = { id ->
-                val row = context.greenhouses.find { it.optString("id") == id }
-                val ctx = row?.let { context.workerDefault(it, workerToday) }
-                val grp = context.groups.find { it.optString("id") == ctx?.group }
-                if (grp == null) row?.let { "Tanam saat ini belum dipilih pengelola" }
-                else listOf(grp.optString("name"), workerAge(grp, workerToday).substringAfter(" · ")).joinToString(" · ")
-            }, onPick = { choice, id -> startRecord(choice, id) },
-            onNutritionRun = if (nutritionRunTargets(context, workerToday).first.isNotEmpty()) ({ runStart() }) else null),
-        contextLine = if (manager && gh != null) listOfNotNull(homeSnapshot?.selected?.text("name"),
-            homeSnapshot?.period?.text("group_name")?.let { "Kelompok $it" }).joinToString(" · ").ifBlank { null } else null)
+        worker = WorkerRecordTarget(
+            context.greenhouses.filter { it.optBoolean("active", true) }, gh ?: lastGreenhouse ?: context.greenhouses.singleOrNull { it.optBoolean("active", true) }?.optString("id"),
+            caption = { id -> context.recordingTarget(id, workerToday).caption(manager) },
+            onPick = { choice, id -> if (choice in WorkerRecordChoices) startRecord(choice, id) else startRecord(choice) },
+            onNutritionRun = if (!manager && nutritionRunTargets(context, workerToday).first.isNotEmpty()) ({ runStart() }) else null,
+            notPlanted = { id -> context.recordingTarget(id, workerToday) is com.inofarm.jogja.feature.context.RecordingTarget.NotPlanted },
+            onStartPlanting = if (manager) ({ id -> recordSheet = false; onStartPlanting(id) }) else null,
+            workerDetails = !manager))
     if (showOutbox) ModalBottomSheet(
         onDismissRequest = { showOutbox = false; queueFocus = null },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

@@ -36,10 +36,15 @@ internal enum class RecordChoice(val label: String, val detail: String, val icon
     SALE("Penjualan", "Sudah lunas", FarmIcon.TrendUp),
 }
 
-/** The greenhouse choice a worker makes inside the Catat sheet; [onPick] gets the chosen greenhouse id. */
+/**
+ * The greenhouse choice inside the Catat sheet, for both roles: recording only asks for a greenhouse (17 Nov 2026).
+ * [onPick] gets the chosen greenhouse id. [onStartPlanting] is offered when [notPlanted] says the greenhouse has no planting.
+ */
 internal class WorkerRecordTarget(
     val greenhouses: List<org.json.JSONObject>, val chosen: String?, val caption: (String?) -> String?,
     val onPick: (RecordChoice, String?) -> Unit, val onNutritionRun: (() -> Unit)? = null,
+    val notPlanted: (String?) -> Boolean = { false }, val onStartPlanting: ((String) -> Unit)? = null,
+    val workerDetails: Boolean = true,
 )
 
 private val WorkerRecordDetails = mapOf(
@@ -55,7 +60,6 @@ private val FieldChoices = setOf(RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT
 @Composable
 internal fun RecordSheet(
     onPick: (RecordChoice) -> Unit,
-    onStartPlanting: (() -> Unit)?,
     onDismiss: () -> Unit,
     choices: List<RecordChoice> = RecordChoice.entries,
     contextLine: String? = null,
@@ -74,7 +78,6 @@ internal fun RecordSheet(
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                 Spacer(Modifier.height(FarmSpace.Tiny))
-                if (onStartPlanting != null) StartPlantingCard(onStartPlanting)
                 val field = choices.filter { it in FieldChoices }
                 val money = choices.filterNot { it in FieldChoices }
                 if (worker != null && worker.greenhouses.isNotEmpty()) {
@@ -83,13 +86,16 @@ internal fun RecordSheet(
                         Text(it, Modifier.testTag("record-greenhouse-caption"), style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    val start = worker.onStartPlanting
+                    val ghId = chosen
+                    if (start != null && ghId != null && worker.notPlanted(ghId)) StartPlantingCard { start(ghId) }
                 }
                 val pick: (RecordChoice) -> Unit = if (worker != null) { choice -> worker.onPick(choice, chosen) } else onPick
                 if (field.isNotEmpty()) RecordGroup(if (worker != null) null else "Di greenhouse", field, 3, 0, pick,
-                    if (worker != null) WorkerRecordDetails else emptyMap())
+                    if (worker?.workerDetails == true) WorkerRecordDetails else emptyMap())
                 worker?.onNutritionRun?.let { NutritionRunRow(it) }
                 if (money.isNotEmpty()) RecordGroup("Uang", money, 2, field.size, onPick)
-                if (money.isNotEmpty()) Text(
+                if (money.isNotEmpty() && worker == null) Text(
                     "Greenhouse lain? Pilih dulu di Beranda, atau biaya dan penjualan akan menanyakan greenhouse-nya.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

@@ -43,11 +43,11 @@ class WorkerContextUiTest {
         rule.onNodeWithText("Memeriksa greenhouse dan musim Anda", substring = true).assertExists()
         rule.runOnIdle { data.value = CultivationUiState(check = ContextCheck.OFFLINE) }
         rule.onNodeWithText("Belum bisa terhubung dan belum ada greenhouse tersimpan", substring = true).assertExists()
-        rule.onNodeWithText("Anda belum ditugaskan di greenhouse mana pun", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("Belum ada greenhouse aktif", substring = true).assertDoesNotExist()
         rule.runOnIdle { data.value = CultivationUiState(check = ContextCheck.FAILED) }
         rule.onNodeWithText("Greenhouse gagal dimuat", substring = true).assertExists()
         rule.runOnIdle { data.value = CultivationUiState(check = ContextCheck.CHECKED) }
-        rule.onNodeWithText("Anda belum ditugaskan di greenhouse mana pun", substring = true).assertExists()
+        rule.onNodeWithText("Belum ada greenhouse aktif", substring = true).assertExists()
         rule.onNodeWithTag("finance-context-continue").assertDoesNotExist()
 
         rule.runOnIdle {
@@ -55,15 +55,14 @@ class WorkerContextUiTest {
                 check = ContextCheck.CHECKED,
                 greenhouses = listOf(row("gh", "Greenhouse sintetis")),
                 seasons = listOf(row("season", "Musim sintetis").put("greenhouse_id", "gh").put("status", "open")),
-                groups = listOf(row("group", "Kelompok sintetis").put("season_id", "season"))
+                groups = listOf(row("group", "Kelompok sintetis").put("season_id", "season").put("sowing_date", "2026-01-01"))
             )
         }
         rule.onNodeWithTag("finance-gh").performScrollTo().performClick()
         rule.onNodeWithText("Greenhouse sintetis").performClick()
-        rule.onNodeWithTag("finance-season").performScrollTo().performClick()
-        rule.onNodeWithText("Musim sintetis").performClick()
-        rule.onNodeWithTag("finance-group").performScrollTo().performClick()
-        rule.onNodeWithText("Kelompok sintetis").performClick()
+        // Only the greenhouse is chosen; its open season and the sown planting follow (17 Nov 2026).
+        rule.onNodeWithTag("finance-season").assertDoesNotExist()
+        rule.onNodeWithTag("finance-context-target").assertTextContains("Musim sintetis", substring = true)
         rule.onNodeWithTag("finance-context-continue").performScrollTo().assertIsDisplayed()
         captureWorkerRecordingEvidence("wr-worker-dark.png")
         rule.onNodeWithTag("finance-context-continue").performClick()
