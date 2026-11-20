@@ -464,8 +464,7 @@
           },
           "then": {
             "required": [
-              "manual_ec",
-              "manual_ppm"
+              "manual_ec"
             ],
             "properties": {
               "manual_ec": {
@@ -473,7 +472,10 @@
                 "pattern": "^(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
               },
               "manual_ppm": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "pattern": "^(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
               },
               "work_state": {
@@ -852,8 +854,7 @@
           },
           "then": {
             "required": [
-              "manual_ec",
-              "manual_ppm"
+              "manual_ec"
             ],
             "properties": {
               "manual_ec": {
@@ -861,7 +862,10 @@
                 "pattern": "^(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
               },
               "manual_ppm": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "pattern": "^(0|[1-9][0-9]{0,13})(\\.[0-9]{1,6})?$"
               },
               "work_state": {

@@ -18,3 +18,10 @@ Endpoint latest mengecualikan keputusan invalid pada versi kegiatan yang sedang 
 # Cache keputusan pengukuran
 
 `GET /sync/changes?activity_reviews=1&measurement_review_status=1` memutar ulang feed sesuai scope efektif. Untuk pengukuran milik akun lain, pekerja hanya menerima `id`, `version`, `activity_id`, `activity_version` dan `decision`. Alasan dan identitas peninjau tetap mengikuti batas baca detail. Versi aktif yang ditolak dikeluarkan dari pilihan kartu EC/PPM. Riwayat revisi tetap tersimpan, dan koreksi dengan versi baru diperiksa sebagai kandidat baru.
+
+## Pembaruan 20 November 2026 (masukan lapangan Inofarm)
+
+- Pengukuran baru cukup memuat `manual_ec`; `manual_ppm` dan `manual_ph` opsional (null bukan nol). Aturan "EC dan PPM wajib" di atas digantikan.
+- Satu isian (`entry_batch_id`) boleh memuat dua pengukuran: `observations.measurement_moment` `before_injection` dan `after_injection`, dengan `occurred_at` yang sama.
+- `measurements/latest`, Beranda pengelola dan feed status ulasan mengenali bacaan bila `manual_ec` **atau** `manual_ppm` ada, sehingga baris lama yang hanya berisi PPM tetap terbaca.
+- Bila `occurred_at` sama, urutan terbaru: `after_injection` lebih dulu, lalu UUID DESC.

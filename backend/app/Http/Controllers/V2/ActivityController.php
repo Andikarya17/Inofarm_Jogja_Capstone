@@ -26,9 +26,10 @@ final class ActivityController extends Controller
             $tomorrow = CarbonImmutable::now('Asia/Jakarta')->startOfDay()->addDay()->utc()->format('Y-m-d H:i:s');
             $row = $service->scope($actor)->where('season_id', $ctx['season']->id)
                 ->where(fn ($q) => $q->whereNull('planting_group_id')->when($group !== null, fn ($q) => $q->orWhere('planting_group_id', $group)))
-                ->where('record_state', 'active')->where('work_state', 'completed')->whereNotNull('manual_ppm')
+                ->where('record_state', 'active')->where('work_state', 'completed')->where(fn ($q) => $q->whereNotNull('manual_ec')->orWhereNotNull('manual_ppm'))
                 ->whereNotExists(ActivityReviewService::current('invalid'))
-                ->where('occurred_at', '<', $tomorrow)->orderByDesc('occurred_at')->orderByDesc('id')->first();
+                ->where('occurred_at', '<', $tomorrow)->orderByDesc('occurred_at')
+                ->orderByRaw("(JSON_UNQUOTE(JSON_EXTRACT(observations, '$.measurement_moment')) <=> 'after_injection') DESC")->orderByDesc('id')->first();
             return ['data' => $row === null ? null : app(AcceptedSnapshot::class)->read('activity', $row),
                 'calendar' => 'Asia/Jakarta', 'as_of' => CarbonImmutable::now()->toISOString()];
         });

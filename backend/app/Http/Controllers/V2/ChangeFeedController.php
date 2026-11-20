@@ -57,7 +57,7 @@ final class ChangeFeedController extends Controller
                     if ($reviewSupport) {
                         $activityReviews = DB::table('activity_reviews')->join('activities', 'activities.id', '=', 'activity_reviews.activity_id')
                             ->where(fn ($reviews) => $reviews->where('activities.recorded_by', $actor->id)
-                                ->when($measurementStatus, fn ($measurements) => $measurements->orWhereNotNull('activities.manual_ppm')))
+                                ->when($measurementStatus, fn ($measurements) => $measurements->orWhereNotNull('activities.manual_ec')->orWhereNotNull('activities.manual_ppm')))
                             ->select('activity_reviews.id');
                         $query->orWhere(fn ($review) => $review->where('audience', 'activity_recorder')
                             ->where('entity_type', 'activity_review')->whereIn('entity_id', $activityReviews));

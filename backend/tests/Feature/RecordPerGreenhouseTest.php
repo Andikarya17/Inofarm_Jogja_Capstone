@@ -170,7 +170,7 @@ class RecordPerGreenhouseTest extends FinanceTestCase
             'materials' => [['material_id' => $ctx['mix']['id'], 'unit_id' => null, 'quantity' => null]]]));
         $refuse($this->entry($ctx, $batch, ['activity_type' => 'nutrition', 'manual_ec' => null, 'manual_ppm' => null, 'manual_ph' => null,
             'materials' => [['material_name' => 'AB mix baru', 'unit_id' => $ctx['unit']['id'], 'quantity' => '1']]]));
-        $refuse($this->entry($ctx, $batch, ['manual_ppm' => null]));
+        $refuse($this->entry($ctx, $batch, ['manual_ec' => null]));
         $refuse($this->entry($ctx, $batch, ['season_id' => null]));
         $refuse($this->spray($ctx, $batch, $ctx['group']['id'], [['material_name' => 'Bion M']], ['season_id' => $this->context($manager)['season']['id']]));
         $this->assertSame(0, DB::table('activities')->count());

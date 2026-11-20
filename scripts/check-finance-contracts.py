@@ -18,12 +18,22 @@ validator.validate(measurement['operation'])
 assert hashlib.sha256(json.dumps(measurement['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest() == measurement['canonical_sha256']
 for key in ('manual_ec', 'manual_ppm'):
     for invalid in (None, '', 'NaN', '-1', '1,2', '1e2', 1.25, '0.0000001'):
+        if key == 'manual_ppm' and invalid is None:
+            continue
         sample = json.loads(json.dumps(measurement['operation']))
         sample['payload'][key] = invalid
         assert not validator.is_valid(sample), (key, invalid)
+# Inofarm 20 Nov 2026: EC is required, PPM is optional (null or absent).
+sample = json.loads(json.dumps(measurement['operation']))
+del sample['payload']['manual_ec']
+assert not validator.is_valid(sample), 'manual_ec'
+for ppm in (None, 'absent'):
     sample = json.loads(json.dumps(measurement['operation']))
-    del sample['payload'][key]
-    assert not validator.is_valid(sample), key
+    if ppm == 'absent':
+        del sample['payload']['manual_ppm']
+    else:
+        sample['payload']['manual_ppm'] = None
+    validator.validate(sample)
 # Greenhouse entry form (17 Nov 2026): typed HSS/HST, spray per variety, spray material by name, optional dose.
 entry = json.loads((root / 'fixtures/activity-entry-operation.json').read_text(encoding='utf-8'))
 validator.validate(entry['operation'])

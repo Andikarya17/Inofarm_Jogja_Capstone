@@ -176,10 +176,9 @@ final class ActivityService
         }
         $errors = $this->entryErrors($p);
         if ($p['activity_type'] === 'measurement') {
-            foreach (['manual_ec', 'manual_ppm'] as $field) {
-                if (($p[$field] ?? null) === null) {
-                    $errors[$field] = 'EC dan PPM manual wajib lengkap; kosong bukan nol.';
-                }
+            // Inofarm 20 Nov 2026: EC is the reading that must be there; PPM is optional.
+            if (($p['manual_ec'] ?? null) === null) {
+                $errors['manual_ec'] = 'Isi EC; kosong bukan nol.';
             }
             if ($p['work_state'] !== 'completed') {
                 $errors['work_state'] = 'Pengukuran harus selesai untuk dikirim.';
