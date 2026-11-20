@@ -43,7 +43,7 @@ import kotlinx.coroutines.withContext
         delay(250); rows = null
         runCatching { repository.search(session, ticket, type, query, 100) }.onSuccess { rows = it; error = null }.onFailure { rows = emptyList(); error = userMessage(it) }
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Medium),
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = FarmSpace.Medium),
         verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack, Modifier.size(FarmSpace.Touch).testTag("customers-back")) { FarmControlIcon(FarmIcon.Close, "Kembali ke Keuangan") }
@@ -114,7 +114,7 @@ import kotlinx.coroutines.withContext
         }
     }
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Medium),
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = FarmSpace.Medium),
             verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onDone, Modifier.size(FarmSpace.Touch).testTag("import-close")) { FarmControlIcon(FarmIcon.Close, "Batal") }

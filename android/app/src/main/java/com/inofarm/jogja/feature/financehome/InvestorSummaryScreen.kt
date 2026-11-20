@@ -45,7 +45,7 @@ fun investorTotals(bySequence: JSONArray): InvestorTotals {
     var data by remember { mutableStateOf<JSONObject?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(session.scope.key) { runCatching { repository.profitSummary(session, ticket) }.onSuccess { data = it }.onFailure { error = userMessage(it) } }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Medium),
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = FarmSpace.Medium),
         verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack, Modifier.size(FarmSpace.Touch).testTag("investor-back")) { FarmControlIcon(FarmIcon.Close, "Kembali ke Keuangan") }

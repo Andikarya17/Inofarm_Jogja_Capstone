@@ -81,13 +81,11 @@ private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER, CUSTOMERS }
     val index = if (selected in list.indices) selected else list.lastIndex
     val current = list.getOrNull(index)
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = FarmSpace.Page)
+    // The shell already pads the page and shows "Keuangan" in its app bar.
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
         .padding(top = FarmSpace.Small, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Keuangan", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-                Text("Penjualan lunas dan biaya standar", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            Text("Penjualan lunas dan biaya standar", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             IconButton({ showReal = !showReal; preference.setShowRealCosts(session.scope.key, showReal) },
                 Modifier.size(FarmSpace.Touch).testTag("finance-real-costs-toggle")) {
                 FarmControlIcon(if (showReal) FarmIcon.Eye else FarmIcon.EyeOff, if (showReal) "Sembunyikan biaya nyata" else "Tampilkan biaya nyata")
@@ -138,8 +136,6 @@ private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER, CUSTOMERS }
         LegendItem(MitraBar, "Mitra")
         LegendItem(PeroranganBar, "Perorangan")
         if (untyped) LegendItem(UntypedBar, "Tanpa tipe")
-        Spacer(Modifier.weight(1f))
-        Text("Ketuk batang", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -190,19 +186,21 @@ private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER, CUSTOMERS }
 }
 
 @Composable private fun DetailPanel(bar: IncomeBar) {
-    Row(Modifier.fillMaxWidth().background(FarmColors.ForestSurface, RoundedCornerShape(16.dp)).padding(FarmSpace.Medium),
-        horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-        Fact("Mitra", rupiah(bar.partner), kg(bar.partnerKg), Modifier.weight(1f))
-        Fact("Perorangan", rupiah(bar.consumer), kg(bar.consumerKg), Modifier.weight(1f))
-        Fact("Total bobot", kg(bar.weightKg()), bar.averagePerKg()?.let { "Rata-rata ${rupiah(it)}/kg" } ?: "Belum ada bobot", Modifier.weight(1f))
+    // Rows, not columns: full rupiah amounts must fit at 360 dp and large font scales.
+    Column(Modifier.fillMaxWidth().background(FarmColors.ForestSurface, RoundedCornerShape(16.dp)).padding(FarmSpace.Medium),
+        verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+        Fact("Mitra · ${kg(bar.partnerKg)}", rupiah(bar.partner))
+        Fact("Perorangan · ${kg(bar.consumerKg)}", rupiah(bar.consumer))
+        if (bar.hasUnspecified()) Fact("Tanpa tipe · ${kg(bar.unspecifiedKg)}", rupiah(bar.unspecified))
+        HorizontalDivider(color = FarmColors.ForestPill)
+        Fact("Total ${kg(bar.weightKg())}", bar.averagePerKg()?.let { "rata-rata ${rupiah(it)}/kg" } ?: "Belum ada bobot")
     }
 }
 
-@Composable private fun Fact(label: String, value: String, note: String, modifier: Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+@Composable private fun Fact(label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Bold)
-        Text(note, style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

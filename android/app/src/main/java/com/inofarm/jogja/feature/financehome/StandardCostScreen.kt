@@ -69,7 +69,7 @@ private fun raw(amount: BigDecimal?): String = amount?.stripTrailingZeros()?.let
     var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
 
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Medium),
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = FarmSpace.Medium),
             verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onBack, Modifier.size(FarmSpace.Touch).testTag("cost-close")) { FarmControlIcon(FarmIcon.Close, "Batal") }

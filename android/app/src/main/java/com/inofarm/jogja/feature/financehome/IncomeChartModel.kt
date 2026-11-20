@@ -69,7 +69,7 @@ fun rupiah(value: BigDecimal): String {
     val scaled = value.setScale(2, RoundingMode.HALF_UP)
     format.minimumFractionDigits = if (scaled.stripTrailingZeros().scale() > 0) 2 else 0
     format.maximumFractionDigits = 2
-    return "Rp" + format.format(scaled)
+    return (if (scaled.signum() < 0) "−Rp" else "Rp") + format.format(scaled.abs())
 }
 
 /** "24,5 jt" for chart labels. */
