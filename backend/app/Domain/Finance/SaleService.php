@@ -47,7 +47,8 @@ final class SaleService
             if ($season->status !== 'open') {throw new DomainFailure('season_closed', 'Musim ditutup. Buka kembali dengan alasan sebelum mengubah penjualan.');}
             $old = DB::table('sale_items')->where('sale_id', $op['entity_id'])->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             if ($op['action'] !== 'cancel') {
-                abort_unless(count(array_unique(array_column($p['items'], 'id'))) === count($p['items']) && count(array_unique(array_column($p['items'], 'harvest_item_id'))) === count($p['items']), 422, 'Identitas rincian dan sumber panen tidak boleh berulang dalam satu transaksi.');
+                $pairs = array_map(fn ($item) => $item['harvest_item_id'].'|'.($item['buyer_grade'] ?? ''), $p['items']);
+                abort_unless(count(array_unique(array_column($p['items'], 'id'))) === count($p['items']) && count(array_unique($pairs)) === count($p['items']), 422, 'Identitas rincian dan sumber panen tidak boleh berulang dalam satu transaksi.');
             }
             $quote = $op['action'] === 'cancel' ? null : SaleMath::quote($p['items']);
             $submitted = collect($quote['items'] ?? [])->keyBy('id');
@@ -82,6 +83,10 @@ final class SaleService
                 if (isset($p['customer'])) {
                     [$data['customer_id'], $data['customer_type'], $data['customer_name']] = app(CustomerService::class)->forSale($current, $p['customer']);
                 }
+                // Grades A/B/C are the mitra's own grading (20 Nov 2026); other buyers buy the Layak line ungraded.
+                if (collect($p['items'])->contains(fn ($item) => ($item['buyer_grade'] ?? null) !== null)) {
+                    abort_unless(($data['customer_type'] ?? null) === 'partner', 422, 'Grade A, B, C hanya untuk penjualan ke mitra.');
+                }
             }
             $data = [...$data, 'version' => $version, 'updated_at' => now()];
             if (!$row) {DB::table('sales')->insert([...$data, 'id' => $op['entity_id'], 'recorded_by' => $current->id, 'recorded_by_name' => $current->name, 'created_at' => now()]);}
@@ -92,7 +97,8 @@ final class SaleService
                 abort_if($previous && $previous->harvest_item_id !== $source->id, 422, 'Sumber rincian penjualan tidak dapat diganti. Gunakan rincian baru.');
                 $saved = ['sale_id' => $op['entity_id'], 'harvest_item_id' => $source->id, 'harvest_id' => $harvest->id,
                     'harvest_version' => $previous->harvest_version ?? $harvest->version, 'grade_id' => $source->grade_id,
-                    'grade_name' => $previous->grade_name ?? $source->grade_name, 'quantity_kg' => $line['quantity_kg'], 'price_per_kg' => $line['price_per_kg'], 'exact_amount' => $line['exact_amount'], 'active' => true];
+                    'grade_name' => $previous->grade_name ?? $source->grade_name, 'quantity_kg' => $line['quantity_kg'], 'price_per_kg' => $line['price_per_kg'], 'exact_amount' => $line['exact_amount'],
+                    'buyer_grade' => $line['buyer_grade'] ?? null, 'active' => true];
                 if ($previous) {DB::table('sale_items')->where('id', $id)->update($saved);}
                 else {app(EntityIdentity::class)->claim('sale_item', $id);DB::table('sale_items')->insert(['id' => $id, ...$saved]);}
             }

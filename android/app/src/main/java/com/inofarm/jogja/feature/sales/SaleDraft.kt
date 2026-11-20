@@ -10,7 +10,8 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-data class SaleLine(val id:String=UUID.randomUUID().toString(),val sourceId:String="",val quantity:String="",val price:String="")
+/** [grade] is the mitra's own grade A/B/C (21 Nov 2026); blank for other buyers. */
+data class SaleLine(val id:String=UUID.randomUUID().toString(),val sourceId:String="",val quantity:String="",val price:String="",val grade:String="")
 data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId:String,val seasonId:String="",
     val date:String=LocalDate.now(ManualTime.WIB).toString(),val time:String=LocalTime.now(ManualTime.WIB).format(DateTimeFormatter.ofPattern("HH:mm")),
     val paid:Boolean=false,val customer:String="",val notes:String="",val items:List<SaleLine> = listOf(SaleLine()),val reason:String="",val baseVersion:Long?=null,
@@ -28,7 +29,9 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
         if(customer.length>200) put("customer","Nama pembeli maksimal200 karakter.")
         if(notes.length>2000) put("notes","Keterangan maksimal2.000 karakter.")
         if(items.size !in 1..30) put("items","Sertakan1–30 rincian sumber panen.")
-        if(items.map {it.id}.toSet().size!=items.size || items.map {it.sourceId}.toSet().size!=items.size) put("items","Identitas rincian dan sumber panen tidak boleh berulang.")
+        if(items.map {it.id}.toSet().size!=items.size || items.map {it.sourceId to it.grade}.toSet().size!=items.size) put("items","Sumber panen hanya boleh berulang dengan grade mitra yang berbeda.")
+        if(items.any {it.grade.isNotBlank()} && buyerType!="partner") put("items","Grade A, B, C hanya untuk penjualan ke mitra.")
+        if(items.any {it.grade.isNotBlank() && it.grade !in setOf("A","B","C")}) put("items","Grade mitra harus A, B, atau C.")
         items.forEachIndexed {index,line ->
             if(runCatching {WireContract.uuid(line.id);WireContract.uuid(line.sourceId)}.isFailure) put("items.$index.source","Pilih sumber panen yang sudah terkirim.")
             if(runCatching {decimal(line.quantity,true)}.isFailure) put("items.$index.quantity","Bobot kg harus lebih dari nol, maksimal6 desimal; kosong bukan nol.")
@@ -45,7 +48,7 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
     fun payload():JSONObject {
         require(validation(false).isEmpty()) {validation(false).values.joinToString("\n")}
         return JSONObject().put("season_id",seasonId).put("paid_at",paidAt()).put("payment_status","paid").put("customer_name",customer).put("notes",notes)
-            .put("items",JSONArray().also {rows -> items.forEach {rows.put(JSONObject().put("id",it.id).put("harvest_item_id",it.sourceId).put("quantity_kg",decimal(it.quantity,true).toPlainString()).put("price_per_kg",decimal(it.price,false).toPlainString()))}})
+            .put("items",JSONArray().also {rows -> items.forEach {rows.put(JSONObject().put("id",it.id).put("harvest_item_id",it.sourceId).put("quantity_kg",decimal(it.quantity,true).toPlainString()).put("price_per_kg",decimal(it.price,false).toPlainString()).apply {if(it.grade.isNotBlank()) put("buyer_grade",it.grade)})}})
             .apply {if(baseVersion!=null && reason.isNotBlank()) put("reason",reason)}
             .apply {
                 if(hasBuyer()) put("customer_type",buyerType).put("customer",JSONObject().put("id",buyerId).put("type",buyerType).put("name",customer.trim())
@@ -56,7 +59,7 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
         val form=JSONObject().put("season_id",seasonId).put("date",date).put("time",time).put("paid",paid).put("customer_name",customer).put("notes",notes).put("reason",reason)
             .put("locked_season",lockedSeason).put("locked_sources",JSONArray(lockedSources.toList())).put("replace_validation_rejected",replaceValidationRejected)
             .put("buyer_type",buyerType).put("buyer_id",buyerId).put("buyer_whatsapp",buyerWhatsapp).put("buyer_existing",buyerExisting)
-            .put("items",JSONArray().also {rows -> items.forEach {rows.put(JSONObject().put("id",it.id).put("source_id",it.sourceId).put("quantity",it.quantity).put("price",it.price))}})
+            .put("items",JSONArray().also {rows -> items.forEach {rows.put(JSONObject().put("id",it.id).put("source_id",it.sourceId).put("quantity",it.quantity).put("price",it.price).put("grade",it.grade))}})
         return JSONObject().put("season_id",seasonId).put("paid_at",runCatching {paidAt()}.getOrNull() ?: JSONObject.NULL).put("customer_name",customer).put("notes",notes).put("completeness","draft").put("_local_form",form)
     }
     companion object {
@@ -67,7 +70,7 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
         fun from(id:String,gh:String,body:JSONObject,base:Long?):SaleDraft {
             val local=body.optJSONObject("_local_form");val raw=local ?: body
             val stamp=if(local!=null) raw.optString("date") to raw.optString("time") else ManualTime.decode(body.getString("paid_at"))
-            val rows=raw.getJSONArray("items");val lines=(0 until rows.length()).map {rows.getJSONObject(it).let {line -> SaleLine(line.getString("id"),line.getString(if(local!=null) "source_id" else "harvest_item_id"),line.getString(if(local!=null) "quantity" else "quantity_kg"),line.getString(if(local!=null) "price" else "price_per_kg"))}}
+            val rows=raw.getJSONArray("items");val lines=(0 until rows.length()).map {rows.getJSONObject(it).let {line -> SaleLine(line.getString("id"),line.getString(if(local!=null) "source_id" else "harvest_item_id"),line.getString(if(local!=null) "quantity" else "quantity_kg"),line.getString(if(local!=null) "price" else "price_per_kg"),if(local!=null) line.optString("grade") else line.optString("buyer_grade").takeIf {!line.isNull("buyer_grade")}.orEmpty())}}
             val locked=local?.optJSONArray("locked_sources")?.let {a -> (0 until a.length()).map {a.getString(it)}.toSet()} ?: if(base!=null) lines.map {it.id}.toSet() else emptySet()
             return SaleDraft(id,gh,raw.optString("season_id"),stamp.first,stamp.second,if(local!=null) raw.optBoolean("paid") else body.optString("payment_status")=="paid",raw.optString("customer_name"),raw.optString("notes"),lines,raw.optString("reason"),base,locked,local?.optBoolean("locked_season") ?: (base!=null),local?.optBoolean("replace_validation_rejected")==true,
                 buyerType=local?.optString("buyer_type") ?: body.optString("customer_type").takeIf {!body.isNull("customer_type") && !body.isNull("customer_id")}.orEmpty(),

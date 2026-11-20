@@ -61,11 +61,15 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
             fun edit(updated:SaleLine) {vm.edit {it.copy(items=it.items.toMutableList().apply {set(index,updated)})}}
             if(line.id in draft.lockedSources) Text(options.find {it.optString("id")==line.sourceId}?.optString("name") ?: "Sumber terakhir tersimpan · perbarui untuk saldo terbaru")
             else Choice("Sumber panen ${index+1}",line.sourceId,options,"sale-source-$index") {edit(line.copy(sourceId=it))}
+            // Mitra grades the fruit when buying (20 Nov 2026): one line per grade, the same Layak source may repeat.
+            if(draft.buyerType=="partner") com.inofarm.jogja.core.design.FarmChoiceChips("Grade dari mitra",line.grade.ifBlank {null},
+                listOf("A","B","C").map {org.json.JSONObject().put("id",it).put("name","Grade $it")},"sale-grade-$index") {edit(line.copy(grade=it))}
             FinanceField("Bobot ${index+1} (kg)",line.quantity,{edit(line.copy(quantity=it))},"sale-quantity-$index",state.errors["items.$index.quantity"],KeyboardType.Decimal,hint="Lebih dari nol, maksimal6 desimal; tanpa pemisah ribuan.", suffix = "kg", prominent = true)
             FinanceField("Harga ${index+1} (IDR/kg)",line.price,{edit(line.copy(price=it))},"sale-price-$index",state.errors["items.$index.price"],KeyboardType.Decimal,hint="Harga manual, maksimal6 desimal. Kosong bukan nol.", suffix = "IDR/kg", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
             TextButton(onClick={vm.edit {it.copy(items=it.items.filterIndexed {i,_ -> i!=index})}},modifier=Modifier.testTag("sale-remove-$index")) {Text("Hapus rincian ${index+1}")}
         }}}
-        OutlinedButton(onClick={vm.edit {it.copy(items=it.items+SaleLine())}},enabled=draft.items.size<30,modifier=Modifier.fillMaxWidth().testTag("sale-add")) {Text("Tambah sumber panen")}
+        OutlinedButton(onClick={vm.edit {it.copy(items=it.items+SaleLine())}},enabled=draft.items.size<30,modifier=Modifier.fillMaxWidth().testTag("sale-add")) {Text(if(draft.buyerType=="partner") "Tambah grade atau sumber panen" else "Tambah sumber panen")}
+        state.errors["items"]?.let {Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
         FarmCheckbox("Saya memastikan pembayaran penjualan ini sudah lunas.", draft.paid,
             { value -> vm.edit { it.copy(paid = value) } }, Modifier.testTag("sale-paid"))
         FinanceField("Keterangan penjualan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"sale-notes",state.errors["notes"],singleLine=false)

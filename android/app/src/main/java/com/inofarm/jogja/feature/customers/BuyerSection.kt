@@ -29,7 +29,8 @@ import java.util.UUID
     FarmChoiceChips("Tipe pembeli", draft.buyerType.ifBlank { "none" },
         listOf(org.json.JSONObject().put("id", "consumer").put("name", "Perorangan"), org.json.JSONObject().put("id", "partner").put("name", "Mitra"),
             org.json.JSONObject().put("id", "none").put("name", "Tidak dicatat")), "sale-buyer-type") { id ->
-        edit { it.copy(buyerType = if (id == "none") "" else id, buyerId = "", buyerExisting = false, customer = if (id == "none") it.customer else "", buyerWhatsapp = "") }
+        edit { it.copy(buyerType = if (id == "none") "" else id, buyerId = "", buyerExisting = false, customer = if (id == "none") it.customer else "", buyerWhatsapp = "",
+            items = if (id == "partner") it.items else it.items.map { line -> line.copy(grade = "") }) }
     }
     if (!draft.hasBuyer()) {
         FinanceField("Nama pembeli (boleh kosong)", draft.customer, { value -> edit { it.copy(customer = value) } }, "sale-customer", error)

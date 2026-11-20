@@ -22259,6 +22259,21 @@
           },
           "active": {
             "type": "boolean"
+          },
+          "buyer_grade": {
+            "anyOf": [
+              {
+                "enum": [
+                  "A",
+                  "B",
+                  "C"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Grade dari mitra (21 Nov 2026); hanya untuk pembeli bertipe partner. Satu rincian panen boleh muncul sekali per grade."
           }
         }
       },

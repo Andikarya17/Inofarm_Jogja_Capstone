@@ -31,6 +31,21 @@ class SaleBuyerDraftTest {
         assertFalse(draft().payload().has("customer"))
     }
 
+    @Test fun partner_total_sums_grade_lines() {
+        val source = "40000000-0000-4000-8000-000000000001"
+        val graded = draft().copy(buyerType = "partner", buyerId = "50000000-0000-4000-8000-000000000004", customer = "Mitra 1", items = listOf(
+            SaleLine("30000000-0000-4000-8000-000000000011", source, "60", "30000", "A"),
+            SaleLine("30000000-0000-4000-8000-000000000012", source, "50", "24000", "B"),
+            SaleLine("30000000-0000-4000-8000-000000000013", source, "25", "18000", "C")))
+        assertTrue(graded.validation(false).isEmpty())
+        assertEquals("3450000.00", graded.preview().total.toPlainString())
+        val lines = graded.payload().getJSONArray("items")
+        assertEquals("B", lines.getJSONObject(1).getString("buyer_grade"))
+        val duplicate = graded.copy(items = graded.items.map { it.copy(grade = "A") })
+        assertTrue(duplicate.validation(false).containsKey("items"))
+        assertTrue(graded.copy(buyerType = "consumer").validation(false).containsKey("items"))
+    }
+
     @Test fun buyer_survives_local_round_trip() {
         val original = draft().copy(buyerType = "partner", buyerId = "50000000-0000-4000-8000-000000000003", customer = "Mitra 1", buyerWhatsapp = "081200001111", buyerExisting = true)
         val restored = SaleDraft.from(original.id, gh, original.localJson(), null)
