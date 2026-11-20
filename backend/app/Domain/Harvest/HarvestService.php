@@ -17,7 +17,8 @@ use InvalidArgumentException;
 
 final class HarvestService
 {
-    public function __construct(private GroupContext $context, private MasterService $masters, private MutationLedger $ledger, private HarvestBalance $balance) {}
+    public function __construct(private GroupContext $context, private MasterService $masters, private MutationLedger $ledger, private HarvestBalance $balance,
+        private QualityGradeCatalog $qualityGrades) {}
 
     public function scope(User $actor)
     {
@@ -96,6 +97,14 @@ final class HarvestService
                 }
                 $submitted = [];
                 foreach ($p['items'] as $index => $line) {
+                    // Inofarm 20 Nov 2026: a line may name only its quality; it is filed under that quality's grade.
+                    if (($line['grade_id'] ?? null) === null) {
+                        if (($line['quality'] ?? null) === null) {
+                            throw ValidationException::withMessages(["items.$index.quality" => 'Pilih layak atau cacat.']);
+                        }
+                        $line['grade_id'] = $this->qualityGrades->resolve($current, $ctx['greenhouse']->id, $line['quality']);
+                    }
+                    abort_if(in_array($line['grade_id'], array_column($submitted, 'grade_id'), true), 422, 'Setiap grade atau kualitas hanya satu rincian dalam panen ini.');
                     $old = $oldItems->get($line['id']);
                     abort_if($old === null && DB::table('harvest_items')->where('id', $line['id'])->exists(), 422, 'Identitas rincian panen sudah digunakan.');
                     abort_if($old !== null && $old->grade_id !== $line['grade_id'], 422, 'Grade rincian tidak dapat diganti. Buat rincian baru setelah meninjau saldo.');

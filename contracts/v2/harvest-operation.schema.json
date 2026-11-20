@@ -147,7 +147,6 @@
             "additionalProperties": false,
             "required": [
               "id",
-              "grade_id",
               "fruit_count",
               "weight_kg"
             ],
@@ -157,8 +156,15 @@
                 "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
               },
               "grade_id": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "fruit_count": {
                 "anyOf": [
@@ -182,7 +188,25 @@
                   "defective"
                 ]
               }
-            }
+            },
+            "anyOf": [
+              {
+                "required": [
+                  "grade_id"
+                ],
+                "properties": {
+                  "grade_id": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "required": [
+                  "quality"
+                ]
+              }
+            ],
+            "description": "Sejak 20 Nov 2026 rincian boleh hanya memuat quality (layak/cacat); server mengisi grade sistem Layak/Cacat greenhouse itu."
           }
         },
         "notes": {
@@ -226,7 +250,6 @@
             "additionalProperties": false,
             "required": [
               "id",
-              "grade_id",
               "fruit_count",
               "weight_kg"
             ],
@@ -236,8 +259,15 @@
                 "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
               },
               "grade_id": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "fruit_count": {
                 "anyOf": [
@@ -261,7 +291,25 @@
                   "defective"
                 ]
               }
-            }
+            },
+            "anyOf": [
+              {
+                "required": [
+                  "grade_id"
+                ],
+                "properties": {
+                  "grade_id": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "required": [
+                  "quality"
+                ]
+              }
+            ],
+            "description": "Sejak 20 Nov 2026 rincian boleh hanya memuat quality (layak/cacat); server mengisi grade sistem Layak/Cacat greenhouse itu."
           }
         },
         "notes": {

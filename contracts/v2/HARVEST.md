@@ -23,3 +23,8 @@ Setiap rincian panen dapat membawa `quality: saleable|defective`. Android memint
 `GET /planting-groups/{id}/harvest-progress` membaca total panen aktif dalam kelompok di bawah scope lock. Capaian buah = buah layak × 100 / target buah. Belum ada panen, target kosong, atau rincian lama dengan buah/kg yang belum diklasifikasikan membuat capaian belum tersedia. Selisih dapat negatif bila hasil melebihi target. Rekap tidak membuat penerimaan atau penjualan.
 
 `POST /planting-groups/{id}/harvest-completion` khusus pengelola dalam penugasan. Envelope ledger `planting_groups` dengan action `complete_harvest` atau `reopen_harvest`, versi kelompok dan alasan wajib. Penyelesaian manual memerlukan satu panen aktif. Setelah keputusan diterima, catatan baru ditahan sampai dibuka kembali. Koreksi dan pembatalan dengan pemeriksaan saldo tetap bisa dilakukan sesuai status musim. Status musim berubah melalui tindakan terpisah.
+
+## Pembaruan 20 November 2026: layak dan cacat tanpa grade
+
+Inofarm tidak menentukan grade buah; grade ditentukan pembeli. Form panen kini mencatat per varietas baris **Layak** (`quality=saleable`) dan **Cacat** (`quality=defective`), masing-masing bobot kg dan jumlah buah opsional, tanpa jam (Android mengirim pukul 12.00 WIB). Rincian boleh tanpa `grade_id` asalkan memuat `quality`; server memakai grade aktif bernama "Layak"/"Cacat" di greenhouse itu (tanpa beda huruf besar/kecil) atau membuatnya, lalu menyimpan `grade_id`, `grade_name` dan `grade_version` seperti biasa. Satu panen paling banyak satu rincian per grade, jadi satu Layak dan satu Cacat. Penjualan, saldo panen dan laporan tidak berubah. Payload lama dengan `grade_id` tetap diterima.
+
