@@ -28,6 +28,7 @@ class FinanceReportExportTest extends FinanceTestCase
             $this->postJson('/api/v2/expenses', $payment)->assertCreated();
             $allocation = $this->operation('cost_allocation', ['expense_id' => $payment['entity_id'], 'season_id' => $ctx['season']['id'], 'amount' => '40.00', 'cost_class' => 'FC', 'allocation_basis' => 'Alokasi manual']);
             $this->postJson('/api/v2/cost-allocations', $allocation)->assertCreated();
+            $ctx['sheet'] = $this->standardCosts('40.00', '0.00');
             $input = ['season_id' => $ctx['season']['id'], 'coverage' => ['costs' => 'complete', 'sales' => 'unknown'], 'known_pending_count' => null, 'requested_state' => 'provisional', 'review_note' => 'Laporan musim sintetis'];
             $preview = $this->postJson('/api/v2/season-reports/preview', $input)->assertOk()->json();
             $receipt = $this->postJson('/api/v2/season-reports', $this->operation('season_report', [...$input, 'expected_sources_hash' => $preview['sources_hash'], 'expected_formula_version' => $preview['formula_version']]))->assertCreated()->json();
@@ -91,6 +92,7 @@ class FinanceReportExportTest extends FinanceTestCase
         $first = $this->get($this->path($ctx))->assertOk()->getContent();
         $allocation = $ctx['allocation'];
         $this->patchJson('/api/v2/cost-allocations/'.$allocation['entity_id'], $this->operation('cost_allocation', [...$allocation['payload'], 'amount' => '60.00', 'reason' => 'Koreksi sumber setelah laporan'], 'update', $allocation['entity_id'], 1))->assertOk();
+        $this->standardCosts('60.00', '0.00');
         $again = $this->get($this->path($ctx))->assertOk()->getContent();
         $this->assertSame($first, $again);
         $this->assertSame('40.00', json_decode($this->cells($again)['/metrics/TC/value']['json_value'], true));

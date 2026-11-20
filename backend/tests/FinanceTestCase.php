@@ -38,6 +38,26 @@ abstract class FinanceTestCase extends TestCase
         return $this->postJson('/api/v2/'.$path, $this->operation($type, $payload))->assertCreated()->json('data');
     }
 
+    /**
+     * Fills standard cost sheet n so FC and VC per greenhouse equal the given totals (first line of each class carries
+     * the amount, the other required lines are zero). Season reports read costs from this sheet since 21 Nov 2026.
+     */
+    protected function standardCosts(string $fc, string $vc, int $sequence = 1): array
+    {
+        $sheet = $this->getJson('/api/v2/season-cost-sheets?sequence='.$sequence)->assertOk()->json('data.0');
+        $seen = [];
+        $lines = array_map(function ($line) use ($fc, $vc, &$seen) {
+            $first = ! isset($seen[$line['cost_class']]);
+            $seen[$line['cost_class']] = true;
+
+            return ['id' => $line['id'], 'name' => $line['name'], 'cost_class' => $line['cost_class'], 'is_required' => $line['is_required'],
+                'amount' => $first ? ($line['cost_class'] === 'FC' ? $fc : $vc) : '0.00'];
+        }, $sheet['lines']);
+
+        return $this->patchJson('/api/v2/season-cost-sheets/'.$sheet['id'],
+            $this->operation('season_cost_sheet', ['lines' => $lines], 'update', $sheet['id'], $sheet['version']))->assertOk()->json('data');
+    }
+
     protected function context(User $manager): array
     {
         $this->asUser($manager);

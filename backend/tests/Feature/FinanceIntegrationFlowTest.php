@@ -37,6 +37,7 @@ class FinanceIntegrationFlowTest extends FinanceTestCase
         $this->postJson('/api/v2/expenses', $payment)->assertCreated();
         $allocation = $this->operation('cost_allocation', ['expense_id' => $payment['entity_id'], 'season_id' => $ctx['season']['id'], 'amount' => '80.00', 'cost_class' => 'FC', 'allocation_basis' => 'Satu sumber dialokasikan manual']);
         $this->postJson('/api/v2/cost-allocations', $allocation)->assertCreated();
+        $this->standardCosts('80.00', '0.00');
         $sale = $this->operation('sale', ['season_id' => $ctx['season']['id'], 'paid_at' => '2026-11-02T10:00:00+07:00', 'payment_status' => 'paid', 'customer_name' => 'Pembeli sintetis', 'notes' => 'Lunas integrasi', 'items' => [['id' => (string) Str::uuid(), 'harvest_item_id' => $item, 'quantity_kg' => '3', 'price_per_kg' => '50']]]);
         $this->postJson('/api/v2/sales', $sale)->assertCreated()->assertJsonPath('data.total_amount', '150.00');
 

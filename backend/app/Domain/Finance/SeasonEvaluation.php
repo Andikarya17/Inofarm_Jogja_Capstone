@@ -5,7 +5,7 @@ namespace App\Domain\Finance;
 /** Known recorded amounts only; null means unknown, not zero. */
 final class SeasonEvaluation
 {
-    public const VERSION = 'season-recorded-cash-rational-half-up-v1';
+    public const VERSION = 'season-standard-cost-rational-half-up-v2';
 
     public static function calculate(?string $fixed, ?string $variable, ?string $revenue, ?string $quantity, array $coverage): array
     {
@@ -56,8 +56,8 @@ final class SeasonEvaluation
         $bepReasons = [...$qReasons, ...($tr !== null && bccomp($tr, '0', 0) <= 0 ? ['BEP kuantitas memerlukan harga rata-rata positif (TR>0 dan Q>0).'] : [])];
 
         return [
-            'FC' => $metric('FC=alokasi FC aktif+alokasi penyusutan aktif', 'IDR', ['FC' => $money($fc)], $cost, $fc, '100'),
-            'VC' => $metric('VC=alokasi VC aktif', 'IDR', ['VC' => $money($vc)], $cost, $vc, '100'),
+            'FC' => $metric('FC=jumlah baris biaya tetap lembar biaya standar Musim n', 'IDR', ['FC' => $money($fc)], $cost, $fc, '100'),
+            'VC' => $metric('VC=jumlah baris biaya variabel lembar biaya standar Musim n', 'IDR', ['VC' => $money($vc)], $cost, $vc, '100'),
             'TC' => $metric('TC=FC+VC', 'IDR', $costInputs, $cost, $tc, '100'),
             'TR' => $metric('TR=sum(total transaksi lunas aktif; HALF_UP per transaksi)', 'IDR', ['TR' => $money($tr)], $sale, $tr, '100'),
             'Q' => $metric('Q=sum(kg detail penjualan lunas aktif)', 'kg', ['Q' => $weight], $sale, $q, '1000000', 6),
