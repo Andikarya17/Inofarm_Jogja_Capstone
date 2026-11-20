@@ -345,6 +345,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var financeLink by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(gh) { if (gh != null) lastGreenhouse = gh }
     val homeRepository = remember(runtime) { ManagerHomeRepository(runtime.vault, runtime.store, runtime.api) }
+    val financeHomeRepository = remember(runtime) { com.inofarm.jogja.feature.financehome.FinanceHomeRepository(runtime.vault, runtime.api) }
+    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val financeVisibility = remember(appContext) {
+        com.inofarm.jogja.feature.financehome.FinanceVisibilityPreference(com.inofarm.jogja.feature.financehome.SharedPreferencesFlagStorage(appContext))
+    }
     val syncUpdates by runtime.sync.updates.collectAsStateWithLifecycle()
     var reviewCount by remember { mutableStateOf<Int?>(null) }
     if (manager) LaunchedEffect(syncUpdates, session.scope) {
@@ -1085,7 +1090,16 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 }
                 tab==4 && manager -> tabState.SaveableStateProvider(4) {
                     FarmPullRefresh(context.loading, onSync) {
-                    FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync,financeKind,financeLink,homeRepository,ticket,syncUpdates)
+                    // Keuangan (21 Nov 2026): income chart and standard-cost profit first; the real-cost ledger sits behind the eye toggle.
+                    com.inofarm.jogja.feature.financehome.FinanceOverviewScreen(session, ticket, financeHomeRepository, financeVisibility, syncUpdates,
+                        onRecordSale = { startRecord(RecordChoice.SALE) }) { onBack ->
+                        Column(Modifier.fillMaxSize()) {
+                            TextButton(onBack, Modifier.padding(horizontal = FarmSpace.Small).heightIn(min = FarmSpace.Touch).testTag("finance-ledger-back")) {
+                                Text("Kembali ke ringkasan keuangan")
+                            }
+                            FinancialHub(session,context,financialVm,expenseHistory,expenseHistoryVm,allocationHistory,allocationHistoryVm,activity.queue,saleVm,saleHistory,saleHistoryVm,asset,reports,investments,onSync,financeKind,financeLink,homeRepository,ticket,syncUpdates)
+                        }
+                    }
                  }}
                 tab==6 && manager -> tabState.SaveableStateProvider(6) {
                     ManageScreen(session.name, onAdmin, onLogout, enabled = !writing, onAddGreenhouse = onAddGreenhouse, greenhouseCount = context.greenhouses.size.takeIf { it > 0 })
