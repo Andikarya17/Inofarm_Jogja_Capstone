@@ -34,6 +34,8 @@ internal fun WorkerEventTime(
     context: CultivationUiState, greenhouseId: String, groupId: String,
     date: String, time: String, onDate: (String) -> Unit, onTime: (String) -> Unit,
     tag: String, error: String?, preserveAge: Boolean, historicalAge: JSONObject?,
+    /** False for a harvest, recorded by date only (Inofarm, 20 Nov 2026). */
+    showTime: Boolean = true,
 ) {
     val greenhouse = context.greenhouses.find { it.optString("id") == greenhouseId }
     val group = context.groups.find { it.optString("id") == groupId }
@@ -64,18 +66,18 @@ internal fun WorkerEventTime(
             modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("$tag-pick-date")) {
             Text(if (day == null) dayLabel else "Tanggal $dayLabel")
         }
-        OutlinedButton(onClick = { picker = "time" }, shape = FarmShape.Control,
+        if (showTime) OutlinedButton(onClick = { picker = "time" }, shape = FarmShape.Control,
             modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("$tag-pick-time")) {
             Text(if (clock == null) "Pilih jam" else "Jam $time WIB")
         }
     }
     TextButton(onClick = { manual = !manual }, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("$tag-manual-time")) {
-        Text(if (manual) "Tutup isian manual" else "Ketik tanggal atau jam")
+        Text(if (manual) "Tutup isian manual" else if (showTime) "Ketik tanggal atau jam" else "Ketik tanggal")
     }
     Column(Modifier.animateContentSize(tween(180)), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
         if (manual) {
             FinanceField("Tanggal kejadian", date, onDate, "$tag-date", error, hint = "YYYY-MM-DD")
-            FinanceField("Jam kejadian WIB", time, onTime, "$tag-time", hint = "HH:mm atau HH:mm:ss")
+            if (showTime) FinanceField("Jam kejadian WIB", time, onTime, "$tag-time", hint = "HH:mm atau HH:mm:ss")
         } else error?.let { Notice(it, true) }
     }
 

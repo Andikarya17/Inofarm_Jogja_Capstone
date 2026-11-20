@@ -85,17 +85,14 @@ import java.math.BigDecimal
             WorkerEventTime(context, draft.greenhouseId, draft.groupId, draft.date, draft.time,
                 { value -> vm.edit { it.copy(date = value) } }, { value -> vm.edit { it.copy(time = value) } },
                 "harvest", state.errors["occurred_at"], draft.baseVersion != null && draft.referencePolicy == "preserve",
-                state.records.find { it.id == draft.id }?.serverBody?.optJSONObject("reference_snapshot")?.optJSONObject("age"))
+                state.records.find { it.id == draft.id }?.serverBody?.optJSONObject("reference_snapshot")?.optJSONObject("age"), showTime = false)
         } else {
-            FarmWhenCard(draft.date, draft.time, "harvest-time-edit", forceOpen = state.errors["occurred_at"] != null) {
-                FinanceDateField("Tanggal panen WIB",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
-                FinanceTimeField("Jam panen WIB",draft.time,{value -> vm.edit {it.copy(time=value)}},"harvest-time",state.errors["occurred_at"],hint="HH:mm; detik opsional")
-            }
+            // Recorded by date only (Inofarm, 20 Nov 2026); a correction keeps the time it already has.
+            FinanceDateField("Tanggal panen",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
         }
         if (draft.companion == null) FarmFact("Varietas", plantingLabel(context, draft.groupId) ?: "Belum tersedia")
         group?.optJSONObject("harvest_target")?.fruitText()?.let { FarmFact("Target buah", it) }
     }
-    if(grades.isEmpty() && !context.loading) Notice("Grade aktif belum tersedia di perangkat untuk greenhouse ini. Perbarui atau minta pengelola menambahkan grade.")
     // One editor for each variety: the second variety of a greenhouse edits its own lines through the companion (17 Nov 2026).
     val second = draft.companion
     if (second == null) HarvestLines(state, context, draft, grades, vm::edit, "", "harvest-")
@@ -127,9 +124,13 @@ import java.math.BigDecimal
     state.errors.values.distinct().forEach {Notice(it,true)};state.message?.let {Notice(it,true)}
 }
 
-/** Grade lines of one variety. [edit] changes that variety's draft; errors and tags are prefixed per variety. */
+/**
+ * Lines of one variety. [edit] changes that variety's draft; errors and tags are prefixed per variety. A harvest
+ * recorded from 20 Nov 2026 has fixed Layak and Cacat lines; one with graded lines keeps its grades as they are.
+ */
 @Composable private fun ColumnScope.HarvestLines(state:HarvestUiState,context:CultivationUiState,part:HarvestDraft,grades:List<JSONObject>,
     edit:((HarvestDraft)->HarvestDraft)->Unit,errorPrefix:String,tagPrefix:String) {
+    if (part.items.none { it.legacy }) { QualityLines(state, part, edit, errorPrefix, tagPrefix); return }
     val canopy = true
     part.items.forEachIndexed {index,line -> key(line.id) {
         val lineContent: @Composable ColumnScope.() -> Unit = {
@@ -137,8 +138,7 @@ import java.math.BigDecimal
             if(line.id in part.lockedItems) {
                 Text("Grade: ${line.gradeName.ifBlank {context.grades.find {it.optString("id")==line.gradeId}?.optString("name") ?: "belum tersedia"}}")
                 Text("Untuk mengganti grade, hapus rincian ini dan tambahkan rincian baru.",style=MaterialTheme.typography.bodySmall)
-            } else Choice("Grade",line.gradeId,grades,"${tagPrefix}grade-$index",loading=context.loading,
-                master=com.inofarm.jogja.feature.MasterGap(com.inofarm.jogja.feature.admin.AdminResource.GRADE,part.greenhouseId)) {value -> edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(gradeId=value,gradeName=grades.find {grade -> grade.optString("id")==value}?.optString("name").orEmpty()) else row})}}
+            } else Text("Grade: ${gradeName(line, context)}")
             state.errors["${errorPrefix}items.$index.grade"]?.let {Notice(it,true)}
             val qualityOptions = HarvestQuality.entries.map { JSONObject().put("id", it.wire).put("name", it.label) }
             val pickQuality = { value: String ->
@@ -167,8 +167,22 @@ import java.math.BigDecimal
             TextButton(onClick=remove, modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("${tagPrefix}remove-$index")) {Text("Hapus rincian ${index+1}")}
         }
     }}
-    OutlinedButton(onClick={edit {it.copy(items=it.items+HarvestLine())}},enabled=part.items.size<30,
-        shape=FarmShape.Control,modifier=Modifier.fillMaxWidth().heightIn(min=FarmSpace.Touch).testTag("${tagPrefix}add-item")) {Text("Tambah grade panen")}
+}
+
+/** Layak and Cacat of one variety: weight and an optional fruit count each (Inofarm, 20 Nov 2026). */
+@Composable private fun ColumnScope.QualityLines(state:HarvestUiState,part:HarvestDraft,edit:((HarvestDraft)->HarvestDraft)->Unit,errorPrefix:String,tagPrefix:String) {
+    part.items.forEachIndexed { index, line -> key(line.id) {
+        fun change(updated: HarvestLine) = edit { it.copy(items = it.items.mapIndexed { i, row -> if (i == index) updated else row }) }
+        FarmFormSection(line.quality?.label ?: "Rincian ${index + 1}") {
+            FarmFieldPair({
+                FinanceField("Bobot (kg)", line.weightKg, { change(line.copy(weightKg = it)) }, "${tagPrefix}weight-$index",
+                    state.errors["${errorPrefix}items.$index.weight"], KeyboardType.Decimal, "Contoh 15,25", suffix = "kg", prominent = true)
+            }, {
+                FinanceField("Jumlah buah (opsional)", line.fruitCount, { change(line.copy(fruitCount = it)) }, "${tagPrefix}count-$index",
+                    state.errors["${errorPrefix}items.$index.count"], KeyboardType.Number, "Boleh kosong", suffix = "buah", prominent = true)
+            })
+        }
+    }}
 }
 
 /** Preview only: the sums of what is typed so far. Blank or invalid lines count as zero until the review validates them. */
@@ -187,7 +201,7 @@ import java.math.BigDecimal
 @Composable internal fun HarvestReview(draft:HarvestDraft,context:CultivationUiState,busy:Boolean,onBack:()->Unit,onQueue:()->Unit,worker:Boolean) {
     if (!worker) {
         val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
-        FarmReviewFrame("panen", "$greenhouse · ${whenLabel(draft.date, draft.time)}", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue, summary = true) {
+        FarmReviewFrame("panen", "$greenhouse · ${harvestDay(draft.date)}", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue, summary = true) {
             FarmFormSection("Waktu") { HarvestReviewTime(draft, context, readable = true) }
             HarvestReviewParts(draft, context)
             if(draft.replaceValidationRejected) Notice("Panen yang ditolak diganti dengan catatan ini. Catatan lama tetap ada di riwayat.")
@@ -195,7 +209,7 @@ import java.math.BigDecimal
         return
     }
     val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
-    FarmReviewFrame("panen", "$greenhouse · ${whenLabel(draft.date, draft.time)}", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue,
+    FarmReviewFrame("panen", "$greenhouse · ${harvestDay(draft.date)}", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue,
         mainLabel = "Kirim", hint = "Pastikan isinya benar. Setelah dikirim, catatan terkirim otomatis saat ada internet.") {
         FarmFormSection("Waktu") { HarvestReviewTime(draft, context, readable = true) }
         HarvestReviewParts(draft, context)
@@ -207,27 +221,27 @@ import java.math.BigDecimal
 
 @Composable private fun ColumnScope.HarvestReviewTime(draft:HarvestDraft,context:CultivationUiState,readable:Boolean=false) {
     if (draft.runningPeriodVersion != null && draft.companion == null) ManagerDraftParents(context, draft.greenhouseId, draft.groupId)
-    FarmFact("Waktu panen", if (readable) whenLabel(draft.date, draft.time) else "${draft.date} ${draft.time} WIB")
+    FarmFact("Tanggal panen", harvestDay(draft.date))
     // Varieties, not planting groups (K2); with two varieties each has its own section below.
     if (draft.companion == null) FarmFact("Varietas", plantingLabel(context, draft.groupId) ?: "Belum tersedia")
 }
 
 /** One results section per variety that has lines; a single-variety harvest keeps its "Hasil per grade" section. */
 @Composable private fun HarvestReviewParts(draft:HarvestDraft,context:CultivationUiState) {
-    if (draft.companion == null) { FarmFormSection("Hasil per grade") { HarvestReviewResults(draft, context) }; return }
+    if (draft.companion == null) { FarmFormSection("Hasil panen") { HarvestReviewResults(draft, context) }; return }
     draft.parts().forEach { part ->
         FarmFormSection(plantingLabel(context, part.groupId) ?: "Varietas") { HarvestReviewResults(part, context) }
     }
 }
 
 @Composable private fun ColumnScope.HarvestReviewResults(draft:HarvestDraft,context:CultivationUiState) {
-    draft.items.forEachIndexed { index, line ->
+    draft.items.filter { it.sent }.forEachIndexed { index, line ->
         if (index > 0) HorizontalDivider()
         FarmFact(gradeName(line, context), listOfNotNull(line.fruitCount.takeIf { it.isNotBlank() }?.let { "$it buah" }, "${line.weightKg} kg",
             line.quality?.label ?: "Kondisi belum diketahui").joinToString(" · "), prominent = true)
     }
-    val counts = draft.items.mapNotNull { HarvestDraft.count(it.fruitCount)?.toLong() }
-    val weight = draft.items.fold(BigDecimal.ZERO) { total, line -> total + HarvestDraft.number(line.weightKg) }
+    val counts = draft.items.filter { it.sent }.mapNotNull { HarvestDraft.count(it.fruitCount)?.toLong() }
+    val weight = draft.items.filter { it.sent }.fold(BigDecimal.ZERO) { total, line -> total + HarvestDraft.number(line.weightKg) }
     FarmFact("Total panen", listOfNotNull("${harvestDecimal(weight.toPlainString())} kg", counts.takeIf { it.isNotEmpty() }?.let { "${it.sum()} buah" }).joinToString(" · "))
     if(draft.notes.isNotBlank()) FarmFact("Keterangan", draft.notes)
     if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi", draft.reason)
@@ -243,7 +257,7 @@ import java.math.BigDecimal
         source?.optJSONObject("harvest_target")?.let {
             FarmFact("Target saat dicatat", (it.fruitText() ?: it.harvestAmount().ifBlank { "Tanpa jumlah buah" }) + if (session.role == UserRole.MANAGER) " · versi ${it.optInt("version")}" else "")
         }
-        Text("Panen · ${draft.date} ${draft.time} WIB")
+        Text("Panen · ${harvestDay(draft.date)}")
         draft.items.forEach {line ->
             HorizontalDivider()
             val count=line.fruitCount.takeIf { it.isNotBlank() }?.let { "$it buah" } ?: "Jumlah belum diisi"
@@ -264,7 +278,12 @@ import java.math.BigDecimal
     }
 }
 
-private fun gradeName(line:HarvestLine,context:CultivationUiState) = line.gradeName.ifBlank {
+/** "20 Nov 2026": a harvest is recorded by date only (Inofarm, 20 Nov 2026). */
+internal fun harvestDay(date: String): String = runCatching {
+    java.time.LocalDate.parse(date).format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.forLanguageTag("id-ID")))
+}.getOrDefault(date)
+
+private fun gradeName(line:HarvestLine,context:CultivationUiState) = line.quality?.takeIf { !line.legacy }?.label ?: line.gradeName.ifBlank {
     context.grades.find { it.optString("id") == line.gradeId }?.optString("name") ?: "Grade belum tersedia"
 }
 

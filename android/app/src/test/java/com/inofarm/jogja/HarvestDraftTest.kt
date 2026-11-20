@@ -34,6 +34,36 @@ class HarvestDraftTest {
         assertTrue(restored.validation().containsKey("reason"));val ready=restored.copy(reason="Koreksi uji",referencePolicy="refresh")
         assertEquals("refresh",ready.payload().getString("reference_policy"));assertEquals(ready,HarvestDraft.from(ready.id,gh,ready.localJson(),4))
     }
+    /** Inofarm 20 Nov 2026: layak and cacat per variety, no grade, no time (sent at noon WIB). */
+    @Test fun newHarvestSendsQualityLinesWithoutGradeAndAtNoon() {
+        val d = HarvestDraft(greenhouseId = gh, groupId = group, date = "2026-11-20", time = HarvestDraft.NOON).qualityLines()
+        assertEquals(listOf(com.inofarm.jogja.feature.harvest.domain.HarvestQuality.SALEABLE, com.inofarm.jogja.feature.harvest.domain.HarvestQuality.DEFECTIVE),
+            d.items.map { it.quality })
+        val filled = d.copy(items = listOf(d.items[0].copy(weightKg = "40"), d.items[1]))
+        assertTrue(filled.validation().toString(), filled.validation().isEmpty())
+        val items = filled.payload().getJSONArray("items")
+        assertEquals(1, items.length()); assertFalse(items.getJSONObject(0).has("grade_id"))
+        assertEquals("saleable", items.getJSONObject(0).getString("quality"))
+        assertEquals("2026-11-20T12:00:00+07:00", filled.payload().getString("occurred_at"))
+        assertEquals(filled, HarvestDraft.from(filled.id, gh, filled.localJson(), null))
+        assertEquals(filled.items.map { it.id }, filled.qualityLines().items.map { it.id })
+    }
+    @Test fun aCountWithoutWeightIsRejectedAndAllEmptyIsRejected() {
+        val d = HarvestDraft(greenhouseId = gh, groupId = group).qualityLines()
+        assertTrue(d.validation().containsKey("items"))
+        assertTrue(d.copy(items = listOf(d.items[0], d.items[1].copy(fruitCount = "3"))).validation().containsKey("items.1.weight"))
+        // Two varieties: either may be empty, not both; the empty one is not sent.
+        val two = d.copy(items = listOf(d.items[0].copy(weightKg = "5"), d.items[1]),
+            companion = HarvestDraft(greenhouseId = gh, groupId = UUID.randomUUID().toString()).qualityLines())
+        assertTrue(two.validation().isEmpty()); assertEquals(1, two.parts().size)
+    }
+    @Test fun anOldGradedHarvestCorrectsWithItsGradesKept() {
+        val restored = HarvestDraft.from(UUID.randomUUID().toString(), gh, draft().payload(), 2).copy(reason = "Koreksi")
+        assertEquals(restored, restored.qualityLines())
+        assertTrue(restored.validation().isEmpty())
+        assertEquals(grade, restored.payload().getJSONArray("items").getJSONObject(0).getString("grade_id"))
+    }
+
     /** Harvests may be weighed only (17 Nov 2026): an empty count is sent as null, never as zero. */
     @Test fun anEmptyFruitCountIsSentAsNullAndReadBackEmpty() {
         val weighed=draft().copy(items=listOf(HarvestLine(gradeId=grade,fruitCount="",weightKg="12,5")))
