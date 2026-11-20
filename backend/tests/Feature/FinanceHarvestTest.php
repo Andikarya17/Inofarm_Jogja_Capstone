@@ -113,8 +113,10 @@ class FinanceHarvestTest extends FinanceTestCase
         $line = fn (string $quality, ?int $count, string $kg) => ['id' => (string) Str::uuid(), 'quality' => $quality, 'fruit_count' => $count, 'weight_kg' => $kg];
         $payload = fn (array $items) => ['planting_group_id' => $ctx['group']['id'], 'occurred_at' => '2026-10-29T12:00:00+07:00', 'notes' => '', 'items' => $items];
         $first = $this->operation('harvest', $payload([$line('saleable', null, '40'), $line('defective', 3, '5')]));
-        $this->postJson('/api/v2/harvests', $first)->assertCreated()
-            ->assertJsonPath('data.items.0.grade_name', 'Layak')->assertJsonPath('data.items.1.grade_name', 'Cacat');
+        // Items come back ordered by their random line id, so compare by line, not by position.
+        $created = collect($this->postJson('/api/v2/harvests', $first)->assertCreated()->json('data.items'))->keyBy('id');
+        $this->assertSame('Layak', $created[$first['payload']['items'][0]['id']]['grade_name']);
+        $this->assertSame('Cacat', $created[$first['payload']['items'][1]['id']]['grade_name']);
         $this->postJson('/api/v2/harvests', $this->operation('harvest', $payload([$line('saleable', 10, '12')])))->assertCreated();
         $gh = $ctx['gh']['id'];
         foreach (['Layak', 'Cacat'] as $name) {
@@ -133,7 +135,8 @@ class FinanceHarvestTest extends FinanceTestCase
         // A correction without grade ids keeps the grade of each line.
         $edit = $this->operation('harvest', [...$first['payload'], 'reason' => 'Koreksi bobot', 'reference_policy' => 'preserve',
             'items' => [[...$first['payload']['items'][0], 'weight_kg' => '41'], $first['payload']['items'][1]]], 'update', $first['entity_id'], 1);
-        $this->patchJson('/api/v2/harvests/'.$first['entity_id'], $edit)->assertOk()->assertJsonPath('data.items.0.grade_name', 'Layak');
+        $edited = collect($this->patchJson('/api/v2/harvests/'.$first['entity_id'], $edit)->assertOk()->json('data.items'))->keyBy('id');
+        $this->assertSame('Layak', $edited[$source]['grade_name']);
     }
 
     /** A greenhouse that already has an active grade named "layak" keeps using it. */
