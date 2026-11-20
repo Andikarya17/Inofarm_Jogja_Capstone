@@ -12,6 +12,12 @@ import org.junit.Test
 class GreenhouseWizardRulesTest {
     private val id = "11111111-1111-4111-8111-111111111111"
 
+    @Test fun seasonNameFollowsGreenhouseAndCountsUp() {
+        assertEquals("GH1 Musim 1", WizardRules.seasonName(" GH1 ", emptyList()))
+        assertEquals("GH1 Musim 3", WizardRules.seasonName("GH1", listOf("GH1 Musim 1", "Musim lama")))
+        assertEquals("GH1 Musim 4", WizardRules.seasonName("GH1", listOf("gh1 musim 3", "x", "y")))
+    }
+
     @Test fun greenhouseNameMustBeFilledAndNotTooLong() {
         assertEquals("Isi nama greenhouse.", WizardRules.greenhouseNameError("  "))
         assertEquals("Nama maksimal 150 karakter.", WizardRules.greenhouseNameError("x".repeat(151)))

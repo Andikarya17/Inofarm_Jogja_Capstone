@@ -39,10 +39,20 @@ import java.time.LocalDate
 import java.util.UUID
 
 /** Start planting in an existing greenhouse; an open season without planting is reused, never duplicated. */
-data class PlantIn(val greenhouseId: String, val name: String, val seasonId: String? = null, val seasonName: String = "", val seasonStart: String = "")
+data class PlantIn(val greenhouseId: String, val name: String, val seasonId: String? = null, val seasonName: String = "", val seasonStart: String = "",
+                   /** Names of every season this greenhouse already has, for the next "<GH> Musim <n>". */
+                   val seasonNames: List<String> = emptyList())
 
 /** Field checks for the "Tambah greenhouse" wizard. Kept free of Compose so they can be unit-tested. */
 internal object WizardRules {
+    /** "<greenhouse> Musim <n>" (Inofarm, 20 Nov 2026): n counts the greenhouse's seasons and skips a name already taken. */
+    fun seasonName(greenhouseName: String, existing: List<String>): String {
+        val taken = existing.map { it.trim().lowercase() }.toSet()
+        var n = existing.size + 1
+        while ("${greenhouseName.trim()} Musim $n".lowercase() in taken) n++
+        return "${greenhouseName.trim()} Musim $n"
+    }
+
     fun greenhouseNameError(name: String): String? = when {
         name.isBlank() -> "Isi nama greenhouse."
         name.trim().length > 150 -> "Nama maksimal 150 karakter."
@@ -164,6 +174,7 @@ fun GreenhouseWizardHost(
 
     val count = if (twoVarieties) 2 else 1
     fun savePlanting() {
+        if (!seasonDone && plantIn?.seasonName.isNullOrBlank()) season = WizardRules.seasonName(name, plantIn?.seasonNames.orEmpty())
         val problems = WizardRules.plantingErrors(season, start, (0 until count).map { names[it] to populations[it] }, sowing, transplant)
         fieldErrors = problems
         if (problems.isNotEmpty()) return
@@ -257,7 +268,11 @@ fun GreenhouseWizardHost(
                                     (0 until count).filter { groupDone[it] }.takeIf { it.isNotEmpty() }?.joinToString(" dan ") { names[it].trim() })
                                 if (saved.isNotEmpty()) FarmInfoCard { Text(saved.joinToString(", ").replaceFirstChar { it.uppercase() } + " sudah tersimpan.", style = MaterialTheme.typography.bodyMedium) }
                                 FarmFormSection("Musim") {
-                                    FinanceField("Nama musim", season, { season = it }, "wizard-season", fieldErrors["season"], enabled = !busy && !seasonDone)
+                                    // Named by the app, never typed (Inofarm, 20 Nov 2026); a reused open season keeps its name.
+                                    val shown = if (seasonDone || !plantIn?.seasonName.isNullOrBlank()) season
+                                        else WizardRules.seasonName(name, plantIn?.seasonNames.orEmpty())
+                                    FarmFact("Nama musim", shown, Modifier.testTag("wizard-season"))
+                                    fieldErrors["season"]?.let { Notice(it, true) }
                                     FinanceDateField("Tanggal mulai musim", start, { start = it }, "wizard-start", fieldErrors["start"], hint = "contoh 2026-11-10", enabled = !busy && !seasonDone)
                                 }
                                 val planted = groupDone.any { it }

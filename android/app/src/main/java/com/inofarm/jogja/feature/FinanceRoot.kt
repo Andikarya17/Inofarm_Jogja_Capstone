@@ -285,7 +285,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             contextState.greenhouses.find { it.optString("id") == id }?.let { row ->
                 val open = contextState.seasons.firstOrNull { it.optString("greenhouse_id") == id && it.optString("status") == "open" }
                 com.inofarm.jogja.feature.admin.PlantIn(id, row.optString("name"), open?.optString("id"), open?.optString("name").orEmpty(),
-                    open?.optString("start_date").orEmpty())
+                    open?.optString("start_date").orEmpty(),
+                    contextState.seasons.filter { it.optString("greenhouse_id") == id }.map { it.optString("name") })
             } }
         com.inofarm.jogja.feature.admin.GreenhouseWizardHost(adminSession, runtime.admin, context::refresh,
             onOpenGreenhouse = { id -> wizardTarget = id to false; wizardOpen = null },
