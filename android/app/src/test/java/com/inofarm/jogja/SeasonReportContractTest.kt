@@ -30,7 +30,7 @@ class SeasonReportContractTest {
         assertEquals(Int.MAX_VALUE,draft.copy(pending=Int.MAX_VALUE.toString()).input().getInt("known_pending_count"))
     }
     @Test fun everyReviewedInputMustStillMatchBeforeQueueing() {
-        val draft=reviewed();assertEquals(SeasonReportContract.VERSION,draft.payload().getString("expected_formula_version"))
+        val draft=reviewed();assertEquals(preview().getString("formula_version"),draft.payload().getString("expected_formula_version"))
         val changes=listOf(draft.copy(note="Tinjauan berubah"),draft.copy(pending="8"),draft.copy(costs="partial"),draft.copy(requestedState="reviewed_final"),draft.copy(seasonId="60000000-0000-0000-0000-000000000004"))
         for(changed in changes) assertThrows(IllegalArgumentException::class.java) {changed.payload()}
         assertThrows(IllegalStateException::class.java) {draft.copy(previewText=null).payload()}
@@ -44,6 +44,14 @@ class SeasonReportContractTest {
         assertEquals("8000000.00",metrics.getJSONObject("TC").getString("value"))
         assertEquals("266.666667",metrics.getJSONObject("BEP_Q").getString("value"))
         assertTrue(metrics.getJSONObject("TR").get("value") is String)
+    }
+    /** 21 Nov 2026: reports use standard cost sheets (formula v2); reports published under v1 must still open. */
+    @Test fun standardCostFormulaAndPublishedV1ReportsAreBothAccepted() {
+        assertEquals("season-standard-cost-rational-half-up-v2",SeasonReportContract.VERSION)
+        SeasonReportContract.validate(preview().put("formula_version",SeasonReportContract.VERSION),false)
+        val accepted=fixture().getJSONObject("receipt").getJSONObject("data")
+        assertEquals("season-recorded-cash-rational-half-up-v1",accepted.getString("formula_version"))
+        SeasonReportContract.validate(accepted,true)
     }
     @Test fun unsupportedOrCoercedReportMetadataIsRejected() {
         val bad=listOf(preview().put("formula_version","unknown-v2"),preview().put("source_count","7"),preview().put("source_count",1.5),preview().put("known_pending_count",false),
