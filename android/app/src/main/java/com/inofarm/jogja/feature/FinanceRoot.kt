@@ -285,7 +285,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             contextState.greenhouses.find { it.optString("id") == id }?.let { row ->
                 val open = contextState.seasons.firstOrNull { it.optString("greenhouse_id") == id && it.optString("status") == "open" }
                 com.inofarm.jogja.feature.admin.PlantIn(id, row.optString("name"), open?.optString("id"), open?.optString("name").orEmpty(),
-                    open?.optString("start_date").orEmpty())
+                    open?.optString("start_date").orEmpty(),
+                    contextState.seasons.filter { it.optString("greenhouse_id") == id }.map { it.optString("name") })
             } }
         com.inofarm.jogja.feature.admin.GreenhouseWizardHost(adminSession, runtime.admin, context::refresh,
             onOpenGreenhouse = { id -> wizardTarget = id to false; wizardOpen = null },
@@ -918,9 +919,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     val draft = com.inofarm.jogja.feature.activities.domain.EntryDraft.from(record.body)
                     fun value(text: String) = text.replace('.', ',')
                     NutritionRunItem(context.greenhouses.find { it.optString("id") == record.greenhouseId }?.optString("name") ?: "Greenhouse",
-                        listOfNotNull(draft.ec.takeIf { it.isNotBlank() }?.let { "EC ${value(it)} mS/cm" },
-                            draft.ppm.takeIf { it.isNotBlank() }?.let { "PPM ${value(it)} ppm" },
-                            draft.ph.takeIf { it.isNotBlank() }?.let { "pH ${value(it)}" }).joinToString(" · "))
+                        draft.measurements.filter { it.filled }.joinToString(" · ") { m ->
+                            listOfNotNull(m.ec.takeIf { it.isNotBlank() }?.let { "EC ${value(it)} mS/cm" },
+                                m.ppm.takeIf { it.isNotBlank() }?.let { "PPM ${value(it)} ppm" },
+                                m.ph.takeIf { it.isNotBlank() }?.let { "pH ${value(it)}" }).joinToString(" · ")
+                        })
                 }
             }
         }
@@ -984,7 +987,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             harvestProgressOpen = true
                         },
                         onSeasonReport = { reports.vm.show("") },
-                        opening = greenhouseOpening)
+                        opening = greenhouseOpening,
+                        harvestPattern = { ghId -> HarvestPatternSection(ghId, context, harvest.records) })
                 }
                 tab==0 && correctionsOpen -> WorkerCorrectionsScreen(workerCorrections, context, onOpen = { row ->
                     if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
@@ -1486,7 +1490,7 @@ internal fun ExpiredSessionNotice() {
             if(draft.ec.isNotBlank()) FarmFact("EC manual", "${measureText(draft.ec)} mS/cm", prominent = true)
             if(draft.ppm.isNotBlank()) FarmFact("PPM manual", "${measureText(draft.ppm)} ppm", prominent = true)
             if(draft.ph.isNotBlank()) FarmFact("pH manual", measureText(draft.ph))
-            if(draft.stage.isNotBlank()) FarmFact("Stadia aktual", draft.stage)
+            if(draft.stage.isNotBlank()) FarmFact("Stadia/Fase aktual", draft.stage)
             draft.materials.forEach { item ->
                 val name=context.materials.find {it.optString("id")==item.materialId}?.optString("name") ?: "Bahan"
                 val unit=context.units.find {it.optString("id")==item.unitId}?.optString("name").orEmpty()
@@ -1537,10 +1541,13 @@ internal fun ExpiredSessionNotice() {
             val entry=com.inofarm.jogja.feature.activities.domain.EntryDraft.from(record.body)
             Text("Isian kegiatan · ${entry.date} ${entry.time} WIB")
             if(entry.ageBasis.isNotBlank()) Text("Umur tanaman: ${entry.ageBasis.uppercase()} ${entry.ageDay}")
-            if(entry.hasMeasurement) Text("EC ${entry.ec} · PPM ${entry.ppm}${if(entry.ph.isNotBlank()) " · pH ${entry.ph}" else ""}")
-            if(entry.nutrition.isNotEmpty()) Text("Nutrisi: ${entry.nutrition.size} bahan")
+            entry.measurements.filter { it.filled }.forEach { m ->
+                Text(listOfNotNull(com.inofarm.jogja.feature.activities.MeasureMoments[m.moment], "EC ${m.ec}", m.ppm.takeIf { it.isNotBlank() }?.let { "PPM $it" },
+                    m.ph.takeIf { it.isNotBlank() }?.let { "pH $it" }).joinToString(" · "))
+            }
+            if(entry.nutritionMaterials.isNotEmpty()) Text("Nutrisi AB Mix: ${entry.nutritionMaterials.size} bahan")
             if(entry.hasSpray) Text("Penyemprotan: ${entry.spray.size} bahan")
-            if(entry.stage.isNotBlank()) Text("Stadia: ${entry.stage}")
+            if(entry.stage.isNotBlank()) Text("Stadia/Fase: ${entry.stage}")
             if(entry.notes.isNotBlank()) Text(entry.notes)
             return
         }
@@ -1557,7 +1564,7 @@ internal fun ExpiredSessionNotice() {
             if(draft.ec.isNotBlank()) Text("EC manual: ${measureText(draft.ec)} mS/cm")
             if(draft.ppm.isNotBlank()) Text("PPM manual: ${measureText(draft.ppm)} ppm")
             if(draft.ph.isNotBlank()) Text("pH manual: ${measureText(draft.ph)}")
-            if(draft.stage.isNotBlank()) Text("Stadia aktual: ${draft.stage}")
+            if(draft.stage.isNotBlank()) Text("Stadia/Fase aktual: ${draft.stage}")
             draft.materials.forEach { material -> Text("${context.materials.find {it.optString("id")==material.materialId}?.optString("name") ?: material.name.trim().ifBlank { "Bahan ${material.materialId.take(8)}" }}: ${
                 if(material.quantity.isBlank()) "dosis tidak dicatat" else "${measureText(material.quantity)} ${context.units.find {it.optString("id")==material.unitId}?.optString("name").orEmpty()}"}") }
             ObservationFacts(draft)
@@ -1816,5 +1823,24 @@ internal fun FarmPullRefresh(syncing: Boolean, onSync: () -> Unit, content: @Com
                 selected = chosen
             }
         )
+    }
+}
+
+/** One chart per variety of the greenhouse's open season, from the harvests on this device (Inofarm, 20 Nov 2026). */
+@Composable
+private fun HarvestPatternSection(greenhouseId: String, context: com.inofarm.jogja.feature.context.CultivationUiState,
+                                  records: List<com.inofarm.jogja.core.database.LocalRecord>) {
+    val open = context.seasons.filter { it.optString("greenhouse_id") == greenhouseId && it.optString("status") == "open" }.map { it.optString("id") }.toSet()
+    val groups = context.groups.filter { it.optString("season_id") in open && it.optBoolean("active", true) }
+    val patterns = remember(records, groups) {
+        com.inofarm.jogja.feature.harvest.domain.HarvestPattern.build(
+            records.filter { it.greenhouseId == greenhouseId }.map { it.serverBody ?: it.body }, groups.map { it.optString("id") })
+    }
+    Text("Pola panen", style = MaterialTheme.typography.titleMedium)
+    if (patterns.isEmpty()) Text("Belum ada musim berjalan.", style = MaterialTheme.typography.bodyMedium)
+    patterns.forEach { pattern ->
+        val group = groups.first { it.optString("id") == pattern.groupId }
+        val name = context.varieties.firstOrNull { it.optString("id") == group.optString("variety_id") }?.optString("name") ?: group.optString("name")
+        com.inofarm.jogja.feature.harvest.HarvestPatternChart(pattern, name)
     }
 }

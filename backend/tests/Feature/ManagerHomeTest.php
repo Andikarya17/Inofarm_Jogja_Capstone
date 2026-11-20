@@ -17,6 +17,45 @@ final class ManagerHomeTest extends FinanceTestCase
             'designate_period', $ctx['gh']['id'], $version);
     }
 
+    /** Inofarm 20 Nov 2026: PPM is optional, and of two readings of one entry the one after injection is the latest. */
+    public function test_ec_only_measurement_is_accepted_and_after_injection_wins_the_latest(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-20T10:00:00+07:00'));
+        $manager = $this->account();
+        $ctx = $this->context($manager);
+        $gh = $ctx['gh']['id'];
+        $this->postJson("/api/v2/greenhouses/$gh/running-period", $this->designate($ctx, $ctx['group']['id'], 1))->assertOk();
+        $batch = (string) Str::uuid();
+        $reading = fn (array $values) => ['season_id' => $ctx['season']['id'], 'planting_group_id' => null, 'entry_batch_id' => $batch,
+            'activity_type' => 'measurement', 'occurred_at' => '2026-11-20T08:00:00+07:00', 'age_basis' => 'hst', 'age_day' => 30,
+            'manual_ppm' => null, 'manual_ph' => null, 'work_state' => 'completed', 'materials' => [], 'notes' => '', ...$values];
+        $after = $this->operation('activity', $reading(['manual_ec' => '2.1', 'manual_ppm' => '1000', 'observations' => ['measurement_moment' => 'after_injection']]));
+        $before = $this->operation('activity', $reading(['manual_ec' => '1.6', 'observations' => ['measurement_moment' => 'before_injection']]));
+        // The after-injection id is made the smaller one, so only the moment can put it first.
+        $after['entity_id'] = '00000000-0000-4000-8000-000000000001';
+        $before['entity_id'] = 'ffffffff-ffff-4fff-bfff-ffffffffffff';
+        $this->postJson('/api/v2/activities', $after)->assertCreated();
+        $this->postJson('/api/v2/activities', $before)->assertCreated()->assertJsonPath('data.manual_ppm', null);
+        $this->getJson('/api/v2/measurements/latest?season_id='.$ctx['season']['id'])->assertOk()->assertJsonPath('data.id', $after['entity_id']);
+        $this->getJson(self::HOME.'?greenhouse_id='.$gh)->assertOk()->assertJsonPath('detail.measurement.id', $after['entity_id']);
+        $this->postJson('/api/v2/activities', $this->operation('activity', $reading(['manual_ec' => null, 'manual_ppm' => '900'])))
+            ->assertUnprocessable()->assertJsonValidationErrors(['manual_ec'], 'field_errors');
+    }
+
+    /** A legacy nutrition row with only PPM still counts as a reading after detection moved to EC. */
+    public function test_legacy_ppm_only_rows_still_count_as_readings(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-20T10:00:00+07:00'));
+        $ctx = $this->context($this->account());
+        $unit = $this->createMaster('units', ['greenhouse_id' => $ctx['gh']['id'], 'name' => 'gram', 'dimension' => 'mass']);
+        $mix = $this->createMaster('materials', ['greenhouse_id' => $ctx['gh']['id'], 'name' => 'AB mix', 'dimension' => 'mass']);
+        $legacy = $this->operation('activity', ['planting_group_id' => $ctx['group']['id'], 'activity_type' => 'nutrition',
+            'occurred_at' => '2026-11-20T07:00:00+07:00', 'manual_ec' => null, 'manual_ppm' => '900', 'manual_ph' => '6', 'work_state' => 'completed',
+            'materials' => [['material_id' => $mix['id'], 'unit_id' => $unit['id'], 'quantity' => '250']], 'notes' => '']);
+        $this->postJson('/api/v2/activities', $legacy)->assertCreated();
+        $this->getJson('/api/v2/measurements/latest?planting_group_id='.$ctx['group']['id'])->assertOk()->assertJsonPath('data.id', $legacy['entity_id']);
+    }
+
     public function test_measurement_day_distinguishes_missing_pending_invalid_and_valid_revision(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-11-08T08:00:00+07:00'));

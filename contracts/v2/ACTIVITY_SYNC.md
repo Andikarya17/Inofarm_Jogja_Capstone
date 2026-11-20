@@ -31,3 +31,8 @@ Satu isian form Catat kegiatan dikirim sebagai beberapa operasi `activity` biasa
 Bahan spray boleh dikirim sebagai `material_name`. Server mencari bahan `purpose=spray` dengan nama sama (tanpa beda huruf besar/kecil dan spasi tepi) dan, bila belum ada, membuatnya di setiap greenhouse aktif, lengkap dengan identitas, audit dan feed, sehingga pengguna lain menerimanya lewat sync. Dosis spray opsional: `unit_id` dan `quantity` keduanya ada atau keduanya null, dengan satuan apa pun milik greenhouse. Nutrisi tetap wajib dosis dan dimensi yang sama.
 
 Target EC/PPM/pH per kelompok dibandingkan pada catatan tingkat greenhouse hanya bila musim punya tepat satu kelompok aktif; selain itu snapshot `scope: greenhouse` menandai perbandingan `unavailable` dengan alasan. Umur `PlantAge` tidak lagi menolak isian baru. `GET measurements/latest` menerima `season_id` atau `planting_group_id` dan menyertakan catatan tingkat greenhouse; `GET activities` menerima filter `entry_batch_id`. `manager-home` menambah `period.manual_age` (isian HSS/HST terakhir).
+
+## Pembaruan 20 November 2026: Nutrisi AB Mix
+
+Kegiatan `nutrition` boleh menamai bahan lewat `material_name` (AB Mix dan nutrisi tambahan yang diketik) dan satuannya lewat `unit_name` (`mL`, `L` atau `gram`). Server mencari bahan bertujuan `nutrition` dan satuan aktif dengan nama sama (tanpa beda huruf besar/kecil) di greenhouse itu, atau membuatnya di greenhouse itu saja, lalu menyimpan id-nya. Aturan "satuan berdimensi sama dengan bahan" tidak berlaku lagi untuk nutrisi, seperti penyemprotan. Jumlah dan satuan nutrisi tetap wajib berpasangan.
+

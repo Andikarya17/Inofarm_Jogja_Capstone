@@ -60,13 +60,18 @@ class RecordingReworkBackendDeviceTest {
         // One "Catat kegiatan" form for the greenhouse: age, reading, nutrition, spray for both varieties, stage, notes.
         readyNode("entry-age-basis-option-hst").performScrollTo().performClick()
         type("entry-age-day", "30")
-        type("entry-ec", "1,8")
-        type("entry-ppm", "900")
+        // Inofarm 20 Nov 2026: before and after injection in one entry, PPM optional, AB Mix plus a typed extra nutrient.
+        readyNode("entry-moment-option-before_injection").performScrollTo().performClick()
         readyNode("entry-moment-option-after_injection").performScrollTo().performClick()
+        type("entry-ec", "1,6")
+        type("entry-1-ec", "1,8")
+        type("entry-1-ppm", "900")
+        type("entry-ab-mix-quantity", "250")
+        readyNode("entry-ab-mix-unit-option-gram").performScrollTo().performClick()
         readyNode("entry-nutrition-add").performScrollTo().performClick()
-        choose("entry-nutrition-material-0", a.getString("nutrition_material_id"))
-        type("entry-nutrition-quantity-0", "250")
-        choose("entry-nutrition-unit-0", a.getString("unit_id"))
+        type("entry-nutrition-name-0", "Kalsium")
+        type("entry-nutrition-quantity-0", "0,5")
+        readyNode("entry-nutrition-unit-0-option-gram").performScrollTo().performClick()
         readyNode("entry-spray-open").performScrollTo().performClick()
         readyNode("entry-spray-period-option-morning").performScrollTo().performClick()
         choose("entry-spray-material-0", fixture.getString("spray_material_id"))
@@ -82,23 +87,21 @@ class RecordingReworkBackendDeviceTest {
         readyNode("finance-queue").performClick()
         val worker = model.vault.current!!
         fun entryOps() = model.store.outbox(worker.scope.key).filter { it.envelope.optJSONObject("payload")?.optString("notes") == note }
-        rule.waitUntil(30_000) { entryOps().size == 5 && entryOps().all { it.state == "ACCEPTED" } }
+        rule.waitUntil(30_000) { entryOps().size == 6 && entryOps().all { it.state == "ACCEPTED" } }
         val activityIds = entryOps().map { it.entityId }
         val batch = entryOps().map { it.envelope.getJSONObject("payload").getString("entry_batch_id") }.toSet()
         assertEquals(1, batch.size)
         proof.put("entry_batch_id", batch.single()).put("activity_ids", org.json.JSONArray(activityIds))
 
-        // Harvest for both varieties side by side, fruit count left empty.
+        // Harvest for both varieties side by side: layak and cacat, no grade and no time (Inofarm, 20 Nov 2026).
         openCatat()
         readyNode("record-greenhouse-option-$ghA").performScrollTo().performClick()
         readyNode("record-harvest").performClick()
-        readyNode("harvest-add-item").performScrollTo().performClick()
-        choose("harvest-grade-0", a.getJSONArray("grade_ids").getString(0))
-        readyNode("harvest-quality-0-option-saleable").performScrollTo().performClick()
+        rule.onNodeWithTag("harvest-time").assertDoesNotExist()
+        rule.onNodeWithTag("harvest-grade-0").assertDoesNotExist()
         type("harvest-weight-0", "12,5")
-        readyNode("harvest-v2-add-item").performScrollTo().performClick()
-        choose("harvest-v2-grade-0", a.getJSONArray("grade_ids").getString(0))
-        readyNode("harvest-v2-quality-0-option-saleable").performScrollTo().performClick()
+        type("harvest-weight-1", "1,5")
+        type("harvest-count-1", "2")
         type("harvest-v2-weight-0", "7")
         type("harvest-notes", harvestNote)
         capture("rework-worker-harvest-two")
@@ -131,7 +134,7 @@ class RecordingReworkBackendDeviceTest {
         openFromList("activity-verification-list", "verification-activity-$head", "activity-verification-detail")
         val detail = rule.onNodeWithTag("activity-verification-detail")
         rule.waitUntil(20_000) { runCatching { detail.performScrollToNode(hasTestTag("verification-decision")) }.isSuccess }
-        rule.onNodeWithText("seluruh isian (5 bagian)", substring = true).assertExists()
+        rule.onNodeWithText("seluruh isian (6 bagian)", substring = true).assertExists()
         rule.onNodeWithTag("verification-decision").performClick()
         rule.onNodeWithTag("verification-decision-option-valid").performClick()
         detail.performScrollToNode(hasTestTag("verification-review"))
@@ -142,7 +145,7 @@ class RecordingReworkBackendDeviceTest {
         fun decisions() = model.store.outbox(manager.scope.key).filter {
             it.envelope.optString("entity_type") == "activity_review" && it.envelope.getJSONObject("payload").optString("activity_id") in activityIds
         }
-        rule.waitUntil(30_000) { decisions().size == 5 && decisions().all { it.state == "ACCEPTED" } }
+        rule.waitUntil(30_000) { decisions().size == 6 && decisions().all { it.state == "ACCEPTED" } }
         proof.put("manager_decisions", decisions().size)
 
         // Cek catatan panen: the two-variety harvest is two records, one decision each (one Sesuai, one Perlu diperbaiki).
@@ -183,7 +186,7 @@ class RecordingReworkBackendDeviceTest {
 
         login(fixture, "worker")
         val worker = model.vault.current!!
-        val measurement = section(worker.scope.key, note, "measurement")
+        val measurement = section(worker.scope.key, note, "measurement", "after_injection")
         assertEquals(1L, measurement.serverVersion)
         openHistoryRecord(measurement.id)
         readyNode("finance-edit").performScrollTo().performClick()
@@ -227,7 +230,7 @@ class RecordingReworkBackendDeviceTest {
         assertEquals("Panen", stageNow.getString("actual_stage"))
         // The other sections of the same entry stay at version 1.
         val untouched = model.store.records(manager.scope.key, 200).filter { it.body.optString("notes") == note && it.id !in setOf(measurement.id, stage.id) }
-        assertEquals(3, untouched.size)
+        assertEquals(4, untouched.size)
         untouched.forEach { assertEquals(1, read("activities/${it.id}").getInt("version")) }
         File(evidence(), "rework-correction-proof.json").writeText(JSONObject().put("measurement_id", measurement.id).put("stage_id", stage.id)
             .put("untouched", org.json.JSONArray(untouched.map { it.id })).put("worker_without_reason_status", 422).toString(2))
@@ -368,9 +371,10 @@ class RecordingReworkBackendDeviceTest {
         return fixture
     }
     /** The one cached section of type [type] from the entry with [note], waiting for the pull after login. */
-    private fun section(scope: String, note: String, type: String): com.inofarm.jogja.core.database.LocalRecord {
+    private fun section(scope: String, note: String, type: String, moment: String? = null): com.inofarm.jogja.core.database.LocalRecord {
         val model = runtime()
-        fun find() = model.store.records(scope, 200).filter { it.body.optString("notes") == note && it.body.optString("activity_type") == type }
+        fun find() = model.store.records(scope, 200).filter { it.body.optString("notes") == note && it.body.optString("activity_type") == type &&
+            (moment == null || it.body.optJSONObject("observations")?.optString("measurement_moment") == moment) }
         rule.waitUntil(30_000) { find().size == 1 }
         return find().single()
     }

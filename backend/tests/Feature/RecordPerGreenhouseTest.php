@@ -151,6 +151,32 @@ class RecordPerGreenhouseTest extends FinanceTestCase
             ->where('greenhouse_id', $b['gh']['id'])->where('name', 'Pestisida ketik')->value('id'))->count());
     }
 
+    /** Inofarm 20 Nov 2026: AB Mix and extra nutrients are typed; units are mL, L or gram. */
+    public function test_nutrition_names_and_fixed_units_are_typed_and_reused(): void
+    {
+        $manager = $this->account();
+        $ctx = $this->twoVarieties($manager);
+        $other = $this->context($manager);
+        $nutrition = fn (array $materials) => $this->operation('activity', $this->entry($ctx, (string) Str::uuid(), ['activity_type' => 'nutrition',
+            'manual_ec' => null, 'manual_ppm' => null, 'manual_ph' => null, 'observations' => null, 'materials' => $materials]));
+        $this->asUser($this->account('worker'));
+        $this->postJson('/api/v2/activities', $nutrition([['material_name' => 'AB Mix', 'unit_name' => 'mL', 'quantity' => '500'],
+            ['material_name' => 'Kalsium', 'unit_name' => 'gram', 'quantity' => '0.5']]))->assertCreated()->assertJsonCount(2, 'data.materials');
+        $this->postJson('/api/v2/activities', $nutrition([['material_name' => 'ab mix', 'unit_name' => 'ML', 'quantity' => '450']]))->assertUnprocessable();
+        $this->postJson('/api/v2/activities', $nutrition([['material_name' => ' ab mix ', 'unit_name' => 'mL', 'quantity' => '450']]))->assertCreated();
+        $gh = $ctx['gh']['id'];
+        foreach (['AB Mix', 'Kalsium'] as $name) {
+            $this->assertSame(1, DB::table('materials')->where('greenhouse_id', $gh)->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($name)])
+                ->where('purpose', 'nutrition')->count(), $name);
+        }
+        $this->assertSame(1, DB::table('units')->where('greenhouse_id', $gh)->where('name', 'mL')->count());
+        // The test greenhouse already had "ml" (volume): it is reused, not doubled.
+        $this->assertSame(0, DB::table('units')->where('greenhouse_id', $gh)->where('name', 'mL')->where('id', '!=', $ctx['ml']['id'])->count());
+        $this->assertSame(0, DB::table('materials')->where('greenhouse_id', $other['gh']['id'])->where('name', 'Kalsium')->count());
+        $this->postJson('/api/v2/activities', $nutrition([['material_name' => 'Kalsium', 'unit_name' => 'mg', 'quantity' => '1']]))->assertUnprocessable();
+        $this->postJson('/api/v2/activities', $nutrition([['material_name' => 'Kalsium', 'unit_name' => 'gram', 'quantity' => null]]))->assertUnprocessable();
+    }
+
     public function test_entry_rules_are_enforced_and_legacy_payloads_still_send(): void
     {
         $manager = $this->account();
@@ -169,8 +195,8 @@ class RecordPerGreenhouseTest extends FinanceTestCase
         $refuse($this->entry($ctx, $batch, ['activity_type' => 'nutrition', 'manual_ec' => null, 'manual_ppm' => null, 'manual_ph' => null,
             'materials' => [['material_id' => $ctx['mix']['id'], 'unit_id' => null, 'quantity' => null]]]));
         $refuse($this->entry($ctx, $batch, ['activity_type' => 'nutrition', 'manual_ec' => null, 'manual_ppm' => null, 'manual_ph' => null,
-            'materials' => [['material_name' => 'AB mix baru', 'unit_id' => $ctx['unit']['id'], 'quantity' => '1']]]));
-        $refuse($this->entry($ctx, $batch, ['manual_ppm' => null]));
+            'materials' => [['material_name' => 'AB mix baru', 'unit_name' => 'mg', 'quantity' => '1']]]));
+        $refuse($this->entry($ctx, $batch, ['manual_ec' => null]));
         $refuse($this->entry($ctx, $batch, ['season_id' => null]));
         $refuse($this->spray($ctx, $batch, $ctx['group']['id'], [['material_name' => 'Bion M']], ['season_id' => $this->context($manager)['season']['id']]));
         $this->assertSame(0, DB::table('activities')->count());

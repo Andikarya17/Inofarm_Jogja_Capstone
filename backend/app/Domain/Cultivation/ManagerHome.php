@@ -42,7 +42,8 @@ final class ManagerHome
         $dayStart = $this->sqlTime($at->startOfDay());
         $tomorrow = $this->sqlTime($at->startOfDay()->addDay());
         $measurementRows = $running(clone $activities)
-            ->where('r.work_state', 'completed')->whereNotNull('r.manual_ppm')->where('r.occurred_at', '<', $tomorrow);
+            ->where('r.work_state', 'completed')->where(fn ($q) => $q->whereNotNull('r.manual_ec')->orWhereNotNull('r.manual_ppm'))
+            ->where('r.occurred_at', '<', $tomorrow);
         $pairs = $this->latestPerSeason((clone $measurementRows)->whereNotExists(ActivityReviewService::current('invalid', 'r')), $seasonGroups);
         $invalidToday = $this->latestPerSeason((clone $measurementRows)->where('r.occurred_at', '>=', $dayStart)
             ->whereExists(ActivityReviewService::current('invalid', 'r')), $seasonGroups);
@@ -156,10 +157,13 @@ final class ManagerHome
         return $result;
     }
 
+    /** Two readings of one entry share their time; the one after injection is the latest (Inofarm, 20 Nov 2026). */
+    private const AFTER_INJECTION_FIRST = "(JSON_UNQUOTE(JSON_EXTRACT(r.observations, '$.measurement_moment')) <=> 'after_injection') DESC";
+
     /** Latest activity per running season, keyed by that season's running group as the cards expect. */
     private function latestPerSeason(Builder $query, Collection $seasonGroups): Collection
     {
-        $ranked = $query->select('r.*')->selectRaw('ROW_NUMBER() OVER (PARTITION BY r.season_id ORDER BY r.occurred_at DESC, r.id DESC) AS position_in_season');
+        $ranked = $query->select('r.*')->selectRaw('ROW_NUMBER() OVER (PARTITION BY r.season_id ORDER BY r.occurred_at DESC, '.self::AFTER_INJECTION_FIRST.', r.id DESC) AS position_in_season');
 
         return DB::query()->fromSub($ranked, 'ranked')->where('position_in_season', 1)->get()->keyBy(fn ($row) => $seasonGroups->get($row->season_id));
     }

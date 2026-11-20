@@ -149,7 +149,7 @@ import com.inofarm.jogja.feature.Notice
                                 FarmFact("Semai", period.getString("sowing_date"))
                                 FarmFact("Pindah tanam", if (period.isNull("transplant_date")) "Belum dicatat" else period.getString("transplant_date"))
                                 val phase = period.optJSONObject("phase")
-                                FarmFact("Stadia aktual", phase?.optString("value") ?: "Belum dicatat")
+                                FarmFact("Stadia/Fase aktual", phase?.optString("value") ?: "Belum dicatat")
                                 phase?.let { Text(com.inofarm.jogja.feature.timeLabel(it.getString("occurred_at"))) }
                             }
                             "inactive" -> Text("Greenhouse nonaktif. Riwayat tetap tersedia.")

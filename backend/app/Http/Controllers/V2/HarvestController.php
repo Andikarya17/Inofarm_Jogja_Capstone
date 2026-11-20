@@ -127,7 +127,7 @@ final class HarvestController extends Controller
         $rules = $action === 'cancel' ? [] : ['planting_group_id' => ['required', OperationInput::UUID], 'occurred_at' => 'required|date_format:Y-m-d\TH:i:sP',
             'items' => 'required|array|min:1|max:30', 'items.*' => 'required|array:id,grade_id,fruit_count,weight_kg,quality',
             'items.*.quality' => 'sometimes|required|in:saleable,defective',
-            'items.*.id' => ['required', OperationInput::UUID, 'distinct'], 'items.*.grade_id' => ['required', OperationInput::UUID, 'distinct'],
+            'items.*.id' => ['required', OperationInput::UUID, 'distinct'], 'items.*.grade_id' => ['sometimes', 'nullable', OperationInput::UUID, 'distinct'],
             'items.*.fruit_count' => 'present|nullable|integer|min:0|max:2147483647', 'items.*.weight_kg' => 'required|string|max:30', 'notes' => 'present|string|max:2000'];
         if ($action !== 'create') {
             $rules['reason'] = OperationInput::reasonRule($request, 'required|string|min:1|max:1000');

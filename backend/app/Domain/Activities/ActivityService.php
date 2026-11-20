@@ -23,7 +23,7 @@ final class ActivityService
         'work_state', 'skipped_reason', 'notes', 'entry_batch_id', 'age_basis', 'age_day', 'spray_date', 'spray_period'];
 
     public function __construct(private GroupContext $context, private MasterService $masters, private ReferenceService $references,
-        private MutationLedger $ledger, private SprayMaterialCatalog $sprays) {}
+        private MutationLedger $ledger, private SprayMaterialCatalog $sprays, private NutritionCatalog $nutrients) {}
 
     public function scope(User $actor)
     {
@@ -160,8 +160,10 @@ final class ActivityService
             $retained = collect($before['materials'] ?? [])->contains(fn ($old) => $old['material_id'] === $item['material_id'] && $old['unit_id'] === $unitId);
             $material = DB::table('materials')->where('id', $item['material_id'])->where('greenhouse_id', $gh)->when(! $retained, fn ($q) => $q->where('active', true))->first();
             $unit = $unitId === null ? null : DB::table('units')->where('id', $unitId)->where('greenhouse_id', $gh)->when(! $retained, fn ($q) => $q->where('active', true))->first();
-            // Spray doses use any unit of the greenhouse (e.g. ml/L); nutrition keeps the same-dimension rule.
-            abort_unless($material && ($unitId === null || ($unit && ($spray || $material->dimension === $unit->dimension))), 422,
+            // Spray doses use any unit of the greenhouse (e.g. ml/L); so does nutrition since Inofarm's 20 Nov 2026 form
+            // (AB Mix in mL, L or gram). Other kinds keep the same-dimension rule.
+            $anyUnit = $spray || $p['activity_type'] === 'nutrition';
+            abort_unless($material && ($unitId === null || ($unit && ($anyUnit || $material->dimension === $unit->dimension))), 422,
                 'Bahan/satuan harus aktif, berdimensi sama dan berasal dari greenhouse yang sama.');
         }
         if (($p['schedule_id'] ?? null) !== null) {
@@ -176,10 +178,9 @@ final class ActivityService
         }
         $errors = $this->entryErrors($p);
         if ($p['activity_type'] === 'measurement') {
-            foreach (['manual_ec', 'manual_ppm'] as $field) {
-                if (($p[$field] ?? null) === null) {
-                    $errors[$field] = 'EC dan PPM manual wajib lengkap; kosong bukan nol.';
-                }
+            // Inofarm 20 Nov 2026: EC is the reading that must be there; PPM is optional.
+            if (($p['manual_ec'] ?? null) === null) {
+                $errors['manual_ec'] = 'Isi EC; kosong bukan nol.';
             }
             if ($p['work_state'] !== 'completed') {
                 $errors['work_state'] = 'Pengukuran harus selesai untuk dikirim.';
@@ -235,13 +236,22 @@ final class ActivityService
         return [...$p, 'planting_group_id' => $group, 'season_id' => $season];
     }
 
-    /** A typed spray name becomes a shared master material; ids are what the activity stores. */
+    /**
+     * A typed spray name becomes a shared master material; a typed nutrient (AB Mix and extras, 20 Nov 2026) and its
+     * mL/L/gram unit become masters of this greenhouse. Ids are what the activity stores.
+     */
     private function resolveMaterials(User $actor, array $p, string $gh): array
     {
-        return array_map(function (array $item) use ($actor, $p, $gh) {
+        $nutrition = $p['activity_type'] === 'nutrition';
+        return array_map(function (array $item) use ($actor, $p, $gh, $nutrition) {
             if (($item['material_id'] ?? null) === null) {
-                abort_unless($p['activity_type'] === 'spray' && trim($item['material_name'] ?? '') !== '', 422, 'Pilih bahan dari daftar.');
-                $item['material_id'] = $this->sprays->resolve($actor, $gh, $item['material_name']);
+                abort_unless(in_array($p['activity_type'], ['spray', 'nutrition'], true) && trim($item['material_name'] ?? '') !== '', 422, 'Pilih bahan dari daftar.');
+                $item['material_id'] = $nutrition ? $this->nutrients->material($actor, $gh, $item['material_name'])
+                    : $this->sprays->resolve($actor, $gh, $item['material_name']);
+            }
+            if (($item['unit_id'] ?? null) === null && ($item['unit_name'] ?? null) !== null) {
+                abort_unless($nutrition, 422, 'Satuan ketikan hanya untuk nutrisi.');
+                $item['unit_id'] = $this->nutrients->unit($actor, $gh, $item['unit_name']);
             }
 
             return ['material_id' => $item['material_id'], 'unit_id' => $item['unit_id'] ?? null, 'quantity' => $item['quantity'] ?? null];

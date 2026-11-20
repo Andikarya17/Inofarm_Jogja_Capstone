@@ -76,7 +76,7 @@ class FinanceMeasurementTest extends FinanceTestCase
     public function test_pair_validation_missing_zero_precision_actor_and_legacy_null_ec(): void
     {
         $ctx = $this->context($this->account());
-        foreach ([['manual_ec' => null], ['manual_ppm' => null], ['manual_ec' => '1,2'], ['manual_ec' => 'NaN'], ['manual_ec' => '0.0000001'], ['manual_ec' => '-1'], ['manual_ec' => 1.2], ['work_state' => 'skipped', 'skipped_reason' => 'uji'], ['recorded_by' => 'forged']] as $bad) {
+        foreach ([['manual_ec' => null], ['manual_ec' => '1,2'], ['manual_ec' => 'NaN'], ['manual_ec' => '0.0000001'], ['manual_ec' => '-1'], ['manual_ec' => 1.2], ['work_state' => 'skipped', 'skipped_reason' => 'uji'], ['recorded_by' => 'forged']] as $bad) {
             $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], $bad)))->assertUnprocessable();
         }
         $this->assertDatabaseCount('activities', 0);

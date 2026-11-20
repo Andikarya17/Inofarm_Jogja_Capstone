@@ -4,6 +4,7 @@ import com.inofarm.jogja.feature.activities.domain.ActivityDraft
 import com.inofarm.jogja.feature.activities.domain.ActivityType
 import com.inofarm.jogja.feature.activities.domain.EntryDraft
 import com.inofarm.jogja.feature.activities.domain.MaterialDraft
+import com.inofarm.jogja.feature.activities.domain.MeasurementDraft
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -28,9 +29,36 @@ class EntryDraftTest {
         assertTrue(base().copy(notes = "Cek kebersihan").validation().isEmpty())
     }
 
-    @Test fun ecAndPpmArePairedAndSprayNeedsVarietyTimeAndMaterial() {
-        assertTrue("manual_pair" in base().copy(ec = "1,8").validation())
-        assertTrue(base().copy(ec = "1,8", ppm = "900").validation().isEmpty())
+    @Test fun ecIsRequiredButPpmIsOptional() {
+        assertTrue("measurements.0.manual_ec" in base().copy(measurements = listOf(MeasurementDraft(ppm = "900"))).validation())
+        assertTrue(base().copy(measurements = listOf(MeasurementDraft(ec = "1,8"))).validation().isEmpty())
+    }
+
+    @Test fun beforeAndAfterInjectionBecomeTwoMeasurementRecordsOfOneBatch() {
+        val both = base().withMoments(setOf("before_injection", "after_injection")).let {
+            it.copy(measurements = listOf(it.measurements[0].copy(ec = "1,6"), it.measurements[1].copy(ec = "2,1", ppm = "1000")))
+        }
+        val rows = both.sections().filter { it.type == ActivityType.MEASUREMENT }
+        assertEquals(listOf("before_injection", "after_injection"), rows.map { it.measurementMoment })
+        assertEquals(setOf(both.id), rows.map { it.entryBatchId }.toSet())
+        assertEquals(2, rows.map { it.id }.toSet().size)
+        assertTrue(rows[0].payload().isNull("manual_ppm"))
+        assertEquals(both, EntryDraft.from(both.localJson()))
+        val dropped = both.withMoments(setOf("before_injection"))
+        assertEquals(listOf(MeasurementDraft("before_injection", ec = "1,6")), dropped.measurements)
+        // A single block without a moment keeps its values when a moment is chosen.
+        val plain = base().copy(measurements = listOf(MeasurementDraft(ec = "1,8")))
+        assertEquals(listOf(MeasurementDraft("after_injection", ec = "1,8")), plain.withMoments(setOf("after_injection")).measurements)
+    }
+
+    @Test fun anEntryDraftSavedBeforeTwoMomentsReopensAsOneBlock() {
+        val legacy = JSONObject().put("_local_form", JSONObject().put("entry", true).put("id", "88888888-8888-4888-8888-888888888888")
+            .put("greenhouse_id", gh).put("season_id", season).put("date", "2026-11-17").put("time", "08:00")
+            .put("ec", "1,8").put("ppm", "900").put("ph", "6").put("water_temperature", "").put("moment", "after_injection"))
+        assertEquals(listOf(MeasurementDraft("after_injection", "1,8", "900", "6", "")), EntryDraft.from(legacy).measurements)
+    }
+
+    @Test fun sprayNeedsVarietyTimeAndMaterial() {
         val spray = base().copy(sprayOpen = true, sprayGroups = setOf(groupA), spray = listOf(MaterialDraft(name = "Bion M")))
         assertEquals(setOf("spray_period"), spray.validation().keys)
         assertTrue(spray.copy(sprayPeriod = "morning").validation().isEmpty())
@@ -41,7 +69,7 @@ class EntryDraftTest {
     }
 
     @Test fun oneEntryBecomesGreenhouseRecordsOnceAndSprayPerVariety() {
-        val entry = base().copy(ec = "1,8", ppm = "900", ph = "6,1", waterTemperature = "26", moment = "after_injection",
+        val entry = base().copy(measurements = listOf(MeasurementDraft("after_injection", "1,8", "900", "6,1", "26")),
             nutrition = listOf(MaterialDraft(mix, gram, "250")), sprayOpen = true, sprayDate = "2026-11-16", sprayPeriod = "afternoon",
             sprayGroups = setOf(groupB, groupA), spray = listOf(MaterialDraft(bion), MaterialDraft(name = "Fungisida baru", unitId = gram, quantity = "15")),
             stage = "Pembesaran buah", notes = "Daun sehat").withSectionIds()
@@ -77,7 +105,7 @@ class EntryDraftTest {
     }
 
     @Test fun sectionIdsAreStableAcrossSavesAndRoundTrips() {
-        val first = base().copy(ec = "1", ppm = "2").withSectionIds()
+        val first = base().copy(measurements = listOf(MeasurementDraft(ec = "1", ppm = "2"))).withSectionIds()
         val again = EntryDraft.from(first.localJson()).withSectionIds()
         assertEquals(first, again)
         assertEquals(first.sections().map { it.id }, again.sections().map { it.id })
@@ -86,6 +114,30 @@ class EntryDraftTest {
         assertEquals(first.sections().first().id, more.sections().first().id)
         assertEquals(2, more.sections().map { it.id }.toSet().size)
         assertTrue(EntryDraft.isEntry(first.localJson()))
+    }
+
+    @Test fun abMixAndTypedExtrasBecomeOneNutritionRecord() {
+        val entry = base().copy(abMixQuantity = "500", abMixUnit = "mL", nutrition = listOf(MaterialDraft(name = "Kalsium", quantity = "0,5", unitName = "gram")))
+        assertTrue(entry.validation().toString(), entry.validation().isEmpty())
+        val materials = entry.sections().single { it.type == ActivityType.NUTRITION }.payload().getJSONArray("materials")
+        assertEquals(2, materials.length())
+        assertEquals("AB Mix", materials.getJSONObject(0).getString("material_name"))
+        assertEquals("mL", materials.getJSONObject(0).getString("unit_name"))
+        assertEquals("500", materials.getJSONObject(0).getString("quantity"))
+        assertEquals("Kalsium", materials.getJSONObject(1).getString("material_name"))
+        assertEquals("0.5", materials.getJSONObject(1).getString("quantity"))
+        assertTrue(materials.getJSONObject(1).isNull("unit_id"))
+        assertEquals(entry, EntryDraft.from(entry.localJson()))
+        // A nutrient picked from the master list before 20 Nov 2026 still sends by id.
+        val old = base().copy(nutrition = listOf(MaterialDraft(mix, gram, "250"))).sections().single().payload().getJSONArray("materials").getJSONObject(0)
+        assertEquals(mix, old.getString("material_id")); assertEquals(gram, old.getString("unit_id")); assertFalse(old.has("unit_name"))
+    }
+
+    @Test fun nutritionRowsNeedNameAmountAndUnitTogether() {
+        assertTrue(base().copy(abMixQuantity = "500").validation().keys.any { it.startsWith("nutrition") })
+        assertTrue(base().copy(abMixUnit = "mL").validation().keys.any { it.startsWith("nutrition") })
+        assertTrue(base().copy(nutrition = listOf(MaterialDraft(quantity = "1", unitName = "gram"))).validation().keys.any { it.startsWith("nutrition") })
+        assertTrue(base().copy(nutrition = listOf(MaterialDraft(name = "Kalsium", quantity = "1"))).validation().keys.any { it.startsWith("nutrition") })
     }
 
     @Test fun notesAloneAreOneGeneralRecord() {

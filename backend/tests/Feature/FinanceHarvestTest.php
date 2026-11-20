@@ -105,6 +105,49 @@ class FinanceHarvestTest extends FinanceTestCase
         return [...$payload, 'reason' => 'Koreksi panen sintetis', 'reference_policy' => 'preserve'];
     }
 
+    /** Inofarm 20 Nov 2026: harvests record layak and cacat only; the server files them under system grades, so sales still work. */
+    public function test_quality_only_lines_get_system_grades_and_can_be_sold(): void
+    {
+        $ctx = $this->prepared();
+        $this->asUser($ctx['manager']);
+        $line = fn (string $quality, ?int $count, string $kg) => ['id' => (string) Str::uuid(), 'quality' => $quality, 'fruit_count' => $count, 'weight_kg' => $kg];
+        $payload = fn (array $items) => ['planting_group_id' => $ctx['group']['id'], 'occurred_at' => '2026-10-29T12:00:00+07:00', 'notes' => '', 'items' => $items];
+        $first = $this->operation('harvest', $payload([$line('saleable', null, '40'), $line('defective', 3, '5')]));
+        $this->postJson('/api/v2/harvests', $first)->assertCreated()
+            ->assertJsonPath('data.items.0.grade_name', 'Layak')->assertJsonPath('data.items.1.grade_name', 'Cacat');
+        $this->postJson('/api/v2/harvests', $this->operation('harvest', $payload([$line('saleable', 10, '12')])))->assertCreated();
+        $gh = $ctx['gh']['id'];
+        foreach (['Layak', 'Cacat'] as $name) {
+            $this->assertSame(1, DB::table('grades')->where('greenhouse_id', $gh)->where('name', $name)->count(), $name);
+        }
+        $this->postJson('/api/v2/harvests', $this->operation('harvest', $payload([['id' => (string) Str::uuid(), 'fruit_count' => null, 'weight_kg' => '1']])))
+            ->assertUnprocessable()->assertJsonValidationErrors(['items.0.quality'], 'field_errors');
+
+        // The harvest sells like before, from its Layak line.
+        $source = $first['payload']['items'][0]['id'];
+        $this->postJson('/api/v2/sales', $this->operation('sale', ['season_id' => $ctx['season']['id'], 'paid_at' => '2026-10-30T09:00:00+07:00',
+            'payment_status' => 'paid', 'customer_name' => '', 'notes' => '',
+            'items' => [['id' => (string) Str::uuid(), 'harvest_item_id' => $source, 'quantity_kg' => '30', 'price_per_kg' => '25000']]]))
+            ->assertCreated()->assertJsonPath('data.total_amount', '750000.00');
+
+        // A correction without grade ids keeps the grade of each line.
+        $edit = $this->operation('harvest', [...$first['payload'], 'reason' => 'Koreksi bobot', 'reference_policy' => 'preserve',
+            'items' => [[...$first['payload']['items'][0], 'weight_kg' => '41'], $first['payload']['items'][1]]], 'update', $first['entity_id'], 1);
+        $this->patchJson('/api/v2/harvests/'.$first['entity_id'], $edit)->assertOk()->assertJsonPath('data.items.0.grade_name', 'Layak');
+    }
+
+    /** A greenhouse that already has an active grade named "layak" keeps using it. */
+    public function test_an_existing_layak_grade_is_reused(): void
+    {
+        $ctx = $this->prepared();
+        $this->asUser($ctx['manager']);
+        $own = $this->createMaster('grades', ['greenhouse_id' => $ctx['gh']['id'], 'name' => 'layak']);
+        $this->postJson('/api/v2/harvests', $this->operation('harvest', ['planting_group_id' => $ctx['group']['id'], 'occurred_at' => '2026-10-29T12:00:00+07:00',
+            'notes' => '', 'items' => [['id' => (string) Str::uuid(), 'quality' => 'saleable', 'fruit_count' => null, 'weight_kg' => '4']]]))
+            ->assertCreated()->assertJsonPath('data.items.0.grade_id', $own['id']);
+        $this->assertSame(1, DB::table('grades')->where('greenhouse_id', $ctx['gh']['id'])->whereRaw('LOWER(name) = ?', ['layak'])->count());
+    }
+
     public function test_harvest_review_provenance_scope_replay_and_revision_history(): void
     {
         $ctx = $this->prepared();
