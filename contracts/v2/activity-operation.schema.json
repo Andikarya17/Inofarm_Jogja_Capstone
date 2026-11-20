@@ -216,7 +216,7 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "description": "material_id dari master, atau material_name (hanya spray) yang server ubah menjadi bahan master bersama. Dosis spray opsional: unit_id dan quantity keduanya ada atau keduanya null; nutrisi wajib keduanya.",
+            "description": "material_id dari master, atau material_name (spray: bahan master bersama; nutrisi sejak 20 Nov 2026: AB Mix dan nutrisi tambahan, bahan master greenhouse itu). Satuan lewat unit_id, atau unit_name mL/L/gram untuk nutrisi. Dosis spray opsional: satuan dan quantity keduanya ada atau keduanya null; nutrisi wajib keduanya.",
             "properties": {
               "material_id": {
                 "anyOf": [
@@ -246,6 +246,20 @@
                   {
                     "type": "string",
                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "unit_name": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "mL",
+                      "L",
+                      "gram"
+                    ]
                   },
                   {
                     "type": "null"
@@ -598,7 +612,7 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "description": "material_id dari master, atau material_name (hanya spray) yang server ubah menjadi bahan master bersama. Dosis spray opsional: unit_id dan quantity keduanya ada atau keduanya null; nutrisi wajib keduanya.",
+            "description": "material_id dari master, atau material_name (spray: bahan master bersama; nutrisi sejak 20 Nov 2026: AB Mix dan nutrisi tambahan, bahan master greenhouse itu). Satuan lewat unit_id, atau unit_name mL/L/gram untuk nutrisi. Dosis spray opsional: satuan dan quantity keduanya ada atau keduanya null; nutrisi wajib keduanya.",
             "properties": {
               "material_id": {
                 "anyOf": [
@@ -628,6 +642,20 @@
                   {
                     "type": "string",
                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "unit_name": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "mL",
+                      "L",
+                      "gram"
+                    ]
                   },
                   {
                     "type": "null"
