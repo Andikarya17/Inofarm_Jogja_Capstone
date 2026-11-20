@@ -130,6 +130,8 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
     fun latestMeasurement(scope:String,gh:String,group:String,today:LocalDate,queuedOnly:Boolean=false,season:String?=null):com.inofarm.jogja.feature.activities.domain.ManualMeasurement? = transaction {
         ensureIndexed(scope)
         var offset=0
+        // Readings of one entry share their time; the one after injection is the latest (Inofarm, 20 Nov 2026).
+        val tied=mutableListOf<com.inofarm.jogja.feature.activities.domain.ManualMeasurement>()
         while(true) {
             val rows=db.rawQuery("""SELECT * FROM local_records r WHERE scope=? AND greenhouse_id=? AND (group_id=? OR (group_id IS NULL AND season_id=?)) AND kind='activity'
                 AND greenhouse_id IN (SELECT greenhouse_id FROM scope_access WHERE scope=?)
@@ -139,10 +141,11 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
                 val cancel=row.syncState==SyncState.QUEUED && row.latestOperationId?.let {id -> db.rawQuery("SELECT envelope FROM outbox WHERE scope=? AND operation_id=?",arrayOf(scope,id)).use {c -> c.moveToFirst() && decode(scope,c.getString(0))?.optString("action")=="cancel"}}==true
                 if (cancel) continue
                 val pair = com.inofarm.jogja.feature.activities.domain.ManualMeasurement.from(row,today) ?: continue
+                if (tied.isNotEmpty() && pair.at != tied[0].at) return@transaction com.inofarm.jogja.feature.activities.domain.ManualMeasurement.latestOf(tied)
                 val decision = if (pair.queued) null else measurementDecision(scope, gh, row.id, row.serverVersion)
-                if (decision != "invalid") return@transaction pair.copy(verification = decision ?: pair.verification)
+                if (decision != "invalid") tied += pair.copy(verification = decision ?: pair.verification)
             }
-            if(rows.size<100) return@transaction null
+            if(rows.size<100) return@transaction com.inofarm.jogja.feature.activities.domain.ManualMeasurement.latestOf(tied)
             offset+=rows.size
         }
         @Suppress("UNREACHABLE_CODE") null

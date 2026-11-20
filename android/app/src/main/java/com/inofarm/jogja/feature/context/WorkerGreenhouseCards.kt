@@ -84,7 +84,7 @@ internal fun applicableTarget(targets: List<JSONObject>, group: String, paramete
 private fun measurementPosition(targets: List<JSONObject>, group: String, m: ManualMeasurement): PpmPosition {
     val target = applicableTarget(targets, group, "manual_ppm", m.at) ?: return PpmPosition.UNKNOWN
     fun text(key: String) = target.takeUnless { it.isNull(key) }?.optString(key)
-    return ppmPosition(text("minimum"), text("maximum"), text("target_value"), text("tolerance"), m.ppm)
+    return ppmPosition(text("minimum"), text("maximum"), text("target_value"), text("tolerance"), m.ppm ?: return PpmPosition.UNKNOWN)
 }
 
 private fun readDay(store: LocalFinanceStore, session: FinanceSession, data: CultivationUiState, greenhouse: JSONObject, today: LocalDate): GreenhouseDay {

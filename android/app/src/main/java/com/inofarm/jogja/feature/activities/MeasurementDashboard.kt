@@ -68,7 +68,7 @@ import java.time.LocalDate
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-        MeasurementCards(pair?.let { it.copy(ec = it.ec?.replace('.', ','), ppm = it.ppm.replace('.', ',')) }, loading)
+        MeasurementCards(pair?.let { it.copy(ec = it.ec?.replace('.', ','), ppm = it.ppm?.replace('.', ',')) }, loading)
         message?.let { Notice(it, true) }
         MeasurementSource(pair, today, offline || lastKnown, syncedAt, syncMessage)
     }
@@ -94,7 +94,7 @@ private fun MeasurementPair(pair: ManualMeasurement?, loading: Boolean, unavaila
             else -> "Belum ada pengukuran"
         }
         val ec = pair?.ec ?: if (pair != null) "EC belum tersedia" else empty
-        val ppm = pair?.ppm ?: empty
+        val ppm = pair?.ppm ?: if (pair != null) "PPM tidak diisi" else empty
         if (stacked) Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
             MeasurementCard("EC", ec, pair?.ec != null, "mS/cm", Modifier.fillMaxWidth())
             MeasurementCard("PPM", ppm, pair?.ppm != null, "ppm", Modifier.fillMaxWidth())

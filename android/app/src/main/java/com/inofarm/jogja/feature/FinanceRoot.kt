@@ -919,9 +919,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     val draft = com.inofarm.jogja.feature.activities.domain.EntryDraft.from(record.body)
                     fun value(text: String) = text.replace('.', ',')
                     NutritionRunItem(context.greenhouses.find { it.optString("id") == record.greenhouseId }?.optString("name") ?: "Greenhouse",
-                        listOfNotNull(draft.ec.takeIf { it.isNotBlank() }?.let { "EC ${value(it)} mS/cm" },
-                            draft.ppm.takeIf { it.isNotBlank() }?.let { "PPM ${value(it)} ppm" },
-                            draft.ph.takeIf { it.isNotBlank() }?.let { "pH ${value(it)}" }).joinToString(" · "))
+                        draft.measurements.filter { it.filled }.joinToString(" · ") { m ->
+                            listOfNotNull(m.ec.takeIf { it.isNotBlank() }?.let { "EC ${value(it)} mS/cm" },
+                                m.ppm.takeIf { it.isNotBlank() }?.let { "PPM ${value(it)} ppm" },
+                                m.ph.takeIf { it.isNotBlank() }?.let { "pH ${value(it)}" }).joinToString(" · ")
+                        })
                 }
             }
         }
@@ -1538,7 +1540,10 @@ internal fun ExpiredSessionNotice() {
             val entry=com.inofarm.jogja.feature.activities.domain.EntryDraft.from(record.body)
             Text("Isian kegiatan · ${entry.date} ${entry.time} WIB")
             if(entry.ageBasis.isNotBlank()) Text("Umur tanaman: ${entry.ageBasis.uppercase()} ${entry.ageDay}")
-            if(entry.hasMeasurement) Text("EC ${entry.ec} · PPM ${entry.ppm}${if(entry.ph.isNotBlank()) " · pH ${entry.ph}" else ""}")
+            entry.measurements.filter { it.filled }.forEach { m ->
+                Text(listOfNotNull(com.inofarm.jogja.feature.activities.MeasureMoments[m.moment], "EC ${m.ec}", m.ppm.takeIf { it.isNotBlank() }?.let { "PPM $it" },
+                    m.ph.takeIf { it.isNotBlank() }?.let { "pH $it" }).joinToString(" · "))
+            }
             if(entry.nutrition.isNotEmpty()) Text("Nutrisi: ${entry.nutrition.size} bahan")
             if(entry.hasSpray) Text("Penyemprotan: ${entry.spray.size} bahan")
             if(entry.stage.isNotBlank()) Text("Stadia/Fase: ${entry.stage}")

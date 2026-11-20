@@ -37,6 +37,15 @@ import com.inofarm.jogja.feature.FinanceTimeField
 import com.inofarm.jogja.feature.Notice
 import com.inofarm.jogja.feature.activities.domain.EntryDraft
 import com.inofarm.jogja.feature.activities.domain.MaterialDraft
+import com.inofarm.jogja.feature.activities.domain.MeasurementDraft
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.rememberEntryCancel
 import com.inofarm.jogja.feature.whenLabel
@@ -52,6 +61,19 @@ internal class EntryRun(val step: Int, val names: List<String>, val mainLabel: S
 private const val TYPED = "__typed"
 internal val SprayPeriods = linkedMapOf("morning" to "Pagi", "afternoon" to "Sore")
 internal val MeasureMoments = linkedMapOf("before_injection" to "Sebelum inject", "after_injection" to "Sesudah inject")
+
+/** Chips where several options may be on at once; each one toggles. Option tags are "<tag>-option-<id>". */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun FarmMultiChips(label: String, selected: Set<String>, options: Map<String, String>, tag: String, onToggle: (String) -> Unit) {
+    Text(label, style = MaterialTheme.typography.labelLarge)
+    FlowRow(Modifier.testTag(tag), horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+        options.forEach { (id, name) ->
+            FilterChip(selected = id in selected, onClick = { onToggle(id) }, label = { Text(name) },
+                modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("$tag-option-$id"))
+        }
+    }
+}
 private fun option(id: String, name: String) = JSONObject().put("id", id).put("name", name)
 
 /** Sown plantings of the entry's season, one per variety, named after the variety (K2: groups are not shown). */
@@ -136,23 +158,41 @@ private fun ColumnScope.EntryFields(state: ActivityUiState, context: Cultivation
             "entry-age-day", errors["age"], KeyboardType.Number, suffix = entry.ageBasis.uppercase().ifBlank { null })
     }
     FarmFormSection("Pengukuran") {
-        FarmFieldPair({
-            FinanceField("EC", entry.ec, { value -> vm.editEntry { it.copy(ec = value) } }, "entry-ec", errors["manual_ec"] ?: errors["manual_pair"],
-                KeyboardType.Decimal, prominent = true)
-        }, {
-            FinanceField("PPM", entry.ppm, { value -> vm.editEntry { it.copy(ppm = value) } }, "entry-ppm", errors["manual_ppm"],
-                KeyboardType.Decimal, suffix = "ppm", prominent = true)
-        })
-        FarmFieldPair({
-            FinanceField("pH", entry.ph, { value -> vm.editEntry { it.copy(ph = value) } }, "entry-ph", errors["manual_ph"], KeyboardType.Decimal)
-        }, {
-            FinanceField("Suhu air", entry.waterTemperature, { value -> vm.editEntry { it.copy(waterTemperature = value) } }, "entry-water-temperature",
-                errors["observations.water_temperature_c"], KeyboardType.Decimal, suffix = "°C")
-        })
-        FarmChoiceChips("Diukur", entry.moment.ifBlank { null }, MeasureMoments.map { (id, name) -> option(id, name) }, "entry-moment") { value ->
-            vm.editEntry { it.copy(moment = if (it.moment == value) "" else value) }
+        // Before and after injection may both be measured (Inofarm, 20 Nov 2026): each chosen moment gets its own block.
+        var dropping by remember { mutableStateOf<Set<String>?>(null) }
+        val chosen = entry.measurements.map { it.moment }.filter { it.isNotBlank() }.toSet()
+        FarmMultiChips("Diukur", chosen, MeasureMoments, "entry-moment") { value ->
+            val next = if (value in chosen) chosen - value else chosen + value
+            val lost = entry.measurements.firstOrNull { it.moment == value && it.filled && value !in next }
+            if (lost != null && next.isNotEmpty()) dropping = next else vm.editEntry { it.withMoments(next) }
         }
-        Text("EC dan PPM diisi berpasangan. Kosongkan semua bila tidak mengukur.", style = MaterialTheme.typography.bodySmall,
+        dropping?.let { next ->
+            AlertDialog(onDismissRequest = { dropping = null }, modifier = Modifier.testTag("entry-moment-drop"),
+                title = { Text("Hapus pengukuran ini?") }, text = { Text("Angka yang sudah diisi untuk waktu ini ikut terhapus.") },
+                dismissButton = { TextButton(onClick = { dropping = null }) { Text("Batal") } },
+                confirmButton = { TextButton(onClick = { dropping = null; vm.editEntry { it.withMoments(next) } },
+                    modifier = Modifier.testTag("entry-moment-drop-confirm")) { Text("Hapus") } })
+        }
+        entry.measurements.forEachIndexed { index, block ->
+            fun change(updated: MeasurementDraft) { vm.editEntry { it.copy(measurements = it.measurements.toMutableList().apply { set(index, updated) }) } }
+            val tag = if (index == 0) "entry-" else "entry-$index-"
+            if (entry.measurements.size > 1) Text(MeasureMoments[block.moment].orEmpty(), Modifier.testTag("${tag}moment-title"),
+                style = MaterialTheme.typography.titleSmall)
+            FarmFieldPair({
+                FinanceField("EC", block.ec, { change(block.copy(ec = it)) }, "${tag}ec", errors["measurements.$index.manual_ec"],
+                    KeyboardType.Decimal, prominent = true)
+            }, {
+                FinanceField("PPM (opsional)", block.ppm, { change(block.copy(ppm = it)) }, "${tag}ppm", errors["measurements.$index.manual_ppm"],
+                    KeyboardType.Decimal, suffix = "ppm", prominent = true)
+            })
+            FarmFieldPair({
+                FinanceField("pH", block.ph, { change(block.copy(ph = it)) }, "${tag}ph", errors["measurements.$index.manual_ph"], KeyboardType.Decimal)
+            }, {
+                FinanceField("Suhu air", block.waterTemperature, { change(block.copy(waterTemperature = it)) }, "${tag}water-temperature",
+                    errors["measurements.$index.observations.water_temperature_c"], KeyboardType.Decimal, suffix = "°C")
+            })
+        }
+        Text("PPM, pH dan suhu air opsional. Kosongkan semua bila tidak mengukur.", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     val units = context.units.filter { it.optString("greenhouse_id") == entry.greenhouseId && it.optBoolean("active", true) }
@@ -269,10 +309,13 @@ internal fun EntryReview(state: ActivityUiState, context: CultivationUiState, vm
             if (entry.notes.isNotBlank()) FarmFact("Catatan", entry.notes)
         }
         if (entry.hasMeasurement) FarmFormSection("Pengukuran") {
-            FarmFact("EC", "${measureText(entry.ec)} mS/cm"); FarmFact("PPM", "${measureText(entry.ppm)} ppm")
-            if (entry.ph.isNotBlank()) FarmFact("pH", measureText(entry.ph))
-            if (entry.waterTemperature.isNotBlank()) FarmFact("Suhu air", "${entry.waterTemperature} °C")
-            MeasureMoments[entry.moment]?.let { FarmFact("Diukur", it) }
+            entry.measurements.filter { it.filled }.forEach { block ->
+                MeasureMoments[block.moment]?.let { Text(it, style = MaterialTheme.typography.titleSmall) }
+                FarmFact("EC", "${measureText(block.ec)} mS/cm")
+                if (block.ppm.isNotBlank()) FarmFact("PPM", "${measureText(block.ppm)} ppm")
+                if (block.ph.isNotBlank()) FarmFact("pH", measureText(block.ph))
+                if (block.waterTemperature.isNotBlank()) FarmFact("Suhu air", "${block.waterTemperature} °C")
+            }
         }
         if (entry.nutrition.isNotEmpty()) FarmFormSection("Nutrisi AB Mix") { entry.nutrition.forEach { Text(material(it)) } }
         if (entry.hasSpray) FarmFormSection("Penyemprotan") {

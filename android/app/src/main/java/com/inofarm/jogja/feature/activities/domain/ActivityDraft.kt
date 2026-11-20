@@ -57,7 +57,6 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
         }
         if(type==ActivityType.MEASUREMENT) {
             if(ec.isBlank()) put("manual_ec","Isi EC manual.")
-            if(ppm.isBlank()) put("manual_ppm","Isi PPM manual.")
             if(skipped) put("work_state","Pengukuran harus selesai untuk dikirim.")
             if(materials.isNotEmpty()) put("materials","Catat pemberian bahan sebagai kegiatan nutrisi terpisah.")
         }
