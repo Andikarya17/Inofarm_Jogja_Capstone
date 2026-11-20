@@ -26,6 +26,21 @@ final class FieldReportController extends Controller
         return ['data' => $report];
     }
 
+    public function income(Request $request, FieldReports $reports)
+    {
+        $input = $request->validate(['granularity' => 'required|in:week,month,year', 'from' => 'required|date_format:Y-m-d',
+            'until' => 'required|date_format:Y-m-d|after_or_equal:from', 'greenhouse_id' => 'nullable|uuid']);
+
+        return app(ScopedRead::class)->run($request, fn (User $actor) => ['data' => $reports->income($actor, $input['granularity'], $input['from'], $input['until'], $input['greenhouse_id'] ?? null)]);
+    }
+
+    public function profitSummary(Request $request, FieldReports $reports)
+    {
+        $input = $request->validate(['greenhouse_id' => 'nullable|uuid']);
+
+        return app(ScopedRead::class)->run($request, fn (User $actor) => ['data' => $reports->profitSummary($actor, $input['greenhouse_id'] ?? null)]);
+    }
+
     public function compare(Request $request, FieldReports $reports)
     {
         $input = $request->validate(['season_ids' => 'required|array|min:1|max:10', 'season_ids.*' => 'required|uuid|distinct']);

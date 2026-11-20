@@ -38,7 +38,9 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::post('greenhouses/{id}/running-period', [MasterController::class, 'designatePeriod'])->whereUuid('id')->middleware('finance-manager');
         Route::post('greenhouses/{id}/copy-masters', [MasterController::class, 'copyMasters'])->whereUuid('id')->middleware('finance-manager');
         Route::get('reports/cash-flow', [FieldReportController::class, 'cashFlow'])->middleware('finance-manager');
-        Route::get('season-cost-sheets', [SeasonCostSheetController::class, 'index'])->middleware('finance-manager');
+        Route::get('reports/income', [FieldReportController::class, 'income'])->middleware('finance-manager');
+        Route::get('reports/profit-summary', [FieldReportController::class, 'profitSummary'])->middleware('finance-manager');
+        Route::get('season-cost-sheets',[SeasonCostSheetController::class, 'index'])->middleware('finance-manager');
         Route::get('season-cost-sheets/{id}', [SeasonCostSheetController::class, 'show'])->whereUuid('id')->middleware('finance-manager');
         Route::patch('season-cost-sheets/{id}', [SeasonCostSheetController::class, 'update'])->whereUuid('id')->middleware('finance-manager');
         Route::get('season-cost-sheets/{id}/audit', [SeasonCostSheetController::class, 'audit'])->whereUuid('id')->middleware('finance-manager');
