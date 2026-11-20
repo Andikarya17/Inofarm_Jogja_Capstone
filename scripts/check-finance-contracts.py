@@ -225,3 +225,21 @@ for patch in ({'harvest_version': '1'}, {'reason': ' '}, {'decision': 'pending'}
     assert not harvest_review_validator.is_valid({**operation, 'payload': {**operation['payload'], **patch}}), patch
 review_validator.validate({**review_operation, 'payload': {'activity_id': fixture['operation']['entity_id'], 'activity_version': 1, 'decision': 'valid'}})
 print('PG1 review envelope, parent revision, required reason and forged reviewer checks: PASS')
+
+# 21 Nov 2026: one standard cost sheet per season number for the whole farm.
+cost_schema = json.loads((root / 'season-cost-sheet-operation.schema.json').read_text(encoding='utf-8'))
+Draft202012Validator.check_schema(cost_schema)
+cost_validator = Draft202012Validator(cost_schema, format_checker=wire_formats)
+cost_fixture = json.loads((root / 'fixtures/season-cost-sheet-operation.json').read_text(encoding='utf-8'))
+cost_validator.validate(cost_fixture['operation'])
+assert hashlib.sha256(json.dumps(cost_fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest() == cost_fixture['canonical_sha256']
+for patch in ({'action': 'create'}, {'base_version': None}, {'entity_type': 'expense'}):
+    assert not cost_validator.is_valid({**cost_fixture['operation'], **patch}), patch
+for invalid in (0, 1.5, '1,00', '1.001', '-1', ''):
+    sample = json.loads(json.dumps(cost_fixture['operation']))
+    sample['payload']['lines'][0]['amount'] = invalid
+    assert not cost_validator.is_valid(sample), invalid
+short = json.loads(json.dumps(cost_fixture['operation']))
+short['payload']['lines'] = short['payload']['lines'][:6]
+assert not cost_validator.is_valid(short)
+print('Standard cost sheet envelope, blank-is-not-zero amounts and minimum required lines: PASS')
