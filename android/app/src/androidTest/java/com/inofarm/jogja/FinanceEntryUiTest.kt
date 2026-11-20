@@ -350,7 +350,11 @@ class FinanceEntryUiTest {
             val payload=op.getJSONObject("payload");assertFalse(payload.has("_local_form"))
             val data=if(op.getString("action")=="cancel") JSONObject(previous!!.getJSONObject("data").toString()).put("record_state","cancelled") else JSONObject(payload.toString()).put("record_state","active")
             val items=data.getJSONArray("items");repeat(items.length()) {index -> val item=items.getJSONObject(index);assertTrue(item.isNull("fruit_count") || item.get("fruit_count") is Int)
-                item.put("grade_name",if(item.getString("grade_id")==gradeA) "Grade A sintetis" else "Grade B sintetis").put("grade_version",1).put("weight_kg",java.math.BigDecimal(item.getString("weight_kg")).setScale(6).toPlainString())}
+                // Like the server since 20 Nov 2026: a line with only its quality is filed under the system grade "Layak"/"Cacat".
+                if(item.optString("grade_id").isBlank()) item.put("grade_id",if(item.optString("quality")=="defective") gradeB else gradeA)
+                    .put("grade_name",if(item.optString("quality")=="defective") "Cacat" else "Layak")
+                else item.put("grade_name",if(item.getString("grade_id")==gradeA) "Grade A sintetis" else "Grade B sintetis")
+                item.put("grade_version",1).put("weight_kg",java.math.BigDecimal(item.getString("weight_kg")).setScale(6).toPlainString())}
             val recorder=previous?.getJSONObject("data")?.getString("recorded_by") ?: if(request.getHeader("Authorization").orEmpty().contains("manager-fixture")) manager else worker
             data.put("id",id).put("version",version).put("recorded_by",recorder).put("recorded_by_name",if(recorder==worker) "Pekerja sintetis" else "Pengelola sintetis").put("completeness","ready")
                 .put("reference_snapshot",JSONObject().put("age",JSONObject().put("hss",29).put("hst",JSONObject.NULL).put("status","available").put("reasons",JSONArray().put("HST belum berlaku sebelum pindah tanam."))))
@@ -1441,13 +1445,9 @@ class FinanceEntryUiTest {
             readyNode("finance-record-fab").performClick()
             readyNode("record-greenhouse-option-$gh").performScrollTo().performClick()
             readyNode("record-harvest").performClick()
-            readyNode("harvest-add-item").performScrollTo().performClick()
-            choose("harvest-grade-0", gradeA)
-            readyNode("harvest-quality-0-option-saleable").performScrollTo().performClick()
+            // Inofarm 20 Nov 2026: fixed Layak (0) and Cacat (1) lines per variety, no grade.
+            rule.onNodeWithTag("harvest-grade-0").assertDoesNotExist()
             readyNode("harvest-weight-0").performScrollTo().performTextReplacement("15,5");hideKeyboard()
-            readyNode("harvest-v2-add-item").performScrollTo().performClick()
-            choose("harvest-v2-grade-0", gradeA)
-            readyNode("harvest-v2-quality-0-option-saleable").performScrollTo().performClick()
             readyNode("harvest-v2-weight-0").performScrollTo().performTextReplacement("8");hideKeyboard()
             assertTrue(rule.onAllNodesWithText("Varietas kedua sintetis", substring = true).fetchSemanticsNodes().isNotEmpty())
             readyNode("harvest-v2-weight-0").performScrollTo()
@@ -1465,6 +1465,7 @@ class FinanceEntryUiTest {
             val sent = harvestReceipts.values.map { it.getJSONObject("data") }
             assertEquals(setOf(group, groupV2), sent.map { it.getString("planting_group_id") }.toSet())
             assertTrue(sent.all { it.getJSONArray("items").getJSONObject(0).isNull("fruit_count") })
+            assertTrue(sent.all { it.getJSONArray("items").length() == 1 })
             assertEquals(1, sent.map { it.getString("occurred_at") }.toSet().size)
         } finally {
             rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
@@ -1492,8 +1493,7 @@ class FinanceEntryUiTest {
             readyNode("entry-age-basis-option-hst").performScrollTo().performClick()
             readyNode("entry-age-day").performScrollTo().performTextReplacement("30");hideKeyboard()
             readyNode("entry-ec").performScrollTo().performTextReplacement("1,8");hideKeyboard()
-            readyNode("finance-review").performClick()
-            readyText("EC dan PPM diisi berpasangan.").assertExists()
+            // Inofarm 20 Nov 2026: EC alone is a complete reading; PPM is optional.
             readyNode("entry-ppm").performScrollTo().performTextReplacement("900");hideKeyboard()
             readyNode("entry-moment-option-after_injection").performScrollTo().performClick()
             readyNode("entry-spray-open").performScrollTo().performClick()
@@ -1647,7 +1647,8 @@ class FinanceEntryUiTest {
             readyNode("wizard-step").assertTextContains("Langkah 2 dari 2", substring = true)
             rule.onNodeWithTag("wizard-group").assertDoesNotExist()
             rule.onNodeWithTag("wizard-variety-1").assertDoesNotExist()
-            readyNode("wizard-season").performScrollTo().performTextReplacement("Musim wizard");hideKeyboard()
+            // Inofarm 20 Nov 2026: the season is named by the app, "<GH> Musim <n>".
+            readyText("GH Wizard sintetis Musim 1").assertExists()
             readyNode("wizard-variety-0").performScrollTo().performTextReplacement("Inthanon");hideKeyboard()
             readyNode("wizard-population-0").performScrollTo().performTextReplacement("120");hideKeyboard()
             readyNode("wizard-add-variety").performScrollTo().performClick()
@@ -1665,7 +1666,7 @@ class FinanceEntryUiTest {
             rule.runOnIdle { theme.select(com.inofarm.jogja.core.design.ThemeMode.LIGHT) }
             readyNode("wizard-next").performClick()
             readyNode("wizard-open").assertExists()
-            readyText("Mulai tanam Inthanon dan Sweetnet. Semua pekerja sudah bisa mencatat di sini.").assertExists()
+            readyText("Mulai semai Inthanon dan Sweetnet. Semua pekerja sudah bisa mencatat di sini.").assertExists()
             captureInternal("wizard-done-light")
 
             val sent = wizardPosts.toList()
@@ -1827,11 +1828,10 @@ class FinanceEntryUiTest {
         captureWindow("manager-ec-target-review")
         Espresso.pressBack()
     }
+    /** Layak (line 0) and, with [twoGrades], Cacat (line 1): the fixed lines of the 20 Nov 2026 form. */
     private fun fillHarvest(note:String,twoGrades:Boolean=false) {
         chooseContext(true)
-        for((index,grade) in (if(twoGrades) listOf(gradeA,gradeB) else listOf(gradeA)).withIndex()) {
-            rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick();choose("harvest-grade-$index",grade)
-            choose("harvest-quality-$index", "saleable")
+        for(index in if(twoGrades) 0..1 else 0..0) {
             rule.onNodeWithTag("harvest-count-$index").performScrollTo().performTextReplacement(if(index==0) "10" else "0");hideKeyboard()
             rule.onNodeWithTag("harvest-weight-$index").performScrollTo().performTextReplacement(if(index==0) "15,25" else "0");hideKeyboard()
         }

@@ -344,8 +344,8 @@ if ($mode === 'verify-recording-rework' && $fixtureName === 'recording-rework-de
     $rows = DB::table('activities')->where('season_id', $a['season_id'])->where('recorded_by', $worker->id)->where('notes', $note)->orderBy('activity_type')->get();
     $report = ['activities' => $rows->map(fn ($r) => ['type' => $r->activity_type, 'planting_group_id' => $r->planting_group_id,
         'entry_batch_id' => $r->entry_batch_id, 'age' => $r->age_basis.' '.$r->age_day])->all()];
-    if ($rows->pluck('activity_type')->all() !== ['measurement', 'nutrition', 'spray', 'spray', 'stage']) {
-        $fail('one entry must be one row per section (measurement, nutrition, two sprays, stage)', $rows->pluck('activity_type'));
+    if ($rows->pluck('activity_type')->all() !== ['measurement', 'measurement', 'nutrition', 'spray', 'spray', 'stage']) {
+        $fail('one entry must be one row per section (two readings, nutrition, two sprays, stage)', $rows->pluck('activity_type'));
     }
     if ($rows->pluck('entry_batch_id')->unique()->count() !== 1 || ! Str::isUuid((string) $rows[0]->entry_batch_id)) {
         $fail('rows of one entry must share one entry_batch_id');
@@ -365,13 +365,28 @@ if ($mode === 'verify-recording-rework' && $fixtureName === 'recording-rework-de
     if ($sprayGroups !== $expectedGroups) {
         $fail('one spray row per variety', $sprayGroups);
     }
-    $measurement = $rows->firstWhere('activity_type', 'measurement');
-    if ($measurement->manual_ec !== '1.800000' || $measurement->manual_ppm !== '900.000000') {
-        $fail('measurement pair', [$measurement->manual_ec, $measurement->manual_ppm]);
+    // Inofarm 20 Nov 2026: before and after injection are two readings of one entry; PPM is optional.
+    $moment = fn ($row) => json_decode((string) $row->observations, true)['measurement_moment'] ?? null;
+    $readings = $rows->where('activity_type', 'measurement')->keyBy($moment);
+    $before = $readings['before_injection'] ?? $fail('reading before injection', $readings->keys());
+    $after = $readings['after_injection'] ?? $fail('reading after injection', $readings->keys());
+    if ($before->manual_ec !== '1.600000' || $before->manual_ppm !== null || $after->manual_ec !== '1.800000' || $after->manual_ppm !== '900.000000') {
+        $fail('readings before (EC only) and after injection', [$before->manual_ec, $before->manual_ppm, $after->manual_ec, $after->manual_ppm]);
     }
-    $nutrition = DB::table('activity_materials')->where('activity_id', $rows->firstWhere('activity_type', 'nutrition')->id)->get();
-    if ($nutrition->count() !== 1 || $nutrition[0]->material_id !== $a['nutrition_material_id'] || $nutrition[0]->quantity !== '250.000000') {
-        $fail('nutrition material', $nutrition);
+    if ($before->occurred_at !== $after->occurred_at) {
+        $fail('both readings share the entry time');
+    }
+    // AB Mix and a typed extra nutrient, both masters of GH A only, in the gram unit that GH A already had.
+    $nutrition = DB::table('activity_materials')->join('materials', 'materials.id', '=', 'activity_materials.material_id')
+        ->where('activity_id', $rows->firstWhere('activity_type', 'nutrition')->id)
+        ->get(['materials.name', 'materials.purpose', 'materials.greenhouse_id', 'activity_materials.unit_id', 'activity_materials.quantity'])->keyBy('name');
+    if ($nutrition->keys()->sort()->values()->all() !== ['AB Mix', 'Kalsium'] || $nutrition->contains(fn ($m) => $m->purpose !== 'nutrition'
+        || $m->greenhouse_id !== $a['greenhouse_id'] || $m->unit_id !== $a['unit_id'])
+        || $nutrition['AB Mix']->quantity !== '250.000000' || $nutrition['Kalsium']->quantity !== '0.500000') {
+        $fail('AB Mix 250 gram and Kalsium 0.5 gram', $nutrition);
+    }
+    if (DB::table('materials')->where('name', 'Kalsium')->where('greenhouse_id', '!=', $a['greenhouse_id'])->exists()) {
+        $fail('a typed nutrient stays in its own greenhouse');
     }
     $typed = DB::table('materials')->where('purpose', 'spray')->where('name', $fixture['typed_spray_name'])->get();
     $activeGreenhouses = DB::table('greenhouses')->where('active', true)->pluck('id')->sort()->values()->all();
@@ -391,11 +406,22 @@ if ($mode === 'verify-recording-rework' && $fixtureName === 'recording-rework-de
         ->where('notes', 'Panen rombak '.$fixture['fixture_id'])->get();
     $harvestItems = DB::table('harvest_items')->whereIn('harvest_id', $harvests->pluck('id'))->get();
     if ($harvests->count() !== 2 || $harvests->pluck('planting_group_id')->sort()->values()->all() !== $expectedGroups
-        || $harvests->pluck('occurred_at')->unique()->count() !== 1 || $harvestItems->count() !== 2 || $harvestItems->contains(fn ($i) => $i->fruit_count !== null)) {
-        $fail('two harvests, one per variety, same time, fruit_count null', $harvestItems->pluck('fruit_count'));
+        || $harvests->pluck('occurred_at')->unique()->count() !== 1 || $harvestItems->count() !== 3) {
+        $fail('two harvests, one per variety, same time, three lines', $harvestItems);
+    }
+    // Inofarm 20 Nov 2026: layak/cacat lines under the system grades, recorded at noon WIB (05:00 UTC), no grade chosen.
+    $lines = $harvestItems->map(fn ($i) => $i->quality.' '.$i->grade_name.' '.$i->weight_kg.' '.($i->fruit_count ?? 'null'))->sort()->values()->all();
+    if ($lines !== ['defective Cacat 1.500000 2', 'saleable Layak 12.500000 null', 'saleable Layak 7.000000 null']
+        || ! str_ends_with((string) $harvests[0]->occurred_at, '05:00:00.000000')) {
+        $fail('layak/cacat lines and noon time', [$lines, $harvests[0]->occurred_at]);
+    }
+    foreach (['Layak', 'Cacat'] as $gradeName) {
+        if (DB::table('grades')->where('greenhouse_id', $a['greenhouse_id'])->where('name', $gradeName)->count() !== 1) {
+            $fail('one system grade '.$gradeName.' in GH A');
+        }
     }
     $reviews = DB::table('activity_reviews')->whereIn('activity_id', $rows->pluck('id'))->where('reviewer_id', $manager->id)->get();
-    if ($reviews->count() !== 5 || $reviews->pluck('decision')->unique()->all() !== ['valid']) {
+    if ($reviews->count() !== 6 || $reviews->pluck('decision')->unique()->all() !== ['valid']) {
         $fail('one manager decision per section of the entry', $reviews->pluck('decision'));
     }
     if (DB::table('greenhouse_assignments')->where('user_id', $worker->id)->exists()) {
@@ -414,10 +440,11 @@ if ($mode === 'verify-recording-rework' && $fixtureName === 'recording-rework-de
         }
     }
     $report += ['typed_material_greenhouses' => $typed->count(), 'active_greenhouses' => count($activeGreenhouses),
-        'harvest_fruit_count' => $harvestItems->pluck('fruit_count')->all(), 'reviews' => $reviews->count(),
+        'readings' => ['before' => [$before->manual_ec, $before->manual_ppm], 'after' => [$after->manual_ec, $after->manual_ppm]],
+        'nutrition' => $nutrition->map(fn ($m) => $m->quantity)->all(), 'harvest_lines' => $lines, 'reviews' => $reviews->count(),
         'harvest_reviews' => $harvestReviews->map(fn ($r) => $r->decision.' v'.$r->harvest_version)->all()];
     echo json_encode($report, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR).PHP_EOL;
-    echo 'PASS: guarded inofarm_test holds one row per section with one entry_batch_id, greenhouse rows without planting_group_id, one spray per variety, the typed spray in every active greenhouse, two harvests with fruit_count null, five manager decisions and two harvest decisions (one per variety); worker unassigned.'.PHP_EOL;
+    echo 'PASS: guarded inofarm_test holds one row per section with one entry_batch_id (two readings before/after injection, the first EC only), greenhouse rows without planting_group_id, AB Mix and a typed nutrient in GH A only, one spray per variety, the typed spray in every active greenhouse, two harvests with layak/cacat lines under system grades at noon WIB, six manager decisions and two harvest decisions (one per variety); worker unassigned.'.PHP_EOL;
     exit(0);
 }
 // Ledger rows of one entity: audit, receipt and feed, each exactly $n.
@@ -433,7 +460,9 @@ if ($mode === 'verify-rework-correction' && $fixtureName === 'recording-rework-d
     $worker = $actors->firstWhere('public_id', $fixture['worker_id']);
     $rows = DB::table('activities')->where('season_id', $fixture['contexts'][0]['season_id'])->where('notes', 'Isian rombak '.$fixture['fixture_id'])->get()->keyBy('activity_type');
     $all = DB::table('activities')->where('season_id', $fixture['contexts'][0]['season_id'])->where('notes', 'Isian rombak '.$fixture['fixture_id'])->get();
-    $measurement = $rows['measurement'];
+    // The worker corrects the reading after injection (Inofarm, 20 Nov 2026: one entry has two readings).
+    $measurement = $all->first(fn ($row) => $row->activity_type === 'measurement'
+        && (json_decode((string) $row->observations, true)['measurement_moment'] ?? null) === 'after_injection');
     $stage = $rows['stage'];
     $workerUpdate = DB::table('audit_logs')->where('entity_id', $measurement->id)->where('action', 'update')->sole();
     $managerUpdate = DB::table('audit_logs')->where('entity_id', $stage->id)->where('action', 'update')->sole();
@@ -445,7 +474,7 @@ if ($mode === 'verify-rework-correction' && $fixtureName === 'recording-rework-d
         throw new RuntimeException('Manager correction of the stage section did not reconcile.');
     }
     $others = $all->whereNotIn('id', [$measurement->id, $stage->id]);
-    if ($others->count() !== 3 || $others->pluck('version')->unique()->all() !== [1] || $all->pluck('entry_batch_id')->unique()->count() !== 1) {
+    if ($others->count() !== 4 || $others->pluck('version')->unique()->all() !== [1] || $all->pluck('entry_batch_id')->unique()->count() !== 1) {
         throw new RuntimeException('Sections that were not corrected must stay at version 1 in the same entry.');
     }
     $ledger($measurement->id, 2, 'measurement create + worker update');
@@ -456,7 +485,7 @@ if ($mode === 'verify-rework-correction' && $fixtureName === 'recording-rework-d
     echo json_encode(['measurement' => ['version' => $measurement->version, 'manual_ppm' => $measurement->manual_ppm, 'reason' => $workerUpdate->reason],
         'stage' => ['version' => $stage->version, 'stage' => $stage->actual_stage, 'manager_reason' => $managerUpdate->reason],
         'untouched_versions' => $others->pluck('version')->all()], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR).PHP_EOL;
-    echo 'PASS: worker corrected one section with a reason, manager corrected another without one; the other three sections stay at version 1; two audit/receipt/feed rows per corrected section.'.PHP_EOL;
+    echo 'PASS: worker corrected one section with a reason, manager corrected another without one; the other four sections stay at version 1; two audit/receipt/feed rows per corrected section.'.PHP_EOL;
     exit(0);
 }
 if ($mode === 'verify-rework-manager-home' && $fixtureName === 'recording-rework-device-fixture.json') {

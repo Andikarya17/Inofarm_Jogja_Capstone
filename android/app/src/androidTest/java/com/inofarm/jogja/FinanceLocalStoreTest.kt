@@ -236,7 +236,7 @@ class FinanceLocalStoreTest {
         store.initialize("account-a",epoch,UserRole.WORKER)
         val season=UUID.randomUUID().toString();val group=UUID.randomUUID().toString()
         val entry=com.inofarm.jogja.feature.activities.domain.EntryDraft(greenhouseId=gh,seasonId=season,date="2026-11-17",time="08:00",
-            ageBasis="hst",ageDay="30",ec="1,8",ppm="900",sprayOpen=true,sprayPeriod="morning",sprayGroups=setOf(group),
+            ageBasis="hst",ageDay="30",measurements=listOf(com.inofarm.jogja.feature.activities.domain.MeasurementDraft(ec="1,8",ppm="900")),sprayOpen=true,sprayPeriod="morning",sprayGroups=setOf(group),
             spray=listOf(com.inofarm.jogja.feature.activities.domain.MaterialDraft(name="Bion M")),notes="Isian uji").withSectionIds()
         val kept=store.saveDraft("account-a",entry.id,gh,entry.localJson())
         val sections=entry.sections()
