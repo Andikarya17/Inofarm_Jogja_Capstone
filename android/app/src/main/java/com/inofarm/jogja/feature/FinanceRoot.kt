@@ -987,7 +987,8 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                             harvestProgressOpen = true
                         },
                         onSeasonReport = { reports.vm.show("") },
-                        opening = greenhouseOpening)
+                        opening = greenhouseOpening,
+                        harvestPattern = { ghId -> HarvestPatternSection(ghId, context, harvest.records) })
                 }
                 tab==0 && correctionsOpen -> WorkerCorrectionsScreen(workerCorrections, context, onOpen = { row ->
                     if (row.kind == "harvest") harvestHistoryVm.select(row.id) else historyVm.select(row.id)
@@ -1822,5 +1823,24 @@ internal fun FarmPullRefresh(syncing: Boolean, onSync: () -> Unit, content: @Com
                 selected = chosen
             }
         )
+    }
+}
+
+/** One chart per variety of the greenhouse's open season, from the harvests on this device (Inofarm, 20 Nov 2026). */
+@Composable
+private fun HarvestPatternSection(greenhouseId: String, context: com.inofarm.jogja.feature.context.CultivationUiState,
+                                  records: List<com.inofarm.jogja.core.database.LocalRecord>) {
+    val open = context.seasons.filter { it.optString("greenhouse_id") == greenhouseId && it.optString("status") == "open" }.map { it.optString("id") }.toSet()
+    val groups = context.groups.filter { it.optString("season_id") in open && it.optBoolean("active", true) }
+    val patterns = remember(records, groups) {
+        com.inofarm.jogja.feature.harvest.domain.HarvestPattern.build(
+            records.filter { it.greenhouseId == greenhouseId }.map { it.serverBody ?: it.body }, groups.map { it.optString("id") })
+    }
+    Text("Pola panen", style = MaterialTheme.typography.titleMedium)
+    if (patterns.isEmpty()) Text("Belum ada musim berjalan.", style = MaterialTheme.typography.bodyMedium)
+    patterns.forEach { pattern ->
+        val group = groups.first { it.optString("id") == pattern.groupId }
+        val name = context.varieties.firstOrNull { it.optString("id") == group.optString("variety_id") }?.optString("name") ?: group.optString("name")
+        com.inofarm.jogja.feature.harvest.HarvestPatternChart(pattern, name)
     }
 }

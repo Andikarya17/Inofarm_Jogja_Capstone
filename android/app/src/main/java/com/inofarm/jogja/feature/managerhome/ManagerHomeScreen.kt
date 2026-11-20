@@ -70,6 +70,8 @@ internal fun ManagerHomeScreen(
     onHarvestProgress: () -> Unit = {},
     onSeasonReport: () -> Unit = {},
     opening: GreenhouseOpening? = null,
+    /** The harvest pattern of the selected greenhouse's open season (Inofarm, 20 Nov 2026). */
+    harvestPattern: @Composable (String) -> Unit = {},
 ) {
     val snapshot = state.snapshot
     val selected = snapshot?.selected
@@ -225,6 +227,9 @@ internal fun ManagerHomeScreen(
                     }
                 }
                 HarvestRow(title, headline, note) { onOpen(HomeDestination(OperationalKind.HARVEST, activities, seasonLabelId = periodId)) }
+            }}
+            if (section == "harvest") item("harvest-pattern") { HomeItem(trailing) {
+                FarmRecordCard { harvestPattern(selected.optString("id")) }
             }}
             if (section == "settings") item("settings") { HomeItem(trailing) {
                 val active = selected.optBoolean("active", true)
