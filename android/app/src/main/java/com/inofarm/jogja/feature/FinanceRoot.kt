@@ -1544,7 +1544,7 @@ internal fun ExpiredSessionNotice() {
                 Text(listOfNotNull(com.inofarm.jogja.feature.activities.MeasureMoments[m.moment], "EC ${m.ec}", m.ppm.takeIf { it.isNotBlank() }?.let { "PPM $it" },
                     m.ph.takeIf { it.isNotBlank() }?.let { "pH $it" }).joinToString(" · "))
             }
-            if(entry.nutrition.isNotEmpty()) Text("Nutrisi: ${entry.nutrition.size} bahan")
+            if(entry.nutritionMaterials.isNotEmpty()) Text("Nutrisi AB Mix: ${entry.nutritionMaterials.size} bahan")
             if(entry.hasSpray) Text("Penyemprotan: ${entry.spray.size} bahan")
             if(entry.stage.isNotBlank()) Text("Stadia/Fase: ${entry.stage}")
             if(entry.notes.isNotBlank()) Text(entry.notes)

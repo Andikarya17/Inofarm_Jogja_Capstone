@@ -116,6 +116,30 @@ class EntryDraftTest {
         assertTrue(EntryDraft.isEntry(first.localJson()))
     }
 
+    @Test fun abMixAndTypedExtrasBecomeOneNutritionRecord() {
+        val entry = base().copy(abMixQuantity = "500", abMixUnit = "mL", nutrition = listOf(MaterialDraft(name = "Kalsium", quantity = "0,5", unitName = "gram")))
+        assertTrue(entry.validation().toString(), entry.validation().isEmpty())
+        val materials = entry.sections().single { it.type == ActivityType.NUTRITION }.payload().getJSONArray("materials")
+        assertEquals(2, materials.length())
+        assertEquals("AB Mix", materials.getJSONObject(0).getString("material_name"))
+        assertEquals("mL", materials.getJSONObject(0).getString("unit_name"))
+        assertEquals("500", materials.getJSONObject(0).getString("quantity"))
+        assertEquals("Kalsium", materials.getJSONObject(1).getString("material_name"))
+        assertEquals("0.5", materials.getJSONObject(1).getString("quantity"))
+        assertTrue(materials.getJSONObject(1).isNull("unit_id"))
+        assertEquals(entry, EntryDraft.from(entry.localJson()))
+        // A nutrient picked from the master list before 20 Nov 2026 still sends by id.
+        val old = base().copy(nutrition = listOf(MaterialDraft(mix, gram, "250"))).sections().single().payload().getJSONArray("materials").getJSONObject(0)
+        assertEquals(mix, old.getString("material_id")); assertEquals(gram, old.getString("unit_id")); assertFalse(old.has("unit_name"))
+    }
+
+    @Test fun nutritionRowsNeedNameAmountAndUnitTogether() {
+        assertTrue(base().copy(abMixQuantity = "500").validation().keys.any { it.startsWith("nutrition") })
+        assertTrue(base().copy(abMixUnit = "mL").validation().keys.any { it.startsWith("nutrition") })
+        assertTrue(base().copy(nutrition = listOf(MaterialDraft(quantity = "1", unitName = "gram"))).validation().keys.any { it.startsWith("nutrition") })
+        assertTrue(base().copy(nutrition = listOf(MaterialDraft(name = "Kalsium", quantity = "1"))).validation().keys.any { it.startsWith("nutrition") })
+    }
+
     @Test fun notesAloneAreOneGeneralRecord() {
         val sections = base().copy(notes = "Bersihkan talang").sections()
         assertEquals(listOf(ActivityType.GENERAL), sections.map { it.type })

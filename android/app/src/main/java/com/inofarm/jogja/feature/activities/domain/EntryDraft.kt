@@ -27,6 +27,9 @@ data class EntryDraft(
     val time: String = LocalTime.now(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH:mm")),
     val ageBasis: String = "", val ageDay: String = "",
     val measurements: List<MeasurementDraft> = listOf(MeasurementDraft()),
+    /** AB Mix, the primary nutrient (Inofarm, 20 Nov 2026): amount and one of [NutritionUnits]. */
+    val abMixQuantity: String = "", val abMixUnit: String = "",
+    /** Extra nutrients mixed into the AB Mix, typed by hand; rows from before 20 Nov 2026 may name a master material. */
     val nutrition: List<MaterialDraft> = emptyList(),
     val sprayOpen: Boolean = false, val sprayDate: String = LocalDate.now(ActivityDraft.WIB).toString(), val sprayPeriod: String = "",
     val sprayGroups: Set<String> = emptySet(), val spray: List<MaterialDraft> = emptyList(),
@@ -48,12 +51,17 @@ data class EntryDraft(
         })
     }
     val hasSpray: Boolean get() = sprayOpen && (spray.isNotEmpty() || sprayGroups.isNotEmpty())
+    private val hasAbMix: Boolean get() = abMixQuantity.isNotBlank() || abMixUnit.isNotBlank()
+
+    /** Every material of the nutrition record: AB Mix first, then the extras. */
+    val nutritionMaterials: List<MaterialDraft> get() =
+        listOfNotNull(if (hasAbMix) MaterialDraft(name = AB_MIX, quantity = abMixQuantity, unitName = abMixUnit) else null) + nutrition
 
     fun validation(): Map<String, String> = buildMap {
         if (runCatching { ManualTime.encode(date, time) }.isFailure) put("occurred_at", "Gunakan tanggal dan jam yang sah.")
         if (ageBasis !in setOf("hss", "hst")) put("age", "Pilih HSS atau HST.")
         else if (ageDay.trim().toIntOrNull()?.let { it in 1..1000 } != true) put("age", "Isi hari ke berapa, angka 1 sampai 1000.")
-        if (!hasMeasurement && nutrition.isEmpty() && !hasSpray && stage.isBlank() && notes.isBlank())
+        if (!hasMeasurement && nutritionMaterials.isEmpty() && !hasSpray && stage.isBlank() && notes.isBlank())
             put("entry", "Isi sedikitnya satu bagian: pengukuran, nutrisi, penyemprotan, stadia, atau catatan.")
         // Inofarm 20 Nov 2026: EC is the reading that must be there; PPM, pH and water temperature are optional.
         measurements.forEachIndexed { index, block -> if (block.filled && block.ec.isBlank()) put("measurements.$index.manual_ec", "Isi EC.") }
@@ -74,6 +82,9 @@ data class EntryDraft(
             section.validation(false).forEach { (key, message) ->
                 val field = when {
                     section.type == ActivityType.MEASUREMENT && block != null -> "measurements.$block.$key"
+                    // AB Mix is the first material when filled; extras keep their own row index.
+                    section.type == ActivityType.NUTRITION && key.startsWith("materials.") -> key.removePrefix("materials.").substringBefore('.').toIntOrNull()
+                        ?.let { if (hasAbMix && it == 0) "nutrition.ab_mix" else "nutrition.${if (hasAbMix) it - 1 else it}" } ?: "nutrition"
                     section.type == ActivityType.NUTRITION && key.startsWith("materials") -> key.replace("materials", "nutrition")
                     section.type == ActivityType.SPRAY && key.startsWith("materials") -> key.replace("materials", "spray")
                     else -> key
@@ -93,7 +104,7 @@ data class EntryDraft(
     fun withSectionIds(): EntryDraft {
         val keys = buildList {
             measurements.forEachIndexed { index, block -> if (block.filled) add(measurementKey(index)) }
-            if (nutrition.isNotEmpty()) add(sectionKey(ActivityType.NUTRITION))
+            if (nutritionMaterials.isNotEmpty()) add(sectionKey(ActivityType.NUTRITION))
             if (hasSpray) sprayGroups.sorted().forEach { add(sectionKey(ActivityType.SPRAY, it)) }
             if (stage.isNotBlank()) add(sectionKey(ActivityType.STAGE))
             if (onlyNotes) add(sectionKey(ActivityType.GENERAL))
@@ -102,7 +113,7 @@ data class EntryDraft(
         return if (missing.isEmpty()) this else copy(sectionIds = sectionIds + missing.associateWith { UUID.randomUUID().toString() })
     }
 
-    private val onlyNotes: Boolean get() = !hasMeasurement && nutrition.isEmpty() && !hasSpray && stage.isBlank() && notes.isNotBlank()
+    private val onlyNotes: Boolean get() = !hasMeasurement && nutritionMaterials.isEmpty() && !hasSpray && stage.isBlank() && notes.isNotBlank()
 
     /** The activity records this entry becomes. Notes travel with every record so each one reads on its own. */
     fun sections(): List<ActivityDraft> {
@@ -118,7 +129,7 @@ data class EntryDraft(
                         if (block.waterTemperature.isNotBlank()) put(ObservationField.WATER_TEMPERATURE, block.waterTemperature)
                     }, measurementMoment = block.moment))
             }
-            if (nutrition.isNotEmpty()) add(base(ActivityType.NUTRITION).copy(materials = nutrition))
+            if (nutritionMaterials.isNotEmpty()) add(base(ActivityType.NUTRITION).copy(materials = nutritionMaterials))
             if (hasSpray) sprayGroups.sorted().forEach { group ->
                 add(base(ActivityType.SPRAY, group).copy(materials = spray, sprayDate = sprayDate, sprayPeriod = sprayPeriod))
             }
@@ -138,6 +149,7 @@ data class EntryDraft(
             .put("season_id", seasonId).put("date", date).put("time", time).put("age_basis", ageBasis).put("age_day", ageDay)
             .put("measurements", JSONArray().apply { measurements.forEach { put(JSONObject().put("moment", it.moment).put("ec", it.ec)
                 .put("ppm", it.ppm).put("ph", it.ph).put("water_temperature", it.waterTemperature)) } })
+            .put("ab_mix_quantity", abMixQuantity).put("ab_mix_unit", abMixUnit)
             .put("nutrition", materialsJson(nutrition)).put("spray_open", sprayOpen).put("spray_date", sprayDate)
             .put("spray_period", sprayPeriod).put("spray_groups", JSONArray(sprayGroups.sorted())).put("spray", materialsJson(spray))
             .put("stage", stage).put("notes", notes).put("running_period_version", runningPeriodVersion ?: JSONObject.NULL)
@@ -146,6 +158,7 @@ data class EntryDraft(
 
     companion object {
         const val TYPE = "entry"
+        const val AB_MIX = "AB Mix"
         val MomentOrder = listOf("before_injection", "after_injection")
 
         /** The form section a scheduled activity type is filled in, as its heading reads. */
@@ -156,12 +169,13 @@ data class EntryDraft(
         fun isEntry(body: JSONObject): Boolean = body.optJSONObject("_local_form")?.optBoolean("entry") == true
 
         private fun materialsJson(rows: List<MaterialDraft>) = JSONArray().apply {
-            rows.forEach { put(JSONObject().put("material_id", it.materialId).put("unit_id", it.unitId).put("quantity", it.quantity).put("name", it.name)) }
+            rows.forEach { put(JSONObject().put("material_id", it.materialId).put("unit_id", it.unitId).put("quantity", it.quantity).put("name", it.name)
+                .put("unit_name", it.unitName)) }
         }
 
         private fun materials(array: JSONArray?) = (0 until (array?.length() ?: 0)).map { index ->
             val row = array!!.getJSONObject(index)
-            MaterialDraft(row.optString("material_id"), row.optString("unit_id"), row.optString("quantity"), row.optString("name"))
+            MaterialDraft(row.optString("material_id"), row.optString("unit_id"), row.optString("quantity"), row.optString("name"), row.optString("unit_name"))
         }
 
         fun from(body: JSONObject): EntryDraft {
@@ -176,6 +190,7 @@ data class EntryDraft(
                 } }?.ifEmpty { null }
                     // A draft saved before two readings existed (20 Nov 2026) has one set of reading keys.
                     ?: listOf(MeasurementDraft(form.optString("moment"), form.optString("ec"), form.optString("ppm"), form.optString("ph"), form.optString("water_temperature"))),
+                abMixQuantity = form.optString("ab_mix_quantity"), abMixUnit = form.optString("ab_mix_unit"),
                 nutrition = materials(form.optJSONArray("nutrition")), sprayOpen = form.optBoolean("spray_open"),
                 sprayDate = form.optString("spray_date"), sprayPeriod = form.optString("spray_period"),
                 sprayGroups = (0 until (groups?.length() ?: 0)).map { groups!!.getString(it) }.toSet(), spray = materials(form.optJSONArray("spray")),

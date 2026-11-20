@@ -22,10 +22,16 @@ enum class ObservationField(val wire: String, val label: String, val unit: Strin
     SAMPLE_BASIS("sample_basis", "Sampel atau cara pengamatan", ""),
 }
 
-/** [name] is a spray material typed by hand; the server turns it into a shared master material (17 Nov 2026). */
-data class MaterialDraft(val materialId: String="",val unitId: String="",val quantity: String="",val name: String="") {
-    val doseGiven: Boolean get() = unitId.isNotBlank() || quantity.isNotBlank()
+/**
+ * [name] is a material typed by hand: a spray (shared master list, 17 Nov 2026) or a nutrient (AB Mix and extras,
+ * 20 Nov 2026). [unitName] is one of [NutritionUnits], sent for a typed nutrient instead of a unit id.
+ */
+data class MaterialDraft(val materialId: String="",val unitId: String="",val quantity: String="",val name: String="",val unitName: String="") {
+    val doseGiven: Boolean get() = unitId.isNotBlank() || unitName.isNotBlank() || quantity.isNotBlank()
 }
+
+/** The only nutrient units Inofarm uses (20 Nov 2026). */
+val NutritionUnits = listOf("mL", "L", "gram")
 data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenhouseId: String,val groupId: String,
     val type: ActivityType=ActivityType.GENERAL,val date: String=LocalDate.now(WIB).toString(),val time: String=LocalTime.now(WIB).format(DateTimeFormatter.ofPattern("HH:mm")),
     val ppm: String="",val ph: String="",val stage: String="",val skipped: Boolean=false,val skippedReason: String="",val notes: String="",
@@ -69,11 +75,13 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
             if(type==ActivityType.GENERAL && notes.isBlank()) put("notes","Isi keterangan pekerjaan umum.")
         }
         materials.forEachIndexed { index,row ->
-            // A spray may name a new material and leave its dose empty; nutrition always needs a listed material and a dose.
+            // A spray may name a new material and leave its dose empty; a nutrient may be typed (20 Nov 2026) but always needs a dose.
             val spray = type==ActivityType.SPRAY
-            val material = runCatching { WireContract.uuid(row.materialId) }.isSuccess || (spray && row.name.isNotBlank() && row.name.trim().length<=150)
-            val dose = if(spray && !row.doseGiven) true else runCatching { WireContract.uuid(row.unitId);require(numeric(row.quantity)>=BigDecimal.ZERO) }.isSuccess
-            if(!material || !dose) put("materials.$index",if(spray) "Pilih atau ketik bahan; dosis boleh kosong, tetapi jumlah dan satuan diisi bersama." else "Pilih bahan, satuan, dan jumlah tidak negatif yang sah.")
+            val typed = type in setOf(ActivityType.SPRAY,ActivityType.NUTRITION) && row.name.isNotBlank() && row.name.trim().length<=150
+            val material = runCatching { WireContract.uuid(row.materialId) }.isSuccess || typed
+            val unit = runCatching { WireContract.uuid(row.unitId) }.isSuccess || (type==ActivityType.NUTRITION && row.unitName in NutritionUnits)
+            val dose = if(spray && !row.doseGiven) true else unit && runCatching { require(numeric(row.quantity)>=BigDecimal.ZERO) }.isSuccess
+            if(!material || !dose) put("materials.$index",if(spray) "Pilih atau ketik bahan; dosis boleh kosong, tetapi jumlah dan satuan diisi bersama." else "Isi nama bahan, jumlah tidak negatif, dan satuan.")
         }
         observations.filterValues { it.isNotBlank() }.forEach { (field, value) ->
             val message = when (field) {
@@ -101,6 +109,7 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
             .put("materials",JSONArray().apply { materials.forEach { row -> put(JSONObject().apply {
                 if(row.materialId.isNotBlank()) put("material_id",row.materialId) else put("material_name",row.name.trim())
                 put("unit_id",row.unitId.ifBlank { null } ?: JSONObject.NULL)
+                if(row.unitId.isBlank() && row.unitName.isNotBlank()) put("unit_name",row.unitName)
                 put("quantity",if(row.quantity.isBlank()) JSONObject.NULL else numeric(row.quantity).toPlainString())
             }) } }).put("notes",notes)
             .apply {
@@ -134,7 +143,7 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
         .put("season_id",seasonId ?: JSONObject.NULL).put("entry_batch_id",entryBatchId ?: JSONObject.NULL).put("age_basis",ageBasis).put("age_day",ageDay)
         .put("spray_date",sprayDate).put("spray_period",sprayPeriod).put("measurement_moment",measurementMoment)
         .put("observations", JSONObject().apply { observations.forEach { (field, value) -> put(field.wire, value) } })
-        .put("materials",JSONArray().apply { materials.forEach { put(JSONObject().put("material_id",it.materialId).put("unit_id",it.unitId).put("quantity",it.quantity).put("name",it.name)) } }))
+        .put("materials",JSONArray().apply { materials.forEach { put(JSONObject().put("material_id",it.materialId).put("unit_id",it.unitId).put("quantity",it.quantity).put("name",it.name).put("unit_name",it.unitName)) } }))
     companion object {
         val WIB: ZoneId = ManualTime.WIB
         fun numeric(text: String): BigDecimal = WireContract.decimal(text.trim().replace(',','.'))
@@ -151,7 +160,7 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
                 if(local!=null) raw.getBoolean("skipped") else raw.getString("work_state")=="skipped",nullable("skipped_reason").orEmpty(),raw.optString("notes"),
                 (0 until materials.length()).map { materials.getJSONObject(it).let { row ->
                     fun field(key:String)=if(row.isNull(key)) "" else row.optString(key)
-                    MaterialDraft(field("material_id"),field("unit_id"),field("quantity"),field("name").ifBlank { field("material_name") }) } },nullable("schedule_id"),nullable("reason").orEmpty(),nullable("reference_policy") ?: "preserve",base,local?.optBoolean("replace_validation_rejected")==true,nullable(if(local!=null) "ec" else "manual_ec").orEmpty(),
+                    MaterialDraft(field("material_id"),field("unit_id"),field("quantity"),field("name").ifBlank { field("material_name") },field("unit_name")) } },nullable("schedule_id"),nullable("reason").orEmpty(),nullable("reference_policy") ?: "preserve",base,local?.optBoolean("replace_validation_rejected")==true,nullable(if(local!=null) "ec" else "manual_ec").orEmpty(),
                 raw.optLong("running_period_version").takeIf { it > 0 },
                 ObservationField.entries.mapNotNull { field ->
                     val values = raw.optJSONObject("observations")

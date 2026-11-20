@@ -38,6 +38,7 @@ import com.inofarm.jogja.feature.Notice
 import com.inofarm.jogja.feature.activities.domain.EntryDraft
 import com.inofarm.jogja.feature.activities.domain.MaterialDraft
 import com.inofarm.jogja.feature.activities.domain.MeasurementDraft
+import com.inofarm.jogja.feature.activities.domain.NutritionUnits
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.FlowRow
@@ -198,26 +199,49 @@ private fun ColumnScope.EntryFields(state: ActivityUiState, context: Cultivation
     val units = context.units.filter { it.optString("greenhouse_id") == entry.greenhouseId && it.optBoolean("active", true) }
     val ghMaterials = context.materials.filter { it.optString("greenhouse_id") == entry.greenhouseId && it.optBoolean("active", true) }
     FarmFormSection("Nutrisi AB Mix") {
+        // Inofarm 20 Nov 2026: AB Mix is the primary nutrient; extras mixed into it are typed by hand.
+        val unitChoices = NutritionUnits.map { option(it, it) }
+        FarmFieldPair({
+            FinanceField("Jumlah AB Mix", entry.abMixQuantity, { value -> vm.editEntry { it.copy(abMixQuantity = value) } }, "entry-ab-mix-quantity",
+                errors["nutrition.ab_mix"], KeyboardType.Decimal)
+        }, {
+            FarmChoiceChips("Satuan", entry.abMixUnit.ifBlank { null }, unitChoices, "entry-ab-mix-unit") { value ->
+                vm.editEntry { it.copy(abMixUnit = if (it.abMixUnit == value) "" else value) }
+            }
+        }, minPairWidth = 360.dp)
+        Text("Nutrisi tambahan (opsional)", style = MaterialTheme.typography.titleSmall)
         val materials = ghMaterials.filter { it.optString("purpose") != "spray" }
         entry.nutrition.forEachIndexed { index, row ->
             fun change(updated: MaterialDraft) { vm.editEntry { it.copy(nutrition = it.nutrition.toMutableList().apply { set(index, updated) }) } }
-            FarmDetailCard("Hapus bahan ${index + 1}", { vm.editEntry { it.copy(nutrition = it.nutrition.filterIndexed { i, _ -> i != index }) } },
+            FarmDetailCard("Hapus nutrisi tambahan ${index + 1}", { vm.editEntry { it.copy(nutrition = it.nutrition.filterIndexed { i, _ -> i != index }) } },
                 "entry-nutrition-remove-$index") {
-                val material = materials.find { it.optString("id") == row.materialId }
-                Choice("Bahan ${index + 1}", row.materialId, materials, "entry-nutrition-material-$index",
-                    master = MasterGap(com.inofarm.jogja.feature.admin.AdminResource.MATERIAL, entry.greenhouseId)) { change(row.copy(materialId = it, unitId = "")) }
-                FarmFieldPair({
-                    FinanceField("Jumlah", row.quantity, { change(row.copy(quantity = it)) }, "entry-nutrition-quantity-$index",
-                        errors["nutrition.$index"], KeyboardType.Decimal)
-                }, {
-                    Choice("Satuan", row.unitId, units.filter { it.optString("dimension") == material?.optString("dimension") },
-                        "entry-nutrition-unit-$index", master = MasterGap(com.inofarm.jogja.feature.admin.AdminResource.UNIT, entry.greenhouseId)) { change(row.copy(unitId = it)) }
-                }, minPairWidth = 360.dp) // inside a card the pair stacks before a unit name has to break
+                if (row.materialId.isNotBlank()) {
+                    // A nutrient picked from the master list before 20 Nov 2026 keeps its material and unit.
+                    val material = materials.find { it.optString("id") == row.materialId }
+                    FarmFact("Bahan", material?.optString("name") ?: "Bahan tersimpan")
+                    FarmFieldPair({
+                        FinanceField("Jumlah", row.quantity, { change(row.copy(quantity = it)) }, "entry-nutrition-quantity-$index",
+                            errors["nutrition.$index"], KeyboardType.Decimal)
+                    }, {
+                        Choice("Satuan", row.unitId, units, "entry-nutrition-unit-$index") { change(row.copy(unitId = it)) }
+                    }, minPairWidth = 360.dp)
+                } else {
+                    FinanceField("Nama bahan", row.name, { change(row.copy(name = it.take(150))) }, "entry-nutrition-name-$index",
+                        hint = "Misalnya kalsium atau pupuk daun")
+                    FarmFieldPair({
+                        FinanceField("Jumlah", row.quantity, { change(row.copy(quantity = it)) }, "entry-nutrition-quantity-$index",
+                            errors["nutrition.$index"], KeyboardType.Decimal)
+                    }, {
+                        FarmChoiceChips("Satuan", row.unitName.ifBlank { null }, unitChoices, "entry-nutrition-unit-$index") { value ->
+                            change(row.copy(unitName = if (row.unitName == value) "" else value))
+                        }
+                    }, minPairWidth = 360.dp)
+                }
             }
         }
-        OutlinedButton(onClick = { vm.editEntry { it.copy(nutrition = it.nutrition + MaterialDraft()) } }, enabled = entry.nutrition.size < 30,
+        OutlinedButton(onClick = { vm.editEntry { it.copy(nutrition = it.nutrition + MaterialDraft()) } }, enabled = entry.nutrition.size < 29,
             shape = FarmShape.Control, modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("entry-nutrition-add")) {
-            Text(if (entry.nutrition.isEmpty()) "Tambah bahan nutrisi" else "Tambah bahan lain")
+            Text("Tambah nutrisi tambahan")
         }
     }
     FarmFormSection("Penyemprotan") {
@@ -296,7 +320,7 @@ internal fun EntryReview(state: ActivityUiState, context: CultivationUiState, vm
     val names = context.entryVarieties(entry).associate { it.getString("id") to it.getString("name") }
     fun material(row: MaterialDraft): String {
         val name = context.materials.firstOrNull { it.optString("id") == row.materialId }?.optString("name") ?: row.name.trim().ifBlank { "Bahan" }
-        val unit = context.units.firstOrNull { it.optString("id") == row.unitId }?.optString("name")
+        val unit = context.units.firstOrNull { it.optString("id") == row.unitId }?.optString("name") ?: row.unitName.ifBlank { null }
         return if (row.quantity.isBlank()) name else "$name ${row.quantity}${unit?.let { " $it" }.orEmpty()}"
     }
     FarmReviewFrame("kegiatan", "$greenhouse · ${whenLabel(entry.date, entry.time)}", FarmIcon.CheckList, state.busy, "finance-queue", "finance-back",
@@ -317,7 +341,7 @@ internal fun EntryReview(state: ActivityUiState, context: CultivationUiState, vm
                 if (block.waterTemperature.isNotBlank()) FarmFact("Suhu air", "${block.waterTemperature} °C")
             }
         }
-        if (entry.nutrition.isNotEmpty()) FarmFormSection("Nutrisi AB Mix") { entry.nutrition.forEach { Text(material(it)) } }
+        if (entry.nutritionMaterials.isNotEmpty()) FarmFormSection("Nutrisi AB Mix") { entry.nutritionMaterials.forEach { Text(material(it)) } }
         if (entry.hasSpray) FarmFormSection("Penyemprotan") {
             FarmFact("Waktu", "${entry.sprayDate} · ${SprayPeriods[entry.sprayPeriod].orEmpty()}")
             FarmFact("Varietas", entry.sprayGroups.sorted().joinToString(", ") { names[it] ?: "Varietas" })
