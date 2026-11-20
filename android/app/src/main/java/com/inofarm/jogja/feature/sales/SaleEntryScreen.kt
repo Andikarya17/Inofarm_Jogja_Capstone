@@ -43,7 +43,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
             .put("choice_label", grade).put("choice_detail", detail)
     }}
 
-@Composable fun SaleForm(state:SaleEntryState,context:CultivationUiState,vm:SaleEntryViewModel) {
+@Composable fun SaleForm(state:SaleEntryState,context:CultivationUiState,vm:SaleEntryViewModel,buyerSearch:(suspend (String,String)->List<com.inofarm.jogja.feature.customers.Customer>)?=null) {
     val draft=state.draft ?: return
     val cancel = rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
     FarmFormFrame(header = { FarmFormHeader(if(draft.baseVersion==null) "Catat penjualan lunas" else "Koreksi penjualan", state.saved, "sale-draft-status", "sale-close", cancel, !state.busy,
@@ -54,7 +54,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
         else Choice("Musim penjualan",draft.seasonId,context.seasons.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("status")=="open"},"sale-season") {value -> vm.edit {it.copy(seasonId=value,items=listOf(SaleLine()))}}
         FinanceDateField("Tanggal lunas (YYYY-MM-DD)",draft.date,{value -> vm.edit {it.copy(date=value)}},"sale-date",state.errors["paid_at"])
         FinanceTimeField("Jam lunas WIB (HH:mm)",draft.time,{value -> vm.edit {it.copy(time=value)}},"sale-time",hint="Detik opsional HH:mm:ss.")
-        FinanceField("Pembeli (boleh kosong)",draft.customer,{value -> vm.edit {it.copy(customer=value)}},"sale-customer",state.errors["customer"])
+        com.inofarm.jogja.feature.customers.BuyerSection(draft,state.errors["customer"],buyerSearch) {change -> vm.edit(change)}
         }
         val options=sources(context,draft)
         draft.items.forEachIndexed {index,line -> key(line.id) { FarmFormSection("Rincian panen ${index+1}") {
@@ -99,6 +99,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
     FarmFact("Musim",context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "Nama belum tersedia")
     FarmFact("Pembayaran","${draft.date} ${draft.time} WIB · ${if(draft.paid) "Lunas" else "Belum dikonfirmasi"}")
     if(draft.customer.isNotBlank()) FarmFact("Pembeli",draft.customer)
+    if(draft.hasBuyer()) FarmFact("Tipe pembeli",(if(draft.buyerType=="partner") "Mitra" else "Perorangan")+if(draft.buyerExisting) "" else " · pembeli baru, masuk daftar")
     val options=sources(context,draft)
     draft.items.forEachIndexed {index,line ->
         HorizontalDivider()

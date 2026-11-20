@@ -14,7 +14,10 @@ data class SaleLine(val id:String=UUID.randomUUID().toString(),val sourceId:Stri
 data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId:String,val seasonId:String="",
     val date:String=LocalDate.now(ManualTime.WIB).toString(),val time:String=LocalTime.now(ManualTime.WIB).format(DateTimeFormatter.ofPattern("HH:mm")),
     val paid:Boolean=false,val customer:String="",val notes:String="",val items:List<SaleLine> = listOf(SaleLine()),val reason:String="",val baseVersion:Long?=null,
-    val lockedSources:Set<String> = emptySet(),val lockedSeason:Boolean=false,val replaceValidationRejected:Boolean=false) {
+    val lockedSources:Set<String> = emptySet(),val lockedSeason:Boolean=false,val replaceValidationRejected:Boolean=false,
+    /** Named buyer (21 Nov 2026): "consumer" or "partner" with a buyer id; [customer] holds the name. Blank type = no buyer. */
+    val buyerType:String="",val buyerId:String="",val buyerWhatsapp:String="",val buyerExisting:Boolean=false) {
+    fun hasBuyer()=buyerType.isNotBlank()
     fun paidAt()=ManualTime.encode(date,time)
     fun preview()=SaleAmounts.quote(items.map {decimal(it.quantity,true).toPlainString() to decimal(it.price,false).toPlainString()})
     fun validation(reasonRequired:Boolean=true):Map<String,String> = buildMap {
@@ -34,16 +37,25 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
         if(items.size in 1..30 && runCatching {preview()}.isFailure && keys.none {it.endsWith("quantity") || it.endsWith("price")}) put("total","Total uang atau bobot melebihi rentang angka yang didukung.")
         if(reasonRequired && baseVersion!=null && reason.isBlank()) put("reason","Isi alasan koreksi.")
         if(reason.length>1000) put("reason","Catatan maksimal 1.000 karakter.")
+        if(hasBuyer()) {
+            if(buyerType !in setOf("consumer","partner") || runCatching {WireContract.uuid(buyerId)}.isFailure) put("customer","Pilih pembeli terdaftar atau isi pembeli baru.")
+            else if(customer.isBlank()) put("customer","Isi nama pembeli.")
+        }
     }
     fun payload():JSONObject {
         require(validation(false).isEmpty()) {validation(false).values.joinToString("\n")}
         return JSONObject().put("season_id",seasonId).put("paid_at",paidAt()).put("payment_status","paid").put("customer_name",customer).put("notes",notes)
             .put("items",JSONArray().also {rows -> items.forEach {rows.put(JSONObject().put("id",it.id).put("harvest_item_id",it.sourceId).put("quantity_kg",decimal(it.quantity,true).toPlainString()).put("price_per_kg",decimal(it.price,false).toPlainString()))}})
             .apply {if(baseVersion!=null && reason.isNotBlank()) put("reason",reason)}
+            .apply {
+                if(hasBuyer()) put("customer_type",buyerType).put("customer",JSONObject().put("id",buyerId).put("type",buyerType).put("name",customer.trim())
+                    .put("whatsapp",buyerWhatsapp.trim().ifBlank {null} ?: JSONObject.NULL))
+            }
     }
     fun localJson():JSONObject {
         val form=JSONObject().put("season_id",seasonId).put("date",date).put("time",time).put("paid",paid).put("customer_name",customer).put("notes",notes).put("reason",reason)
             .put("locked_season",lockedSeason).put("locked_sources",JSONArray(lockedSources.toList())).put("replace_validation_rejected",replaceValidationRejected)
+            .put("buyer_type",buyerType).put("buyer_id",buyerId).put("buyer_whatsapp",buyerWhatsapp).put("buyer_existing",buyerExisting)
             .put("items",JSONArray().also {rows -> items.forEach {rows.put(JSONObject().put("id",it.id).put("source_id",it.sourceId).put("quantity",it.quantity).put("price",it.price))}})
         return JSONObject().put("season_id",seasonId).put("paid_at",runCatching {paidAt()}.getOrNull() ?: JSONObject.NULL).put("customer_name",customer).put("notes",notes).put("completeness","draft").put("_local_form",form)
     }
@@ -57,7 +69,11 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
             val stamp=if(local!=null) raw.optString("date") to raw.optString("time") else ManualTime.decode(body.getString("paid_at"))
             val rows=raw.getJSONArray("items");val lines=(0 until rows.length()).map {rows.getJSONObject(it).let {line -> SaleLine(line.getString("id"),line.getString(if(local!=null) "source_id" else "harvest_item_id"),line.getString(if(local!=null) "quantity" else "quantity_kg"),line.getString(if(local!=null) "price" else "price_per_kg"))}}
             val locked=local?.optJSONArray("locked_sources")?.let {a -> (0 until a.length()).map {a.getString(it)}.toSet()} ?: if(base!=null) lines.map {it.id}.toSet() else emptySet()
-            return SaleDraft(id,gh,raw.optString("season_id"),stamp.first,stamp.second,if(local!=null) raw.optBoolean("paid") else body.optString("payment_status")=="paid",raw.optString("customer_name"),raw.optString("notes"),lines,raw.optString("reason"),base,locked,local?.optBoolean("locked_season") ?: (base!=null),local?.optBoolean("replace_validation_rejected")==true)
+            return SaleDraft(id,gh,raw.optString("season_id"),stamp.first,stamp.second,if(local!=null) raw.optBoolean("paid") else body.optString("payment_status")=="paid",raw.optString("customer_name"),raw.optString("notes"),lines,raw.optString("reason"),base,locked,local?.optBoolean("locked_season") ?: (base!=null),local?.optBoolean("replace_validation_rejected")==true,
+                buyerType=local?.optString("buyer_type") ?: body.optString("customer_type").takeIf {!body.isNull("customer_type") && !body.isNull("customer_id")}.orEmpty(),
+                buyerId=local?.optString("buyer_id") ?: body.optString("customer_id").takeIf {!body.isNull("customer_id")}.orEmpty(),
+                buyerWhatsapp=local?.optString("buyer_whatsapp").orEmpty(),
+                buyerExisting=local?.optBoolean("buyer_existing") ?: !body.isNull("customer_id"))
         }
     }
 }

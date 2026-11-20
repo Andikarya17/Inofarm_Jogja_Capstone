@@ -345,6 +345,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     var financeLink by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(gh) { if (gh != null) lastGreenhouse = gh }
     val homeRepository = remember(runtime) { ManagerHomeRepository(runtime.vault, runtime.store, runtime.api) }
+    val customerRepository = remember(runtime) { com.inofarm.jogja.feature.customers.CustomerRepository(runtime.vault, runtime.api) }
     val financeHomeRepository = remember(runtime) { com.inofarm.jogja.feature.financehome.FinanceHomeRepository(runtime.vault, runtime.api) }
     val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     val financeVisibility = remember(appContext) {
@@ -953,7 +954,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     else com.inofarm.jogja.feature.activities.EntryForm(activity,context,vm,worker = !manager,run = nutritionForm)
                 activity.draft!=null -> if(activity.reviewing) FarmReviewEntrance { ActivityReview(activity.draft,context,activity.busy,vm::backToForm,vm::queue,worker = !manager) } else ActivityForm(activity,context,vm,worker = !manager)
                 harvest.draft!=null -> if(harvest.reviewing) FarmReviewEntrance { HarvestReview(harvest.draft,context,harvest.busy,harvestVm::backToForm,harvestVm::queue,worker = !manager) } else HarvestForm(harvest,context,harvestVm,worker = !manager)
-                session.role==UserRole.MANAGER && sale.draft!=null -> if(sale.reviewing) FarmReviewEntrance { SaleReview(sale.draft,context,sale.busy,saleVm::backToForm,saleVm::queue) } else SaleForm(sale,context,saleVm)
+                session.role==UserRole.MANAGER && sale.draft!=null -> if(sale.reviewing) FarmReviewEntrance { SaleReview(sale.draft,context,sale.busy,saleVm::backToForm,saleVm::queue) } else SaleForm(sale,context,saleVm) { type, q -> customerRepository.search(session, ticket, type, q) }
                 session.role==UserRole.MANAGER && saleHistory.selected!=null -> HistoryScreen(session,context,saleHistory,saleHistoryVm,activity.queue,onEdit={record,replace -> saleVm.open(record,replace);saleHistoryVm.close()},kind=OperationalKind.SALE,returnToQueue=tab==1)
                 session.role==UserRole.MANAGER && financial.draft!=null -> if(financial.reviewing) FarmReviewEntrance { FinancialReview(financial.draft,context,financial.busy,financialVm::backToForm,financialVm::queue) } else FinancialForm(financial,context,financialVm)
                 session.role==UserRole.MANAGER && expenseHistory.selected!=null -> HistoryScreen(session,context,expenseHistory,expenseHistoryVm,activity.queue,onEdit={record,replace -> financialVm.open(record,replace);expenseHistoryVm.close()},kind=OperationalKind.EXPENSE,returnToQueue=tab==1)
@@ -1092,7 +1093,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     FarmPullRefresh(context.loading, onSync) {
                     // Keuangan (21 Nov 2026): income chart and standard-cost profit first; the real-cost ledger sits behind the eye toggle.
                     com.inofarm.jogja.feature.financehome.FinanceOverviewScreen(session, ticket, financeHomeRepository, financeVisibility, syncUpdates,
-                        onRecordSale = { startRecord(RecordChoice.SALE) }) { onBack ->
+                        onRecordSale = { startRecord(RecordChoice.SALE) }, customers = customerRepository) { onBack ->
                         Column(Modifier.fillMaxSize()) {
                             TextButton(onBack, Modifier.padding(horizontal = FarmSpace.Small).heightIn(min = FarmSpace.Touch).testTag("finance-ledger-back")) {
                                 Text("Kembali ke ringkasan keuangan")

@@ -38,7 +38,7 @@ private val MitraBar = FarmColors.Sage
 private val PeroranganBar = Color(0xFF9BAC9C)
 private val UntypedBar = Color(0xFFDCC28C)
 
-private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER }
+private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER, CUSTOMERS }
 
 /**
  * Manager Keuangan tab (Inofarm 20-21 Nov 2026): stacked income chart by buyer type, running-season profit on standard
@@ -46,7 +46,8 @@ private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER }
  */
 @Composable internal fun FinanceOverviewScreen(
     session: FinanceSession, ticket: Long, repository: FinanceHomeRepository, preference: FinanceVisibilityPreference,
-    refresh: Long, onRecordSale: () -> Unit, ledger: @Composable (onBack: () -> Unit) -> Unit,
+    refresh: Long, onRecordSale: () -> Unit, customers: com.inofarm.jogja.feature.customers.CustomerRepository,
+    ledger: @Composable (onBack: () -> Unit) -> Unit,
 ) {
     var page by rememberSaveable { mutableStateOf(FinancePage.OVERVIEW) }
     BackHandler(page != FinancePage.OVERVIEW) { page = FinancePage.OVERVIEW }
@@ -54,6 +55,7 @@ private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER }
         FinancePage.COSTS -> StandardCostScreen(session, ticket, repository) { page = FinancePage.OVERVIEW }
         FinancePage.INVESTOR -> InvestorSummaryScreen(session, ticket, repository) { page = FinancePage.OVERVIEW }
         FinancePage.LEDGER -> ledger { page = FinancePage.OVERVIEW }
+        FinancePage.CUSTOMERS -> com.inofarm.jogja.feature.customers.CustomerListScreen(session, ticket, customers) { page = FinancePage.OVERVIEW }
         FinancePage.OVERVIEW -> Overview(session, ticket, repository, preference, refresh, onRecordSale) { page = it }
     }
 }
@@ -116,7 +118,7 @@ private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER }
             ActionTile("Biaya standar", FarmIcon.CheckList, false, Modifier.weight(1f).testTag("finance-standard-costs")) { open(FinancePage.COSTS) }
             ActionTile("Ringkasan investor", FarmIcon.BarChart, false, Modifier.weight(1f).testTag("finance-investor")) { open(FinancePage.INVESTOR) }
         }
-        if (current != null) BuyerCard(current)
+        if (current != null) BuyerCard(current) { open(FinancePage.CUSTOMERS) }
         ProfitCard(profit?.optJSONObject("open"))
         if (showReal) OutlinedCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
@@ -219,10 +221,13 @@ internal fun kg(value: BigDecimal): String = value.stripTrailingZeros().let { if
     }
 }
 
-@Composable private fun BuyerCard(bar: IncomeBar) {
+@Composable private fun BuyerCard(bar: IncomeBar, onList: () -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
-            Text("Per tipe pembeli, ${bar.label}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Per tipe pembeli, ${bar.label}", Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                TextButton(onList, Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-customers")) { Text("Daftar pembeli") }
+            }
             BuyerRow("Mitra", bar.partner, bar.partnerKg, bar.partnerShare())
             BuyerRow("Perorangan", bar.consumer, bar.consumerKg, bar.consumerShare())
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, FarmShape.Control).padding(FarmSpace.Medium)) {
