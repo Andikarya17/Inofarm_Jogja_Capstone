@@ -20,6 +20,7 @@ use App\Http\Controllers\V2\ReportExportController;
 use App\Http\Controllers\V2\RecoveryController;
 use App\Http\Controllers\V2\ReceiptReviewController;
 use App\Http\Controllers\V2\SaleController;
+use App\Http\Controllers\V2\SeasonCostSheetController;
 use App\Http\Controllers\V2\SeasonReportController;
 use App\Http\Controllers\V2\SyncStatusController;
 use App\Http\Controllers\V2\UserController;
@@ -37,6 +38,10 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::post('greenhouses/{id}/running-period', [MasterController::class, 'designatePeriod'])->whereUuid('id')->middleware('finance-manager');
         Route::post('greenhouses/{id}/copy-masters', [MasterController::class, 'copyMasters'])->whereUuid('id')->middleware('finance-manager');
         Route::get('reports/cash-flow', [FieldReportController::class, 'cashFlow'])->middleware('finance-manager');
+        Route::get('season-cost-sheets', [SeasonCostSheetController::class, 'index'])->middleware('finance-manager');
+        Route::get('season-cost-sheets/{id}', [SeasonCostSheetController::class, 'show'])->whereUuid('id')->middleware('finance-manager');
+        Route::patch('season-cost-sheets/{id}', [SeasonCostSheetController::class, 'update'])->whereUuid('id')->middleware('finance-manager');
+        Route::get('season-cost-sheets/{id}/audit', [SeasonCostSheetController::class, 'audit'])->whereUuid('id')->middleware('finance-manager');
         Route::get('season-reports/compare', [FieldReportController::class, 'compare'])->middleware('finance-manager');
         Route::get('seasons/{id}/material-usage', [FieldReportController::class, 'materialUsage'])->whereUuid('id');
         Route::get('sync/status', SyncStatusController::class);
