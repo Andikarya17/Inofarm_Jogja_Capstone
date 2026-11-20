@@ -78,6 +78,10 @@ final class SaleService
                 foreach (['payment_method', 'payment_reference', 'customer_type'] as $key) {
                     $data[$key] = array_key_exists($key, $p) ? $p[$key] : ($row->$key ?? null);
                 }
+                // A named buyer (21 Nov 2026) sets the type and keeps a copy of the name as it was at the sale.
+                if (isset($p['customer'])) {
+                    [$data['customer_id'], $data['customer_type'], $data['customer_name']] = app(CustomerService::class)->forSale($current, $p['customer']);
+                }
             }
             $data = [...$data, 'version' => $version, 'updated_at' => now()];
             if (!$row) {DB::table('sales')->insert([...$data, 'id' => $op['entity_id'], 'recorded_by' => $current->id, 'recorded_by_name' => $current->name, 'created_at' => now()]);}
