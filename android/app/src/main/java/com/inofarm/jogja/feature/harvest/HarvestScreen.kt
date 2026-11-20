@@ -80,7 +80,7 @@ import java.math.BigDecimal
             if (draft.referencePolicy == "preserve") FarmInfoCard { Text("Waktu panen tidak berubah, acuan lama dipakai otomatis.") }
         }
     }
-    HarvestFormGroup(canopy, "Waktu panen") {
+    HarvestFormGroup(canopy, "Waktu") {
         if (worker) {
             WorkerEventTime(context, draft.greenhouseId, draft.groupId, draft.date, draft.time,
                 { value -> vm.edit { it.copy(date = value) } }, { value -> vm.edit { it.copy(time = value) } },
@@ -188,7 +188,7 @@ import java.math.BigDecimal
     if (!worker) {
         val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
         FarmReviewFrame("panen", "$greenhouse · ${whenLabel(draft.date, draft.time)}", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue, summary = true) {
-            FarmFormSection("Waktu panen") { HarvestReviewTime(draft, context, readable = true) }
+            FarmFormSection("Waktu") { HarvestReviewTime(draft, context, readable = true) }
             HarvestReviewParts(draft, context)
             if(draft.replaceValidationRejected) Notice("Panen yang ditolak diganti dengan catatan ini. Catatan lama tetap ada di riwayat.")
         }
@@ -197,7 +197,7 @@ import java.math.BigDecimal
     val greenhouse = context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
     FarmReviewFrame("panen", "$greenhouse · ${whenLabel(draft.date, draft.time)}", FarmIcon.Basket, busy, "harvest-queue", "harvest-back", onBack, onQueue,
         mainLabel = "Kirim", hint = "Pastikan isinya benar. Setelah dikirim, catatan terkirim otomatis saat ada internet.") {
-        FarmFormSection("Waktu panen") { HarvestReviewTime(draft, context, readable = true) }
+        FarmFormSection("Waktu") { HarvestReviewTime(draft, context, readable = true) }
         HarvestReviewParts(draft, context)
         if(draft.replaceValidationRejected) Notice("Panen yang ditolak diganti dengan catatan ini. Catatan lama tetap ada di riwayat.")
         if (draft.baseVersion != null) Notice("Hasil panen yang sudah dijual perlu dicek pengelola sebelum diubah.")

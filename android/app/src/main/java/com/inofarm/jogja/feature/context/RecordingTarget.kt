@@ -49,8 +49,8 @@ internal fun CultivationUiState.recordingTarget(greenhouse: JSONObject, today: L
 internal fun RecordingTarget?.caption(manager: Boolean): String? = when (this) {
     null -> null
     is RecordingTarget.Ready -> "${season.optString("name")} · ${varieties.joinToString(" dan ")}"
-    is RecordingTarget.NotPlanted -> if (manager) "Belum mulai tanam. Mulai tanam dulu untuk mencatat."
-        else "Belum mulai tanam. Minta pengelola memulai tanam di greenhouse ini."
-    is RecordingTarget.NotSown -> "Tanam dimulai ${sowing.dayOfMonth} ${java.time.format.DateTimeFormatter.ofPattern("MMM yyyy",
+    is RecordingTarget.NotPlanted -> if (manager) "Belum mulai semai. Mulai semai dulu untuk mencatat."
+        else "Belum mulai semai. Minta pengelola memulai semai di greenhouse ini."
+    is RecordingTarget.NotSown -> "Semai dimulai ${sowing.dayOfMonth} ${java.time.format.DateTimeFormatter.ofPattern("MMM yyyy",
         java.util.Locale.forLanguageTag("id-ID")).format(sowing)}. Catatan bisa dibuat mulai tanggal itu."
 }

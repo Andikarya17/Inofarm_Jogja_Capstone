@@ -12,7 +12,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-enum class ActivityType(val wire: String,val label: String) { MEASUREMENT("measurement","Pengukuran manual"), GENERAL("general","Pekerjaan umum"), NUTRITION("nutrition","Nutrisi"), SPRAY("spray","Penyemprotan"), STAGE("stage","Stadia") }
+enum class ActivityType(val wire: String,val label: String) { MEASUREMENT("measurement","Pengukuran manual"), GENERAL("general","Pekerjaan umum"), NUTRITION("nutrition","Nutrisi"), SPRAY("spray","Penyemprotan"), STAGE("stage","Stadia/Fase") }
 enum class ObservationField(val wire: String, val label: String, val unit: String) {
     OXYGEN("dissolved_oxygen_mg_l", "Oksigen terlarut (DO)", "mg/L"),
     WATER_TEMPERATURE("water_temperature_c", "Suhu air", "°C"),

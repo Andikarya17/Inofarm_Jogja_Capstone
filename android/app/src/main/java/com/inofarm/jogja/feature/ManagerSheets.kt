@@ -31,7 +31,7 @@ private typealias Admin = com.inofarm.jogja.feature.admin.AdminResource
 internal enum class RecordChoice(val label: String, val detail: String, val icon: FarmIcon) {
     ACTIVITY("Kegiatan", "Ukur, nutrisi, semprot", FarmIcon.Schedule),
     MEASUREMENT("Pengukuran", "EC dan PPM", FarmIcon.Droplet),
-    HARVEST("Panen", "Hasil per grade", FarmIcon.Basket),
+    HARVEST("Panen", "Layak dan cacat per varietas", FarmIcon.Basket),
     EXPENSE("Biaya", "Uang keluar", FarmIcon.Wallet),
     SALE("Penjualan", "Sudah lunas", FarmIcon.TrendUp),
 }
@@ -49,7 +49,7 @@ internal class WorkerRecordTarget(
 
 private val WorkerRecordDetails = mapOf(
     RecordChoice.ACTIVITY to "Ukur, nutrisi, semprot, stadia",
-    RecordChoice.HARVEST to "Hasil per grade",
+    RecordChoice.HARVEST to "Layak dan cacat per varietas",
 )
 
 /** One "Kegiatan" form holds readings too (17 Nov 2026), so Pengukuran is no longer a separate tile. */
@@ -130,8 +130,8 @@ private fun StartPlantingCard(onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically) {
         FarmIconTile(FarmIcon.Add, tone = FarmTone.Forest)
         Column(Modifier.weight(1f)) {
-            Text("Mulai tanam", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-            Text("Greenhouse ini belum punya tanam saat ini", style = MaterialTheme.typography.bodySmall,
+            Text("Mulai semai", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text("Greenhouse ini belum dimulai semai", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onPrimaryContainer) { FarmControlIcon(FarmIcon.ChevronRight, null) }
@@ -234,7 +234,7 @@ internal fun ManageScreen(
         item("manage-main-title") { FarmSectionHeading("Greenhouse dan orang") }
         item("manage-main") {
             FarmRecordCard {
-                ManageRow("Tambah greenhouse", "Greenhouse baru, tanam pertama dan pekerja", FarmIcon.GreenhouseAdd, FarmTone.Brand,
+                ManageRow("Tambah greenhouse", "Greenhouse baru, semai pertama dan pekerja", FarmIcon.GreenhouseAdd, FarmTone.Brand,
                     Modifier.testTag("manage-add-greenhouse"), enabled, onClick = onAddGreenhouse)
                 FarmRowDivider(44.dp + FarmSpace.Medium)
                 ManageRow("Greenhouse", "Tambah dan atur greenhouse", FarmIcon.Greenhouse, FarmTone.Neutral,

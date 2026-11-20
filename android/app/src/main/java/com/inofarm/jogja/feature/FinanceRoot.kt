@@ -1486,7 +1486,7 @@ internal fun ExpiredSessionNotice() {
             if(draft.ec.isNotBlank()) FarmFact("EC manual", "${measureText(draft.ec)} mS/cm", prominent = true)
             if(draft.ppm.isNotBlank()) FarmFact("PPM manual", "${measureText(draft.ppm)} ppm", prominent = true)
             if(draft.ph.isNotBlank()) FarmFact("pH manual", measureText(draft.ph))
-            if(draft.stage.isNotBlank()) FarmFact("Stadia aktual", draft.stage)
+            if(draft.stage.isNotBlank()) FarmFact("Stadia/Fase aktual", draft.stage)
             draft.materials.forEach { item ->
                 val name=context.materials.find {it.optString("id")==item.materialId}?.optString("name") ?: "Bahan"
                 val unit=context.units.find {it.optString("id")==item.unitId}?.optString("name").orEmpty()
@@ -1540,7 +1540,7 @@ internal fun ExpiredSessionNotice() {
             if(entry.hasMeasurement) Text("EC ${entry.ec} · PPM ${entry.ppm}${if(entry.ph.isNotBlank()) " · pH ${entry.ph}" else ""}")
             if(entry.nutrition.isNotEmpty()) Text("Nutrisi: ${entry.nutrition.size} bahan")
             if(entry.hasSpray) Text("Penyemprotan: ${entry.spray.size} bahan")
-            if(entry.stage.isNotBlank()) Text("Stadia: ${entry.stage}")
+            if(entry.stage.isNotBlank()) Text("Stadia/Fase: ${entry.stage}")
             if(entry.notes.isNotBlank()) Text(entry.notes)
             return
         }
@@ -1557,7 +1557,7 @@ internal fun ExpiredSessionNotice() {
             if(draft.ec.isNotBlank()) Text("EC manual: ${measureText(draft.ec)} mS/cm")
             if(draft.ppm.isNotBlank()) Text("PPM manual: ${measureText(draft.ppm)} ppm")
             if(draft.ph.isNotBlank()) Text("pH manual: ${measureText(draft.ph)}")
-            if(draft.stage.isNotBlank()) Text("Stadia aktual: ${draft.stage}")
+            if(draft.stage.isNotBlank()) Text("Stadia/Fase aktual: ${draft.stage}")
             draft.materials.forEach { material -> Text("${context.materials.find {it.optString("id")==material.materialId}?.optString("name") ?: material.name.trim().ifBlank { "Bahan ${material.materialId.take(8)}" }}: ${
                 if(material.quantity.isBlank()) "dosis tidak dicatat" else "${measureText(material.quantity)} ${context.units.find {it.optString("id")==material.unitId}?.optString("name").orEmpty()}"}") }
             ObservationFacts(draft)

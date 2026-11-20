@@ -167,7 +167,7 @@ fun GreenhouseWizardHost(
         val problems = WizardRules.plantingErrors(season, start, (0 until count).map { names[it] to populations[it] }, sowing, transplant)
         fieldErrors = problems
         if (problems.isNotEmpty()) return
-        run("Menyimpan tanam…") {
+        run("Menyimpan semai…") {
             if (!seasonDone) {
                 progress = "Menyimpan musim…"
                 send(AdminForm(AdminResource.SEASON, id = seasonId, values = mapOf("greenhouse_id" to ghId, "name" to season.trim(), "start_date" to start)))
@@ -188,7 +188,7 @@ fun GreenhouseWizardHost(
                 }
             }
             if (!periodDone) {
-                progress = "Menetapkan tanam saat ini…"
+                progress = "Menetapkan semai saat ini…"
                 val version = repository.options(session, ticket, "greenhouses", null).firstOrNull { it.getString("id") == ghId }
                     ?.getLong("version") ?: error("Greenhouse belum muncul di daftar. Perbarui lalu coba lagi.")
                 val operation = operations.getOrPut("period|$version|${groupIds[0]}") { repository.designateOperation(session, ticket, ghId, version, groupIds[0]) }
@@ -206,7 +206,7 @@ fun GreenhouseWizardHost(
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             CompositionLocalProvider(LocalCanopyForm provides true) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(horizontal = FarmSpace.Page)) {
-                FarmSheetHeading(if (plantIn != null) "Mulai tanam" else "Tambah greenhouse", close, !busy)
+                FarmSheetHeading(if (plantIn != null) "Mulai semai" else "Tambah greenhouse", close, !busy)
                 HorizontalDivider()
                 Column(Modifier.weight(1f).verticalScroll(scroll).padding(vertical = FarmSpace.Medium),
                     verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
@@ -219,14 +219,14 @@ fun GreenhouseWizardHost(
                         Text("Greenhouse siap dicatat", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
                         Text(name.trim(), style = MaterialTheme.typography.titleMedium)
                         val planted = (0 until count).filter { groupDone[it] }.map { names[it].trim() }
-                        Text(if (periodDone) "Mulai tanam ${planted.joinToString(" dan ")}. Semua pekerja sudah bisa mencatat di sini."
-                            else "Belum mulai tanam. Mulai tanam dari halaman greenhouse sebelum mencatat.", style = MaterialTheme.typography.bodyMedium)
+                        Text(if (periodDone) "Mulai semai ${planted.joinToString(" dan ")}. Semua pekerja sudah bisa mencatat di sini."
+                            else "Belum mulai semai. Mulai semai dari halaman greenhouse sebelum mencatat.", style = MaterialTheme.typography.bodyMedium)
                         if (periodDone) Button(onClick = { onRecord(ghId) }, shape = FarmShape.Control,
                             modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-record")) { Text("Catat kegiatan") }
                         OutlinedButton(onClick = { onOpenGreenhouse(ghId) }, shape = FarmShape.Control,
                             modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("wizard-open")) { Text("Ke greenhouse") }
                     } else {
-                        if (plantIn == null) FarmStepIndicator(step, listOf("Greenhouse", "Mulai tanam"))
+                        if (plantIn == null) FarmStepIndicator(step, listOf("Greenhouse", "Mulai semai"))
                         Text(if (plantIn != null) name.trim() else if (step == 1) "Langkah 1 dari 2" else "Langkah 2 dari 2 · bisa dilewati",
                             Modifier.testTag("wizard-step").semantics { liveRegion = LiveRegionMode.Polite },
                             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -252,7 +252,7 @@ fun GreenhouseWizardHost(
                                 }
                             }
                             else -> {
-                                if (plantIn == null) Text("Mulai tanam", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
+                                if (plantIn == null) Text("Mulai semai", Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
                                 val saved = listOfNotNull(if (seasonDone) "musim" else null,
                                     (0 until count).filter { groupDone[it] }.takeIf { it.isNotEmpty() }?.joinToString(" dan ") { names[it].trim() })
                                 if (saved.isNotEmpty()) FarmInfoCard { Text(saved.joinToString(", ").replaceFirstChar { it.uppercase() } + " sudah tersimpan.", style = MaterialTheme.typography.bodyMedium) }
@@ -261,8 +261,8 @@ fun GreenhouseWizardHost(
                                     FinanceDateField("Tanggal mulai musim", start, { start = it }, "wizard-start", fieldErrors["start"], hint = "contoh 2026-11-10", enabled = !busy && !seasonDone)
                                 }
                                 val planted = groupDone.any { it }
-                                FarmFormSection("Tanam") {
-                                    Text("Semua varietas di greenhouse ini ditanam serentak.", style = MaterialTheme.typography.bodySmall,
+                                FarmFormSection("Semai") {
+                                    Text("Semua varietas di greenhouse ini disemai serentak.", style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     FinanceDateField("Tanggal semai", sowing, { sowing = it }, "wizard-sowing", fieldErrors["sowing"], hint = "contoh 2026-11-10", enabled = !busy && !planted)
                                     FinanceDateField("Tanggal pindah tanam (opsional)", transplant, { transplant = it }, "wizard-transplant", fieldErrors["transplant"], hint = "contoh 2026-11-10", enabled = !busy && !planted)

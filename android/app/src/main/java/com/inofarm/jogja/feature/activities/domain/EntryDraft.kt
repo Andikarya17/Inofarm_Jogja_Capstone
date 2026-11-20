@@ -123,7 +123,7 @@ data class EntryDraft(
 
         /** The form section a scheduled activity type is filled in, as its heading reads. */
         fun scheduleSection(type: String): String = when (type) {
-            "measurement" -> "Pengukuran"; "nutrition" -> "Nutrisi"; "spray" -> "Penyemprotan"; "stage" -> "Stadia"; else -> "Catatan"
+            "measurement" -> "Pengukuran"; "nutrition" -> "Nutrisi AB Mix"; "spray" -> "Penyemprotan"; "stage" -> "Stadia/Fase"; else -> "Catatan"
         }
 
         fun isEntry(body: JSONObject): Boolean = body.optJSONObject("_local_form")?.optBoolean("entry") == true

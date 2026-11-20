@@ -27,7 +27,7 @@ enum class AdminResource(val path:String,val kind:String,val label:String) {
             }
             SCHEDULE,TARGET -> {
                 if(!update) add(AdminField("planting_group_id","Kelompok tanam",source="planting-groups"))
-                add(AdminField("activity_type","Jenis kegiatan",choices=mapOf("measurement" to "Pengukuran manual","nutrition" to "Nutrisi","spray" to "Penyemprotan","general" to "Pekerjaan umum","stage" to "Stadia")))
+                add(AdminField("activity_type","Jenis kegiatan",choices=mapOf("measurement" to "Pengukuran manual","nutrition" to "Nutrisi","spray" to "Penyemprotan","general" to "Pekerjaan umum","stage" to "Stadia/Fase")))
                 if(this@AdminResource==SCHEDULE) {add(AdminField("planned_at","Waktu rencana",type="timestamp"));add(AdminField("notes","Catatan",true))}
                 else {
                     add(AdminField("parameter","Parameter",choices=mapOf("manual_ec" to "EC manual","manual_ppm" to "PPM manual","manual_ph" to "pH manual")))

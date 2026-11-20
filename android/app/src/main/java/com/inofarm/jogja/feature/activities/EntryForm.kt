@@ -116,7 +116,7 @@ internal fun EntryForm(state: ActivityUiState, context: CultivationUiState, vm: 
 private fun ColumnScope.EntryFields(state: ActivityUiState, context: CultivationUiState, vm: ActivityViewModel, entry: EntryDraft,
                                     varieties: List<JSONObject>, worker: Boolean) {
     val errors = state.errors
-    FarmFormSection("Waktu kejadian") {
+    FarmFormSection("Waktu") {
         FarmFieldPair({
             FinanceDateField("Tanggal", entry.date, { value -> vm.editEntry { it.copy(date = value) } }, "entry-date", errors["occurred_at"])
         }, {
@@ -129,7 +129,7 @@ private fun ColumnScope.EntryFields(state: ActivityUiState, context: Cultivation
         lastTypedAge(state.records, entry.greenhouseId)?.let {
             Text("Terakhir: $it", Modifier.testTag("entry-age-last"), style = MaterialTheme.typography.bodyMedium)
         }
-        FarmChoiceChips("Dasar umur", entry.ageBasis.ifBlank { null }, listOf(option("hss", "HSS"), option("hst", "HST")), "entry-age-basis") { value ->
+        FarmChoiceChips("Satuan", entry.ageBasis.ifBlank { null }, listOf(option("hss", "HSS"), option("hst", "HST")), "entry-age-basis") { value ->
             vm.editEntry { it.copy(ageBasis = value) }
         }
         FinanceField("Hari ke", entry.ageDay, { value -> vm.editEntry { it.copy(ageDay = value.filter(Char::isDigit).take(4)) } },
@@ -138,7 +138,7 @@ private fun ColumnScope.EntryFields(state: ActivityUiState, context: Cultivation
     FarmFormSection("Pengukuran") {
         FarmFieldPair({
             FinanceField("EC", entry.ec, { value -> vm.editEntry { it.copy(ec = value) } }, "entry-ec", errors["manual_ec"] ?: errors["manual_pair"],
-                KeyboardType.Decimal, suffix = "mS/cm", prominent = true)
+                KeyboardType.Decimal, prominent = true)
         }, {
             FinanceField("PPM", entry.ppm, { value -> vm.editEntry { it.copy(ppm = value) } }, "entry-ppm", errors["manual_ppm"],
                 KeyboardType.Decimal, suffix = "ppm", prominent = true)
@@ -157,7 +157,7 @@ private fun ColumnScope.EntryFields(state: ActivityUiState, context: Cultivation
     }
     val units = context.units.filter { it.optString("greenhouse_id") == entry.greenhouseId && it.optBoolean("active", true) }
     val ghMaterials = context.materials.filter { it.optString("greenhouse_id") == entry.greenhouseId && it.optBoolean("active", true) }
-    FarmFormSection("Nutrisi") {
+    FarmFormSection("Nutrisi AB Mix") {
         val materials = ghMaterials.filter { it.optString("purpose") != "spray" }
         entry.nutrition.forEachIndexed { index, row ->
             fun change(updated: MaterialDraft) { vm.editEntry { it.copy(nutrition = it.nutrition.toMutableList().apply { set(index, updated) }) } }
@@ -236,8 +236,8 @@ private fun ColumnScope.EntryFields(state: ActivityUiState, context: Cultivation
                 modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("entry-spray-close")) { Text("Hapus penyemprotan") }
         }
     }
-    FarmFormSection("Stadia") {
-        FinanceField("Stadia saat ini (opsional)", entry.stage, { value -> vm.editEntry { it.copy(stage = value.take(100)) } }, "entry-stage",
+    FarmFormSection("Stadia/Fase") {
+        FinanceField("Stadia/Fase saat ini (opsional)", entry.stage, { value -> vm.editEntry { it.copy(stage = value.take(100)) } }, "entry-stage",
             errors["actual_stage"], hint = "Tulis sesuai pengamatan, misalnya pembesaran buah")
     }
     FarmFormSection("Catatan") {
@@ -274,13 +274,13 @@ internal fun EntryReview(state: ActivityUiState, context: CultivationUiState, vm
             if (entry.waterTemperature.isNotBlank()) FarmFact("Suhu air", "${entry.waterTemperature} °C")
             MeasureMoments[entry.moment]?.let { FarmFact("Diukur", it) }
         }
-        if (entry.nutrition.isNotEmpty()) FarmFormSection("Nutrisi") { entry.nutrition.forEach { Text(material(it)) } }
+        if (entry.nutrition.isNotEmpty()) FarmFormSection("Nutrisi AB Mix") { entry.nutrition.forEach { Text(material(it)) } }
         if (entry.hasSpray) FarmFormSection("Penyemprotan") {
             FarmFact("Waktu", "${entry.sprayDate} · ${SprayPeriods[entry.sprayPeriod].orEmpty()}")
             FarmFact("Varietas", entry.sprayGroups.sorted().joinToString(", ") { names[it] ?: "Varietas" })
             entry.spray.forEach { Text(material(it)) }
         }
-        if (entry.stage.isNotBlank()) FarmFormSection("Stadia") { Text(entry.stage) }
+        if (entry.stage.isNotBlank()) FarmFormSection("Stadia/Fase") { Text(entry.stage) }
         if (worker) FarmInfoCard { Text("Muncul di Riwayat dengan label Belum terkirim sampai diterima, lalu menunggu cek pengelola.") }
     }
 }

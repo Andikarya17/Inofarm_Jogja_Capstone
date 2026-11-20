@@ -13,6 +13,12 @@ import java.time.LocalDate
 
 /** Recording asks only for a greenhouse; its open season and planting follow (user decision 17 Nov 2026). */
 class RecordingTargetTest {
+    @Test fun stageAndNutritionCarryInofarmLabels() {
+        assertEquals("Stadia/Fase", com.inofarm.jogja.feature.activities.domain.ActivityType.STAGE.label)
+        assertEquals("Stadia/Fase", com.inofarm.jogja.feature.activities.domain.EntryDraft.scheduleSection("stage"))
+        assertEquals("Nutrisi AB Mix", com.inofarm.jogja.feature.activities.domain.EntryDraft.scheduleSection("nutrition"))
+    }
+
     private val today = LocalDate.parse("2026-11-17")
     private val gh = JSONObject().put("id", "gh").put("name", "GH Utara").put("active", true)
     private fun season(id: String, status: String = "open") =
@@ -39,14 +45,15 @@ class RecordingTargetTest {
         val empty = CultivationUiState(greenhouses = listOf(gh), seasons = listOf(season("s1")))
         val target = empty.recordingTarget("gh", today) as RecordingTarget.NotPlanted
         assertEquals("s1", target.season?.getString("id"))
-        assertEquals("Belum mulai tanam. Mulai tanam dulu untuk mencatat.", target.caption(manager = true))
-        assertTrue(target.caption(manager = false)!!.contains("Minta pengelola"))
+        assertEquals("Belum mulai semai. Mulai semai dulu untuk mencatat.", target.caption(manager = true))
+        assertEquals("Belum mulai semai. Minta pengelola memulai semai di greenhouse ini.", target.caption(manager = false))
     }
 
     @Test fun plantingNotYetSownWaitsForItsSowingDate() {
         val data = CultivationUiState(greenhouses = listOf(gh), seasons = listOf(season("s1")), groups = listOf(group("a", "v1", "2026-11-20")))
         val target = data.recordingTarget("gh", today) as RecordingTarget.NotSown
         assertEquals(LocalDate.parse("2026-11-20"), target.sowing)
+        assertTrue(target.caption(manager = true)!!.startsWith("Semai dimulai 20 "))
     }
 
     @Test fun inactiveOrUnknownGreenhouseHasNoTarget() {

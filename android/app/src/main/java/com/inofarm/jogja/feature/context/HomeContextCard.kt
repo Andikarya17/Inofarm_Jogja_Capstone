@@ -114,7 +114,7 @@ internal fun HomeContextCard(
                     val summary = when {
                         group != null -> workerAge(group, today)
                         greenhouse == null -> "Pilih greenhouse Anda."
-                        else -> target.caption(false) ?: "Belum mulai tanam."
+                        else -> target.caption(false) ?: "Belum mulai semai."
                     }
                     Text(summary, style = MaterialTheme.typography.bodyMedium, color = ForestScheme.onSurfaceVariant)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
@@ -182,7 +182,7 @@ internal fun WorkerContextSheet(
                     if (target is RecordingTarget.NotPlanted && onStartPlanting != null) Button(
                         onClick = { onStartPlanting(target.greenhouse.getString("id")) }, shape = FarmShape.Control,
                         modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("finance-context-start-planting")) {
-                        Text("Mulai tanam")
+                        Text("Mulai semai")
                     }
                     if (recordingLabel != null && canContinue) Button(onClick = onContinue, shape = FarmShape.Control,
                         modifier = Modifier.fillMaxWidth().heightIn(min = FarmSpace.Touch).testTag("finance-context-continue")) {
