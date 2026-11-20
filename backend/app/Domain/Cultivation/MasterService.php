@@ -59,6 +59,9 @@ final class MasterService
         if ($table === 'greenhouses') {
             $value['running_period_reviewed'] = (bool) $value['running_period_reviewed'];
         }
+        if ($table === 'seasons') {
+            $value['sequence'] = $row->sequence === null ? null : (int) $row->sequence;
+        }
         if ($table === 'planting_groups') {
             $value['harvest_target'] = HarvestProgress::decode($row->harvest_target);
             $value['harvest_completion'] = HarvestProgress::decode($row->harvest_completion);
@@ -110,7 +113,10 @@ final class MasterService
                 abort_if(! $context->active && ! ($table === 'greenhouses' && $action === 'update'), 422, 'Greenhouse tidak aktif.');
             }
             $data = $payload;
-            unset($data['reason']);
+            unset($data['reason'], $data['sequence']);
+            if ($table === 'seasons' && $action === 'create') {
+                $data['sequence'] = (int) DB::table('seasons')->where('greenhouse_id', $gh)->lockForUpdate()->max('sequence') + 1;
+            }
             if (isset($before['dimension'])) {
                 abort_if($data['dimension'] !== $before['dimension'], 422, 'Dimensi satuan/bahan tidak dapat diubah; buat master baru.');
             }

@@ -50,10 +50,13 @@ final class MutationLedger
                 'entity_type' => $operation['entity_type'], 'entity_id' => $operation['entity_id'], 'action' => $operation['action'],
                 'version' => $after['version'], 'reason' => $operation['payload']['reason'] ?? null,
                 'changes' => json_encode(['before' => $change['before'], 'after' => $after], JSON_THROW_ON_ERROR), 'server_at' => $now]);
-            DB::table('change_feed')->insert(['greenhouse_id' => $change['greenhouse_id'], 'audience' => $change['audience'] ?? 'all',
-                'entity_type' => $operation['entity_type'], 'entity_id' => $operation['entity_id'], 'version' => $after['version'],
-                'tombstone' => ($after['active'] ?? true) === false || ($after['record_state'] ?? '') === 'cancelled',
-                'body' => json_encode($after, JSON_THROW_ON_ERROR), 'committed_at' => $now]);
+            // Farm-wide records (cost sheets, customers) belong to no greenhouse feed; Android reads them online.
+            if ($change['greenhouse_id'] !== null) {
+                DB::table('change_feed')->insert(['greenhouse_id' => $change['greenhouse_id'], 'audience' => $change['audience'] ?? 'all',
+                    'entity_type' => $operation['entity_type'], 'entity_id' => $operation['entity_id'], 'version' => $after['version'],
+                    'tombstone' => ($after['active'] ?? true) === false || ($after['record_state'] ?? '') === 'cancelled',
+                    'body' => json_encode($after, JSON_THROW_ON_ERROR), 'committed_at' => $now]);
+            }
             $status = $operation['action'] === 'create' ? 201 : 200;
             DB::table('sync_operations')->insert(['actor_id' => $actor->id, 'operation_id' => $operation['operation_id'],
                 'entity_id' => $operation['entity_id'], 'entity_type' => $operation['entity_type'], 'request_hash' => $hash,
