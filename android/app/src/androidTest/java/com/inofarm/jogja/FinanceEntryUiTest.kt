@@ -1607,6 +1607,30 @@ class FinanceEntryUiTest {
         }
     }
 
+    /** Inofarm 20 Nov 2026: a manager picking Kegiatan on a greenhouse not yet sown is asked to start sowing first. */
+    @Test fun managerPickingActivityOnUnsownGreenhouseAsksToStartSowing() {
+        managerWalkthroughFixture.set(true)
+        secondGreenhouse.set(true)
+        unplantedGreenhouse.set(true)
+        managerLogin()
+        readyNode("finance-record-fab").performClick()
+        readyNode("record-greenhouse-option-$gh3").performScrollTo().performClick()
+        readyNode("record-activity").performClick()
+        readyNode("start-sowing-dialog").assertIsDisplayed()
+        readyText("Greenhouse belum dimulai semai").assertIsDisplayed()
+        readyText("Apakah mau mulai semai?").assertIsDisplayed()
+        captureInternal("catat-manager-start-sowing-dialog")
+        readyNode("start-sowing-no").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("start-sowing-dialog").fetchSemanticsNodes().isEmpty() }
+        readyNode("record-greenhouse-caption").assertExists()
+        val activity = ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.activities.ActivityViewModel::class.java]
+        assertEquals(null, activity.state.value.entry)
+        readyNode("record-activity").performClick()
+        readyNode("start-sowing-continue").performClick()
+        readyNode("wizard-season").assertExists()
+        readyText("Mulai semai").assertExists()
+    }
+
     /** F2: two steps, one or two varieties planted together, each saved as a group named after it, and no worker step. */
     @Test fun greenhouseWizardSavesTwoVarietiesInTwoStepsWithoutAssignments() {
         val theme = (rule.activity.application as InofarmApplication).theme

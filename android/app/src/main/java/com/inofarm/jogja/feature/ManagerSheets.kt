@@ -67,6 +67,10 @@ internal fun RecordSheet(
     worker: WorkerRecordTarget? = null,
 ) {
     var chosen by remember { mutableStateOf(worker?.chosen) }
+    var askStart by remember { mutableStateOf<String?>(null) }
+    askStart?.let { ghId ->
+        StartSowingDialog(onNo = { askStart = null }, onContinue = { askStart = null; worker?.onStartPlanting?.invoke(ghId) })
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -91,7 +95,12 @@ internal fun RecordSheet(
                     val ghId = chosen
                     if (start != null && ghId != null && worker.notPlanted(ghId)) StartPlantingCard { start(ghId) }
                 }
-                val pick: (RecordChoice) -> Unit = if (worker != null) { choice -> worker.onPick(choice, chosen) } else onPick
+                val pick: (RecordChoice) -> Unit = if (worker != null) { choice ->
+                    // Inofarm 20 Nov 2026: a manager recording on a greenhouse not yet sown is asked to start sowing first.
+                    val ghId = chosen
+                    if (worker.onStartPlanting != null && ghId != null && choice in FieldChoices && worker.notPlanted(ghId)) askStart = ghId
+                    else worker.onPick(choice, chosen)
+                } else onPick
                 if (field.isNotEmpty()) RecordGroup(if (worker != null) null else "Di greenhouse", field, 3, 0, pick,
                     if (worker?.workerDetails == true) WorkerRecordDetails else emptyMap())
                 worker?.onNutritionRun?.let { NutritionRunRow(it) }
@@ -118,6 +127,23 @@ private fun NutritionRunRow(onClick: () -> Unit) {
         }
         CompositionLocalProvider(LocalContentColor provides FarmColors.Ink) { FarmControlIcon(FarmIcon.ChevronRight, null) }
     }
+}
+
+@Composable
+private fun StartSowingDialog(onNo: () -> Unit, onContinue: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onNo,
+        modifier = Modifier.testTag("start-sowing-dialog"),
+        title = { Text("Greenhouse belum dimulai semai") },
+        text = { Text("Apakah mau mulai semai?") },
+        dismissButton = {
+            TextButton(onClick = onNo, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("start-sowing-no")) { Text("Tidak") }
+        },
+        confirmButton = {
+            Button(onClick = onContinue, shape = FarmShape.Control,
+                modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("start-sowing-continue")) { Text("Lanjut") }
+        },
+    )
 }
 
 @Composable
