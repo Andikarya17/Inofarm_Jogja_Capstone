@@ -26687,6 +26687,18 @@
                 "type": "null"
               }
             ]
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nomor musim ke-n di greenhouse ini; dipakai untuk biaya standar Musim n."
           }
         },
         "required": [
@@ -26698,7 +26710,8 @@
           "status",
           "version",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "sequence"
         ]
       },
       "SeasonsPublicPage": {
