@@ -82,6 +82,9 @@ final class SaleService
                 // A named buyer (21 Nov 2026) sets the type and keeps a copy of the name as it was at the sale.
                 if (isset($p['customer'])) {
                     [$data['customer_id'], $data['customer_type'], $data['customer_name']] = app(CustomerService::class)->forSale($current, $p['customer']);
+                } elseif (array_key_exists('customer', $p)) {
+                    // An explicit null unlinks the buyer (correction to "Tidak dicatat"); omitting the key keeps it for older clients.
+                    $data['customer_id'] = null;
                 }
                 // Grades A/B/C are the mitra's own grading (20 Nov 2026); other buyers buy the Layak line ungraded.
                 if (collect($p['items'])->contains(fn ($item) => ($item['buyer_grade'] ?? null) !== null)) {

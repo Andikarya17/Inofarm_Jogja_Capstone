@@ -32,6 +32,14 @@ class StandardCostModelTest {
         assertEquals(4, sheet.greenhouseCount)
     }
 
+    @Test fun locked_sheet_names_closed_greenhouses() {
+        val open = CostSheet.from(wire(inofarm))
+        assertEquals(false, open.locked)
+        val locked = CostSheet.from(wire(inofarm).put("locked", true).put("closed_greenhouse_names", JSONArray(listOf("GH A", "GH B"))))
+        assertEquals(true, locked.locked)
+        assertEquals(listOf("GH A", "GH B"), locked.closedGreenhouses)
+    }
+
     @Test fun blank_required_amount_gives_null_total() {
         val sheet = CostSheet.from(wire(inofarm + ("Benih" to null)))
         assertNull(sheet.total("VC"))

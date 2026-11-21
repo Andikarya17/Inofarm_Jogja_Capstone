@@ -68,12 +68,15 @@ final class CustomerService
                     $result[] = ['row' => $row['row'], 'status' => 'invalid', 'customer_id' => null, 'reason' => 'Nomor WhatsApp tidak valid. Kosongkan untuk mengimpor tanpa nomor.'];
                     continue;
                 }
-                $existing = $number === null ? null : ($seen[$number] ?? DB::table('customers')->where('type', $type)->where('whatsapp', $number)->value('id'));
+                // A row id from the client makes a retried import idempotent, also for rows without a number.
+                $rowId = $row['id'] ?? null;
+                $existing = $rowId !== null ? DB::table('customers')->where('id', $rowId)->value('id') : null;
+                $existing ??= $number === null ? null : ($seen[$number] ?? DB::table('customers')->where('type', $type)->where('whatsapp', $number)->value('id'));
                 if ($existing) {
                     $result[] = ['row' => $row['row'], 'status' => 'existing', 'customer_id' => $existing, 'reason' => null];
                     continue;
                 }
-                $id = (string) Str::uuid();
+                $id = $rowId ?? (string) Str::uuid();
                 if (! $dryRun) {
                     $this->create($actor, $id, $type, $name, $number, 'import');
                 }

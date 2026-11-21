@@ -27,8 +27,11 @@ class SaleBuyerDraftTest {
         assertEquals("0812 5555 6666", named.getJSONObject("customer").getString("whatsapp"))
     }
 
-    @Test fun sale_without_buyer_type_sends_no_customer() {
-        assertFalse(draft().payload().has("customer"))
+    @Test fun sale_without_buyer_sends_explicit_null_customer() {
+        // An explicit null lets a correction to "Tidak dicatat" unlink the stored buyer on the server.
+        val payload = draft().payload()
+        assertTrue(payload.has("customer") && payload.isNull("customer"))
+        assertTrue(payload.has("customer_type") && payload.isNull("customer_type"))
     }
 
     @Test fun partner_total_sums_grade_lines() {

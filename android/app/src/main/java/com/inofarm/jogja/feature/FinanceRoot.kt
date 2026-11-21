@@ -830,7 +830,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
         )
     }
     if (recordSheet) RecordSheet(::startRecord,
-        { recordSheet = false }, if (manager) ManagerRecordChoices else WorkerRecordChoices,
+        { recordSheet = false }, if (manager) managerRecordChoices(financeVisibility.showRealCosts(session.scope.key)) else WorkerRecordChoices,
         worker = WorkerRecordTarget(
             context.greenhouses.filter { it.optBoolean("active", true) }, gh ?: lastGreenhouse ?: context.greenhouses.singleOrNull { it.optBoolean("active", true) }?.optString("id"),
             caption = { id -> context.recordingTarget(id, workerToday).caption(manager) },

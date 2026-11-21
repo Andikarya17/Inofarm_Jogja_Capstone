@@ -134,7 +134,7 @@ final class SeasonReportSources
         $gaps = array_values(array_map(fn ($line) => $line['name'], array_filter($public['lines'], fn ($line) => $line['amount'] === null)));
         $sources[] = ['kind' => 'season_cost_sheet', 'id' => $public['id'], 'version' => $public['version'], 'included' => true, 'role' => 'season_cost_basis',
             'contribution' => ['FC' => $public['totals']['FC'], 'VC' => $public['totals']['VC']],
-            'reason' => 'Biaya standar Musim '.$public['sequence'].' yang sama untuk setiap greenhouse.', 'data' => $public];
+            'reason' => 'Biaya standar Musim '.$public['sequence'].' yang sama untuk setiap greenhouse.', 'data' => SeasonCostSheetService::reportSource($public)];
 
         return ['ref' => ['id' => $public['id'], 'sequence' => $public['sequence'], 'version' => $public['version']], 'gaps' => $gaps];
     }

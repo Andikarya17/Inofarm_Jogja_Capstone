@@ -218,6 +218,43 @@ class FinanceStandardCostTest extends FinanceTestCase
         $this->assertSame('7606100.00', $this->postJson('/api/v2/season-reports/preview', $ctx['input'])->json('metrics.FC.value'));
     }
 
+    public function test_final_report_refused_while_sheet_has_blank_line(): void
+    {
+        $ctx = $this->reportSeason();
+        $this->save($ctx['sheet'], $this->lines($ctx['sheet'], [...self::INOFARM, 'Benih' => null]))->assertOk();
+        $this->postJson('/api/v2/seasons/'.$ctx['season']['id'].'/close', $this->operation('seasons', ['reason' => 'Tutup sintetis'], 'close', $ctx['season']['id'], $ctx['season']['version']))->assertOk();
+
+        $response = $this->postJson('/api/v2/season-reports/preview', [...$ctx['input'], 'requested_state' => 'reviewed_final'])
+            ->assertConflict()->assertJsonPath('code', 'report_review_incomplete');
+        $this->assertStringContainsString('Benih', $response->json('message'));
+    }
+
+    public function test_other_greenhouse_season_does_not_change_sources_hash(): void
+    {
+        $ctx = $this->reportSeason();
+        $before = $this->postJson('/api/v2/season-reports/preview', $ctx['input'])->assertOk()->json('sources_hash');
+        $other = $this->createMaster('greenhouses', ['name' => 'GH lain']);
+        $this->createMaster('seasons', ['greenhouse_id' => $other['id'], 'name' => 'Musim GH lain', 'start_date' => '2026-10-05', 'end_date' => null]);
+
+        $this->assertSame($before, $this->postJson('/api/v2/season-reports/preview', $ctx['input'])->assertOk()->json('sources_hash'));
+    }
+
+    public function test_closed_season_of_inactive_greenhouse_does_not_lock_sheet(): void
+    {
+        $this->context($this->account());
+        $other = $this->createMaster('greenhouses', ['name' => 'GH lama']);
+        $old = $this->createMaster('seasons', ['greenhouse_id' => $other['id'], 'name' => 'Musim lama', 'start_date' => '2026-09-01', 'end_date' => null]);
+        DB::table('seasons')->where('id', $old['id'])->update(['status' => 'closed']);
+        $locked = $this->sheet();
+        $this->assertTrue($locked['locked']);
+        $this->assertSame(['GH lama'], $locked['closed_greenhouse_names']);
+
+        DB::table('greenhouses')->where('id', $other['id'])->update(['active' => false]);
+        $sheet = $this->sheet();
+        $this->assertFalse($sheet['locked']);
+        $this->save($sheet, $this->lines($sheet))->assertOk();
+    }
+
     public function test_new_season_gets_next_sequence(): void
     {
         $ctx = $this->context($this->account());

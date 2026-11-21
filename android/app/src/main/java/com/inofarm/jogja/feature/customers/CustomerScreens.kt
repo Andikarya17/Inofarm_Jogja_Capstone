@@ -92,10 +92,12 @@ import kotlinx.coroutines.withContext
     var check by remember { mutableStateOf<ImportOutcome?>(null) }
     var message by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // One id per sheet row for as long as this file is open, so pressing Impor again reports rows as already there.
+    val rowIds = remember(sheet) { sheet?.rows?.associate { it.number to java.util.UUID.randomUUID().toString() }.orEmpty() }
     fun rows(): List<ImportRow> {
         val s = sheet ?: return emptyList()
         val n = nameColumn ?: return emptyList()
-        return s.rows.map { ImportRow(it.number, it.cells.getOrElse(n) { "" }, phoneColumn?.let { p -> it.cells.getOrElse(p) { "" }.ifBlank { null } }) }
+        return s.rows.map { ImportRow(it.number, it.cells.getOrElse(n) { "" }, phoneColumn?.let { p -> it.cells.getOrElse(p) { "" }.ifBlank { null } }, rowIds.getValue(it.number)) }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri ?: return@rememberLauncherForActivityResult

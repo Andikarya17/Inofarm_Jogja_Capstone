@@ -69,11 +69,20 @@ final class SeasonCostSheetService
         $seasons = DB::table('seasons')->join('greenhouses', 'greenhouses.id', '=', 'seasons.greenhouse_id')
             ->where('seasons.sequence', $sheet->sequence)->where('greenhouses.active', true)->orderBy('greenhouses.name')
             ->get(['greenhouses.name', 'seasons.status']);
+        $closed = $seasons->where('status', 'closed')->pluck('name')->values()->all();
 
         return ['id' => $sheet->id, 'sequence' => (int) $sheet->sequence, 'version' => (int) $sheet->version, 'lines' => $lines,
             'totals' => self::totals($lines), 'greenhouse_count' => $seasons->count(),
             'open_greenhouse_names' => $seasons->where('status', 'open')->pluck('name')->values()->all(),
+            // Editing is refused while an active greenhouse has closed this season number; inactive greenhouses do not lock it.
+            'locked' => $closed !== [], 'closed_greenhouse_names' => $closed,
             'updated_at' => CarbonImmutable::parse($sheet->updated_at, 'UTC')->toISOString()];
+    }
+
+    /** What a season report depends on: the sheet's own inputs, not other greenhouses' names or statuses. */
+    public static function reportSource(array $public): array
+    {
+        return ['id' => $public['id'], 'sequence' => $public['sequence'], 'version' => $public['version'], 'lines' => $public['lines'], 'totals' => $public['totals']];
     }
 
     /** FC and VC per greenhouse; a class is null while one of its lines has no amount (blank is not zero). */
@@ -99,7 +108,7 @@ final class SeasonCostSheetService
             $sheet = DB::table('season_cost_sheets')->where('id', $op['entity_id'])->lockForUpdate()->first() ?? abort(404);
             $before = $this->publicSheet($sheet);
             $this->ledger->version($sheet, $op['base_version'], $before);
-            if (DB::table('seasons')->where('sequence', $sheet->sequence)->where('status', 'closed')->exists()) {
+            if ($before['locked']) {
                 throw new DomainFailure('season_closed', 'Ada greenhouse yang sudah menutup musim ini. Buka kembali musimnya sebelum mengubah biaya standar.');
             }
             $this->replaceLines($sheet->id, $op['payload']['lines']);

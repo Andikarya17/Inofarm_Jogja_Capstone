@@ -18,7 +18,13 @@ data class Customer(val id: String, val type: String, val name: String, val what
     }
 }
 
-data class ImportRow(val row: Int, val name: String, val whatsapp: String?)
+/** [id] is created once per parsed row, so retrying an import never creates the same buyer twice. */
+data class ImportRow(val row: Int, val name: String, val whatsapp: String?, val id: String = java.util.UUID.randomUUID().toString())
+
+internal fun importBody(type: String, rows: List<ImportRow>, dryRun: Boolean): JSONObject =
+    JSONObject().put("dry_run", dryRun).put("type", type).put("rows", JSONArray().also { array ->
+        rows.forEach { array.put(JSONObject().put("row", it.row).put("name", it.name).put("whatsapp", it.whatsapp ?: JSONObject.NULL).put("id", it.id)) }
+    })
 
 data class ImportOutcome(val created: Int, val existing: Int, val invalid: Int, val problems: List<Pair<Int, String>>)
 
@@ -44,10 +50,7 @@ class CustomerRepository(private val vault: FinanceSessionVault, private val api
             var created = 0; var existing = 0; var invalid = 0
             val problems = mutableListOf<Pair<Int, String>>()
             rows.chunked(chunk).forEach { part ->
-                val body = JSONObject().put("dry_run", dryRun).put("type", type).put("rows", JSONArray().also { array ->
-                    part.forEach { array.put(JSONObject().put("row", it.row).put("name", it.name).put("whatsapp", it.whatsapp ?: JSONObject.NULL)) }
-                })
-                val result = api.request(session.scope.server, session.token, "customers/import", "POST", body)
+                val result = api.request(session.scope.server, session.token, "customers/import", "POST", importBody(type, part, dryRun))
                 val summary = result.getJSONObject("summary")
                 created += summary.getInt("created"); existing += summary.getInt("existing"); invalid += summary.getInt("invalid")
                 val lines = result.getJSONArray("rows")

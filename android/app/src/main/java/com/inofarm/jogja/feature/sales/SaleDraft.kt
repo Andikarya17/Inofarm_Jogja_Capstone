@@ -53,6 +53,8 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
             .apply {
                 if(hasBuyer()) put("customer_type",buyerType).put("customer",JSONObject().put("id",buyerId).put("type",buyerType).put("name",customer.trim())
                     .put("whatsapp",buyerWhatsapp.trim().ifBlank {null} ?: JSONObject.NULL))
+                // Explicit nulls: a correction to "Tidak dicatat" unlinks the stored buyer instead of keeping it.
+                else put("customer_type",JSONObject.NULL).put("customer",JSONObject.NULL)
             }
     }
     fun localJson():JSONObject {

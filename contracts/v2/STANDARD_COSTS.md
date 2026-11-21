@@ -15,14 +15,14 @@ Keputusan pengguna 20–21 November 2026: biaya tetap (FC) dan biaya variabel (V
 |---|---|
 | `GET season-cost-sheets[?sequence=n]` | Semua lembar, terbaru dulu; membuat lembar untuk setiap nomor musim yang sudah ada |
 | `GET season-cost-sheets/{id}` | Detail |
-| `PATCH season-cost-sheets/{id}` | Envelope `entity_type: season_cost_sheet`, `action: update`, `base_version`; payload `lines` lengkap ([schema](season-cost-sheet-operation.schema.json), [fixture](fixtures/season-cost-sheet-operation.json)). 409 `season_closed` bila ada musim bernomor n yang sudah ditutup; 409 `version_conflict`; 422 untuk baris wajib yang dihapus/diganti dan nama ganda |
+| `PATCH season-cost-sheets/{id}` | Envelope `entity_type: season_cost_sheet`, `action: update`, `base_version`; payload `lines` lengkap ([schema](season-cost-sheet-operation.schema.json), [fixture](fixtures/season-cost-sheet-operation.json)). 409 `season_closed` bila ada greenhouse **aktif** yang sudah menutup musim bernomor n (greenhouse nonaktif tidak mengunci). Respons lembar memuat `locked` dan `closed_greenhouse_names` agar Android memberi tahu sebelum mengedit. Musim lama yang sudah ditutup sebelum migration 23 diisi dengan membuka kembali musimnya, mengisi lembar, lalu menutupnya lagi; 409 `version_conflict`; 422 untuk baris wajib yang dihapus/diganti dan nama ganda |
 | `GET season-cost-sheets/{id}/audit` | Audit per versi |
 
 Semua route khusus pengelola. Lembar tidak terikat ke greenhouse, sehingga tidak masuk `sync/changes`; audit dan receipt tetap ditulis. Android membacanya online.
 
 ## Laporan musim
 
-Sejak formula `season-standard-cost-rational-half-up-v2`, FC dan VC laporan musim diambil dari lembar biaya standar musim itu (sumber `season_cost_sheet`, `role: season_cost_basis`). Alokasi biaya dan alokasi penyusutan tetap dicantumkan sebagai `reference_only` dan dihitung di `source_counts.allocations`, tetapi tidak dijumlahkan. Preview dan snapshot memuat `cost_basis: "standard"`, `cost_sheet` (id, sequence, version) dan `cost_gaps` (nama baris yang masih kosong). Laporan terbit sebelumnya tidak berubah.
+Sejak formula `season-standard-cost-rational-half-up-v2`, FC dan VC laporan musim diambil dari lembar biaya standar musim itu (sumber `season_cost_sheet`, `role: season_cost_basis`). Alokasi biaya dan alokasi penyusutan tetap dicantumkan sebagai `reference_only` dan dihitung di `source_counts.allocations`, tetapi tidak dijumlahkan. Preview dan snapshot memuat `cost_basis: "standard"`, `cost_sheet` (id, sequence, version) dan `cost_gaps` (nama baris yang masih kosong). Laporan terbit sebelumnya tidak berubah. Sumber `season_cost_sheet` hanya memuat id, sequence, version, lines dan totals, sehingga perubahan greenhouse lain tidak mengubah `sources_hash`. `reviewed_final` ditolak (`report_review_incomplete`) selama `cost_gaps` belum kosong.
 
 ## Pemasukan per tipe pembeli
 

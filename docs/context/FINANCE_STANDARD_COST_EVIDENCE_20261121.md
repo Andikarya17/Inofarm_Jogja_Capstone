@@ -27,6 +27,21 @@ Label bukti dipakai seperti dokumen sebelumnya: **tes otomatis** (PHPUnit/JUnit)
 - `scripts/check-finance-contracts.py`: semua blok PASS termasuk lembar biaya. `scripts/check-finance-context.py`: 0 error.
 - Instrumentasi `FinanceEntryUiTest` **tidak dijalankan** pada branch ini.
 
+## Perbaikan sesudah review akhir (21 November 2026)
+
+Review kode seluruh branch: tidak ada temuan Critical, 6 Important, 11 Minor. Keenam temuan Important diperbaiki, dan setiap perbaikan diawali tes yang gagal:
+
+| Temuan | Perbaikan |
+|---|---|
+| Laporan `reviewed_final` bisa terbit dengan baris biaya kosong | Ditolak `report_review_incomplete` dengan nama baris yang kosong |
+| `sources_hash` ikut berubah oleh GH lain (nama, status, jumlah GH) | Sumber `season_cost_sheet` kini hanya berisi id, sequence, version, lines dan totals |
+| Lembar terkunci selamanya oleh musim tertutup di GH nonaktif | Kunci hanya menghitung GH aktif. Respons lembar memuat `locked` dan `closed_greenhouse_names`, dan Android memberi tahu serta mematikan Simpan sebelum diedit. Musim lama yang sudah tertutup diisi dengan buka kembali, isi, lalu tutup lagi |
+| Koreksi ke "Tidak dicatat" tidak melepas pembeli | Android mengirim `customer: null` dan `customer_type: null`, lalu server mengosongkan `customer_id` |
+| Impor ulang menggandakan pembeli tanpa nomor | Setiap baris membawa UUID dari klien yang tetap selama file terbuka; impor ulang melaporkannya `existing` |
+| Ikon mata tidak menyembunyikan Catat pengeluaran | Pilihan pengeluaran di sheet Catat mengikuti ikon mata |
+
+Sesudah perbaikan: backend **220 tes / 5.333 assertion OK**, JVM **177 tes, 0 gagal**, lint 0 error, kontrak PASS, context check 0 error. Perbaikan ini **belum** diuji ulang di emulator. Temuan Minor yang ditunda tercatat di bagian batas.
+
 ## Uji emulator terhadap backend nyata
 
 Fixture `scripts/finance-device-fixture.php create manager-home` (2 GH sintetis, akun pengelola), lalu data lewat API: panen Layak per GH, 7 penjualan Okt–Nov (perorangan, mitra, satu tanpa tipe), lembar Musim 1 berisi angka Inofarm. APK debug dengan `-PinofarmFinanceDebugApiUrl=http://127.0.0.1:8001/api/v2/` dan `adb reverse tcp:8001`. Port 8000 milik proses lain tidak disentuh. MySQL proyek (port 3307) sempat mati dan dinyalakan ulang dengan argumen `scripts/local-database.ps1` (hanya `mysqld`, tanpa provisioning).
@@ -55,3 +70,14 @@ Ditemukan dan diperbaiki selama uji emulator: judul ganda dan padding ganda di l
 - Belum ada layar tabel transaksi per tipe pembeli; akumulasi ada di Daftar pembeli dan kartu "Per tipe pembeli".
 - Unduh PDF ringkasan investor dan retail belum dikerjakan (di luar tenggat, sesuai rencana).
 - Masih ditanyakan ke Inofarm: kolom Excel pembeli mereka dan aturan harga retail.
+- Minor dari review yang ditunda:
+  - Kartu laba tidak pernah menampilkan error.
+  - `profit-summary` berat dan diambil ulang setiap sync.
+  - Batas `SpreadsheetReader` (total ukuran, sel jauh di kanan, XML berprefiks).
+  - Tebakan kolom WA bisa memilih kolom "No".
+  - Pesan sukses impor tidak sempat tampil.
+  - Indeks `seasons(greenhouse_id, sequence)` belum unik.
+  - Label laporan v1.
+  - Feed dilewati diam-diam bila `greenhouse_id` null.
+  - Keamanan parser XML (XXE) di API 29/30 belum dicek di perangkat.
+- Masih keputusan pengguna: apakah musim yang masih berjalan ikut dijumlahkan di "Laba tercatat" untuk investor.

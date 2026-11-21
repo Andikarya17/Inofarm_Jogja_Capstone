@@ -20105,6 +20105,11 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                          "description": "Optional client id per row; a retried import with the same id reports the row as existing."
                         }
                       }
                     }
@@ -30996,7 +31001,9 @@
           "totals",
           "greenhouse_count",
           "open_greenhouse_names",
-          "updated_at"
+          "updated_at",
+          "locked",
+          "closed_greenhouse_names"
         ],
         "properties": {
           "id": {
@@ -31077,6 +31084,16 @@
           },
           "updated_at": {
             "type": "string"
+          },
+          "locked": {
+            "type": "boolean",
+            "description": "True while an active greenhouse has closed this season number; edits are refused with season_closed."
+          },
+          "closed_greenhouse_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

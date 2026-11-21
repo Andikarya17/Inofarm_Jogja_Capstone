@@ -101,11 +101,12 @@ private fun raw(amount: BigDecimal?): String = amount?.stripTrailingZeros()?.let
                     Text("Berlaku sama untuk ${sheet.greenhouseCount} GH" + (preview.farmTotal()?.let { " · ${rupiah(it)} per musim" } ?: ""),
                         style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"))
                 }
+                if (sheet.locked) Notice("Musim ${sheet.sequence} sudah ditutup di ${sheet.closedGreenhouses.joinToString(", ")}. Buka kembali musim itu dulu untuk mengubah biaya standar.", true)
                 if (summary) {
                     FarmFormSection("Rincian") {
                         preview.lines.forEach { Line(it.name + if (it.required) "" else " (tambahan)", it.amount?.let(::rupiah) ?: "Belum diisi") }
                     }
-                    if (preview.tc() == null) Notice("Masih ada baris yang kosong. Laba musim tetap sementara sampai semua baris wajib terisi.")
+                    if (preview.tc() == null) Notice("Masih ada baris yang kosong. Laba musim tetap sementara sampai semua baris terisi.")
                 } else {
                     listOf("FC" to "Biaya tetap (FC)", "VC" to "Biaya variabel (VC)").forEach { (costClass, title) ->
                         FarmFormSection(title) {
@@ -131,7 +132,7 @@ private fun raw(amount: BigDecimal?): String = amount?.stripTrailingZeros()?.let
         }
         if (draft != null) FarmFormBar(saveTag = if (summary) "cost-back" else "cost-cancel", onSave = { if (summary) summary = false else onBack() },
             mainTag = if (summary) "cost-save" else "cost-review", mainLabel = "Simpan", saveLabel = if (summary) "Ubah" else "Batal",
-            mainIcon = summary, busy = busy, enabled = !busy,
+            mainIcon = summary, busy = busy, enabled = !busy && draft?.locked != true,
             onMain = {
                 val (sheet, found) = applied()
                 errors = found

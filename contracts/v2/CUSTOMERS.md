@@ -9,7 +9,7 @@ Keputusan pengguna 20–21 November 2026. Daftar pembeli berlaku untuk seluruh k
 |---|---|
 | `GET customers?type=&q=&limit=&cursor=` | Cari nama, atau digit WhatsApp bila `q` berisi minimal 3 digit. Setiap baris membawa `purchase_count`, `total_kg`, `last_purchase_at` dari penjualan aktif |
 | `GET customers/{id}` | Detail |
-| `POST customers/import` | `{dry_run, type, rows:[{row, name, whatsapp}]}`, maksimal 1.000 baris dan 128 KiB (pengecualian batas 16 KiB). Hasil per baris `created`, `existing` (nomor sudah ada, dilewati) atau `invalid` dengan alasan. `dry_run: true` tidak menulis apa pun |
+| `POST customers/import` | `{dry_run, type, rows:[{row, name, whatsapp, id?}]}`, maksimal 1.000 baris dan 128 KiB (pengecualian batas 16 KiB). `id` opsional adalah UUID buatan klien per baris: impor ulang dengan `id` yang sama melaporkan baris itu `existing`, juga untuk baris tanpa nomor. Hasil per baris `created`, `existing` (nomor atau `id` sudah ada, dilewati) atau `invalid` dengan alasan. `dry_run: true` tidak menulis apa pun |
 
 ## Pembeli di penjualan
 
@@ -17,4 +17,4 @@ Payload `sales` boleh membawa `customer: {id, type, name, whatsapp}`:
 
 - `id` sudah ada dan aktif dengan tipe yang sama: penjualan merujuknya; `customer_name` diisi nama tersimpan.
 - `id` baru: server membuat pembeli dalam transaksi penjualan yang sama (sumber `manual`). Bila nomornya sudah dimiliki pembeli lain bertipe sama, pembeli itu yang dipakai.
-- `sales.customer_id`, `customer_type` dan `customer_name` (salinan saat penjualan) terisi. Penjualan tanpa `customer` berjalan seperti sebelumnya.
+- `sales.customer_id`, `customer_type` dan `customer_name` (salinan saat penjualan) terisi. Penjualan tanpa key `customer` berjalan seperti sebelumnya dan koreksinya mempertahankan pembeli tersimpan. `customer: null` (bersama `customer_type: null`) melepas pembeli dari penjualan, untuk koreksi ke "Tidak dicatat".

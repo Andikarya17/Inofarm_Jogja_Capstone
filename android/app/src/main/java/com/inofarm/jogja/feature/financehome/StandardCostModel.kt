@@ -9,7 +9,9 @@ import java.math.RoundingMode
 data class CostLine(val id: String, val name: String, val costClass: String, val amount: BigDecimal?, val required: Boolean, val sortOrder: Int)
 
 /** Standard cost sheet for season number [sequence], the same for every greenhouse (Inofarm, 20-21 Nov 2026). */
-data class CostSheet(val id: String, val sequence: Int, val version: Int, val lines: List<CostLine>, val greenhouseCount: Int) {
+/** [locked] while an active greenhouse has closed season [sequence]; [closedGreenhouses] names them so the screen can say so before editing. */
+data class CostSheet(val id: String, val sequence: Int, val version: Int, val lines: List<CostLine>, val greenhouseCount: Int,
+    val locked: Boolean = false, val closedGreenhouses: List<String> = emptyList()) {
     /** Per-greenhouse total of one class, or null while any of its lines is blank. */
     fun total(costClass: String): BigDecimal? {
         val own = lines.filter { it.costClass == costClass }
@@ -59,7 +61,9 @@ data class CostSheet(val id: String, val sequence: Int, val version: Int, val li
                 CostLine(line.getString("id"), line.getString("name"), line.getString("cost_class"),
                     if (line.isNull("amount")) null else BigDecimal(line.getString("amount")), line.getBoolean("is_required"), line.optInt("sort_order", index))
             }
-            return CostSheet(body.getString("id"), body.getInt("sequence"), body.getInt("version"), lines, body.optInt("greenhouse_count", 0))
+            val closed = body.optJSONArray("closed_greenhouse_names")
+            return CostSheet(body.getString("id"), body.getInt("sequence"), body.getInt("version"), lines, body.optInt("greenhouse_count", 0),
+                body.optBoolean("locked", false), closed?.let { names -> (0 until names.length()).map { names.getString(it) } }.orEmpty())
         }
     }
 }

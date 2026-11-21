@@ -94,6 +94,9 @@ final class SeasonReportService
             if ($coverage['sales'] !== 'complete') {
                 $reasons[] = 'Penjualan harus ditinjau lengkap.';
             }
+            if ($data['cost_gaps'] !== []) {
+                $reasons[] = 'Biaya standar belum lengkap: '.implode(', ', $data['cost_gaps']).'.';
+            }
             if ($input['known_pending_count'] !== 0) {
                 $reasons[] = 'Antrean yang diketahui harus dinyatakan nol setelah peninjauan.';
             }

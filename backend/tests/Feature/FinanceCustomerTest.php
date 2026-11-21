@@ -95,6 +95,33 @@ class FinanceCustomerTest extends FinanceTestCase
         $this->assertSame(['Pak Joko'], array_column($this->getJson('/api/v2/customers?q=5555')->json('data'), 'name'));
     }
 
+    public function test_sale_corrected_to_no_buyer_clears_link(): void
+    {
+        $ctx = $this->context($this->account());
+        $sale = $this->saleWithBuyer($ctx, ['id' => (string) Str::uuid(), 'type' => 'partner', 'name' => 'Mitra sintetis', 'whatsapp' => null]);
+        $items = array_map(fn ($item) => ['id' => $item['id'], 'harvest_item_id' => $item['harvest_item_id'], 'quantity_kg' => $item['quantity_kg'],
+            'price_per_kg' => $item['price_per_kg']], $sale['items']);
+        $op = $this->operation('sale', ['season_id' => $ctx['season']['id'], 'paid_at' => '2026-11-05T09:00:00+07:00', 'payment_status' => 'paid',
+            'customer_name' => '', 'notes' => '', 'reason' => 'Pembeli salah', 'customer_type' => null, 'customer' => null, 'items' => $items], 'update', $sale['id'], $sale['version']);
+
+        $saved = $this->patchJson('/api/v2/sales/'.$sale['id'], $op)->assertOk()->json('data');
+        $this->assertNull($saved['customer_id']);
+        $this->assertNull($saved['customer_type']);
+    }
+
+    public function test_import_retry_with_row_ids_does_not_duplicate(): void
+    {
+        $this->context($this->account());
+        $rows = [['row' => 2, 'name' => 'Tanpa nomor', 'whatsapp' => null, 'id' => (string) Str::uuid()],
+            ['row' => 3, 'name' => 'Dengan nomor', 'whatsapp' => '081277778888', 'id' => (string) Str::uuid()]];
+        $this->import($rows)->assertOk()->assertJsonPath('summary.created', 2);
+
+        $retry = $this->import($rows)->assertOk()->json();
+        $this->assertSame(['created' => 0, 'existing' => 2, 'invalid' => 0], $retry['summary']);
+        $this->assertSame($rows[0]['id'], $retry['rows'][0]['customer_id']);
+        $this->assertSame(2, DB::table('customers')->count());
+    }
+
     public function test_worker_cannot_read_customers(): void
     {
         $this->context($this->account());

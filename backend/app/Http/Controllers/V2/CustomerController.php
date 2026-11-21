@@ -37,7 +37,7 @@ final class CustomerController extends Controller
     public function import(Request $request)
     {
         $input = $request->validate(['dry_run' => 'required|boolean', 'type' => 'required|in:consumer,partner',
-            'rows' => 'required|array|min:1|max:'.CustomerService::MAX_IMPORT_ROWS, 'rows.*' => 'required|array:row,name,whatsapp',
+            'rows' => 'required|array|min:1|max:'.CustomerService::MAX_IMPORT_ROWS, 'rows.*' => 'required|array:row,name,whatsapp,id', 'rows.*.id' => ['sometimes', OperationInput::UUID],
             'rows.*.row' => 'required|integer|min:1', 'rows.*.name' => 'present|nullable|string|max:200', 'rows.*.whatsapp' => 'present|nullable|string|max:40']);
 
         return app(ScopedRead::class)->run($request, fn (User $actor) => app(CustomerService::class)->import($actor, $input['type'], $input['rows'], (bool) $input['dry_run']));
