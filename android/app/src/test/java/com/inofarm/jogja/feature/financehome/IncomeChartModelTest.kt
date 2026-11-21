@@ -54,6 +54,12 @@ class IncomeChartModelTest {
         assertEquals(LocalDate.parse("2026-06-01"), mFrom)
     }
 
+    @Test fun rupiah_writes_loss_with_leading_minus() {
+        assertEquals("−Rp6.216.200", rupiah(BigDecimal("-6216200.00")))
+        assertEquals("Rp6.216.200", rupiah(BigDecimal("6216200.00")))
+        assertEquals("Rp0,50", rupiah(BigDecimal("0.5")))
+    }
+
     @Test fun unspecified_only_shown_when_present() {
         assertFalse(bars(bucket("2026-11", "Nov", "1.00", "2.00")).any { it.hasUnspecified() })
         assertTrue(bars(bucket("2026-11", "Nov", "1.00", "2.00", "5.00")).single().hasUnspecified())

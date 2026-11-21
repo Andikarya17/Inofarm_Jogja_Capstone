@@ -259,12 +259,16 @@ internal fun kg(value: BigDecimal): String = value.stripTrailingZeros().let { if
             Pair("Biaya total (TC)", money("TC")).let { (k, v) -> Line(k, v) }
             HorizontalDivider()
             Row(verticalAlignment = Alignment.Bottom) {
-                Text("Laba", Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                Text(money("profit"), style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                val loss = !open.isNull("profit") && open.getString("profit").startsWith("-")
+                Text(if (loss) "Rugi" else "Laba", Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                // A loss is written as -Rp and coloured as an error, never brand green; unknown stays body size.
+                Text(money("profit"), style = (if (open.isNull("profit")) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.headlineSmall)
+                    .copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.ExtraBold,
+                    color = if (loss) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, modifier = Modifier.testTag("finance-profit-value"))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                 Tile("R/C", if (open.isNull("rc")) "-" else BigDecimal(open.getString("rc")).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString().replace('.', ','), Modifier.weight(1f))
-                Tile("BEP harga", if (open.isNull("bep_price")) "-" else rupiah(BigDecimal(open.getString("bep_price")).setScale(0, java.math.RoundingMode.HALF_UP)) + "/kg", Modifier.weight(1f))
+                Tile("BEP harga/kg", if (open.isNull("bep_price")) "-" else rupiah(BigDecimal(open.getString("bep_price")).setScale(0, java.math.RoundingMode.HALF_UP)), Modifier.weight(1f))
                 Tile("BEP produksi", if (open.isNull("bep_kg")) "-" else kg(BigDecimal(open.getString("bep_kg")).setScale(0, java.math.RoundingMode.HALF_UP)), Modifier.weight(1f))
             }
             Text("Dihitung dari biaya standar musim berjalan dan penjualan lunas. Terjual ${kg(BigDecimal(open.optString("sold_kg", "0")))}.",
