@@ -60,7 +60,7 @@ fun investorTotals(bySequence: JSONArray): InvestorTotals {
         if (sequences.length() == 0) { Text("Belum ada musim yang tercatat."); return@Column }
         val totals = investorTotals(sequences)
         FarmHeroCard {
-            Text("Laba tercatat, ${sequences.length()} musim", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text((if (totals.profit?.signum() == -1) "Rugi tercatat" else "Laba tercatat") + ", ${sequences.length()} musim", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(totals.profit?.let(::rupiah) ?: "Biaya belum lengkap", style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier.testTag("investor-profit"))
             Text("Penerimaan ${rupiah(totals.tr)} · biaya ${totals.tc?.let(::rupiah) ?: "belum lengkap"}" + (totals.rc?.let { " · R/C ${it.toPlainString().replace('.', ',')}" } ?: ""),
@@ -83,7 +83,8 @@ fun investorTotals(bySequence: JSONArray): InvestorTotals {
                         Text(row.getString("name"), Modifier.weight(1f), fontWeight = FontWeight.Bold)
                         Text(shortMillions(BigDecimal(row.getString("TR"))), Modifier.weight(1.2f), style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                         Text(if (row.isNull("profit")) "-" else shortMillions(BigDecimal(row.getString("profit"))), Modifier.weight(1.2f), fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
+                            color = if (!row.isNull("profit") && row.getString("profit").startsWith("-")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                         Text(if (row.isNull("rc")) "-" else BigDecimal(row.getString("rc")).setScale(2, RoundingMode.HALF_UP).toPlainString().replace('.', ','),
                             Modifier.weight(0.6f), style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                     }

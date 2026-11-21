@@ -107,7 +107,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
     val options=sources(context,draft)
     draft.items.forEachIndexed {index,line ->
         HorizontalDivider()
-        FarmFact("Sumber panen ${index+1}",options.find {it.optString("id")==line.sourceId}
+        FarmFact("Sumber panen ${index+1}"+(if(line.grade.isNotBlank()) " · grade ${line.grade}" else ""),options.find {it.optString("id")==line.sourceId}
             ?.optString("name") ?: "Sumber belum tersedia pada data tersimpan")
         FarmFact("Bobot", line.quantity.takeIf(String::isNotBlank)?.let { "$it kg" } ?: "Belum diisi")
         FarmFact("Harga per kg", line.price.takeIf(String::isNotBlank)?.let { "$it IDR/kg" } ?: "Belum diisi")
