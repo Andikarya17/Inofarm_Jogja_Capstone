@@ -61,10 +61,25 @@ Fixture `scripts/finance-device-fixture.php create manager-home` (2 GH sintetis,
 
 Ditemukan dan diperbaiki selama uji emulator: judul ganda dan padding ganda di layar Keuangan, teks legenda terpotong, nominal rincian terpotong, rugi tampil "Rp-…" berwarna hijau (kini "Rugi −Rp…" merah, juga di ringkasan investor), grade mitra belum terlihat di Ringkasan penjualan, dan pembersih fixture yang tidak mengenal tabel baru (kini menghapus pembeli dan lembar milik fixture). Setelah uji, `inofarm_test` kosong lagi (users, greenhouses, sales, customers, lembar biaya, entity_identities = 0).
 
+## Penerapan migration 23 ke database aplikasi, 21 November 2026
+
+Atas permintaan pengguna, sebelum push dan merge. Tes backend tetap hanya memakai `inofarm_test`.
+
+| Langkah | Hasil |
+|---|---|
+| Koneksi efektif | `php artisan db:show`: MySQL `127.0.0.1:3307`, database `inofarm_finance_local`; `migrate:status` hanya `2026_11_21_000023_standard_costs_and_customers` Pending |
+| Backup `scripts/backup-mysql.ps1` | `outputs/rollout-20261121/inofarm_finance_local-20261121-115143.sql`, 337.772 byte, 55 `CREATE TABLE`, penanda "Dump completed" ada |
+| SHA-256 backup | `ce855ceb9ab32379bef498b2216f4b05f9e5b938eff1b94c5af72cf847939b7c` |
+| `migrate --pretend` | Hanya kolom/tabel/index/FK/CHECK baru dan backfill `seasons.sequence` |
+| `migrate --force` | DONE 326,30 ms; `migrate:status --pending=1` keluar 0 |
+| Sebelum/sesudah | 55 → 58 tabel (`season_cost_sheets`, `season_cost_lines`, `customers`, masing-masing 0 baris). Jumlah baris semua tabel lama sama kecuali `migrations` 27 → 28. `CHECKSUM TABLE` 51 tabel yang tidak diubah migration identik |
+| Backfill | 5 musim di 5 GH, semuanya `sequence` 1 dan `open` |
+
+Lembar biaya Musim 1 akan dibuat server saat pengelola pertama kali membuka Biaya standar, dengan tujuh baris wajib tanpa angka; angka Inofarm belum diisi. Restore backup ini belum diuji. Aplikasi belum dibuka terhadap database ini sesudah migration.
+
 ## Batas dan celah terbuka
 
 - Belum diuji di ponsel fisik, TalkBack, mode gelap, font 200% atau layar 360 dp.
-- Migration 23 **belum** diterapkan ke `inofarm_finance_local`. Perlu izin pengguna dan backup dulu.
 - Form Biaya standar dan Impor tampil di dalam tab dengan dock tetap terlihat; Batal di Biaya standar langsung menutup tanpa dialog konfirmasi.
 - Pemilih file sistem tidak bereaksi pada `adb input tap` di emulator ini; dipilih lewat D-pad/Enter. Ketukan jari biasa belum dibuktikan.
 - Belum ada layar tabel transaksi per tipe pembeli; akumulasi ada di Daftar pembeli dan kartu "Per tipe pembeli".
