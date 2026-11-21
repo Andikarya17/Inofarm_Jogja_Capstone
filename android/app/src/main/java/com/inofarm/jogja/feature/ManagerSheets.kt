@@ -55,6 +55,9 @@ private val WorkerRecordDetails = mapOf(
 /** One "Kegiatan" form holds readings too (17 Nov 2026), so Pengukuran is no longer a separate tile. */
 internal val WorkerRecordChoices = listOf(RecordChoice.ACTIVITY, RecordChoice.HARVEST)
 internal val ManagerRecordChoices = RecordChoice.entries.filter { it != RecordChoice.MEASUREMENT }
+
+/** Catat pengeluaran follows the eye toggle on the Keuangan tab (spec section 7): hidden while real costs are hidden. */
+internal fun managerRecordChoices(showRealCosts: Boolean) = ManagerRecordChoices.filter { showRealCosts || it != RecordChoice.EXPENSE }
 private val FieldChoices = setOf(RecordChoice.ACTIVITY, RecordChoice.MEASUREMENT, RecordChoice.HARVEST)
 
 @OptIn(ExperimentalMaterial3Api::class)

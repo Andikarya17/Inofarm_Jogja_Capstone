@@ -35,6 +35,8 @@ class FinanceSeasonReportTest extends FinanceTestCase
         $depreciation = $this->operation('depreciation_allocation', ['asset_id' => $asset['entity_id'], 'season_id' => $ctx['season']['id'], 'usage_reference' => (string) Str::uuid(),
             'usage_year' => 1, 'period_start' => '2026-10-01', 'period_end' => '2026-11-01', 'amount' => '10.00', 'allocation_basis' => 'Alokasi nominal disepakati sintetis']);
         $this->postJson('/api/v2/depreciation-allocations', $depreciation)->assertCreated();
+        // Real costs above stay as references; the report sums the standard cost sheet (21 Nov 2026).
+        $this->standardCosts('5000000.00', '3000000.00');
         $grade = $this->createMaster('grades', ['greenhouse_id' => $ctx['gh']['id'], 'name' => 'Grade sintetis']);
         $item = (string) Str::uuid();
         $harvest = $this->operation('harvest', ['planting_group_id' => $ctx['group']['id'], 'occurred_at' => '2026-10-30T08:00:00+07:00', 'notes' => '600kg termasuk200kg belum terjual',
@@ -61,7 +63,7 @@ class FinanceSeasonReportTest extends FinanceTestCase
             $this->assertSame($value, $preview['metrics'][$key]['value']);
         }
         $this->assertSame('provisional', $preview['report_state']);
-        $this->assertSame(7, $preview['source_count']);
+        $this->assertSame(8, $preview['source_count']);
         $op = $this->report($input, $preview);
         $receipt = $this->postJson('/api/v2/season-reports', $op)->assertCreated()->json();
         $this->postJson('/api/v2/season-reports', $op)->assertCreated()->assertExactJson($receipt);
@@ -104,6 +106,7 @@ class FinanceSeasonReportTest extends FinanceTestCase
         $unknown = $this->postJson('/api/v2/season-reports/preview', [...$input, 'coverage' => ['costs' => 'unknown', 'sales' => 'unknown'], 'known_pending_count' => null])->assertOk()->json();
         $this->assertNull($unknown['metrics']['TC']['value']);
         $this->assertNull($unknown['metrics']['TR']['value']);
+        $this->standardCosts('0.00', '0.00');
         $zero = $this->postJson('/api/v2/season-reports/preview', $input)->assertOk()->json();
         $this->assertSame('0.00', $zero['metrics']['TC']['value']);
         $this->assertNull($zero['metrics']['RC']['value']);

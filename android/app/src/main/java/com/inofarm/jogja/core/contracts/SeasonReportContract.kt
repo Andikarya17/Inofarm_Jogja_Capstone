@@ -7,8 +7,10 @@ import java.time.OffsetDateTime
 
 object SeasonReportContract {
     const val KIND="season_report"
-    const val VERSION="season-recorded-cash-rational-half-up-v1"
-    val labels=linkedMapOf("FC" to "Biaya tetap teralokasi", "VC" to "Biaya variabel teralokasi", "TC" to "Total biaya tercatat",
+    /** Standard cost sheets (21 Nov 2026). Reports published under v1 (allocated real costs) stay readable. */
+    const val VERSION="season-standard-cost-rational-half-up-v2"
+    private val SUPPORTED=setOf(VERSION,"season-recorded-cash-rational-half-up-v1")
+    val labels=linkedMapOf("FC" to "Biaya tetap", "VC" to "Biaya variabel", "TC" to "Total biaya",
         "TR" to "Penerimaan lunas", "Q" to "Berat terjual", "L" to "Laba", "RC" to "R/C", "BC" to "B/C sederhana",
         "P" to "Harga rata-rata", "BEP_Q" to "BEP kuantitas pada biaya tercatat", "BEP_PRICE" to "BEP harga")
     private val decimal=Regex("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?")
@@ -18,7 +20,7 @@ object SeasonReportContract {
         val number=(value as Number).toLong();require(number in 0..Int.MAX_VALUE.toLong());return number.toInt()
     }
     fun validate(body:JSONObject,accepted:Boolean):JSONObject {
-        require(body.getString("formula_version")==VERSION) {"Versi rumus belum didukung aplikasi ini. Perbarui aplikasi."}
+        require(body.getString("formula_version") in SUPPORTED) {"Versi rumus belum didukung aplikasi ini. Perbarui aplikasi."}
         WireContract.uuid(body.getString("greenhouse_id"));WireContract.uuid(body.getString("season_id"))
         require(body.getString("currency")=="IDR" && body.getString("timezone")=="Asia/Jakarta")
         require(body.getString("report_state") in setOf("provisional","reviewed_final"))

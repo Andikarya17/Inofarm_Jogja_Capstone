@@ -94,6 +94,9 @@ final class SeasonReportService
             if ($coverage['sales'] !== 'complete') {
                 $reasons[] = 'Penjualan harus ditinjau lengkap.';
             }
+            if ($data['cost_gaps'] !== []) {
+                $reasons[] = 'Biaya standar belum lengkap: '.implode(', ', $data['cost_gaps']).'.';
+            }
             if ($input['known_pending_count'] !== 0) {
                 $reasons[] = 'Antrean yang diketahui harus dinyatakan nol setelah peninjauan.';
             }
@@ -101,18 +104,20 @@ final class SeasonReportService
                 throw new DomainFailure('report_review_incomplete', implode(' ', $reasons));
             }
         }
-        $fc = $counts['FC'] > 0 || $coverage['costs'] === 'complete' ? $totals['FC'] : null;
-        $vc = $counts['VC'] > 0 || $coverage['costs'] === 'complete' ? $totals['VC'] : null;
+        // Standard costs: a class is known exactly when every line of its sheet has an amount.
+        $fc = $totals['FC'];
+        $vc = $totals['VC'];
         $saleKnown = $counts['sales'] > 0 || $coverage['sales'] === 'complete';
 
         return ['greenhouse_id' => $data['scope']['greenhouse']['id'], 'season_id' => $season['id'], 'scope' => $data['scope'],
             'formula_version' => SeasonEvaluation::VERSION, 'currency' => 'IDR', 'timezone' => 'Asia/Jakarta', 'report_state' => $final ? 'reviewed_final' : 'provisional',
             'coverage' => $coverage, 'known_pending_count' => $input['known_pending_count'], 'review_note' => $input['review_note'],
             'metrics' => SeasonEvaluation::calculate($fc, $vc, $saleKnown ? $totals['TR'] : null, $saleKnown ? $totals['Q'] : null, $coverage),
+            'cost_basis' => 'standard', 'cost_sheet' => $data['cost_sheet'], 'cost_gaps' => $data['cost_gaps'],
             'sources_hash' => $data['sources_hash'], 'source_count' => count($data['sources']), 'source_counts' => $counts,
             'assumptions' => [
                 'Hanya revisi keuangan yang diterima server pada snapshot ini; draf dan antrean perangkat tidak masuk agregasi.',
-                'Biaya mencakup alokasi tercatat; pembayaran yang belum dialokasikan dapat belum tercakup dan perlu ditinjau pengelola.',
+                'Biaya memakai biaya standar Musim ke-n yang sama untuk setiap greenhouse; pembayaran, alokasi dan penyusutan nyata hanya dicantumkan sebagai rujukan.',
                 'Pernyataan lengkap dan jumlah antrean adalah tinjauan pengelola, bukan bukti semua transaksi/perangkat offline terdeteksi.',
                 'Pembelian aset dan catatan pemakaian bahan tidak menjadi pembayaran atau biaya musim kedua.',
                 'TR memakai total pembayaran lunas yang telah dibulatkan per transaksi sesuai kontrak; panen belum terjual bukan penerimaan.',

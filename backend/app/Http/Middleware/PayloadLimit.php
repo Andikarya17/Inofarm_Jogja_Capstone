@@ -15,6 +15,12 @@ class PayloadLimit
 
             return $next($request);
         }
+        // Customer import carries up to 1.000 short rows of an Excel sheet; every other JSON request stays at 16 KiB.
+        if ($request->is('api/v2/customers/import') && $request->isMethod('POST')) {
+            abort_if(strlen($request->getContent()) > 131072, 413, 'Payload impor melebihi 128 KiB. Kirim baris dalam beberapa bagian.');
+
+            return $next($request);
+        }
         abort_if(strlen($request->getContent()) > 16384, 413, 'Payload melebihi 16 KiB.');
 
         return $next($request);

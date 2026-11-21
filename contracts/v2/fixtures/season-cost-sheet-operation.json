@@ -1,0 +1,73 @@
+{
+  "note": "Fixture sintetis. Angka biaya dari tabel Inofarm 20 Nov 2026 hanya sebagai contoh kontrak, bukan seed. Benih kosong (null) berarti belum diisi.",
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "0b6f3f8e-9a51-4d2c-8a39-3f5c3e7d1a10",
+    "operation_id": "5f9e2c1b-7d34-4a8e-b6f0-2c9d8e7a6b51",
+    "entity_id": "8c4e1a2b-6d3f-4e5a-9b7c-1d2e3f4a5b6c",
+    "entity_type": "season_cost_sheet",
+    "action": "update",
+    "base_version": 1,
+    "payload": {
+      "lines": [
+        {
+          "id": "6a1c0d5e-3f2b-4c8a-9e1d-000000000001",
+          "name": "Biaya penyusutan",
+          "cost_class": "FC",
+          "amount": "5806100.00",
+          "is_required": true
+        },
+        {
+          "id": "6a1c0d5e-3f2b-4c8a-9e1d-000000000002",
+          "name": "Sewa tanah",
+          "cost_class": "FC",
+          "amount": "275000.00",
+          "is_required": true
+        },
+        {
+          "id": "6a1c0d5e-3f2b-4c8a-9e1d-000000000003",
+          "name": "Tenaga kerja",
+          "cost_class": "FC",
+          "amount": "1500000.00",
+          "is_required": true
+        },
+        {
+          "id": "6a1c0d5e-3f2b-4c8a-9e1d-000000000004",
+          "name": "Cocopeat/rockwool",
+          "cost_class": "VC",
+          "amount": "180000.00",
+          "is_required": true
+        },
+        {
+          "id": "6a1c0d5e-3f2b-4c8a-9e1d-000000000005",
+          "name": "Nutrisi AB Mix",
+          "cost_class": "VC",
+          "amount": "1600000.00",
+          "is_required": true
+        },
+        {
+          "id": "6a1c0d5e-3f2b-4c8a-9e1d-000000000006",
+          "name": "Nutrisi tambahan dan pestisida",
+          "cost_class": "VC",
+          "amount": "350000.00",
+          "is_required": true
+        },
+        {
+          "id": "6a1c0d5e-3f2b-4c8a-9e1d-000000000007",
+          "name": "Benih",
+          "cost_class": "VC",
+          "amount": null,
+          "is_required": true
+        },
+        {
+          "id": "6a1c0d5e-3f2b-4c8a-9e1d-000000000008",
+          "name": "Listrik pompa",
+          "cost_class": "VC",
+          "amount": "150000.00",
+          "is_required": false
+        }
+      ]
+    }
+  },
+  "canonical_sha256": "a4ee8eabf11dc9160a84f08d37b37a6c66db3220886760d885189f712be87e74"
+}

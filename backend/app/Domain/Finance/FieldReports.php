@@ -58,6 +58,110 @@ final class FieldReports
             'as_of' => CarbonImmutable::now('UTC')->toISOString()];
     }
 
+    public const MAX_BUCKETS = 104;
+
+    private const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+    /** WIB bucket of a day: weeks start on Monday, months on the 1st, years on 1 January. */
+    public static function bucketStart(CarbonImmutable $day, string $granularity): CarbonImmutable
+    {
+        return match ($granularity) {
+            'week' => $day->startOfDay()->subDays($day->dayOfWeekIso - 1),
+            'month' => $day->startOfMonth(),
+            'year' => $day->startOfYear(),
+        };
+    }
+
+    /** Paid, active sales per week/month/year (WIB), split by buyer type for the stacked income chart. */
+    public function income(User $actor, string $granularity, string $from, string $until, ?string $greenhouseId): array
+    {
+        $this->access->manager($actor);
+        $ids = $this->access->query($actor)->when($greenhouseId, fn ($q, $id) => $q->where('id', $id))->pluck('id')->all();
+        abort_if($greenhouseId !== null && $ids === [], 404, 'Data tidak ditemukan.');
+        $first = self::bucketStart(CarbonImmutable::parse($from, 'Asia/Jakarta'), $granularity);
+        $end = CarbonImmutable::parse($until, 'Asia/Jakarta')->addDay();
+        $step = ['week' => 'addWeek', 'month' => 'addMonth', 'year' => 'addYear'][$granularity];
+        $empty = fn () => ['receipts' => '0.00', 'weight_kg' => '0.000000'];
+        $buckets = [];
+        for ($start = $first; $start->lt($end); $start = $start->{$step}()) {
+            abort_if(count($buckets) >= self::MAX_BUCKETS, 422, 'Rentang terlalu panjang; maksimal '.self::MAX_BUCKETS.' batang.');
+            $key = ['week' => $start->format('Y-m-d'), 'month' => $start->format('Y-m'), 'year' => $start->format('Y')][$granularity];
+            $label = ['week' => $start->day.' '.self::MONTHS[$start->month - 1], 'month' => self::MONTHS[$start->month - 1], 'year' => $start->format('Y')][$granularity];
+            $buckets[$key] = ['key' => $key, 'label' => $label, 'start' => $start->format('Y-m-d'), ...$empty(),
+                'by_type' => ['consumer' => $empty(), 'partner' => $empty(), 'unspecified' => $empty()]];
+        }
+        $totals = [...$empty(), 'by_type' => ['consumer' => $empty(), 'partner' => $empty(), 'unspecified' => $empty()]];
+        $rows = DB::table('sales')->whereIn('greenhouse_id', $ids)->where('record_state', 'active')->where('payment_status', 'paid')
+            ->where('paid_at', '>=', $first->utc()->format('Y-m-d H:i:s.u'))->where('paid_at', '<', $end->utc()->format('Y-m-d H:i:s.u'))
+            ->get(['paid_at', 'total_amount', 'total_weight_kg', 'customer_type']);
+        foreach ($rows as $row) {
+            $day = CarbonImmutable::parse($row->paid_at, 'UTC')->setTimezone('Asia/Jakarta');
+            $start = self::bucketStart($day, $granularity);
+            $key = ['week' => $start->format('Y-m-d'), 'month' => $start->format('Y-m'), 'year' => $start->format('Y')][$granularity];
+            $type = in_array($row->customer_type, ['consumer', 'partner'], true) ? $row->customer_type : 'unspecified';
+            foreach ([&$buckets[$key], &$buckets[$key]['by_type'][$type], &$totals, &$totals['by_type'][$type]] as &$slot) {
+                $slot['receipts'] = bcadd($slot['receipts'], $row->total_amount, 2);
+                $slot['weight_kg'] = bcadd($slot['weight_kg'], $row->total_weight_kg, 6);
+            }
+            unset($slot);
+        }
+
+        return ['granularity' => $granularity, 'buckets' => array_values($buckets), 'totals' => $totals];
+    }
+
+    /**
+     * Live profit on standard costs (21 Nov 2026): every greenhouse season, the open ones together, and each season
+     * number across greenhouses. Not a published report; values follow the season-report calculation.
+     */
+    public function profitSummary(User $actor, ?string $greenhouseId): array
+    {
+        $this->access->manager($actor);
+        $greenhouses = $this->access->query($actor)->where('active', true)->when($greenhouseId, fn ($q, $id) => $q->where('id', $id))->orderBy('name')->get(['id', 'name']);
+        abort_if($greenhouseId !== null && $greenhouses->isEmpty(), 404, 'Data tidak ditemukan.');
+        $rows = [];
+        foreach (DB::table('seasons')->whereIn('greenhouse_id', $greenhouses->pluck('id'))->orderBy('sequence')->orderBy('id')->get() as $season) {
+            $preview = $this->seasonReports->preview($actor, ['season_id' => $season->id, 'coverage' => ['costs' => 'complete', 'sales' => 'complete'],
+                'known_pending_count' => null, 'requested_state' => 'provisional', 'review_note' => 'Ringkasan laba']);
+            $m = $preview['metrics'];
+            $rows[] = ['greenhouse_id' => $season->greenhouse_id, 'name' => $greenhouses->firstWhere('id', $season->greenhouse_id)->name, 'season_id' => $season->id,
+                'sequence' => $season->sequence === null ? null : (int) $season->sequence, 'status' => $season->status,
+                'FC' => $m['FC']['value'], 'VC' => $m['VC']['value'], 'TR' => $m['TR']['value'], 'Q' => $m['Q']['value']];
+        }
+        $open = array_values(array_filter($rows, fn ($row) => $row['status'] === 'open'));
+        $bySequence = [];
+        foreach (array_unique(array_filter(array_column($rows, 'sequence'), fn ($n) => $n !== null)) as $n) {
+            $group = array_values(array_filter($rows, fn ($row) => $row['sequence'] === $n));
+            $bySequence[] = ['sequence' => $n, 'greenhouse_count' => count($group), ...self::figures($group)];
+        }
+        return [
+            'open' => ['greenhouse_count' => count($open), ...self::figures($open, true)],
+            'by_sequence' => $bySequence,
+            'by_greenhouse' => array_map(fn ($row) => ['greenhouse_id' => $row['greenhouse_id'], 'name' => $row['name'], 'season_id' => $row['season_id'],
+                'sequence' => $row['sequence'], ...self::figures([$row])], $rows),
+        ];
+    }
+
+    /** Sums seasons (a missing FC/VC makes costs unknown; no sales count as zero) and reuses SeasonEvaluation. */
+    private static function figures(array $rows, bool $withBep = false): array
+    {
+        $fc = $vc = '0.00';
+        $tr = '0.00';
+        $q = '0.000000';
+        foreach ($rows as $row) {
+            $fc = $fc === null || $row['FC'] === null ? null : bcadd($fc, $row['FC'], 2);
+            $vc = $vc === null || $row['VC'] === null ? null : bcadd($vc, $row['VC'], 2);
+            $tr = bcadd($tr, $row['TR'] ?? '0', 2);
+            $q = bcadd($q, $row['Q'] ?? '0', 6);
+        }
+        $m = SeasonEvaluation::calculate($fc, $vc, $tr, $q, ['costs' => 'complete', 'sales' => 'complete']);
+        $out = ['TR' => $tr, 'TC' => $m['TC']['value'], 'profit' => $m['L']['value'], 'rc' => $m['RC']['value'], 'complete' => $m['TC']['value'] !== null];
+        if ($withBep) {
+            $out += ['bep_price' => $m['BEP_PRICE']['value'], 'bep_kg' => $m['BEP_Q']['value'], 'sold_kg' => $q];
+        }
+
+        return $out;
+    }
+
     public function cashFlowCsv(array $report): string
     {
         $stream = fopen('php://temp', 'r+');

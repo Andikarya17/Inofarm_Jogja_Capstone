@@ -37,9 +37,12 @@ final class SaleController extends Controller
     {
         $rules = $action === 'cancel' ? [] : ['season_id' => ['required', OperationInput::UUID], 'paid_at' => 'required|date_format:Y-m-d\TH:i:sP',
             'payment_status' => 'required|in:paid', 'customer_name' => 'present|string|max:200',
-            'payment_method' => 'sometimes|nullable|in:cash,qris,transfer', 'payment_reference' => 'sometimes|nullable|string|max:100', 'customer_type' => 'sometimes|nullable|in:consumer,partner', 'notes' => 'present|string|max:2000', 'items' => 'required|array|min:1|max:30',
-            'items.*' => 'required|array:id,harvest_item_id,quantity_kg,price_per_kg', 'items.*.id' => ['required', OperationInput::UUID, 'distinct'],
-            'items.*.harvest_item_id' => ['required', OperationInput::UUID, 'distinct'], 'items.*.quantity_kg' => 'required|string|max:30', 'items.*.price_per_kg' => 'required|string|max:30'];
+            'payment_method' => 'sometimes|nullable|in:cash,qris,transfer', 'payment_reference' => 'sometimes|nullable|string|max:100', 'customer_type' => 'sometimes|nullable|in:consumer,partner', 'notes' => 'present|string|max:2000',
+            'customer' => 'sometimes|nullable|array:id,type,name,whatsapp', 'customer.id' => ['required_with:customer', OperationInput::UUID],
+            'customer.type' => 'required_with:customer|in:consumer,partner', 'customer.name' => ['required_with:customer', 'string', 'max:200', 'regex:/\S/u'],
+            'customer.whatsapp' => 'present_with:customer|nullable|string|max:40', 'items' => 'required|array|min:1|max:30',
+            'items.*' => 'required|array:id,harvest_item_id,quantity_kg,price_per_kg,buyer_grade', 'items.*.buyer_grade' => 'sometimes|nullable|in:A,B,C', 'items.*.id' => ['required', OperationInput::UUID, 'distinct'],
+            'items.*.harvest_item_id' => ['required', OperationInput::UUID], 'items.*.quantity_kg' => 'required|string|max:30', 'items.*.price_per_kg' => 'required|string|max:30'];
         if ($action !== 'create') {$rules['reason'] = OperationInput::reasonRule($request, ['required', 'string', 'max:1000', 'regex:/\S/u']);}
         $result = app(SaleService::class)->mutate($request->user(), OperationInput::read($request, 'sale', $action, $rules, $id));
         return response()->json($result['body'], $result['status']);

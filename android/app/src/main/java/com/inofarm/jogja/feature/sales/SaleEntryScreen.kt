@@ -43,7 +43,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
             .put("choice_label", grade).put("choice_detail", detail)
     }}
 
-@Composable fun SaleForm(state:SaleEntryState,context:CultivationUiState,vm:SaleEntryViewModel) {
+@Composable fun SaleForm(state:SaleEntryState,context:CultivationUiState,vm:SaleEntryViewModel,buyerSearch:(suspend (String,String)->List<com.inofarm.jogja.feature.customers.Customer>)?=null) {
     val draft=state.draft ?: return
     val cancel = rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
     FarmFormFrame(header = { FarmFormHeader(if(draft.baseVersion==null) "Catat penjualan lunas" else "Koreksi penjualan", state.saved, "sale-draft-status", "sale-close", cancel, !state.busy,
@@ -54,18 +54,22 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
         else Choice("Musim penjualan",draft.seasonId,context.seasons.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("status")=="open"},"sale-season") {value -> vm.edit {it.copy(seasonId=value,items=listOf(SaleLine()))}}
         FinanceDateField("Tanggal lunas (YYYY-MM-DD)",draft.date,{value -> vm.edit {it.copy(date=value)}},"sale-date",state.errors["paid_at"])
         FinanceTimeField("Jam lunas WIB (HH:mm)",draft.time,{value -> vm.edit {it.copy(time=value)}},"sale-time",hint="Detik opsional HH:mm:ss.")
-        FinanceField("Pembeli (boleh kosong)",draft.customer,{value -> vm.edit {it.copy(customer=value)}},"sale-customer",state.errors["customer"])
+        com.inofarm.jogja.feature.customers.BuyerSection(draft,state.errors["customer"],buyerSearch) {change -> vm.edit(change)}
         }
         val options=sources(context,draft)
         draft.items.forEachIndexed {index,line -> key(line.id) { FarmFormSection("Rincian panen ${index+1}") {
             fun edit(updated:SaleLine) {vm.edit {it.copy(items=it.items.toMutableList().apply {set(index,updated)})}}
             if(line.id in draft.lockedSources) Text(options.find {it.optString("id")==line.sourceId}?.optString("name") ?: "Sumber terakhir tersimpan · perbarui untuk saldo terbaru")
             else Choice("Sumber panen ${index+1}",line.sourceId,options,"sale-source-$index") {edit(line.copy(sourceId=it))}
+            // Mitra grades the fruit when buying (20 Nov 2026): one line per grade, the same Layak source may repeat.
+            if(draft.buyerType=="partner") com.inofarm.jogja.core.design.FarmChoiceChips("Grade dari mitra",line.grade.ifBlank {null},
+                listOf("A","B","C").map {org.json.JSONObject().put("id",it).put("name","Grade $it")},"sale-grade-$index") {edit(line.copy(grade=it))}
             FinanceField("Bobot ${index+1} (kg)",line.quantity,{edit(line.copy(quantity=it))},"sale-quantity-$index",state.errors["items.$index.quantity"],KeyboardType.Decimal,hint="Lebih dari nol, maksimal6 desimal; tanpa pemisah ribuan.", suffix = "kg", prominent = true)
             FinanceField("Harga ${index+1} (IDR/kg)",line.price,{edit(line.copy(price=it))},"sale-price-$index",state.errors["items.$index.price"],KeyboardType.Decimal,hint="Harga manual, maksimal6 desimal. Kosong bukan nol.", suffix = "IDR/kg", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
             TextButton(onClick={vm.edit {it.copy(items=it.items.filterIndexed {i,_ -> i!=index})}},modifier=Modifier.testTag("sale-remove-$index")) {Text("Hapus rincian ${index+1}")}
         }}}
-        OutlinedButton(onClick={vm.edit {it.copy(items=it.items+SaleLine())}},enabled=draft.items.size<30,modifier=Modifier.fillMaxWidth().testTag("sale-add")) {Text("Tambah sumber panen")}
+        OutlinedButton(onClick={vm.edit {it.copy(items=it.items+SaleLine())}},enabled=draft.items.size<30,modifier=Modifier.fillMaxWidth().testTag("sale-add")) {Text(if(draft.buyerType=="partner") "Tambah grade atau sumber panen" else "Tambah sumber panen")}
+        state.errors["items"]?.let {Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
         FarmCheckbox("Saya memastikan pembayaran penjualan ini sudah lunas.", draft.paid,
             { value -> vm.edit { it.copy(paid = value) } }, Modifier.testTag("sale-paid"))
         FinanceField("Keterangan penjualan",draft.notes,{value -> vm.edit {it.copy(notes=value)}},"sale-notes",state.errors["notes"],singleLine=false)
@@ -99,10 +103,11 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
     FarmFact("Musim",context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "Nama belum tersedia")
     FarmFact("Pembayaran","${draft.date} ${draft.time} WIB · ${if(draft.paid) "Lunas" else "Belum dikonfirmasi"}")
     if(draft.customer.isNotBlank()) FarmFact("Pembeli",draft.customer)
+    if(draft.hasBuyer()) FarmFact("Tipe pembeli",(if(draft.buyerType=="partner") "Mitra" else "Perorangan")+if(draft.buyerExisting) "" else " · pembeli baru, masuk daftar")
     val options=sources(context,draft)
     draft.items.forEachIndexed {index,line ->
         HorizontalDivider()
-        FarmFact("Sumber panen ${index+1}",options.find {it.optString("id")==line.sourceId}
+        FarmFact("Sumber panen ${index+1}"+(if(line.grade.isNotBlank()) " · grade ${line.grade}" else ""),options.find {it.optString("id")==line.sourceId}
             ?.optString("name") ?: "Sumber belum tersedia pada data tersimpan")
         FarmFact("Bobot", line.quantity.takeIf(String::isNotBlank)?.let { "$it kg" } ?: "Belum diisi")
         FarmFact("Harga per kg", line.price.takeIf(String::isNotBlank)?.let { "$it IDR/kg" } ?: "Belum diisi")

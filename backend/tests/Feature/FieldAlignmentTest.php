@@ -52,13 +52,13 @@ class FieldAlignmentTest extends FinanceTestCase
         $toB = $this->allocation($expense['entity_id'], $b['season']['id'], '33.34');
         $this->postJson('/api/v2/cost-allocations', $toB)->assertCreated()->assertJsonPath('data.season_id', $b['season']['id']);
         $preview = ['coverage' => ['costs' => 'partial', 'sales' => 'partial'], 'known_pending_count' => null, 'requested_state' => 'provisional', 'review_note' => 'Cek'];
-        $this->postJson('/api/v2/season-reports/preview', ['season_id' => $b['season']['id'], ...$preview])->assertOk()->assertJsonPath('source_counts.VC', 1);
+        $this->postJson('/api/v2/season-reports/preview', ['season_id' => $b['season']['id'], ...$preview])->assertOk()->assertJsonPath('source_counts.allocations', 1);
 
         // "Dipindah": a wrongly booked allocation moves to another season in one versioned update.
         $move = $this->operation('cost_allocation', [...$toB['payload'], 'season_id' => $c['season']['id']], 'update', $toB['entity_id'], 1);
         $this->patchJson('/api/v2/cost-allocations/'.$toB['entity_id'], $move)->assertOk()
             ->assertJsonPath('data.season_id', $c['season']['id'])->assertJsonPath('data.season_name', 'Musim sintetis')->assertJsonPath('data.version', 2);
-        $this->postJson('/api/v2/season-reports/preview', ['season_id' => $b['season']['id'], ...$preview])->assertOk()->assertJsonPath('source_counts.VC', 0);
+        $this->postJson('/api/v2/season-reports/preview', ['season_id' => $b['season']['id'], ...$preview])->assertOk()->assertJsonPath('source_counts.allocations', 0);
         $this->getJson('/api/v2/cost-allocations/'.$toB['entity_id'].'/audit')->assertJsonPath('data.1.changes.before.season_id', $b['season']['id']);
 
         $this->postJson('/api/v2/seasons/'.$b['season']['id'].'/close', $this->operation('seasons', [], 'close', $b['season']['id'], 1))->assertOk();

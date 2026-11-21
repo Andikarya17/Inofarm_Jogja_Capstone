@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Inofarm v2 season_cost_sheet operation",
+  "description": "Satu lembar biaya standar per Musim ke-n untuk seluruh kebun. Hanya update: payload berisi seluruh baris aktif. Baris wajib (Biaya penyusutan, Sewa tanah, Tenaga kerja, Cocopeat/rockwool, Nutrisi AB Mix, Nutrisi tambahan dan pestisida, Benih) tidak dapat dihapus atau diganti nama. amount null berarti belum diisi, bukan nol.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "2"},
+    "sync_epoch": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "operation_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "entity_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "entity_type": {"const": "season_cost_sheet"},
+    "action": {"const": "update"},
+    "base_version": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lines"],
+      "properties": {
+        "lines": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 40,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name", "cost_class", "amount", "is_required"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+              "name": {"type": "string", "minLength": 1, "maxLength": 150, "pattern": "\\S"},
+              "cost_class": {"enum": ["FC", "VC"]},
+              "amount": {"anyOf": [{"type": "string", "pattern": "^[0-9]{1,18}(\\.[0-9]{1,2})?$"}, {"type": "null"}]},
+              "is_required": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": ["schema_version", "sync_epoch", "operation_id", "entity_id", "entity_type", "action", "base_version", "payload"]
+}
