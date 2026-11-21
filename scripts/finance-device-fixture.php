@@ -650,6 +650,17 @@ DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses, $seas
         DB::table($table)->whereIn('activity_id', $activityIds)->delete();
     }
     DB::table('activities')->whereIn('id', $activityIds)->delete();
+    // Farm-wide records (migration 23) have no greenhouse: find the buyers and cost sheets this fixture's actors created
+    // through their audit rows, before those rows go.
+    $farmWide = fn (string $type) => DB::table('audit_logs')->where('entity_type', $type)->where('action', 'create')
+        ->whereIn('actor_id', $actors->pluck('id'))->pluck('entity_id')->all();
+    $customers = $farmWide('customer');
+    $sheets = $farmWide('season_cost_sheet');
+    $lines = DB::table('season_cost_lines')->whereIn('sheet_id', $sheets)->pluck('id')->all();
+    DB::table('customers')->whereIn('id', $customers)->whereNotExists(fn ($q) => $q->from('sales')->whereColumn('sales.customer_id', 'customers.id'))->delete();
+    DB::table('season_cost_lines')->whereIn('id', $lines)->delete();
+    DB::table('season_cost_sheets')->whereIn('id', $sheets)->delete();
+    DB::table('entity_identities')->whereIn('entity_id', [...$customers, ...$sheets, ...$lines])->delete();
     DB::table('audit_logs')->whereIn('actor_id', $actors->pluck('id'))->delete();
     DB::table('sync_operations')->whereIn('actor_id', $actors->pluck('id'))->delete();
     DB::table('change_feed')->whereIn('greenhouse_id', $greenhouses)->delete();
