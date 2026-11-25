@@ -13,7 +13,7 @@ final class CustomerController extends Controller
 {
     public function index(Request $request)
     {
-        $input = $request->validate(['type' => 'nullable|in:consumer,partner', 'q' => 'nullable|string|max:100',
+        $input = $request->validate(['type' => 'nullable|in:consumer,retail,partner', 'q' => 'nullable|string|max:100',
             'limit' => 'sometimes|integer|min:1|max:100', 'cursor' => 'nullable|string|max:500']);
 
         return app(ScopedRead::class)->run($request, fn (User $actor) => app(CustomerService::class)->search($actor, $input['type'] ?? null,
@@ -36,7 +36,7 @@ final class CustomerController extends Controller
      */
     public function import(Request $request)
     {
-        $input = $request->validate(['dry_run' => 'required|boolean', 'type' => 'required|in:consumer,partner',
+        $input = $request->validate(['dry_run' => 'required|boolean', 'type' => 'required|in:consumer,retail,partner',
             'rows' => 'required|array|min:1|max:'.CustomerService::MAX_IMPORT_ROWS, 'rows.*' => 'required|array:row,name,whatsapp,id', 'rows.*.id' => ['sometimes', OperationInput::UUID],
             'rows.*.row' => 'required|integer|min:1', 'rows.*.name' => 'present|nullable|string|max:200', 'rows.*.whatsapp' => 'present|nullable|string|max:40']);
 
