@@ -80,7 +80,8 @@ private enum class FinancePage { OVERVIEW, COSTS, LEDGER, CUSTOMERS, SALES }
     var page by rememberSaveable { mutableStateOf(FinancePage.OVERVIEW) }
     var ledgerReturn by rememberSaveable { mutableStateOf(FinancePage.OVERVIEW) }
     /** The season number the manager picked; -1 lets the server pick the largest running one (shown from the response). */
-    var sequence by rememberSaveable { mutableIntStateOf(-1) }
+    var sequence by rememberSaveable(session.scope.key) { mutableIntStateOf(-1) }
+    var salesFilter by remember(session.scope.key) { mutableStateOf(SalesFilter()) }
     var reload by remember { mutableIntStateOf(0) }
     var overview by remember(session.scope.key) { mutableStateOf<SeasonOverview?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -109,7 +110,8 @@ private enum class FinancePage { OVERVIEW, COSTS, LEDGER, CUSTOMERS, SALES }
         FinancePage.LEDGER -> ledger { page = ledgerReturn }
         FinancePage.CUSTOMERS -> com.inofarm.jogja.feature.customers.CustomerListScreen(session, ticket, customers) { page = FinancePage.OVERVIEW }
         FinancePage.SALES -> SeasonSalesScreen(overview?.selected, overview?.sequences?.find { it.sequence == overview?.selected?.sequence }?.greenhouseCount,
-            loadSales, onBack = { page = FinancePage.OVERVIEW }, onOpen = openSale, onExcel = onExcel)
+            loadSales, onBack = { page = FinancePage.OVERVIEW; salesFilter = SalesFilter() }, onOpen = openSale, onExcel = onExcel,
+            filter = salesFilter, onFilter = { salesFilter = it }, refresh = refresh)
         FinancePage.OVERVIEW -> Overview(session, preference, overview, error, loading, onSequence = { sequence = it }, onRetry = { reload++ },
             onRecordSale = onRecordSale, onExcel = onExcel, open = { ledgerReturn = FinancePage.OVERVIEW; page = it })
     }
@@ -161,7 +163,7 @@ private enum class FinancePage { OVERVIEW, COSTS, LEDGER, CUSTOMERS, SALES }
                 TcCard(selected, totals?.greenhouseCount ?: 0)
                 CostDetail(selected.costs) { open(FinancePage.COSTS) }
                 SalesSection(overview, selected, onRecordSale, onAll = { open(FinancePage.SALES) }, onBuyers = { open(FinancePage.CUSTOMERS) })
-                if (overview.sequences.isNotEmpty()) CompareSection(overview.compareBars())
+                if (overview.sequences.isNotEmpty()) CompareSection(overview.compareBars(), excel = onExcel != null)
             }
         }
         if (showReal) FinanceCard {
@@ -435,7 +437,7 @@ private val UntypedSeries = Series("Tanpa tipe", FinanceChart.Untyped)
 }
 
 /** FC+VC of the whole farm against sales, one group per season number, scaled to the largest value on the chart. */
-@Composable private fun CompareSection(bars: List<CompareBar>) {
+@Composable private fun CompareSection(bars: List<CompareBar>, excel: Boolean) {
     val dark = LocalFarmTheme.current.dark
     val fcColor = if (dark) FinanceChart.FcOnDark else FinanceChart.Fc
     val vcColor = if (dark) FinanceChart.VcOnDark else FinanceChart.Vc
@@ -471,7 +473,7 @@ private val UntypedSeries = Series("Tanpa tipe", FinanceChart.Untyped)
                 }
             }
         }
-        Text("Hanya angka biaya dan penjualan. Hitungan lain bisa dibuat sendiri dari file Excel.",
+        Text(if (excel) "Hanya angka biaya dan penjualan. Hitungan lain bisa dibuat sendiri dari file Excel." else "Hanya angka biaya dan penjualan.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

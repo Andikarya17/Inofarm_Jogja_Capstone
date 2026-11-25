@@ -118,13 +118,20 @@ class SeasonOverviewModelTest {
         .put("greenhouse_id", gh).put("total_amount", amount).put("total_weight_kg", kg).put("record_state", state).put("payment_status", "paid")
         .put("lines", JSONArray(listOf(JSONObject().put("variety_name", variety).put("quantity_kg", kg))))
 
+    @Test fun seasonSalesSkipGreenhousesTheOverviewDoesNotCount() {
+        val rows = SeasonSaleRow.list(listOf(sale("a", "2026-11-18T03:00:00Z", "consumer", "Aktif", "g1", "100.00", "1.000000"),
+            sale("b", "2026-11-18T04:00:00Z", "consumer", "Nonaktif", "g-off", "200.00", "2.000000")), mapOf("g1" to "GH A"))
+        assertEquals(listOf("a"), rows.map { it.id })
+    }
+
     @Test fun seasonSalesGroupByWibDayAndFilter() {
         val names = mapOf("g1" to "GH A", "g2" to "GH B")
         val rows = SeasonSaleRow.list(listOf(
             sale("s1", "2026-11-24T02:00:00Z", "partner", "Mitra 1", "g1", "2940000.00", "120.000000"),
             sale("s2", "2026-11-23T18:00:00Z", "consumer", "Sari", "g2", "102000.00", "3.000000"),
             sale("s3", "2026-11-17T03:00:00Z", JSONObject.NULL, "", "g1", "85000.00", "2.500000", "Inthanon"),
-            sale("s4", "2026-11-17T03:00:00Z", "retail", "Toko", "g1", "1.00", "1.000000", state = "cancelled")), names)
+            sale("s4", "2026-11-17T03:00:00Z", "retail", "Toko", "g1", "1.00", "1.000000", state = "cancelled"),
+            sale("s5", "2026-11-18T03:00:00Z", "consumer", "Lama", "g9", "5000.00", "1.000000")), names)
         assertEquals(listOf("s1", "s2", "s3"), rows.map { it.id })
         // 23 Nov 18.00 UTC is already 24 Nov in WIB.
         val days = groupByDay(rows)

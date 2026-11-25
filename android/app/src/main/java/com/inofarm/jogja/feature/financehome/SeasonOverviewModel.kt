@@ -163,7 +163,10 @@ data class SeasonSaleRow(val id: String, val date: LocalDate, val paidAt: Offset
     }
 
     companion object {
-        /** Active, paid sales only (the same rows the overview counts), newest first. Bodies that cannot be read are skipped. */
+        /**
+         * Active, paid sales of the greenhouses in [greenhouseNames] only (the active greenhouses the overview counts, so the
+         * rows add up to its totals), newest first. Bodies that cannot be read are skipped.
+         */
         fun list(bodies: List<JSONObject>, greenhouseNames: Map<String, String>): List<SeasonSaleRow> = bodies.mapNotNull { body ->
             runCatching {
                 if (body.optString("record_state", "active") != "active" || body.optString("payment_status", "paid") != "paid") return@runCatching null
@@ -178,6 +181,7 @@ data class SeasonSaleRow(val id: String, val date: LocalDate, val paidAt: Offset
                     varieties[variety] = (varieties[variety] ?: BigDecimal.ZERO) + kg
                 }
                 val gh = body.getString("greenhouse_id")
+                if (gh !in greenhouseNames) return@runCatching null
                 SeasonSaleRow(body.getString("id"), paid.atZoneSameInstant(WIB).toLocalDate(), paid, type,
                     body.optString("customer_name").trim().ifBlank { "Tanpa nama" }, gh, greenhouseNames[gh].orEmpty(),
                     varieties.toList(), BigDecimal(body.getString("total_amount")), body.decimal("total_weight_kg"))

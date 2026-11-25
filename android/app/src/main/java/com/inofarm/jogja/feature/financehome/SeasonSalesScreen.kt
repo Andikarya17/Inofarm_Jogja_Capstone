@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -24,6 +23,9 @@ import com.inofarm.jogja.feature.auth.userMessage
 import org.json.JSONObject
 import java.math.BigDecimal
 
+/** Filters of "Penjualan Musim n"; [type] "all" or a wire buyer type, [greenhouse] null = all. */
+data class SalesFilter(val query: String = "", val type: String = "all", val greenhouse: String? = null)
+
 private val SaleTypes = listOf("all" to "Semua", "consumer" to "Perorangan", "retail" to "Retail", "partner" to "Mitra")
 
 /**
@@ -33,6 +35,10 @@ private val SaleTypes = listOf("all" to "Semua", "consumer" to "Perorangan", "re
 @Composable internal fun SeasonSalesScreen(
     detail: SeasonDetail?, greenhouseCount: Int?, loadSales: suspend (Int) -> List<JSONObject>,
     onBack: () -> Unit, onOpen: ((String) -> Unit)?, onExcel: ((Int?) -> Unit)?,
+    /** Search, type and greenhouse filters, held by the caller so they survive opening a sale and coming back. */
+    filter: SalesFilter = SalesFilter(), onFilter: (SalesFilter) -> Unit = {},
+    /** Changes after each sync, so the list rereads the cache. */
+    refresh: Long = 0L,
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(top = FarmSpace.Small), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -52,22 +58,21 @@ private val SaleTypes = listOf("all" to "Semua", "consumer" to "Perorangan", "re
         var rows by remember(detail.sequence) { mutableStateOf<List<SeasonSaleRow>?>(null) }
         var error by remember(detail.sequence) { mutableStateOf<String?>(null) }
         var attempt by remember { mutableIntStateOf(0) }
+        // Only greenhouses the server counts (active ones), so the rows add up to the summary.
         val names = remember(detail) { detail.byGreenhouse.associate { it.id to it.name } }
-        LaunchedEffect(detail.sequence, attempt) {
+        LaunchedEffect(detail, refresh, attempt) {
             error = null
             runCatching { SeasonSaleRow.list(loadSales(detail.sequence), names) }.onSuccess { rows = it }.onFailure { error = userMessage(it) }
         }
-        var query by rememberSaveable { mutableStateOf("") }
-        var type by rememberSaveable { mutableStateOf("all") }
-        var greenhouse by rememberSaveable { mutableStateOf<String?>(null) }
+        val query = filter.query; val type = filter.type; val greenhouse = filter.greenhouse
         Column(Modifier.padding(vertical = FarmSpace.Small), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                OutlinedTextField(query, { query = it }, Modifier.weight(1f).testTag("season-sales-search"), singleLine = true,
+                OutlinedTextField(query, { onFilter(filter.copy(query = it)) }, Modifier.weight(1f).testTag("season-sales-search"), singleLine = true,
                     placeholder = { Text("Cari pembeli") }, leadingIcon = { FarmControlIcon(FarmIcon.Search, null) }, shape = RoundedCornerShape(14.dp),
                     label = null)
-                GreenhouseFilter(detail.byGreenhouse, greenhouse) { greenhouse = it }
+                GreenhouseFilter(detail.byGreenhouse, greenhouse) { onFilter(filter.copy(greenhouse = it)) }
             }
-            FarmSegmentedTabs(SaleTypes, type, { type = it }, tagPrefix = "season-sales-type-")
+            FarmSegmentedTabs(SaleTypes, type, { onFilter(filter.copy(type = it)) }, tagPrefix = "season-sales-type-")
         }
         val filterType = type.takeUnless { it == "all" }
         val all = rows

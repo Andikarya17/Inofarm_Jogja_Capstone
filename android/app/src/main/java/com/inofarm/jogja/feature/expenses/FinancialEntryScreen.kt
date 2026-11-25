@@ -150,7 +150,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
                 FarmSection("Hitung hasil") {
                     val stack = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
                     val cards: @Composable (Modifier) -> Unit = { m ->
-                        ResultCard("Evaluasi musim", "Biaya, penerimaan, laba dan titik impas", FarmIcon.Report, "report-open", m) {
+                        ResultCard("Evaluasi musim", "Biaya tetap, biaya variabel dan penjualan per musim", FarmIcon.Report, "report-open", m) {
                             showTools = false; reports.vm.show(gh)
                         }
                         ResultCard("Analisis investasi", "Investasi awal dan arus kas tahunan", FarmIcon.Investment, "investment-open", m) {

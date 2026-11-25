@@ -409,6 +409,6 @@ private fun seasonName(context: CultivationUiState, id: String) = context.season
     record.body.optJSONArray("lines")?.let { lines ->
         repeat(lines.length()) { i -> val line = lines.getJSONObject(i); if (line.has("variety_name") && !line.isNull("variety_name")) Text("${line.getString("variety_name")} · ${line.optString("grade_name")}", style = MaterialTheme.typography.bodySmall) }
     }
-    if (record.body.optString("record_state") == "cancelled") Notice("Penjualan dibatalkan dan dikecualikan dari penerimaan aktif.", true)
+    if (record.body.optString("record_state") == "cancelled") Notice("Penjualan dibatalkan dan tidak dihitung lagi di penjualan aktif.", true)
     record.body.optString("recorded_by_name").takeIf { it.isNotBlank() }?.let { Text("Dicatat oleh: $it") }
 }

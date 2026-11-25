@@ -98,7 +98,10 @@ class FinanceOverviewUiTest {
         sale("50000000-0000-4000-8000-000000000002","2026-11-24T04:00:00+00:00","consumer","Sari",1,"Golden","3.000000","102000.00"),
         sale("50000000-0000-4000-8000-000000000003","2026-11-17T03:00:00+00:00","retail","Toko Segar",2,"Inthanon","40.000000","1160000.00"),
         sale("50000000-0000-4000-8000-000000000004","2026-11-17T05:00:00+00:00","consumer","Budi",0,"Golden","2.500000","85000.00"),
-        sale("50000000-0000-4000-8000-000000000005","2026-11-10T03:00:00+00:00","partner","Mitra 3",3,"Inthanon","150.000000","3675000.00"))
+        sale("50000000-0000-4000-8000-000000000005","2026-11-10T03:00:00+00:00","partner","Mitra 3",3,"Inthanon","150.000000","3675000.00"),
+        // A sale of a greenhouse that was turned off: the server no longer counts it, so the list must not show it.
+        sale("50000000-0000-4000-8000-000000000006","2026-11-10T04:00:00+00:00","consumer","GH nonaktif",0,"Golden","1.000000","34000.00")
+            .put("greenhouse_id","10000000-0000-4000-8000-0000000000ff"))
 
     private var excel:Int?=-1;private var opened:String?=null
     private fun show() {
@@ -170,7 +173,8 @@ class FinanceOverviewUiTest {
         rule.onNodeWithText("Penjualan Musim 3").assertExists()
         rule.onNodeWithTag("season-sales-summary").assertTextContains("Rp41.200.000",substring=true)
         rule.onNodeWithText("24 Nov 2026").assertExists();rule.onNodeWithText("Rp3.042.000").assertExists()
-        rule.onNodeWithText("Mitra · GH A · Golden 120 kg").assertExists();shot("season-sales-all")
+        rule.onNodeWithText("Mitra · GH A · Golden 120 kg").assertExists();rule.onAllNodesWithText("GH nonaktif").assertCountEquals(0)
+        rule.onNodeWithText("10 Nov 2026").assertExists();rule.onAllNodesWithText("Rp3.675.000").assertCountEquals(2);shot("season-sales-all")
         rule.onNodeWithTag("season-sales-type-partner").performClick()
         rule.onNodeWithTag("season-sales-summary").assertTextContains("Mitra musim ini",substring=true).assertTextContains("Rp28.000.000",substring=true)
         rule.onAllNodesWithText("Sari").assertCountEquals(0);rule.onNodeWithText("Mitra 3").assertExists();shot("season-sales-partner")
@@ -185,5 +189,8 @@ class FinanceOverviewUiTest {
         rule.onNodeWithTag("season-sale-50000000-0000-4000-8000-000000000003").performClick()
         assertEquals("50000000-0000-4000-8000-000000000003",opened)
         rule.onNodeWithText("Buku biaya nyata").assertExists()
+        Espresso.pressBack()
+        rule.waitUntil(5000) {rule.onAllNodesWithTag("season-sales-list").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("season-sales-search").assertTextContains("toko");rule.onAllNodesWithText("Mitra 1").assertCountEquals(0)
     }
 }
