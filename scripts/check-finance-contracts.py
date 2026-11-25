@@ -1,5 +1,6 @@
 """Read-only v2 JSON Schema/fixture/reference check; requires jsonschema in authoring runtime."""
 import hashlib
+from decimal import Decimal
 import base64
 import json
 from pathlib import Path
@@ -141,6 +142,27 @@ for key, value in [('quantity_kg', '0'), ('quantity_kg', '0.000000'), ('quantity
     invalid['payload']['items'][0][key] = value
     assert not sale_validator.is_valid(invalid), (key, value)
 print('PASS: paid-sale schema and independent multiline HALF_UP operation golden')
+
+sale_lines = json.loads((root / 'fixtures/sale-lines-retail.json').read_text(encoding='utf-8'))
+sale_validator.validate(sale_lines['operation'])
+encoded = json.dumps(sale_lines['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+assert hashlib.sha256(encoded.encode()).hexdigest() == sale_lines['canonical_sha256']
+total = sum(Decimal(l['quantity_kg']) * Decimal(l['price_per_kg']) for l in sale_lines['operation']['payload']['lines'])
+assert f'{total:.2f}' == sale_lines['expected']['total_amount']
+both = json.loads(json.dumps(sale['operation']))
+both['payload']['lines'] = sale_lines['operation']['payload']['lines']
+assert not sale_validator.is_valid(both), 'items and lines are mutually exclusive'
+neither = json.loads(json.dumps(sale_lines['operation']))
+del neither['payload']['lines']
+assert not sale_validator.is_valid(neither), 'one of items or lines is required'
+for key, value in [('fruit_count', 0), ('fruit_count', 1.5), ('quantity_kg', '0'), ('buyer_grade', 'D')]:
+    invalid = json.loads(json.dumps(sale_lines['operation']))
+    invalid['payload']['lines'][0][key] = value
+    assert not sale_validator.is_valid(invalid), (key, value)
+nullable = json.loads(json.dumps(sale_lines['operation']))
+nullable['payload']['lines'][0]['fruit_count'] = None
+sale_validator.validate(nullable)
+print('PASS: sale lines retail fixture, items/lines exclusivity and fruit_count rules')
 
 # Response timestamps are normalized to UTC by services; operation input rules stay strict.
 for resource in ['ExpensePublic', 'SalePublic']:

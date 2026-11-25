@@ -2,7 +2,7 @@
 
 Keputusan pengguna 20–21 November 2026. Daftar pembeli berlaku untuk seluruh kebun dan hanya untuk pengelola (pekerja 403). Pembeli tidak terikat greenhouse, sehingga tidak masuk `sync/changes`; setiap pembeli baru tetap menulis audit `customer` `create`.
 
-- `type`: `consumer` (perorangan) atau `partner` (mitra/tengkulak). `retail` belum ada.
+- `type`: `consumer` (perorangan), `retail` (toko/pengecer, sejak 25 November 2026) atau `partner` (mitra/tengkulak). Penjualan retail memakai harga per kg biasa, tanpa grade A/B/C.
 - Nomor WhatsApp disimpan sebagai digit `62…` (`0812-3456 7890`, `+62 812 3456 7890` dan `6281234567890` sama). Nomor tidak valid (huruf, kurang dari 10 atau lebih dari 15 digit) ditolak; kosong boleh. Satu nomor hanya sekali per tipe.
 
 | Endpoint | Keterangan |

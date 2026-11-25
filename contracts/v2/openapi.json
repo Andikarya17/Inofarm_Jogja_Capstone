@@ -19896,6 +19896,7 @@
             "schema": {
               "enum": [
                 "consumer",
+                "retail",
                 "partner"
               ]
             }
@@ -20074,6 +20075,7 @@
                   "type": {
                     "enum": [
                       "consumer",
+                      "retail",
                       "partner"
                     ]
                   },
@@ -20218,7 +20220,30 @@
           "reasons": {
             "type": "array",
             "items": {
-              "type": "string"
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "line_id",
+                    "available_kg"
+                  ],
+                  "properties": {
+                    "line_id": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                    },
+                    "available_kg": {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$"
+                    }
+                  },
+                  "description": "harvest_exceeded 422 untuk payload lines: baris yang kekurangan dan kg tersedia."
+                }
+              ]
             }
           },
           "current_version": {
@@ -22279,6 +22304,18 @@
               }
             ],
             "description": "Grade dari mitra (21 Nov 2026); hanya untuk pembeli bertipe partner. Satu rincian panen boleh muncul sekali per grade."
+          },
+          "sale_line_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Baris penjualan tempat alokasi ini berasal; null untuk data lama."
           }
         }
       },
@@ -22425,6 +22462,7 @@
               {
                 "enum": [
                   "consumer",
+                  "retail",
                   "partner"
                 ]
               },
@@ -22444,6 +22482,13 @@
               }
             ],
             "description": "Pembeli terdaftar (21 Nov 2026); customer_name tetap salinan saat penjualan."
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleLine"
+            },
+            "description": "Baris penjualan aktif (25 Nov 2026) dengan alokasi FIFO per rincian panen."
           }
         }
       },
@@ -31683,6 +31728,7 @@
           "type": {
             "enum": [
               "consumer",
+              "retail",
               "partner"
             ]
           },
@@ -31824,6 +31870,114 @@
                     "string",
                     "null"
                   ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "SaleLine": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "planting_group_id",
+          "grade_id",
+          "grade_name",
+          "variety_name",
+          "quality",
+          "buyer_grade",
+          "quantity_kg",
+          "fruit_count",
+          "price_per_kg",
+          "exact_amount",
+          "allocations"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "planting_group_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "grade_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "grade_name": {
+            "type": "string"
+          },
+          "variety_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "enum": [
+                  "saleable",
+                  "defective"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "buyer_grade": {
+            "anyOf": [
+              {
+                "enum": [
+                  "A",
+                  "B",
+                  "C"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity_kg": {
+            "type": "string"
+          },
+          "fruit_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "price_per_kg": {
+            "type": "string"
+          },
+          "exact_amount": {
+            "type": "string"
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "harvest_item_id",
+                "harvest_id",
+                "quantity_kg"
+              ],
+              "properties": {
+                "harvest_item_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "harvest_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "quantity_kg": {
+                  "type": "string"
                 }
               }
             }
