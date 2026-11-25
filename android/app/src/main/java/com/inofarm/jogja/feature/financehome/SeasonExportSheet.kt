@@ -2,6 +2,7 @@ package com.inofarm.jogja.feature.financehome
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -27,6 +28,7 @@ import com.inofarm.jogja.core.design.*
 import com.inofarm.jogja.core.network.ExportFile
 import com.inofarm.jogja.core.network.FinanceApi
 import com.inofarm.jogja.core.network.SeasonExportTransport
+import com.inofarm.jogja.core.session.AccountScope
 import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.core.session.FinanceSessionVault
 import com.inofarm.jogja.feature.Notice
@@ -38,22 +40,47 @@ import java.io.IOException
 import java.time.LocalDate
 import java.time.ZoneId
 
+/** The downloaded workbook waiting for the file picker, bound to the account and sign-in it was fetched for. */
+class PendingExportSlot {
+    private class Held(val file: ExportFile, val scope: AccountScope, val ticket: Long)
+    @Volatile private var held: Held? = null
+    val isEmpty get() = held == null
+    fun put(file: ExportFile, scope: AccountScope, ticket: Long) { held = Held(file, scope, ticket) }
+    fun clear() { held = null }
+    /** Takes the file out (the slot is emptied) only while [valid] still accepts the account and sign-in it was fetched for. */
+    fun claim(valid: (AccountScope, Long) -> Boolean): ExportFile? {
+        val current = held; held = null
+        return current?.takeIf { valid(it.scope, it.ticket) }?.file
+    }
+}
+
 /** Download of the season workbook: fetch first (integrity checked), then the Android file picker, then the bytes are written. */
 class SeasonExportRepository(private val context: Context, private val vault: FinanceSessionVault, private val api: FinanceApi) {
-    /** The downloaded workbook waiting for the picker; kept here so it survives the screen being recreated meanwhile. */
-    @Volatile var pending: ExportFile? = null
+    private val slot = PendingExportSlot()
 
     suspend fun fetch(session: FinanceSession, ticket: Long, sequence: String, parts: Set<String>): ExportFile = withContext(Dispatchers.IO) {
         check(vault.matches(ticket, session.scope)) { "Akun yang masuk berubah. Buka kembali Keuangan." }
         require(session.role == UserRole.MANAGER) { "Excel keuangan hanya untuk pengelola." }
-        api.exportSeason(session.scope.server, session.token, sequence, parts).also { pending = it }
+        slot.clear()
+        val file = api.exportSeason(session.scope.server, session.token, sequence, parts)
+        check(vault.matches(ticket, session.scope)) { "Akun yang masuk berubah. Buka kembali Keuangan." }
+        file.also { slot.put(it, session.scope, ticket) }
     }
 
-    suspend fun save(file: ExportFile, uri: Uri) = withContext(Dispatchers.IO) {
-        require(uri.scheme == "content") { "Pilih tujuan berkas melalui penyimpanan Android." }
-        context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(file.bytes); it.flush() }
-            ?: throw IOException("Berkas tujuan tidak bisa dibuka. Pilih lokasi lain.")
-        pending = null
+    fun discard() = slot.clear()
+
+    /** Writes the waiting workbook to [uri]; returns its name, or null (nothing written) when it is gone or the account changed. */
+    suspend fun save(uri: Uri): String? = withContext(Dispatchers.IO) {
+        val file = slot.claim { scope, ticket -> vault.matches(ticket, scope) } ?: return@withContext null
+        try {
+            require(uri.scheme == "content") { "Pilih tujuan berkas melalui penyimpanan Android." }
+            context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(file.bytes); it.flush() }
+                ?: throw IOException("Berkas tujuan tidak bisa dibuka. Pilih lokasi lain.")
+            file.fileName
+        } catch (error: Exception) {
+            runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+            throw error
+        }
     }
 }
 
@@ -61,7 +88,7 @@ internal data class ExportPart(val wire: String, val title: String, val sub: Str
 
 internal val EXPORT_PARTS = listOf(
     ExportPart("summary", "Ringkasan per GH", "FC, VC, TC, penjualan (Rp) dan kg terjual tiap GH"),
-    ExportPart("costs", "Rincian biaya", "Semua baris FC dan VC per GH"),
+    ExportPart("costs", "Rincian biaya standar", "Semua baris FC dan VC per GH"),
     ExportPart("sales", "Daftar penjualan", "Satu baris per transaksi: tanggal, GH, pembeli, tipe, kg, harga"),
 )
 
@@ -83,17 +110,14 @@ internal fun exportFileName(sequence: String, today: LocalDate = LocalDate.now(Z
     var picking by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(SeasonExportTransport.MIME)) { uri ->
         picking = false
-        val file = repository.pending
-        when {
-            uri == null -> { result = "Belum disimpan. File Excel tidak dibuat." }
-            file == null -> { result = "Hasil unduhan sudah hilang. Buka Excel dan unduh lagi." }
-            else -> scope.launch {
-                runCatching { repository.save(file, uri) }
-                    .onSuccess { result = "Excel tersimpan: ${file.fileName}" }
+        if (uri == null) { repository.discard(); result = "Belum disimpan. File Excel tidak dibuat." }
+        else scope.launch {
+                runCatching { repository.save(uri) }
+                    .onSuccess { name -> result = if (name == null) "Hasil unduhan sudah hilang. Buka Excel dan unduh lagi." else "Excel tersimpan: $name" }
                     .onFailure { result = "Berkas belum terkonfirmasi tersimpan lengkap. ${userMessage(it)}" }
-            }
         }
     }
+    DisposableEffect(repository) { onDispose { repository.discard() } }
     if (result != null) {
         AlertDialog(onDismissRequest = onClose, containerColor = MaterialTheme.colorScheme.surface, title = { Text("Unduh Excel") },
             text = { Text(result.orEmpty(), Modifier.testTag("season-export-result")) },
@@ -105,7 +129,7 @@ internal fun exportFileName(sequence: String, today: LocalDate = LocalDate.now(Z
         busy = true; failure = null
         scope.launch {
             runCatching { repository.fetch(session, ticket, sequence, parts) }
-                .onSuccess { picking = true; runCatching { launcher.launch(it.fileName) }.onFailure { error -> picking = false; failure = userMessage(error) } }
+                .onSuccess { picking = true; runCatching { launcher.launch(it.fileName) }.onFailure { error -> picking = false; repository.discard(); failure = userMessage(error) } }
                 .onFailure { failure = userMessage(it) }
             busy = false
         }
