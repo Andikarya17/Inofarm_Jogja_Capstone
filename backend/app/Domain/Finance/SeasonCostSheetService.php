@@ -8,6 +8,7 @@ use App\Domain\Identity\GreenhouseAccess;
 use App\Domain\Sync\MutationLedger;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -27,6 +28,16 @@ final class SeasonCostSheetService
         if ($existing) {
             return $existing;
         }
+        // Concurrent first reads can both miss the lookup; the unique sequence makes the loser fail, so it rolls back its own attempt and reads the winner's sheet.
+        try {
+            return DB::transaction(fn () => $this->createSheet($sequence, $actor));
+        } catch (UniqueConstraintViolationException) {
+            return DB::table('season_cost_sheets')->where('sequence', $sequence)->first() ?? throw new \RuntimeException('Lembar biaya standar tidak ditemukan.');
+        }
+    }
+
+    private function createSheet(int $sequence, User $actor): object
+    {
         $id = (string) Str::uuid();
         app(EntityIdentity::class)->claim('season_cost_sheet', $id);
         $now = now();

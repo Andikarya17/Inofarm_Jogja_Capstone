@@ -73,9 +73,9 @@ final class SeasonOverview
         return $grouped;
     }
 
-    public function sequences(User $actor): array
+    public function sequences(User $actor, ?array $seasons = null): array
     {
-        $seasons = $this->seasons($actor);
+        $seasons ??= $this->seasons($actor);
         $bySequence = [];
         foreach ($seasons as $season) {
             $bySequence[(int) $season->sequence][] = $season;
@@ -102,19 +102,20 @@ final class SeasonOverview
     /** Without a sequence the largest running one is selected, else the largest closed one; unknown sequences are 404. */
     public function build(User $actor, ?int $sequence = null): array
     {
-        $sequences = $this->sequences($actor);
+        $seasons = $this->seasons($actor);
+        $sequences = $this->sequences($actor, $seasons);
         if ($sequence === null && $sequences !== []) {
             $running = array_values(array_filter($sequences, fn ($row) => $row['status'] === 'running'));
             $sequence = ($running[0] ?? $sequences[0])['sequence'];
         }
         abort_if($sequence !== null && ! in_array($sequence, array_column($sequences, 'sequence'), true), 404, 'Data tidak ditemukan.');
 
-        return ['sequences' => $sequences, 'selected' => $sequence === null ? null : $this->selected($actor, $sequence)];
+        return ['sequences' => $sequences, 'selected' => $sequence === null ? null : $this->selected($actor, $sequence, $seasons)];
     }
 
-    private function selected(User $actor, int $sequence): array
+    private function selected(User $actor, int $sequence, array $loaded): array
     {
-        $seasons = array_values(array_filter($this->seasons($actor), fn ($row) => (int) $row->sequence === $sequence));
+        $seasons = array_values(array_filter($loaded, fn ($row) => (int) $row->sequence === $sequence));
         $sheet = $this->sheets->publicSheet($this->sheets->ensureFor($sequence, $actor));
         $totals = $sheet['totals'];
         $running = in_array('open', array_column($seasons, 'status'), true);
