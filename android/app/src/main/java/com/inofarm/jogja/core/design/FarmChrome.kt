@@ -62,7 +62,7 @@ import androidx.compose.ui.unit.dp
 internal enum class FarmIcon {
     Account, Sync, Eye, EyeOff, Close, ChevronRight, ChevronDown,
     Allocate, Payment, Asset, Depreciation, Report, Investment, Backup, Logout, Greenhouse, Schedule, Add,
-    Mail, Lock, AlertTriangle, Droplet, Basket, BarChart, CheckList, GreenhouseAdd, Check, Calendar, Trash, Wallet, TrendUp, Store, Truck, ChevronLeft
+    Mail, Lock, AlertTriangle, Droplet, Basket, BarChart, CheckList, GreenhouseAdd, Check, Calendar, Trash, Wallet, TrendUp, Store, Truck, ChevronLeft, Download, Search
 }
 
 @Composable internal fun FarmControlIcon(icon: FarmIcon, description: String?) {
@@ -244,6 +244,15 @@ internal enum class FarmIcon {
             }
             FarmIcon.ChevronLeft -> {
                 path.moveTo(15 * u, 5 * u); path.lineTo(8 * u, 12 * u); path.lineTo(15 * u, 19 * u)
+            }
+            FarmIcon.Download -> {
+                path.moveTo(12 * u, 4 * u); path.lineTo(12 * u, 15 * u)
+                path.moveTo(7 * u, 10 * u); path.lineTo(12 * u, 15 * u); path.lineTo(17 * u, 10 * u)
+                path.moveTo(5 * u, 20 * u); path.lineTo(19 * u, 20 * u)
+            }
+            FarmIcon.Search -> {
+                drawCircle(color, 6.5f * u, Offset(11 * u, 11 * u), style = stroke)
+                path.moveTo(16 * u, 16 * u); path.lineTo(20 * u, 20 * u)
             }
             FarmIcon.Logout -> {
                 path.moveTo(12 * u, 4 * u); path.lineTo(4 * u, 4 * u); path.lineTo(4 * u, 20 * u); path.lineTo(12 * u, 20 * u)

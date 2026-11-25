@@ -36,7 +36,7 @@ internal fun saleStock(context: CultivationUiState, credit: Map<String, BigDecim
 private val BuyerTypeCards = listOf(
     Triple("consumer", "Perorangan", "Pembeli akhir, harga tetap"),
     Triple("retail", "Retail", "Toko atau pedagang, harga ditawar"),
-    Triple("partner", "Mitra", "Tengkulak, grade A/B/C"),
+    Triple("partner", "Mitra", "Tengkulak, grade A, B, C"),
 )
 
 /** Sold share on the stock bars of the Ringkasan, the Perorangan sales orange of the finance charts. */

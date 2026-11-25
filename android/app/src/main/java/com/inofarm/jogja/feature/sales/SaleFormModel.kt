@@ -8,7 +8,7 @@ import java.time.OffsetDateTime
 
 /**
  * One card of the sale form: a planting group and a grade (variety and Layak/Cacat), its stock and the lines that sell
- * from it. A mitra buys Layak fruit as graded lines A/B/C, so such a card can hold up to three lines.
+ * from it. A mitra buys Layak fruit as graded lines A, B and C, so such a card can hold up to three lines.
  */
 data class SaleCard(
     val groupId: String, val gradeId: String, val varietyName: String, val quality: String?, val availableKg: BigDecimal,

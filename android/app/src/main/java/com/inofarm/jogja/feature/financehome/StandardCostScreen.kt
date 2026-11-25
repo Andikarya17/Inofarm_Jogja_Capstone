@@ -34,9 +34,11 @@ private fun raw(amount: BigDecimal?): String = amount?.stripTrailingZeros()?.let
  * Biaya standar (Inofarm 20-21 Nov 2026): one sheet per season number, the same for every greenhouse. Required lines keep
  * their names; extra lines can be added and removed. Batal / Simpan, then Ringkasan / Simpan like every manager form.
  */
-@Composable internal fun StandardCostScreen(session: FinanceSession, ticket: Long, repository: FinanceHomeRepository, onBack: () -> Unit) {
+@Composable internal fun StandardCostScreen(session: FinanceSession, ticket: Long, repository: FinanceHomeRepository,
+    /** Season number to open first, e.g. the one shown on Keuangan; null opens the largest. */
+    initialSequence: Int? = null, onBack: () -> Unit) {
     var sheets by remember { mutableStateOf<List<CostSheet>?>(null) }
-    var sequence by rememberSaveable { mutableStateOf(-1) }
+    var sequence by rememberSaveable { mutableStateOf(initialSequence ?: -1) }
     var draft by remember { mutableStateOf<CostSheet?>(null) }
     val amounts = remember { mutableStateMapOf<String, String>() }
     var summary by rememberSaveable { mutableStateOf(false) }
@@ -106,7 +108,7 @@ private fun raw(amount: BigDecimal?): String = amount?.stripTrailingZeros()?.let
                     FarmFormSection("Rincian") {
                         preview.lines.forEach { Line(it.name + if (it.required) "" else " (tambahan)", it.amount?.let(::rupiah) ?: "Belum diisi") }
                     }
-                    if (preview.tc() == null) Notice("Masih ada baris yang kosong. Laba musim tetap sementara sampai semua baris terisi.")
+                    if (preview.tc() == null) Notice("Masih ada baris yang kosong. Biaya total (TC) tampil sebagai Belum diisi sampai semua baris terisi.")
                 } else {
                     listOf("FC" to "Biaya tetap (FC)", "VC" to "Biaya variabel (VC)").forEach { (costClass, title) ->
                         FarmFormSection(title) {

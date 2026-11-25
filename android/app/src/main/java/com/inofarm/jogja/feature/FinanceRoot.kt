@@ -1110,9 +1110,21 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 }
                 tab==4 && manager -> tabState.SaveableStateProvider(4) {
                     FarmPullRefresh(context.loading, onSync) {
-                    // Keuangan (21 Nov 2026): income chart and standard-cost profit first; the real-cost ledger sits behind the eye toggle.
+                    // Keuangan per Musim ke-n (25 Nov 2026): standard cost and paid sales per season number, no profit or ratios;
+                    // the real-cost ledger sits behind the eye toggle. The Excel button stays hidden until its export sheet is wired.
                     com.inofarm.jogja.feature.financehome.FinanceOverviewScreen(session, ticket, financeHomeRepository, financeVisibility, syncUpdates,
                         onRecordSale = { startRecord(RecordChoice.SALE) }, customers = customerRepository,
+                        loadSales = { n ->
+                            context.seasons.filter { it.optInt("sequence", -1) == n }.flatMap { season ->
+                                runtime.saleHistory.records(session, com.inofarm.jogja.core.database.LocalHistoryFilter(seasonId = season.optString("id")), 5000)
+                                    .mapNotNull { it.serverBody ?: it.body.takeUnless { body -> body.has("_local_form") } }
+                            }
+                        },
+                        onOpenSale = { id ->
+                            financeKind = OperationalKind.SALE.wire
+                            financeLink++
+                            saleHistoryVm.select(id) {}
+                        },
                         onFullScreen = { financeFullScreen = it }) { onBack ->
                         Column(Modifier.fillMaxSize()) {
                             TextButton(onBack, Modifier.padding(horizontal = FarmSpace.Small).heightIn(min = FarmSpace.Touch).testTag("finance-ledger-back")) {

@@ -37,17 +37,12 @@ class FinanceHomeRepository(private val vault: FinanceSessionVault, private val 
         CostSheet.from(api.request(session.scope.server, session.token, "season-cost-sheets/${sheet.id}", "PATCH", operation).getJSONObject("data"))
     }
 
-    suspend fun income(session: FinanceSession, ticket: Long, period: IncomePeriod): List<IncomeBar> = withContext(Dispatchers.IO) {
+    /** GET reports/season-overview; without [sequence] the server picks the largest running season number. */
+    suspend fun seasonOverview(session: FinanceSession, ticket: Long, sequence: Int?): SeasonOverview = withContext(Dispatchers.IO) {
         check(session, ticket)
-        val (from, until) = period.range()
-        val body = api.request(session.scope.server, session.token, "reports/income",
-            query = mapOf("granularity" to period.wire, "from" to from.toString(), "until" to until.toString()))
-        IncomeBar.list(body.getJSONObject("data"))
-    }
-
-    suspend fun profitSummary(session: FinanceSession, ticket: Long): JSONObject = withContext(Dispatchers.IO) {
-        check(session, ticket)
-        api.request(session.scope.server, session.token, "reports/profit-summary").getJSONObject("data")
+        val body = api.request(session.scope.server, session.token, "reports/season-overview",
+            query = sequence?.let { mapOf("sequence" to it.toString()) } ?: emptyMap())
+        SeasonOverview.from(body.getJSONObject("data"))
     }
 
     companion object {

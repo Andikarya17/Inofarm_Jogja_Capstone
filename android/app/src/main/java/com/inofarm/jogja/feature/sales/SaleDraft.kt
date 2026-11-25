@@ -12,7 +12,7 @@ import java.util.UUID
 
 /**
  * One sale line (25 Nov 2026): a planting group and a grade, not a harvest item; the server takes the kg from the oldest
- * harvests. [buyerGrade] is the mitra's own grade A/B/C and stays blank for other buyers. [fruitCount] blank = unknown.
+ * harvests. [buyerGrade] is the mitra's own grade A, B or C and stays blank for other buyers. [fruitCount] blank = unknown.
  */
 data class SaleLine(val id:String=UUID.randomUUID().toString(),val groupId:String="",val gradeId:String="",val buyerGrade:String="",val quantity:String="",val fruitCount:String="",val price:String="")
 data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId:String,val seasonId:String="",

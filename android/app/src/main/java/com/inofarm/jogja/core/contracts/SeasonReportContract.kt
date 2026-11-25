@@ -10,9 +10,11 @@ object SeasonReportContract {
     /** Standard cost sheets (21 Nov 2026). Reports published under v1 (allocated real costs) stay readable. */
     const val VERSION="season-standard-cost-rational-half-up-v2"
     private val SUPPORTED=setOf(VERSION,"season-recorded-cash-rational-half-up-v1")
-    val labels=linkedMapOf("FC" to "Biaya tetap", "VC" to "Biaya variabel", "TC" to "Total biaya",
-        "TR" to "Penerimaan lunas", "Q" to "Berat terjual", "L" to "Laba", "RC" to "R/C", "BC" to "B/C sederhana",
-        "P" to "Harga rata-rata", "BEP_Q" to "BEP produksi", "BEP_PRICE" to "BEP harga/kg")
+    /** Every metric key a snapshot carries; old snapshots keep their values, the app checks them but never shows them. */
+    val metricKeys=setOf("FC","VC","TC","TR","Q","L","RC","BC","P","BEP_Q","BEP_PRICE")
+    /** The only metrics the app shows (25 Nov 2026: costs, sales and kg; ratios were removed from every screen). */
+    val labels=linkedMapOf("FC" to "Biaya tetap (FC)", "VC" to "Biaya variabel (VC)", "TC" to "Biaya total (TC)",
+        "TR" to "Penjualan lunas", "Q" to "Berat terjual")
     private val decimal=Regex("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?")
     private val hash=Regex("[0-9a-f]{64}")
     private fun integer(body:JSONObject,key:String):Int {
@@ -32,8 +34,8 @@ object SeasonReportContract {
         val assumptions=body.getJSONArray("assumptions");repeat(assumptions.length()) {require(assumptions.get(it) is String)}
         val scope=body.getJSONObject("scope")
         require(scope.getJSONObject("greenhouse").getString("id")==body.getString("greenhouse_id") && scope.getJSONObject("season").getString("id")==body.getString("season_id"))
-        val metrics=body.getJSONObject("metrics");require(metrics.keys().asSequence().toSet()==labels.keys)
-        labels.keys.forEach {key ->
+        val metrics=body.getJSONObject("metrics");require(metrics.keys().asSequence().toSet()==metricKeys)
+        metricKeys.forEach {key ->
             val metric=metrics.getJSONObject(key);val status=metric.getString("status")
             require(status in setOf("available","provisional","unavailable"))
             val scale=if(key in setOf("RC","BC")) 8 else if(key in setOf("Q","P","BEP_Q","BEP_PRICE")) 6 else 2

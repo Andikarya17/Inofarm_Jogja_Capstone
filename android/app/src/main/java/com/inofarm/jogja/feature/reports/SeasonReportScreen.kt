@@ -137,16 +137,10 @@ private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",n
         FarmFact("Catatan", data.getString("review_note"))
     }
 }
+/** Costs, sales and kg only; ratio metrics stay in older snapshots and their PDF/CSV but are not shown here. */
 private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
-    val groups = listOf(
-        "Hasil usaha" to listOf("L", "RC", "BC"),
-        "Penerimaan dan biaya" to listOf("TR", "Q", "P", "TC", "FC", "VC"),
-        "Titik impas" to listOf("BEP_Q", "BEP_PRICE")
-    )
-    for ((title, keys) in groups) {
-        item("result-$title") { FarmSectionHeading(title, Modifier.padding(top = FarmSpace.Medium)) }
-        items(keys, key = { "result-$it" }) { key -> Indicator(key, metrics.getJSONObject(key)) }
-    }
+    item("result-heading") { FarmSectionHeading("Biaya dan penjualan", Modifier.padding(top = FarmSpace.Medium)) }
+    items(SeasonReportContract.labels.keys.toList(), key = { "result-$it" }) { key -> Indicator(key, metrics.getJSONObject(key)) }
 }
 
 @Composable private fun Indicator(key:String,metric:JSONObject) {
@@ -165,11 +159,9 @@ private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
         TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Tutup perhitungan" else "Rumus dan asumsi")}
         if(expanded) {
             FarmFact("Rumus", metric.getString("formula"))
-            if (key == "BC") Text("B/C sederhana membagi laba dari biaya tercatat dengan total biaya.")
-            if (key in setOf("BEP_Q", "BEP_PRICE")) Text("Titik impas memakai total biaya tercatat dan penjualan lunas pada musim ini.")
             val inputs=metric.getJSONObject("inputs")
             inputs.keys().forEach { name ->
-                FarmFact(SeasonReportContract.labels[name] ?: name, if(inputs.isNull(name)) "Belum diketahui" else inputs.getString(name))
+                FarmFact(inputLabel(name), if(inputs.isNull(name)) "Belum diketahui" else inputs.getString(name))
             }
             val assumptions=metric.getJSONArray("assumptions");repeat(assumptions.length()) {Text(assumptions.getString(it))}
             metric.optJSONObject("exact_fraction")?.let {Text("Pecahan sebelum pembulatan: ${it.getString("numerator")} / ${it.getString("denominator")}",style=MaterialTheme.typography.bodySmall)}
@@ -186,7 +178,7 @@ private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
     val label=when(source.getString("kind")) {"asset"->"Aset";"expense"->"Pembayaran";"cost_allocation"->"Alokasi biaya";"depreciation_allocation"->"Alokasi penyusutan";else->"Penjualan"}
     OutlinedCard(Modifier.fillMaxWidth().animateContentSize(androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State))) {Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
         Text("$label · versi ${source.getInt("version")}",style=MaterialTheme.typography.titleMedium);Text(source.getString("reason"))
-        source.optJSONObject("contribution")?.let {values->values.keys().forEach {key->Text("${SeasonReportContract.labels[key] ?: key}: ${reportValue(values.getString(key),if(key=="Q") "kg" else "IDR",if(key=="Q") 6 else 2)}")}}
+        source.optJSONObject("contribution")?.let {values->values.keys().asSequence().filter {it in SeasonReportContract.labels}.forEach {key->Text("${SeasonReportContract.labels.getValue(key)}: ${reportValue(values.getString(key),if(key=="Q") "kg" else "IDR",if(key=="Q") 6 else 2)}")}}
         TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Tutup rincian" else "Lihat rincian")}
         if(expanded) {
             for(key in listOf("name","category_name","season_name","customer_name","recorded_by_name")) data.optString(key).takeUnless {it.isBlank() || it=="null"}?.let {Text(it)}
@@ -206,6 +198,9 @@ private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
         }
     }}
 }
+
+/** Formula inputs keep plain names; a metric outside the shown set keeps its wire key. */
+private fun inputLabel(name:String)=SeasonReportContract.labels[name] ?: if(name=="P") "Harga rata-rata" else name
 
 private fun reportValue(value:String,unit:String,scale:Int):String {
     val amount=BigDecimal(value)
