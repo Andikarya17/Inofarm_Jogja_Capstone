@@ -650,13 +650,11 @@ class FinanceBackendDeviceTest {
     @Test fun queueSaleHarvestWithBackendOffline() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="sale-source-queue")
         val f=fixture();login(f,"worker");val ctx=f.getJSONArray("contexts").getJSONObject(0)
-        choose("finance-gh",ctx.getString("greenhouse_id"));choose("finance-season",ctx.getString("season_id"));choose("finance-group",ctx.getString("group_id"))
-        rule.openRecord("harvest")
-        rule.onNodeWithTag("harvest-manual-time").performScrollTo().performClick()
-        rule.onNodeWithTag("harvest-date").performScrollTo().performTextReplacement("2026-10-30")
+        // Worker Catat only asks for the greenhouse (17 Nov 2026).
+        rule.openRecordIn("harvest",ctx.getString("greenhouse_id"))
+        // The harvest form of 20 Nov 2026 opens with one Layak and one Cacat line (no grade, no add button).
+        rule.waitUntil(20000) {rule.onAllNodesWithTag("harvest-weight-0").fetchSemanticsNodes().isNotEmpty()}
         repeat(2) {index ->
-            rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick();choose("harvest-grade-$index",ctx.getJSONArray("grade_ids").getString(index))
-            choose("harvest-quality-$index", "saleable")
             rule.onNodeWithTag("harvest-count-$index").performScrollTo().performTextReplacement("3")
             rule.onNodeWithTag("harvest-weight-$index").performScrollTo().performTextReplacement("5");hideKeyboard()
         }
@@ -686,7 +684,8 @@ class FinanceBackendDeviceTest {
         rule.waitUntil(15000) {editor.state.value.draft?.seasonId==ctx.getString("season_id")}
         rule.onNodeWithTag("sale-type-consumer").performScrollTo().performClick()
         rule.onNodeWithTag("sale-date").performScrollTo().performTextReplacement("2026-10-30")
-        val sourceItems=sourceOp.envelope.getJSONObject("payload").getJSONArray("items")
+        // Layak/Cacat lines carry no grade of their own: read the server's system grades from the accepted harvest.
+        val manager=model.vault.current!!;val sourceItems=model.api.request(manager.scope.server,manager.token,"harvests/${proof.getString("harvest_id")}").getJSONArray("items")
         val grades=(0 until sourceItems.length()).map {sourceItems.getJSONObject(it).getString("grade_id")}.distinct()
         grades.forEach {grade ->
             val tag="sale-add-${ctx.getString("group_id")}-$grade"

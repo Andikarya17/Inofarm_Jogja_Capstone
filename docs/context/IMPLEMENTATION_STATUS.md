@@ -1,5 +1,9 @@
 # Status implementasi nyata, 11 November 2026
 
+## Keuangan per musim dan penjualan per baris, 26 November 2026
+
+Dari source branch `keuangan-per-musim-penjualan`: tab Keuangan Android per Musim ke-n tanpa laba, R/C atau BEP; form penjualan per varietas + Layak/Cacat untuk Perorangan, Retail dan Mitra dengan alokasi FIFO di server (`sale_lines`), harga perorangan di Kelola, daftar penjualan musim dan unduhan Excel. Migration 24 di source dan `inofarm_test`; `inofarm_finance_local` tetap di 23. Tes: backend 263, JVM 224, lint 0 error; emulator terhadap backend nyata. [Bukti dan batas](FINANCE_SEASON_SALES_EVIDENCE_20261125.md).
+
 ## Status input pengelola, 17 November 2026
 
 Dari membaca source `github/main` `52c8ab9` (bukan tes baru): admin/master/akun, wizard greenhouse, tanam saat ini, tutup/buka musim, selesai panen, keputusan cek catatan, skenario investasi dan pembatalan langsung disimpan. Kegiatan, pengukuran, panen, pengeluaran, alokasi, penjualan, aset dan penyusutan memakai draf lokal + layar Periksa + antrean. Laporan musim dan investasi wajib pratinjau di server. Backend 167 tes dan JVM 121 adalah hasil terakhir yang tercatat (PR #67, #68). [Audit](MANAGER_INPUT_FLOW_AUDIT_20261117.md), [serah terima](HANDOFF_20261117.md).

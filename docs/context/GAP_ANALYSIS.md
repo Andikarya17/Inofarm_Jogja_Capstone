@@ -1,5 +1,9 @@
 # Gap analysis aktif, 11 November 2026
 
+## Gap setelah keuangan per musim dan penjualan, 26 November 2026
+
+[Bukti](FINANCE_SEASON_SALES_EVIDENCE_20261125.md). Terbuka: (1) migration 24 belum diterapkan ke `inofarm_finance_local` (perlu permintaan pengguna dan backup); (2) fase `sale-verify` di `FinanceBackendDeviceTest` masih memakai navigasi riwayat lama; (3) `FinanceEntryUiTest` penuh belum dijalankan; (4) PDF/CSV laporan musim terbit masih memuat laba/R/C/BEP dari snapshot (spec 10.2 belum dijawab); (5) ponsel fisik, TalkBack, mode gelap, font 200%; (6) daftar minor yang ditunda ada di dokumen bukti.
+
 ## Gap setelah pemeriksaan kesiapan backend, 18 November 2026
 
 Branch `api-guest-401`. [Bukti](BACKEND_READINESS_EVIDENCE_20261118.md). Ditutup: tamu tanpa token mendapat 401, bukan 500; pembacaan server terhadap `inofarm_finance_local` setelah #81; uji restore backup 18 November (ke instance sementara, lalu migrate ke 22).
