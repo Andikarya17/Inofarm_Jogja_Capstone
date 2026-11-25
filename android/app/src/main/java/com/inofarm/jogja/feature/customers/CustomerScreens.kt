@@ -122,7 +122,7 @@ import kotlinx.coroutines.withContext
                 IconButton(onDone, Modifier.size(FarmSpace.Touch).testTag("import-close")) { FarmControlIcon(FarmIcon.Close, "Batal") }
                 Column(Modifier.weight(1f)) {
                     Text("Impor pembeli", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-                    Text(if (type == "partner") "Mitra" else "Perorangan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.inofarm.jogja.feature.sales.BuyerTypes.label(type), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             message?.let { (text, error) -> Notice(text, error) }

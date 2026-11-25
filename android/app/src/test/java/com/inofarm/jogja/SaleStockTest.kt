@@ -77,4 +77,14 @@ class SaleStockTest {
         assertEquals("22000", hint.pricePerKg);assertEquals("8", hint.kg);assertEquals("2026-11-20T10:00:00+07:00", hint.paidAt)
         assertNull(SalePricing.lastRetailPrice(sales, "c3", "Golden"))
     }
+
+    @Test fun staleBalanceCountsAsZeroButMissingBalanceFallsBackToWeight() {
+        val stale = balance("i1", "h1", "10", "4").put("harvest_version", 9)
+        assertTrue(stock(listOf(h1), listOf(stale)).options(season).isEmpty())
+        assertEquals(0, BigDecimal("10").compareTo(stock(listOf(h1)).options(season).single().availableKg))
+    }
+
+    @Test fun buyerTypeLabels() {
+        assertEquals("Perorangan", BuyerTypes.label("consumer"));assertEquals("Retail", BuyerTypes.label("retail"));assertEquals("Mitra", BuyerTypes.label("partner"))
+    }
 }

@@ -27,7 +27,7 @@ import java.util.UUID
  */
 @Composable internal fun BuyerSection(draft: SaleDraft, error: String?, search: (suspend (String, String) -> List<Customer>)?, edit: ((SaleDraft) -> SaleDraft) -> Unit) {
     FarmChoiceChips("Tipe pembeli", draft.buyerType.ifBlank { null },
-        listOf(org.json.JSONObject().put("id", "consumer").put("name", "Perorangan"), org.json.JSONObject().put("id", "retail").put("name", "Pengecer"), org.json.JSONObject().put("id", "partner").put("name", "Mitra"),
+        listOf(org.json.JSONObject().put("id", "consumer").put("name", "Perorangan"), org.json.JSONObject().put("id", "retail").put("name", "Retail"), org.json.JSONObject().put("id", "partner").put("name", "Mitra"),
             ), "sale-buyer-type") { id ->
         edit { it.copy(buyerType = id, buyerId = "", buyerExisting = false, customer = "", buyerWhatsapp = "",
             items = if (id == "partner") it.items else it.items.map { line -> line.copy(buyerGrade = "") }) }
@@ -68,7 +68,7 @@ import java.util.UUID
         search == null || failure != null -> Text("Daftar pembeli butuh koneksi. Isi sebagai pembeli baru; server tidak membuat data ganda untuk nomor yang sama.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         hits == null -> Text("Mencari…", style = MaterialTheme.typography.bodySmall)
-        hits!!.isEmpty() -> Text(if (query.isBlank()) "Belum ada pembeli ${if (draft.buyerType == "partner") "mitra" else "perorangan"} terdaftar." else "Tidak ada pembeli bernama atau bernomor \"$query\".",
+        hits!!.isEmpty() -> Text(if (query.isBlank()) "Belum ada pembeli ${com.inofarm.jogja.feature.sales.BuyerTypes.label(draft.buyerType).lowercase()} terdaftar." else "Tidak ada pembeli bernama atau bernomor \"$query\".",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else -> Surface(shape = FarmShape.Tile, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Column {

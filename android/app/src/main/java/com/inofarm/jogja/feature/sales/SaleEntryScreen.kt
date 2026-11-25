@@ -104,7 +104,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
     FarmFact("Musim",context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "Nama belum tersedia")
     FarmFact("Pembayaran","${whenLabel(draft.date, draft.time)} · ${if(draft.paid) "Lunas" else "Belum dikonfirmasi"}")
     if(draft.customer.isNotBlank()) FarmFact("Pembeli",draft.customer)
-    if(draft.hasBuyer()) FarmFact("Tipe pembeli",when(draft.buyerType) {"partner" -> "Mitra";"retail" -> "Pengecer";else -> "Perorangan"}+if(draft.buyerExisting) "" else " · pembeli baru, masuk daftar")
+    if(draft.hasBuyer()) FarmFact("Tipe pembeli",BuyerTypes.label(draft.buyerType)+if(draft.buyerExisting) "" else " · pembeli baru, masuk daftar")
     val options=sources(context,draft)
     draft.items.forEachIndexed {index,line ->
         HorizontalDivider()

@@ -24,12 +24,15 @@ class SaleStock(harvests: List<JSONObject>, balances: List<JSONObject>, private 
             (0 until rows.length()).map { rows.getJSONObject(it) }.map { item ->
                 val balance = byItem[item.optString("id")]?.takeIf { it.optLong("harvest_version") == harvest.optLong("version") }
                 val weight = amount(item.optString("weight_kg"))
-                val available = if (balance != null) amount(balance.optString("available_weight_kg")) else weight
+                val stale = byItem[item.optString("id")] != null && balance == null
+                // A balance row of another harvest version is unknown stock (0); the weight is assumed only when no row exists.
+                val available = if (balance != null) amount(balance.optString("available_weight_kg")) else if (stale) BigDecimal.ZERO else weight
                 Item(item.optString("id"), harvest.optString("id"), harvest.optString("planting_group_id"), item.optString("grade_id"), item.optString("grade_name"),
                     item.optString("quality").takeIf { it.isNotBlank() && !item.isNull("quality") }, harvest.optString("occurred_at"), available,
                     harvest.optString("record_state") == "active" && (balance == null || balance.optBoolean("active", true)))
             }
         }
+    // Tiebreak on equal occurred_at uses the public harvest id; the server uses harvests.id, so only identical timestamps could differ.
     }.sortedWith(compareBy<Item>({ instant(it.occurredAt) }, { it.harvestId }, { it.id }))
 
     private fun seasonItems(seasonId: String): List<Item> {
@@ -97,4 +100,9 @@ object SaleErrors {
     private val lineKey = Regex("""(?:^|\.)lines\.(\d+)\.([A-Za-z_]+)$""")
     /** Server field key such as `operation.payload.lines.2.fruit_count` to line index and field name. */
     fun lineField(key: String): Pair<Int, String>? = lineKey.find(key)?.let { it.groupValues[1].toInt() to it.groupValues[2] }
+}
+
+object BuyerTypes {
+    /** Label shown for a buyer type: consumer is Perorangan, retail is Retail, partner is Mitra. */
+    fun label(type: String) = when (type) { "partner" -> "Mitra"; "retail" -> "Retail"; else -> "Perorangan" }
 }
