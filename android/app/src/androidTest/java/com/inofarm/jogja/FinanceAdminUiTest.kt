@@ -230,4 +230,72 @@ class FinanceAdminUiTest {
         rule.onNodeWithTag("manage-start-G2").performClick();assertEquals("G2",planted)
         rule.onNodeWithTag("manage-gh-G1").performClick();assertEquals("G1",opened)
     }
+
+    /** Consumer prices and varieties for the "Harga perorangan" page; writes are recorded and answered like the server does. */
+    private inner class PriceServer {
+        val sent=java.util.Collections.synchronizedList(mutableListOf<Triple<String,String,JSONObject>>())
+        private val priceId="30000000-0000-4000-8000-000000000001"
+        private fun variety(name:String,gh:String,active:Boolean=true)=JSONObject().put("id",UUID.randomUUID().toString()).put("name",name).put("greenhouse_id",gh).put("active",active)
+        val api=object:FinanceApi {
+            override fun validateBase(base:String)=base
+            override suspend fun request(base:String,token:String?,path:String,method:String,body:JSONObject?,query:Map<String,String>):JSONObject {
+                if(path=="sync/status") return JSONObject().put("schema_version","2").put("sync_epoch",epoch)
+                if(method!="GET") {
+                    sent+=Triple(method,path,body!!)
+                    val payload=body.getJSONObject("payload")
+                    return JSONObject().put("data",JSONObject().put("id",body.getString("entity_id")).put("variety_name",payload.getString("variety_name")).put("quality",payload.getString("quality"))
+                        .put("price_per_kg",payload.getString("price_per_kg")+"0000").put("version",body.optInt("base_version",0)+1).put("record_state","active").put("updated_at","2026-11-25T03:00:00.000000Z"))
+                }
+                return when(path) {
+                    "varieties" -> JSONObject().put("data",org.json.JSONArray(listOf(variety("Golden Melon","G1"),variety("golden melon ","G2"),variety("Inthanon","G2"),variety("Lama","G2",false)))).put("next_cursor",JSONObject.NULL)
+                    "consumer-prices" -> JSONObject().put("data",org.json.JSONArray(listOf(JSONObject().put("id",priceId).put("variety_name","Golden Melon").put("quality","saleable")
+                        .put("price_per_kg","34000.000000").put("version",2).put("record_state","active").put("updated_at","2026-11-20T03:00:00.000000Z"))))
+                    else -> JSONObject().put("data",org.json.JSONArray())
+                }
+            }
+        }
+        fun repository()=ConsumerPriceRepository(vault,api)
+    }
+    @Test fun consumerPriceListAndEdit() {
+        val server=PriceServer()
+        rule.setContent {com.inofarm.jogja.core.design.InofarmTheme {KelolaHome(session,repository,0,true,{},{},{},{},{},consumerPrices=server.repository())}}
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("kelola-consumer-prices").fetchSemanticsNodes().isNotEmpty()}
+        rule.waitUntil(10000) {rule.onAllNodesWithText("1 harga").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("kelola-consumer-prices").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("consumer-price-saleable-golden-melon").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithText("Harga per kg untuk pembeli akhir",substring=true).assertExists()
+        rule.onNodeWithText("Rp34.000/kg").assertExists();rule.onNodeWithText("Diubah 20 Nov 2026").assertExists()
+        // The two spellings of Golden Melon are one row, and the deactivated variety has none.
+        rule.onAllNodesWithTag("consumer-price-defective-golden-melon").assertCountEquals(1);rule.onAllNodesWithText("Lama").assertCountEquals(0)
+        rule.onAllNodesWithText("Belum diatur, diketik saat menjual").assertCountEquals(3);shot("kelola-consumer-prices")
+        rule.onNodeWithTag("consumer-price-saleable-golden-melon").performClick()
+        rule.waitUntil(5000) {rule.onAllNodesWithTag("consumer-price-input").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("consumer-price-input").performTextReplacement("36000")
+        Espresso.closeSoftKeyboard();shot("kelola-consumer-price-step1")
+        rule.onNodeWithTag("consumer-price-submit").performScrollTo().performClick()
+        rule.onNodeWithText("Ringkasan harga").assertExists();shot("kelola-consumer-price-summary")
+        rule.onNodeWithTag("consumer-price-save").performScrollTo().performClick()
+        rule.waitUntil(10000) {server.sent.any {it.second.startsWith("consumer-prices/")}}
+        val (method,_,body)=server.sent.single()
+        assertEquals("PATCH",method);assertEquals(2,body.getInt("base_version"));assertEquals("update",body.getString("action"))
+        val payload=body.getJSONObject("payload")
+        assertEquals("active",payload.getString("record_state"));assertEquals("36000.00",payload.getString("price_per_kg"));assertEquals("saleable",payload.getString("quality"))
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Rp36.000/kg").fetchSemanticsNodes().isNotEmpty()}
+    }
+    @Test fun customerListFiltersRetail() {
+        val queries=java.util.Collections.synchronizedList(mutableListOf<String>())
+        val api=object:FinanceApi {
+            override fun validateBase(base:String)=base
+            override suspend fun request(base:String,token:String?,path:String,method:String,body:JSONObject?,query:Map<String,String>):JSONObject {
+                val type=query["type"].orEmpty();queries+=type
+                val rows=if(type=="retail") listOf(JSONObject().put("id","C1").put("type","retail").put("name","Toko Sayur Segar").put("whatsapp_display",JSONObject.NULL).put("purchase_count",2).put("total_kg","12.500000").put("source","manual")) else emptyList()
+                return JSONObject().put("data",org.json.JSONArray(rows))
+            }
+        }
+        rule.setContent {com.inofarm.jogja.core.design.InofarmTheme {com.inofarm.jogja.feature.customers.CustomerListScreen(session,vault.generation,com.inofarm.jogja.feature.customers.CustomerRepository(vault,api)) {}}}
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("customers-type-retail").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("customers-type-retail").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Toko Sayur Segar").fetchSemanticsNodes().isNotEmpty()}
+        assertTrue("retail" in queries);rule.onNodeWithText("2 kali").assertExists();shot("customers-retail")
+    }
 }

@@ -351,6 +351,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
     LaunchedEffect(gh) { if (gh != null) lastGreenhouse = gh }
     val homeRepository = remember(runtime) { ManagerHomeRepository(runtime.vault, runtime.store, runtime.api) }
     val customerRepository = remember(runtime) { com.inofarm.jogja.feature.customers.CustomerRepository(runtime.vault, runtime.api) }
+    val consumerPriceRepository = remember(runtime) { com.inofarm.jogja.feature.admin.ConsumerPriceRepository(runtime.vault, runtime.api) }
     val financeHomeRepository = remember(runtime) { com.inofarm.jogja.feature.financehome.FinanceHomeRepository(runtime.vault, runtime.api) }
     val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     val financeVisibility = remember(appContext) {
@@ -1123,7 +1124,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     com.inofarm.jogja.feature.admin.KelolaHome(session, runtime.admin, listOf(context.lastSyncedAt, adminOpen, syncUpdates), enabled = !writing,
                         onOpenGreenhouse = { id -> onAdmin(AdminResource.GREENHOUSE); onAdminGreenhouse(id, false) },
                         onAddGreenhouse = onAddGreenhouse, onStartPlanting = onStartPlanting,
-                        onPeople = { onAdmin(AdminResource.USER) }, onLogout = onLogout)
+                        onPeople = { onAdmin(AdminResource.USER) }, onLogout = onLogout, consumerPrices = consumerPriceRepository)
                 }
                 tab==5 -> tabState.SaveableStateProvider("history-$historyChip") {
                     FarmPullRefresh(context.loading, onSync) {

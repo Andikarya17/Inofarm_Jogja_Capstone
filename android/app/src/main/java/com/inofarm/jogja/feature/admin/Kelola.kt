@@ -16,6 +16,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -31,6 +32,7 @@ import com.inofarm.jogja.core.design.FarmBusyReveal
 import com.inofarm.jogja.core.design.FarmColors
 import com.inofarm.jogja.core.design.FarmControlIcon
 import com.inofarm.jogja.core.design.FarmFact
+import com.inofarm.jogja.core.design.FarmFullScreenDialog
 import com.inofarm.jogja.core.design.FarmHeroCard
 import com.inofarm.jogja.core.design.FarmIcon
 import com.inofarm.jogja.core.design.FarmIconTile
@@ -70,7 +72,14 @@ internal fun KelolaHome(
     session: FinanceSession, repository: AdminRepository, refresh: Any?, enabled: Boolean,
     onOpenGreenhouse: (String) -> Unit, onAddGreenhouse: () -> Unit, onStartPlanting: (String) -> Unit,
     onPeople: () -> Unit, onLogout: () -> Unit,
+    /** Per-kg prices for the final consumer; the row is hidden when the host has no repository for them. */
+    consumerPrices: ConsumerPriceRepository? = null,
 ) {
+    var pricesOpen by rememberSaveable { mutableStateOf(false) }
+    var priceCount by remember(session.token) { mutableStateOf<Int?>(null) }
+    LaunchedEffect(session.token, refresh, pricesOpen, consumerPrices) {
+        if (consumerPrices != null && !pricesOpen) priceCount = runCatching { consumerPrices.list(session, repository.vault.generation).size }.getOrNull()
+    }
     var overview by remember(session.token) { mutableStateOf<KelolaOverview?>(null) }
     var error by remember(session.token) { mutableStateOf<String?>(null) }
     var loading by remember(session.token) { mutableStateOf(true) }
@@ -85,6 +94,17 @@ internal fun KelolaHome(
     }
     var showInactive by rememberSaveable { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
+    if (pricesOpen && consumerPrices != null) FarmFullScreenDialog(onDismissRequest = { pricesOpen = false }) {
+        androidx.activity.compose.BackHandler { pricesOpen = false }
+        val statusStrip = colors.surface
+        val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        Surface(Modifier.fillMaxSize(), color = colors.background) {
+            Column(Modifier.fillMaxSize().drawBehind { drawRect(statusStrip, size = androidx.compose.ui.geometry.Size(size.width, statusTop.toPx())) }
+                .safeDrawingPadding().imePadding()) {
+                ConsumerPriceScreen(session, repository.vault.generation, consumerPrices) { pricesOpen = false }
+            }
+        }
+    }
     LazyColumn(Modifier.fillMaxSize().testTag("manage-list"), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium),
         contentPadding = PaddingValues(top = FarmSpace.Medium, bottom = FarmSpace.Large + LocalFarmListBottomInset.current)) {
         val data = overview
@@ -146,6 +166,14 @@ internal fun KelolaHome(
                     Modifier.testTag("manage-users"), enabled = enabled, icon = FarmIcon.Account, onClick = onPeople)
             }
         }
+        if (consumerPrices != null) {
+            item("master-head") { KelolaSectionTitle("Data master") }
+            item("master") {
+                KelolaCard {
+                    KelolaRow("Harga perorangan", priceCount?.let { "$it harga" }, Modifier.testTag("kelola-consumer-prices"), enabled = enabled, icon = FarmIcon.Basket) { pricesOpen = true }
+                }
+            }
+        }
         item("me-head") { KelolaSectionTitle("Akun saya") }
         item("me") {
             KelolaCard {
@@ -203,25 +231,25 @@ private fun KelolaGreenhouseRow(gh: KelolaGreenhouse, enabled: Boolean, onOpen: 
 // Shared pieces
 // ---------------------------------------------------------------------------------------------------------------------
 
-@Composable private fun KelolaCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+@Composable internal fun KelolaCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val colors = MaterialTheme.colorScheme
     Surface(modifier.fillMaxWidth(), shape = FarmShape.Card, color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)) {
         Column(content = content)
     }
 }
 
-@Composable private fun KelolaSectionTitle(title: String) {
+@Composable internal fun KelolaSectionTitle(title: String) {
     Text(title, Modifier.padding(top = FarmSpace.Small).semantics { heading() }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
 }
 
 /** A small heading above a group of rows on a settings page. */
-@Composable private fun KelolaGroupTitle(title: String) {
+@Composable internal fun KelolaGroupTitle(title: String) {
     Text(title, Modifier.padding(start = FarmSpace.Tiny, top = FarmSpace.Small).semantics { heading() },
         style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /** One tappable row: a label, an optional value or status chip on the right, and a chevron. */
-@Composable private fun KelolaRow(
+@Composable internal fun KelolaRow(
     label: String, value: String?, modifier: Modifier = Modifier, enabled: Boolean = true, chip: String? = null,
     danger: Boolean = false, icon: FarmIcon? = null, chevron: Boolean = true, hint: String? = null, onClick: () -> Unit,
 ) {
@@ -251,7 +279,7 @@ private fun KelolaGreenhouseRow(gh: KelolaGreenhouse, enabled: Boolean, onOpen: 
 }
 
 /** Title bar of a page inside the Kelola host: back, title with a second line, and an optional status on the right. */
-@Composable private fun KelolaTopBar(title: String, subtitle: String?, onBack: () -> Unit, backLabel: String,
+@Composable internal fun KelolaTopBar(title: String, subtitle: String?, onBack: () -> Unit, backLabel: String,
                                      backIcon: FarmIcon = FarmIcon.ChevronRight, trailing: (@Composable () -> Unit)? = null) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxWidth().padding(start = FarmSpace.Tiny, end = FarmSpace.Page, top = FarmSpace.Small, bottom = FarmSpace.Small),
