@@ -235,6 +235,8 @@ class FinanceAdminUiTest {
     private inner class PriceServer {
         val sent=java.util.Collections.synchronizedList(mutableListOf<Triple<String,String,JSONObject>>())
         private val priceId="30000000-0000-4000-8000-000000000001"
+        /** When set, the next write is refused with 409 and the list afterwards carries this version. */
+        @Volatile var conflictOnce=false;@Volatile var listVersion=2;@Volatile var listPrice="34000.000000"
         private fun variety(name:String,gh:String,active:Boolean=true)=JSONObject().put("id",UUID.randomUUID().toString()).put("name",name).put("greenhouse_id",gh).put("active",active)
         val api=object:FinanceApi {
             override fun validateBase(base:String)=base
@@ -242,6 +244,7 @@ class FinanceAdminUiTest {
                 if(path=="sync/status") return JSONObject().put("schema_version","2").put("sync_epoch",epoch)
                 if(method!="GET") {
                     sent+=Triple(method,path,body!!)
+                    if(conflictOnce) {conflictOnce=false;listVersion=3;listPrice="35000.000000";throw FinanceApiFailure(409,JSONObject().put("code","version_conflict").put("message","Harga ini baru diubah di tempat lain."))}
                     val payload=body.getJSONObject("payload")
                     return JSONObject().put("data",JSONObject().put("id",body.getString("entity_id")).put("variety_name",payload.getString("variety_name")).put("quality",payload.getString("quality"))
                         .put("price_per_kg",payload.getString("price_per_kg")+"0000").put("version",body.optInt("base_version",0)+1).put("record_state","active").put("updated_at","2026-11-25T03:00:00.000000Z"))
@@ -249,7 +252,7 @@ class FinanceAdminUiTest {
                 return when(path) {
                     "varieties" -> JSONObject().put("data",org.json.JSONArray(listOf(variety("Golden Melon","G1"),variety("golden melon ","G2"),variety("Inthanon","G2"),variety("Lama","G2",false)))).put("next_cursor",JSONObject.NULL)
                     "consumer-prices" -> JSONObject().put("data",org.json.JSONArray(listOf(JSONObject().put("id",priceId).put("variety_name","Golden Melon").put("quality","saleable")
-                        .put("price_per_kg","34000.000000").put("version",2).put("record_state","active").put("updated_at","2026-11-20T03:00:00.000000Z"))))
+                        .put("price_per_kg",listPrice).put("version",listVersion).put("record_state","active").put("updated_at","2026-11-20T03:00:00.000000Z"))))
                     else -> JSONObject().put("data",org.json.JSONArray())
                 }
             }
@@ -297,5 +300,28 @@ class FinanceAdminUiTest {
         rule.onNodeWithTag("customers-type-retail").performClick()
         rule.waitUntil(10000) {rule.onAllNodesWithText("Toko Sayur Segar").fetchSemanticsNodes().isNotEmpty()}
         assertTrue("retail" in queries);rule.onNodeWithText("2 kali").assertExists();shot("customers-retail")
+    }
+    @Test fun consumerPriceConflictReloadsTheListAndTheRetryUsesTheFreshVersion() {
+        val server=PriceServer();server.conflictOnce=true
+        rule.setContent {com.inofarm.jogja.core.design.InofarmTheme {KelolaHome(session,repository,0,true,{},{},{},{},{},consumerPrices=server.repository())}}
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("kelola-consumer-prices").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("kelola-consumer-prices").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("consumer-price-saleable-golden-melon").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("consumer-price-saleable-golden-melon").performClick()
+        rule.waitUntil(5000) {rule.onAllNodesWithTag("consumer-price-input").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("consumer-price-input").performTextReplacement("36000");Espresso.closeSoftKeyboard()
+        rule.onNodeWithTag("consumer-price-submit").performScrollTo().performClick()
+        rule.onNodeWithTag("consumer-price-save").performScrollTo().performClick()
+        // The sheet closes, the server message shows on the list, and the list now carries the version from the server.
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Harga ini baru diubah",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        rule.waitUntil(10000) {rule.onAllNodesWithText("Rp35.000/kg").fetchSemanticsNodes().isNotEmpty()}
+        rule.onAllNodesWithTag("consumer-price-input").assertCountEquals(0)
+        rule.onNodeWithTag("consumer-price-saleable-golden-melon").performClick()
+        rule.waitUntil(5000) {rule.onAllNodesWithTag("consumer-price-input").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("consumer-price-input").performTextReplacement("36000");Espresso.closeSoftKeyboard()
+        rule.onNodeWithTag("consumer-price-submit").performScrollTo().performClick()
+        rule.onNodeWithTag("consumer-price-save").performScrollTo().performClick()
+        rule.waitUntil(10000) {server.sent.size==2}
+        assertEquals(2,server.sent[0].third.getInt("base_version"));assertEquals(3,server.sent[1].third.getInt("base_version"))
     }
 }

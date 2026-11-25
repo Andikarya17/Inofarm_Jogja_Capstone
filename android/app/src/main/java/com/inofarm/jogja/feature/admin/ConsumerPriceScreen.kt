@@ -65,6 +65,7 @@ internal fun ConsumerPriceScreen(session: FinanceSession, ticket: Long, reposito
     var error by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableIntStateOf(0) }
     var saved by remember { mutableStateOf<String?>(null) }
+    var conflict by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<ConsumerPriceDraft?>(null) }
     LaunchedEffect(session.scope.key, reload) {
         try {
@@ -85,6 +86,7 @@ internal fun ConsumerPriceScreen(session: FinanceSession, ticket: Long, reposito
                 Text("Harga per kg untuk pembeli akhir, sama berapa pun beratnya. Dipakai sebagai isian awal saat mencatat penjualan perorangan, dan masih bisa diubah di transaksinya.",
                     style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
             }
+            conflict?.let { message -> item("conflict") { Notice("$message Daftar sudah dimuat ulang; ubah lagi bila perlu.", true) } }
             saved?.let { message -> item("saved") { Notice(message) } }
             error?.let { message -> item("error") {
                 Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
@@ -107,7 +109,7 @@ internal fun ConsumerPriceScreen(session: FinanceSession, ticket: Long, reposito
                             KelolaRow(name, if (price != null) ConsumerPrices.display(price) else "Atur",
                                 Modifier.testTag("consumer-price-$quality-${tagKey(name)}"),
                                 hint = if (price != null) changedOn(price.updatedAt) else "Belum diatur, diketik saat menjual") {
-                                saved = null
+                                saved = null; conflict = null
                                 editing = ConsumerPriceDraft(price?.id, name, quality, typed(price), price?.version)
                             }
                         }
@@ -121,11 +123,11 @@ internal fun ConsumerPriceScreen(session: FinanceSession, ticket: Long, reposito
         }
     }
     editing?.let { draft ->
-        ConsumerPriceSheet(session, ticket, repository, draft, previous = ConsumerPrices.find(prices.orEmpty(), draft.varietyName, draft.quality), onDismiss = { editing = null }) { price ->
+        ConsumerPriceSheet(session, ticket, repository, draft, previous = ConsumerPrices.find(prices.orEmpty(), draft.varietyName, draft.quality), onDismiss = { editing = null }, onSaved = { price ->
             prices = prices.orEmpty().filterNot { it.id == price.id } + price
             saved = "Harga ${price.varietyName} (${QUALITIES.first { it.first == price.quality }.second}) tersimpan: ${ConsumerPrices.display(price)}."
-            editing = null
-        }
+            conflict = null; editing = null
+        }, onConflict = { message -> conflict = message; saved = null; editing = null; reload++ })
     }
 }
 
@@ -133,7 +135,7 @@ internal fun ConsumerPriceScreen(session: FinanceSession, ticket: Long, reposito
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConsumerPriceSheet(session: FinanceSession, ticket: Long, repository: ConsumerPriceRepository, start: ConsumerPriceDraft,
-                               previous: ConsumerPrice?, onDismiss: () -> Unit, onSaved: (ConsumerPrice) -> Unit) {
+                               previous: ConsumerPrice?, onDismiss: () -> Unit, onSaved: (ConsumerPrice) -> Unit, onConflict: (String) -> Unit) {
     var price by rememberSaveable(start.varietyName, start.quality) { mutableStateOf(start.price) }
     var summary by rememberSaveable(start.varietyName, start.quality) { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -176,7 +178,7 @@ private fun ConsumerPriceSheet(session: FinanceSession, ticket: Long, repository
                         Button(onClick = {
                             busy = true; failure = null
                             scope.launch {
-                                runCatching { repository.save(session, ticket, draft) }.onSuccess { onSaved(it) }.onFailure { failure = userMessage(it) }
+                                runCatching { repository.save(session, ticket, draft) }.onSuccess { onSaved(it) }.onFailure { if (ConsumerPrices.isConflict(it)) onConflict(userMessage(it)) else failure = userMessage(it) }
                                 busy = false
                             }
                         }, enabled = !busy, shape = FarmShape.Control, modifier = Modifier.weight(1f).heightIn(min = 52.dp).testTag("consumer-price-save")) {

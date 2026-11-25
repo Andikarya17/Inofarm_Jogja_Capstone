@@ -48,6 +48,9 @@ object ConsumerPrices {
     /** The money shown for a stored price, such as "Rp34.000/kg". */
     fun display(price: ConsumerPrice) = com.inofarm.jogja.feature.financehome.rupiah(BigDecimal(price.pricePerKg)) + "/kg"
 
+    /** A 409 (duplicate price, or a version changed elsewhere): the list and its versions must be read again. */
+    fun isConflict(failure: Throwable) = failure is com.inofarm.jogja.core.network.FinanceApiFailure && failure.status == 409
+
     fun operation(draft: ConsumerPriceDraft, epoch: String): JSONObject {
         val payload = JSONObject().put("variety_name", draft.varietyName.trim().replace(Regex("\\s+"), " ")).put("quality", draft.quality)
             .put("price_per_kg", draft.wirePrice())

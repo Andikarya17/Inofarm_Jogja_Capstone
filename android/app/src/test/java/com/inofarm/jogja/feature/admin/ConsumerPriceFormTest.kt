@@ -46,5 +46,12 @@ class ConsumerPriceFormTest {
         assertEquals("Rp34.000/kg", ConsumerPrices.display(prices[0]))
     }
 
+    @Test fun onlyA409CountsAsConflict() {
+        fun failure(status: Int) = com.inofarm.jogja.core.network.FinanceApiFailure(status, JSONObject().put("code", "duplicate"))
+        assertTrue(ConsumerPrices.isConflict(failure(409)))
+        assertFalse(ConsumerPrices.isConflict(failure(422)))
+        assertFalse(ConsumerPrices.isConflict(IllegalStateException("x")))
+    }
+
     private fun assertTrue(value: Boolean) = org.junit.Assert.assertTrue(value)
 }
