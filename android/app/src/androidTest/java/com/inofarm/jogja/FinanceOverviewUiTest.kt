@@ -103,11 +103,11 @@ class FinanceOverviewUiTest {
         sale("50000000-0000-4000-8000-000000000006","2026-11-10T04:00:00+00:00","consumer","GH nonaktif",0,"Golden","1.000000","34000.00")
             .put("greenhouse_id","10000000-0000-4000-8000-0000000000ff"))
 
-    private var excel:Int?=-1;private var opened:String?=null
+    private var opened:String?=null
     private fun show() {
         rule.setContent {com.inofarm.jogja.core.design.InofarmTheme {Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {Box(Modifier.padding(horizontal=16.dp)) {
             FinanceOverviewScreen(session,vault.generation,FinanceHomeRepository(vault,api),preference,0,onRecordSale={},customers=CustomerRepository(vault,api),
-                loadSales={sales},onOpenSale={opened=it},onExcel={excel=it}) {androidx.compose.material3.Text("Buku biaya nyata")}
+                loadSales={sales},onOpenSale={opened=it},exports=SeasonExportRepository(context,vault,api)) {androidx.compose.material3.Text("Buku biaya nyata")}
         }}}}
         rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tc").fetchSemanticsNodes().isNotEmpty()}
     }
@@ -163,7 +163,22 @@ class FinanceOverviewUiTest {
         rule.onNodeWithText("Buku biaya nyata").assertExists()
         Espresso.pressBack()
         rule.waitUntil(5000) {rule.onAllNodesWithTag("finance-excel").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("finance-excel").performClick();assertEquals(3,excel)
+        rule.onNodeWithTag("finance-excel").performClick()
+        rule.onNodeWithTag("season-export-sheet").assertExists()
+        rule.onNodeWithTag("season-export-opt-3").assertIsSelected()
+        rule.onNodeWithTag("season-export-opt-2").assertExists();rule.onNodeWithTag("season-export-opt-1").assertExists();rule.onNodeWithTag("season-export-opt-all").assertExists()
+        rule.onNodeWithText("Berisi angka biaya dan penjualan apa adanya, untuk dihitung sendiri di Excel.").assertExists()
+        for(part in listOf("summary","costs","sales")) rule.onNodeWithTag("season-export-part-$part").assertIsOn()
+        rule.onNodeWithTag("season-export-file").assertTextContains("inofarm-keuangan-musim-3-",substring=true)
+        shot("finance-export-sheet")
+        rule.onNodeWithTag("season-export-opt-all").performClick()
+        rule.onNodeWithTag("season-export-file").assertTextContains("inofarm-keuangan-musim-semua-",substring=true)
+        for(part in listOf("summary","costs","sales")) rule.onNodeWithTag("season-export-part-$part").performClick()
+        rule.onNodeWithTag("season-export-empty").assertExists();rule.onNodeWithTag("season-export-download").assertIsNotEnabled()
+        rule.onNodeWithTag("season-export-part-costs").performClick();rule.onNodeWithTag("season-export-download").assertIsEnabled()
+        noRatios()
+        rule.onNodeWithTag("season-export-cancel").performClick()
+        rule.waitUntil(5000) {rule.onAllNodesWithTag("season-export-sheet").fetchSemanticsNodes().isEmpty()}
     }
 
     @Test fun seasonSalesListFiltersByTypeGreenhouseAndName() {

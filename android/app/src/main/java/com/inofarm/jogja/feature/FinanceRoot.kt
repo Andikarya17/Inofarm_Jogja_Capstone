@@ -1111,9 +1111,9 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                 tab==4 && manager -> tabState.SaveableStateProvider(4) {
                     FarmPullRefresh(context.loading, onSync) {
                     // Keuangan per Musim ke-n (25 Nov 2026): standard cost and paid sales per season number, no profit or ratios;
-                    // the real-cost ledger sits behind the eye toggle. The Excel button stays hidden until its export sheet is wired.
+                    // the real-cost ledger sits behind the eye toggle; Excel opens the export sheet.
                     com.inofarm.jogja.feature.financehome.FinanceOverviewScreen(session, ticket, financeHomeRepository, financeVisibility, syncUpdates,
-                        onRecordSale = { startRecord(RecordChoice.SALE) }, customers = customerRepository,
+                        onRecordSale = { startRecord(RecordChoice.SALE) }, customers = customerRepository, exports = runtime.seasonExports,
                         loadSales = { n ->
                             context.seasons.filter { it.optInt("sequence", -1) == n }.flatMap { season ->
                                 runtime.saleHistory.records(session, com.inofarm.jogja.core.database.LocalHistoryFilter(seasonId = season.optString("id")), 5000)

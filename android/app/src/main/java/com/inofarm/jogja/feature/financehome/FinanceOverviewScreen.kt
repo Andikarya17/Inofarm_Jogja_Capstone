@@ -71,8 +71,8 @@ private enum class FinancePage { OVERVIEW, COSTS, LEDGER, CUSTOMERS, SALES }
     loadSales: suspend (Int) -> List<JSONObject> = { emptyList() },
     /** Opens one sale's detail in the ledger. */
     onOpenSale: ((String) -> Unit)? = null,
-    /** Excel export for a season number (null = all); the button stays hidden until the export sheet is wired. */
-    onExcel: ((Int?) -> Unit)? = null,
+    /** Opens the "Unduh Excel" sheet; without it the Excel buttons stay hidden. */
+    exports: SeasonExportRepository? = null,
     /** True while a page with its own close button (cost sheet, buyers, season sales) is open, so the shell hides its bars. */
     onFullScreen: (Boolean) -> Unit = {},
     ledger: @Composable (onBack: () -> Unit) -> Unit,
@@ -86,6 +86,8 @@ private enum class FinancePage { OVERVIEW, COSTS, LEDGER, CUSTOMERS, SALES }
     var overview by remember(session.scope.key) { mutableStateOf<SeasonOverview?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
+    var exportOpen by rememberSaveable { mutableStateOf(false) }
+    val onExcel: ((Int?) -> Unit)? = exports?.let { { _: Int? -> exportOpen = true } }
     LaunchedEffect(sequence, refresh, session.scope.key, reload) {
         loading = true; error = null
         runCatching { repository.seasonOverview(session, ticket, sequence.takeIf { it > 0 }) }
@@ -115,6 +117,7 @@ private enum class FinancePage { OVERVIEW, COSTS, LEDGER, CUSTOMERS, SALES }
         FinancePage.OVERVIEW -> Overview(session, preference, overview, error, loading, onSequence = { sequence = it }, onRetry = { reload++ },
             onRecordSale = onRecordSale, onExcel = onExcel, open = { ledgerReturn = FinancePage.OVERVIEW; page = it })
     }
+    if (exportOpen && exports != null) SeasonExportFlow(session, ticket, exports, overview?.sequences.orEmpty(), overview?.selected?.sequence) { exportOpen = false }
 }
 
 @Composable private fun Overview(
