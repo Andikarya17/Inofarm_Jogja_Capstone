@@ -19894,6 +19894,121 @@
         }
       }
     },
+    "/reports/season-export": {
+      "get": {
+        "operationId": "season_export",
+        "summary": "Unduh Excel (.xlsx) keuangan per Musim ke-n atau semua musim: Ringkasan per GH, Rincian biaya dan Daftar penjualan (pengelola). Sel biaya yang belum diisi dibiarkan kosong.",
+        "parameters": [
+          {
+            "name": "sequence",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(all|[1-9][0-9]{0,8})$"
+            }
+          },
+          {
+            "name": "parts",
+            "in": "query",
+            "required": true,
+            "description": "Daftar dipisah koma: summary, costs, sales.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(summary|costs|sales)(,(summary|costs|sales))*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berkas Excel; khusus pengelola.",
+            "headers": {
+              "X-Content-SHA256": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": "private, no-store"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            },
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/customers": {
       "get": {
         "operationId": "list_customers",
