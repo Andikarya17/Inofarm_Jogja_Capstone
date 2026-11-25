@@ -9,6 +9,8 @@ import com.inofarm.jogja.core.session.FinanceSession
 import com.inofarm.jogja.core.session.FinanceSessionVault
 import com.inofarm.jogja.core.session.PayloadCipher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.util.UUID
@@ -72,6 +74,53 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
         val result=api.request(session.scope.server,session.token,"greenhouses/$target/copy-masters","POST",JSONObject().put("source_greenhouse_id",source))
         current(session,ticket)
         result.getJSONObject("data").also { require(it.getString("greenhouse_id")==target) }.getJSONObject("copied")
+    }
+    /** Running periods of every greenhouse the manager sees, keyed by greenhouse id, from one manager-home read. */
+    suspend fun periods(session: FinanceSession, ticket: Long): Map<String, JSONObject> = withContext(Dispatchers.IO) {
+        current(session, ticket)
+        val snapshot = api.request(session.scope.server, session.token, "manager-home")
+        current(session, ticket)
+        val cards = snapshot.getJSONArray("greenhouses")
+        (0 until cards.length()).map(cards::getJSONObject).associate { it.getString("id") to it.getJSONObject("period") }
+    }
+    /** Everything the Kelola home lists: greenhouses with their status, and how many accounts there are. */
+    suspend fun overview(session: FinanceSession, ticket: Long): KelolaOverview = coroutineScope {
+        // Independent reads run together; only the account list waits for a greenhouse to place the query.
+        val assignments = async { options(session, ticket, "assignments", null) }
+        val targets = async { options(session, ticket, "targets", null) }
+        val periods = async { periods(session, ticket) }
+        val greenhouses = options(session, ticket, "greenhouses", null)
+        val placement = (greenhouses.firstOrNull { it.optBoolean("active", true) } ?: greenhouses.firstOrNull())?.getString("id")
+        val users = placement?.let { options(session, ticket, "users", it) }.orEmpty()
+        buildKelolaOverview(greenhouses, if (greenhouses.isEmpty()) emptyMap() else periods.await(),
+            assignments.await(), targets.await(), users)
+    }
+    /** Counts for the settings page of one greenhouse; each list is read whole so the numbers are exact. */
+    suspend fun settings(session: FinanceSession, ticket: Long, greenhouse: String): GreenhouseSettings = coroutineScope {
+        // The eleven reads do not depend on each other; running them together keeps the page from waiting on each in turn.
+        fun read(source: String) = async { options(session, ticket, source, greenhouse) }
+        val reads = listOf("seasons", "planting-groups", "varieties", "materials", "units", "grades", "expense-categories",
+            "schedules", "targets", "assignments").associateWith(::read)
+        val period = async { greenhousePeriod(session, ticket, greenhouse) }
+        val seasons = reads.getValue("seasons").await()
+        val open = seasons.filter { it.optString("status") == "open" }.map { it.getString("id") }.toSet()
+        val groups = reads.getValue("planting-groups").await()
+        val varieties = reads.getValue("varieties").await()
+        val materials = reads.getValue("materials").await()
+        val units = reads.getValue("units").await()
+        val grades = reads.getValue("grades").await()
+        val categories = reads.getValue("expense-categories").await()
+        val schedules = reads.getValue("schedules").await()
+        val targets = reads.getValue("targets").await()
+        val assignments = reads.getValue("assignments").await()
+        val now = java.time.Instant.now()
+        fun count(rows: List<JSONObject>) = rows.count { it.optBoolean("active", true) }
+        GreenhouseSettings(open.size, groups.count { it.optBoolean("active", true) && it.optString("season_id") in open },
+            count(varieties), count(schedules), count(targets), count(materials),
+            units.filter { it.optBoolean("active", true) }.map { it.optString("name") },
+            grades.filter { it.optBoolean("active", true) }.map { it.optString("name") },
+            categories.count { it.optBoolean("active", true) },
+            assignments.count { assignmentCurrent(it, now) }, period.await())
     }
     suspend fun greenhousePeriod(session: FinanceSession, ticket: Long, greenhouse: String): JSONObject = withContext(Dispatchers.IO) {
         current(session, ticket)

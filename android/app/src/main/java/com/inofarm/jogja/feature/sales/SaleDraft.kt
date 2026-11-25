@@ -24,7 +24,7 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
     fun validation(reasonRequired:Boolean=true):Map<String,String> = buildMap {
         if(runCatching {WireContract.uuid(greenhouseId)}.isFailure) put("greenhouse","Pilih greenhouse.")
         if(runCatching {WireContract.uuid(seasonId)}.isFailure) put("season","Pilih musim penjualan.")
-        if(runCatching {paidAt()}.isFailure) put("paid_at","Isi tanggal YYYY-MM-DD dan jam HH:mm WIB yang sah.")
+        if(runCatching {paidAt()}.isFailure) put("paid_at","Pilih tanggal dan jam lunas dari kalender dan jam.")
         if(!paid) put("paid","Konfirmasikan pembayaran sudah lunas sebelum menyimpan.")
         if(customer.length>200) put("customer","Nama pembeli maksimal200 karakter.")
         if(notes.length>2000) put("notes","Keterangan maksimal2.000 karakter.")
@@ -34,8 +34,8 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
         if(items.any {it.grade.isNotBlank() && it.grade !in setOf("A","B","C")}) put("items","Grade mitra harus A, B, atau C.")
         items.forEachIndexed {index,line ->
             if(runCatching {WireContract.uuid(line.id);WireContract.uuid(line.sourceId)}.isFailure) put("items.$index.source","Pilih sumber panen yang sudah terkirim.")
-            if(runCatching {decimal(line.quantity,true)}.isFailure) put("items.$index.quantity","Bobot kg harus lebih dari nol, maksimal6 desimal; kosong bukan nol.")
-            if(runCatching {decimal(line.price,false)}.isFailure) put("items.$index.price","Harga IDR/kg wajib tidak negatif, maksimal6 desimal; kosong bukan nol.")
+            if(runCatching {decimal(line.quantity,true)}.isFailure) put("items.$index.quantity","Isi bobot lebih dari nol, misalnya 12,5.")
+            if(runCatching {decimal(line.price,false)}.isFailure) put("items.$index.price","Isi harga per kg. Tulis 0 bila memang gratis.")
         }
         if(items.size in 1..30 && runCatching {preview()}.isFailure && keys.none {it.endsWith("quantity") || it.endsWith("price")}) put("total","Total uang atau bobot melebihi rentang angka yang didukung.")
         if(reasonRequired && baseVersion!=null && reason.isBlank()) put("reason","Isi alasan koreksi.")

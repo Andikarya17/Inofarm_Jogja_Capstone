@@ -12,7 +12,7 @@ object SeasonReportContract {
     private val SUPPORTED=setOf(VERSION,"season-recorded-cash-rational-half-up-v1")
     val labels=linkedMapOf("FC" to "Biaya tetap", "VC" to "Biaya variabel", "TC" to "Total biaya",
         "TR" to "Penerimaan lunas", "Q" to "Berat terjual", "L" to "Laba", "RC" to "R/C", "BC" to "B/C sederhana",
-        "P" to "Harga rata-rata", "BEP_Q" to "BEP kuantitas pada biaya tercatat", "BEP_PRICE" to "BEP harga")
+        "P" to "Harga rata-rata", "BEP_Q" to "BEP produksi", "BEP_PRICE" to "BEP harga/kg")
     private val decimal=Regex("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?")
     private val hash=Regex("[0-9a-f]{64}")
     private fun integer(body:JSONObject,key:String):Int {

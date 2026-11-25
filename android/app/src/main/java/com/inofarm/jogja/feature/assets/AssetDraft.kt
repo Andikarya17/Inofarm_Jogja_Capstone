@@ -28,7 +28,7 @@ data class AssetDraft(val id:String=UUID.randomUUID().toString(),val greenhouseI
         } else {
             uuid("asset",assetId);uuid("season",seasonId);uuid("usage_reference",usageReference)
             if(runCatching {year(usageYear)}.isFailure) put("usage_year","Tahun pemakaian harus bilangan bulat 1–1000.")
-            if(runCatching {require(date(periodStart).isBefore(date(periodEnd)))}.isFailure) put("period","Periode YYYY-MM-DD harus berakhir setelah mulai (akhir eksklusif).")
+            if(runCatching {require(date(periodStart).isBefore(date(periodEnd)))}.isFailure) put("period","Akhir periode harus sesudah awal periode.")
             if(runCatching {require(money(amount).signum()>0)}.isFailure) put("amount","Alokasi IDR harus positif dan maksimal 2 desimal.")
         }
     }

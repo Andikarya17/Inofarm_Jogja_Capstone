@@ -54,7 +54,7 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
             if(greenhouseLevel) put("group","Pilih varietas yang disemprot.")
             if(runCatching { LocalDate.parse(sprayDate) }.isFailure || sprayPeriod !in setOf("morning","afternoon")) put("spray","Isi tanggal semprot dan pilih pagi atau sore.")
         }
-        if(runCatching { occurredAt() }.isFailure) put("occurred_at","Gunakan tanggal YYYY-MM-DD dan jam HH:mm (detik opsional) yang sah.")
+        if(runCatching { occurredAt() }.isFailure) put("occurred_at","Pilih tanggal dan jam kejadian dari kalender dan jam.")
         for((key,text) in listOf("manual_ec" to ec,"manual_ppm" to ppm,"manual_ph" to ph)) {
             if(text.isNotBlank()) {
                 val number=runCatching { numeric(text) }.getOrNull()

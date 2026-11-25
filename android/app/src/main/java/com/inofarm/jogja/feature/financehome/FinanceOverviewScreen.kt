@@ -47,10 +47,17 @@ private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER, CUSTOMERS }
 @Composable internal fun FinanceOverviewScreen(
     session: FinanceSession, ticket: Long, repository: FinanceHomeRepository, preference: FinanceVisibilityPreference,
     refresh: Long, onRecordSale: () -> Unit, customers: com.inofarm.jogja.feature.customers.CustomerRepository,
+    /** True while a page with its own close button (cost sheet, investor summary, buyers) is open, so the shell hides its bars. */
+    onFullScreen: (Boolean) -> Unit = {},
     ledger: @Composable (onBack: () -> Unit) -> Unit,
 ) {
     var page by rememberSaveable { mutableStateOf(FinancePage.OVERVIEW) }
     BackHandler(page != FinancePage.OVERVIEW) { page = FinancePage.OVERVIEW }
+    val fullScreen = page in setOf(FinancePage.COSTS, FinancePage.INVESTOR, FinancePage.CUSTOMERS)
+    androidx.compose.runtime.DisposableEffect(fullScreen) {
+        onFullScreen(fullScreen)
+        onDispose { onFullScreen(false) }
+    }
     when (page) {
         FinancePage.COSTS -> StandardCostScreen(session, ticket, repository) { page = FinancePage.OVERVIEW }
         FinancePage.INVESTOR -> InvestorSummaryScreen(session, ticket, repository) { page = FinancePage.OVERVIEW }
@@ -93,7 +100,7 @@ private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER, CUSTOMERS }
         }
         FarmSegmentedTabs(IncomePeriod.entries.map { it.wire to it.label }, period.wire, { id -> period = IncomePeriod.entries.single { it.wire == id } },
             tagPrefix = "finance-period-")
-        FarmHeroCard(Modifier.animateContentSize(tween(FarmMotion.State))) {
+        FarmHeroCard(Modifier.animateContentSize(tween(FarmMotion.State)), motif = false) {
             Text(when (period) { IncomePeriod.WEEK -> "Pemasukan penjualan per minggu"; IncomePeriod.MONTH -> "Pemasukan penjualan per bulan"; IncomePeriod.YEAR -> "Pemasukan penjualan per tahun" },
                 style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { heading() })
             when {
@@ -107,7 +114,7 @@ private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER, CUSTOMERS }
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Legend(list.any { it.hasUnspecified() })
                     IncomeBarChart(list, index) { selected = it }
-                    DetailPanel(current)
+                    DetailPanel(current) { open(FinancePage.CUSTOMERS) }
                 }
             }
         }
@@ -116,8 +123,7 @@ private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER, CUSTOMERS }
             ActionTile("Biaya standar", FarmIcon.CheckList, false, Modifier.weight(1f).testTag("finance-standard-costs")) { open(FinancePage.COSTS) }
             ActionTile("Ringkasan investor", FarmIcon.BarChart, false, Modifier.weight(1f).testTag("finance-investor")) { open(FinancePage.INVESTOR) }
         }
-        if (current != null) BuyerCard(current) { open(FinancePage.CUSTOMERS) }
-        ProfitCard(profit?.optJSONObject("open"))
+        ProfitCard(profit?.optJSONObject("open")) { open(FinancePage.COSTS) }
         if (showReal) OutlinedCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                 Text("Biaya nyata", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -185,15 +191,17 @@ private enum class FinancePage { OVERVIEW, COSTS, INVESTOR, LEDGER, CUSTOMERS }
     Box(Modifier.fillMaxWidth().height(height).background(color, RoundedCornerShape(4.dp)))
 }
 
-@Composable private fun DetailPanel(bar: IncomeBar) {
+/** The selected bar split by buyer type: the one place these figures appear, with the way to the buyer list. */
+@Composable private fun DetailPanel(bar: IncomeBar, onBuyers: () -> Unit) {
     // Rows, not columns: full rupiah amounts must fit at 360 dp and large font scales.
     Column(Modifier.fillMaxWidth().background(FarmColors.ForestSurface, RoundedCornerShape(16.dp)).padding(FarmSpace.Medium),
         verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-        Fact("Mitra · ${kg(bar.partnerKg)}", rupiah(bar.partner))
-        Fact("Perorangan · ${kg(bar.consumerKg)}", rupiah(bar.consumer))
+        Fact("Mitra · ${kg(bar.partnerKg)} · ${bar.partnerShare()}%", rupiah(bar.partner))
+        Fact("Perorangan · ${kg(bar.consumerKg)} · ${bar.consumerShare()}%", rupiah(bar.consumer))
         if (bar.hasUnspecified()) Fact("Tanpa tipe · ${kg(bar.unspecifiedKg)}", rupiah(bar.unspecified))
         HorizontalDivider(color = FarmColors.ForestPill)
         Fact("Total ${kg(bar.weightKg())}", bar.averagePerKg()?.let { "rata-rata ${rupiah(it)}/kg" } ?: "Belum ada bobot")
+        TextButton(onBuyers, Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-customers")) { Text("Daftar pembeli") }
     }
 }
 
@@ -219,33 +227,7 @@ internal fun kg(value: BigDecimal): String = value.stripTrailingZeros().let { if
     }
 }
 
-@Composable private fun BuyerCard(bar: IncomeBar, onList: () -> Unit) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Per tipe pembeli, ${bar.label}", Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                TextButton(onList, Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-customers")) { Text("Daftar pembeli") }
-            }
-            BuyerRow("Mitra", bar.partner, bar.partnerKg, bar.partnerShare())
-            BuyerRow("Perorangan", bar.consumer, bar.consumerKg, bar.consumerShare())
-            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, FarmShape.Control).padding(FarmSpace.Medium)) {
-                Text("Retail", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-                Text("Belum tersedia", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
-@Composable private fun BuyerRow(name: String, amount: BigDecimal, weight: BigDecimal, share: Int) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row { Text(name, Modifier.weight(1f), fontWeight = FontWeight.Bold); Text(rupiah(amount), fontWeight = FontWeight.Bold, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")) }
-        LinearProgressIndicator({ share / 100f }, Modifier.fillMaxWidth().height(8.dp), color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant, drawStopIndicator = {})
-        Text("${kg(weight)} · $share% dari pemasukan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable private fun ProfitCard(open: JSONObject?) {
+@Composable private fun ProfitCard(open: JSONObject?, onCosts: () -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth().testTag("finance-profit")) {
         Column(Modifier.padding(FarmSpace.Large), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -261,15 +243,32 @@ internal fun kg(value: BigDecimal): String = value.stripTrailingZeros().let { if
             Row(verticalAlignment = Alignment.Bottom) {
                 val loss = !open.isNull("profit") && open.getString("profit").startsWith("-")
                 Text(if (loss) "Rugi" else "Laba", Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                // A loss is written as -Rp and coloured as an error, never brand green; unknown stays body size.
+                // A loss is written as -Rp and coloured as an error, profit in brand green; unknown is neither, so it stays muted.
                 Text(money("profit"), style = (if (open.isNull("profit")) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.headlineSmall)
-                    .copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.ExtraBold,
-                    color = if (loss) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, modifier = Modifier.testTag("finance-profit-value"))
+                    .copy(fontFeatureSettings = "tnum"), fontWeight = if (open.isNull("profit")) FontWeight.SemiBold else FontWeight.ExtraBold,
+                    color = when { open.isNull("profit") -> MaterialTheme.colorScheme.onSurfaceVariant; loss -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.primary },
+                    modifier = Modifier.testTag("finance-profit-value"))
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
-                Tile("R/C", if (open.isNull("rc")) "-" else BigDecimal(open.getString("rc")).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString().replace('.', ','), Modifier.weight(1f))
-                Tile("BEP harga/kg", if (open.isNull("bep_price")) "-" else rupiah(BigDecimal(open.getString("bep_price")).setScale(0, java.math.RoundingMode.HALF_UP)), Modifier.weight(1f))
-                Tile("BEP produksi", if (open.isNull("bep_kg")) "-" else kg(BigDecimal(open.getString("bep_kg")).setScale(0, java.math.RoundingMode.HALF_UP)), Modifier.weight(1f))
+            if (open.isNull("TC")) {
+                Text("Isi semua baris biaya standar musim ini supaya laba, R/C dan BEP bisa dihitung.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedButton(onCosts, shape = FarmShape.Control, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("finance-profit-fill-costs")) {
+                    Text("Isi biaya standar")
+                }
+            } else {
+                val ratio = { key: String -> if (open.isNull(key)) "-" else BigDecimal(open.getString(key)).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString().replace('.', ',') }
+                // B/C sederhana = laba / TC, the same formula as the season report; the summary endpoint only sends R/C.
+                val bc = if (open.isNull("profit") || BigDecimal(open.getString("TC")).signum() == 0) "-"
+                    else BigDecimal(open.getString("profit")).divide(BigDecimal(open.getString("TC")), 2, java.math.RoundingMode.HALF_UP).toPlainString().replace('.', ',')
+                // Two by two: a rupiah BEP needs more than a third of the row at 360 dp.
+                Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                    Tile("R/C", ratio("rc"), Modifier.weight(1f))
+                    Tile("B/C", bc, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                    Tile("BEP harga/kg", if (open.isNull("bep_price")) "-" else rupiah(BigDecimal(open.getString("bep_price")).setScale(0, java.math.RoundingMode.HALF_UP)), Modifier.weight(1f))
+                    Tile("BEP produksi", if (open.isNull("bep_kg")) "-" else kg(BigDecimal(open.getString("bep_kg")).setScale(0, java.math.RoundingMode.HALF_UP)), Modifier.weight(1f))
+                }
             }
             Text("Dihitung dari biaya standar musim berjalan dan penjualan lunas. Terjual ${kg(BigDecimal(open.optString("sold_kg", "0")))}.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

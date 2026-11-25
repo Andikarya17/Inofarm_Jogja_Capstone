@@ -132,22 +132,6 @@ internal fun HomeShortcuts(
     }
 }
 
-@Composable
-internal fun ReviewCard(count: Int, onClick: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    Row(
-        Modifier.fillMaxWidth().clip(FarmShape.Card).background(colors.primaryContainer)
-            .clickable(role = Role.Button, onClick = onClick).testTag("manager-review-card")
-            .heightIn(min = FarmSpace.Touch + FarmSpace.Medium).padding(FarmSpace.Medium),
-        horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.CenterVertically
-    ) {
-        FarmIconTile(FarmIcon.CheckList, tone = FarmTone.Forest)
-        Text("${badgeText(count)} catatan pekerja perlu dicek", Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium, color = colors.onPrimaryContainer)
-        CompositionLocalProvider(LocalContentColor provides colors.onPrimaryContainer) { FarmControlIcon(FarmIcon.ChevronRight, null) }
-    }
-}
-
 /** One greenhouse: state tile, name, planting line, age figure, then fact chips. */
 @Composable
 internal fun GreenhouseCard(card: JSONObject, index: Int, outsideRange: Boolean, onClick: (androidx.compose.ui.geometry.Rect?) -> Unit) {

@@ -130,7 +130,6 @@ internal fun ManagerHomeScreen(
         if (snapshot == null) {
             if (state.loading) item("loading") { HomeItem(trailing) { FarmPanel { Text("Memuat ringkasan greenhouse…") } }}
         } else if (selection == null) {
-            if (reviewCount != null && reviewCount > 0) item("review-inbox") { HomeItem(trailing) { ReviewCard(reviewCount, onReviewInbox) }}
             item("greenhouse-title") { HomeItem(trailing) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { SectionTitle("Greenhouse") }
@@ -171,7 +170,8 @@ internal fun ManagerHomeScreen(
                         else -> "Sudah ada pencatatan hari ini"
                     }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Pengukuran hari ini", Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleMedium)
+                        // The cards fall back to the last reading, so the heading only says "hari ini" when it is today's.
+                        Text(if (serverToday) "Pengukuran hari ini" else "Pengukuran terakhir", Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleMedium)
                         if (serverToday) server?.text("occurred_at")?.let { at ->
                             Text(Instant.parse(at).atZone(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH.mm 'WIB'")),
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -234,17 +234,18 @@ internal fun ManagerHomeScreen(
             if (section == "settings") item("settings") { HomeItem(trailing) {
                 val active = selected.optBoolean("active", true)
                 FarmRecordCard {
-                    if (!active) Text("Greenhouse nonaktif. Ubah greenhouse untuk mengaktifkannya lagi.", style = MaterialTheme.typography.bodyMedium)
+                    if (!active) Text("Greenhouse nonaktif. Buka pengaturannya untuk mengaktifkannya lagi.", style = MaterialTheme.typography.bodyMedium)
                     if (active) {
-                        FarmActionRow("Musim dan kelompok tanam", "Tambah musim, kelompok tanam dan varietas", FarmIcon.Schedule,
-                            Modifier.testTag("hub-seasons")) { onAdminFor(AdminResource.GREENHOUSE, false) }
+                        FarmActionRow("Musim dan kelompok tanam", "Tambah musim dan kelompok tanam", FarmIcon.Schedule,
+                            Modifier.testTag("hub-seasons")) { onAdminFor(AdminResource.SEASON, false) }
                         FarmRowDivider()
-                        FarmActionRow("Pekerja di greenhouse ini", "Tambah atau lepas pekerja", FarmIcon.Account,
+                        FarmActionRow("Pekerja di greenhouse ini", "Tugaskan atau lepas pekerja", FarmIcon.Account,
                             Modifier.testTag("hub-workers")) { onAdminFor(AdminResource.ASSIGNMENT, false) }
                         FarmRowDivider()
                     }
-                    FarmActionRow(if (active) "Ubah atau nonaktifkan" else "Ubah greenhouse", "Nama dan status greenhouse", FarmIcon.Greenhouse,
-                        Modifier.testTag("hub-edit")) { onAdminFor(AdminResource.GREENHOUSE, true) }
+                    // Kelola (21 Nov 2026): the settings page of this greenhouse, with every list, its name and the checked turn-off.
+                    FarmActionRow("Pengaturan greenhouse", if (active) "Data, pekerja, nama dan status" else "Nama, data dan aktifkan lagi", FarmIcon.Greenhouse,
+                        Modifier.testTag("hub-edit")) { onAdminFor(AdminResource.GREENHOUSE, false) }
                 }
             }}
         }

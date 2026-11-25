@@ -448,7 +448,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             require(pending.isNotEmpty() && pending.all {it.state=="REJECTED" && ReviewableRejections.mayReplace(kind,it.error?.optString("code"))}) {"Penolakan ini tidak dapat diganti tanpa rekonsiliasi."}
             record(scope,id)?.let {archive(scope,it,"replace_reviewed_rejection")}
             db.update("outbox",values("state" to "SUPERSEDED"),"scope=? AND entity_id=? AND state='REJECTED'",arrayOf(scope,id))
-        } else require(pending.isEmpty()) { "Catatan sebelumnya masih menunggu atau perlu dicek. Simpan draf dulu." }
+        } else require(pending.isEmpty()) { "Kiriman sebelumnya untuk catatan ini masih menunggu atau ditolak. Buka catatannya di Riwayat untuk mengirim ulang atau membuangnya." }
         val saved = persistDraft(scope,id,gh,body,expectedRevision,editingBaseVersion,kind)
         afterRecordWrite()
         putQueued(scope,saved,if(saved.baseVersion==null) "create" else "update",queuePayload ?: body,blobId)
@@ -554,6 +554,34 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
             "error" to encrypt(scope,origin.error),"updated_at" to System.currentTimeMillis())
         patch.putAll(indexValues(body))
         db.update("local_records",patch,"scope=? AND entity_id=?",arrayOf(scope,id))
+    }
+    /**
+     * Drops a rejection that cannot be resent as it is (running period changed, record already gone on the server). A record
+     * the server never accepted leaves the device with its operations, since nothing of it exists on the server; a rejected
+     * edit falls back to the server copy and keeps the edit archived.
+     */
+    fun discardRejected(scope:String,id:String,expectedRevision:Long) = transaction {
+        val current=record(scope,id) ?: error("Catatan tidak ditemukan.")
+        requireMutationKind(scope,current.kind)
+        require(current.kind !in AttachmentContract.kinds) {"Lampiran tidak bisa dibuang dari sini."}
+        require(current.revision==expectedRevision && current.greenhouseId in visibleGreenhouses(scope)) {"Catatan berubah. Perbarui lalu coba lagi."}
+        val pending=pending(scope,id)
+        require(pending.isNotEmpty() && pending.all {it.state=="REJECTED"}) {"Hanya isian yang ditolak yang bisa dibuang."}
+        val server=current.serverBody
+        if(current.serverVersion==null || server==null) {
+            val args=arrayOf(scope,id)
+            db.delete("outbox","scope=? AND entity_id=?",args)
+            db.delete("local_record_revisions","scope=? AND entity_id=?",args)
+            db.delete("local_records","scope=? AND entity_id=?",args)
+        } else {
+            archive(scope,current,"discard_rejected")
+            db.update("outbox",values("state" to "SUPERSEDED"),"scope=? AND entity_id=? AND state='REJECTED'",arrayOf(scope,id))
+            val patch=values("body" to encrypt(scope,server),"revision" to current.revision+1,"base_version" to current.serverVersion,
+                "sync_state" to "ACCEPTED","latest_operation_id" to null,"error" to null,"updated_at" to System.currentTimeMillis())
+            patch.putAll(indexValues(server))
+            db.update("local_records",patch,"scope=? AND entity_id=?",arrayOf(scope,id))
+        }
+        afterRecordWrite()
     }
     fun discardInvestmentCancel(scope:String,id:String,expectedRevision:Long):LocalRecord = transaction {
         val current=record(scope,id) ?: error("Skenario tidak ditemukan.");requireMutationKind(scope,current.kind)

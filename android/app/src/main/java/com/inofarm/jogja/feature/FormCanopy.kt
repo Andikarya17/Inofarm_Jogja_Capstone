@@ -206,6 +206,10 @@ private fun Modifier.fullBleed(inset: androidx.compose.ui.unit.Dp): Modifier = l
     layout(constraints.maxWidth, placeable.height) { placeable.place(-extra / 2, 0) }
 }
 
+/** "Kamis, 12 Nov 2026" for a valid ISO date, otherwise the text as it is. */
+internal fun dayText(date: String): String =
+    runCatching { dateLabel(java.time.LocalDate.parse(date.trim())) }.getOrDefault(date)
+
 /** "Kamis, 12 Nov 2026 · 21:13 WIB" for a valid date, otherwise the typed values as they are. */
 internal fun whenLabel(date: String, time: String): String {
     val day = runCatching { java.time.LocalDate.parse(date.trim()) }.getOrNull()

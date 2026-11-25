@@ -29,7 +29,8 @@ internal class HomeSnapshot(val json: JSONObject) {
     val asOf = Instant.parse(json.getString("as_of"))
     val day = LocalDate.parse(json.getString("day"))
     val validUntil = json.text("access_until")?.let(Instant::parse)
-    val cards = json.rows("greenhouses")
+    // Inactive greenhouses go last; otherwise the server's order stays (a stable sort).
+    val cards = json.rows("greenhouses").sortedBy { it.optJSONObject("period")?.optString("state") == "inactive" }
     val choices = json.rows("choices")
     val detail = json.optJSONObject("detail")
     val selected = cards.singleOrNull()?.takeIf { it.text("id") == selection }

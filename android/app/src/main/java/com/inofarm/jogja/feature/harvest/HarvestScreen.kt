@@ -11,13 +11,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.inofarm.jogja.core.cultivation.PlantAge
 import com.inofarm.jogja.core.contracts.UserRole
 import com.inofarm.jogja.core.database.LocalRecord
 import com.inofarm.jogja.core.design.FarmDraftStatus
 import com.inofarm.jogja.core.design.FarmChoiceChips
 import com.inofarm.jogja.core.design.FarmIcon
-import com.inofarm.jogja.core.design.ageFigure
 import com.inofarm.jogja.core.design.FarmFact
 import com.inofarm.jogja.core.design.FarmPanel
 import com.inofarm.jogja.core.design.FarmSection
@@ -35,7 +33,8 @@ import com.inofarm.jogja.feature.managerhome.ManagerDraftParents
 import org.json.JSONObject
 import java.math.BigDecimal
 
-@Composable internal fun HarvestForm(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel,worker:Boolean) {
+/** [typedAge]: the plant age as Inofarm last typed it ("HSS 27 · diisi 21 Nov"); the app no longer derives it from the sowing date (20 Nov 2026). */
+@Composable internal fun HarvestForm(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel,worker:Boolean,typedAge:String?=null) {
     val draft=state.draft ?: return
     val group = context.groups.find { it.optString("id") == draft.groupId }
     if (worker && draft.baseVersion != null) {
@@ -44,11 +43,6 @@ import java.math.BigDecimal
     }
     val title = if (draft.baseVersion == null) "Catat panen" else "Koreksi panen"
     run {
-        val age = runCatching {
-            if (group == null) null else PlantAge.calculate(group.getString("sowing_date"),
-                if (group.isNull("transplant_date")) null else group.getString("transplant_date"), draft.occurredAt())
-        }.getOrNull()
-        val figure = ageFigure(age?.hst?.toString()?.toIntOrNull(), age?.hss?.toString()?.toIntOrNull())
         // Workers keep their draft; a manager form has only Batal and Simpan, and Simpan opens the summary.
         val cancel = if (worker) null else rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
         FarmFormFrame(
@@ -59,8 +53,8 @@ import java.math.BigDecimal
                 else FarmFormBar("harvest-cancel", cancel, "harvest-review", "Simpan", vm::review, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }
         ) {
             FarmContextStrip(context.greenhouses.find { it.optString("id") == draft.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan",
-                group?.optString("name"), figure?.let { (value, unit) -> "$unit $value" })
-            HarvestFormBody(state, context, vm, draft, group, worker = worker)
+                group?.optString("name"), typedAge?.substringBefore(" · "))
+            HarvestFormBody(state, context, vm, draft, group, worker = worker, typedAge = typedAge)
         }
     }
 }
@@ -70,7 +64,7 @@ import java.math.BigDecimal
 }
 
 /** Fields shared by the worker and manager layouts. Only the manager layout (canopy) changes shape; the worker body is as before. */
-@Composable private fun ColumnScope.HarvestFormBody(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel,draft:HarvestDraft,group:JSONObject?,worker:Boolean) {
+@Composable private fun ColumnScope.HarvestFormBody(state:HarvestUiState,context:CultivationUiState,vm:HarvestViewModel,draft:HarvestDraft,group:JSONObject?,worker:Boolean,typedAge:String?) {
     val canopy = true
     val grades=context.grades.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optBoolean("active",true)}
     if (worker && draft.baseVersion != null) {
@@ -88,7 +82,7 @@ import java.math.BigDecimal
                 state.records.find { it.id == draft.id }?.serverBody?.optJSONObject("reference_snapshot")?.optJSONObject("age"), showTime = false)
         } else {
             // Recorded by date only (Inofarm, 20 Nov 2026); a correction keeps the time it already has.
-            FinanceDateField("Tanggal panen",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"],hint="YYYY-MM-DD")
+            FinanceDateField("Tanggal panen",draft.date,{value -> vm.edit {it.copy(date=value)}},"harvest-date",state.errors["occurred_at"])
         }
         if (draft.companion == null) FarmFact("Varietas", plantingLabel(context, draft.groupId) ?: "Belum tersedia")
         group?.optJSONObject("harvest_target")?.fruitText()?.let { FarmFact("Target buah", it) }
@@ -116,8 +110,7 @@ import java.math.BigDecimal
         if(!worker) Choice("Acuan koreksi",draft.referencePolicy,listOf(org.json.JSONObject().put("id","preserve").put("name","Pertahankan tanggal/grade historis"),org.json.JSONObject().put("id","refresh").put("name","Nilai ulang dengan acuan terkini")),"harvest-reference-policy") {value -> vm.edit {it.copy(referencePolicy=value)}}
     }
     if(!worker && (draft.baseVersion==null || draft.referencePolicy=="refresh")) {
-        val age=runCatching {if(group==null) null else PlantAge.calculate(group.getString("sowing_date"),if(group.isNull("transplant_date")) null else group.getString("transplant_date"),draft.occurredAt())}.getOrNull()
-        if(age!=null) FarmInfoCard {Text("HSS ${age.hss ?: "belum tersedia"} · HST ${age.hst ?: "belum berlaku"}");age.reasons.forEach {Text(it,style=MaterialTheme.typography.bodySmall)}}
+        FarmInfoCard {Text(typedAge?.let {"Umur tanaman terakhir dicatat: $it"} ?: "Umur tanaman belum dicatat. Isi lewat Catat kegiatan.")}
     } else if (!worker && draft.baseVersion != null && draft.referencePolicy == "preserve") {
         Notice("Perubahan waktu panen memerlukan pilihan nilai ulang.")
     }
@@ -155,7 +148,7 @@ import java.math.BigDecimal
                     suffix = if (canopy) "buah" else null, prominent = canopy)
             }
             val weightField: @Composable () -> Unit = {
-                FinanceField("Bobot panen (kg)",line.weightKg,{value -> edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(weightKg=value) else row})}},"${tagPrefix}weight-$index",state.errors["${errorPrefix}items.$index.weight"],KeyboardType.Decimal,"Contoh 15,25 tanpa pemisah ribuan",
+                FinanceField("Bobot panen (kg)",line.weightKg,{value -> edit {it.copy(items=it.items.mapIndexed {i,row -> if(i==index) row.copy(weightKg=value) else row})}},"${tagPrefix}weight-$index",state.errors["${errorPrefix}items.$index.weight"],KeyboardType.Decimal,"Contoh 15,25",
                     suffix = if (canopy) "kg" else null, prominent = canopy)
             }
             if (canopy) FarmFieldPair(countField, weightField) else { countField(); weightField() }
@@ -237,7 +230,7 @@ import java.math.BigDecimal
 @Composable private fun ColumnScope.HarvestReviewResults(draft:HarvestDraft,context:CultivationUiState) {
     draft.items.filter { it.sent }.forEachIndexed { index, line ->
         if (index > 0) HorizontalDivider()
-        FarmFact(gradeName(line, context), listOfNotNull(line.fruitCount.takeIf { it.isNotBlank() }?.let { "$it buah" }, "${line.weightKg} kg",
+        FarmFact(gradeName(line, context), listOfNotNull(line.fruitCount.takeIf { it.isNotBlank() }?.let { "$it buah" }, "${com.inofarm.jogja.core.design.measureText(line.weightKg.replace(',', '.'))} kg",
             line.quality?.label ?: "Kondisi belum diketahui").joinToString(" · "), prominent = true)
     }
     val counts = draft.items.filter { it.sent }.mapNotNull { HarvestDraft.count(it.fruitCount)?.toLong() }
@@ -271,7 +264,7 @@ import java.math.BigDecimal
         if(draft.notes.isNotBlank()) Text(draft.notes)
     } else Notice("Isian panen belum dapat dibaca lengkap. Catatan tetap tersimpan.",true)
     val name=record.body.optString("recorded_by_name").ifBlank {record.serverBody?.optString("recorded_by_name").orEmpty()}.ifBlank {if(record.serverVersion==null || record.recorderId()==session.scope.accountId) session.name else "Nama pencatat belum tersedia"}
-    Text("Pencatat: $name");if(session.role==UserRole.MANAGER) Text("Versi: ${record.serverVersion ?: "belum diterima"}")
+    Text("Pencatat: $name");if(session.role==UserRole.MANAGER) Text(record.serverVersion?.let { "Revisi ke-$it di server" } ?: "Belum diterima server")
     record.body.optJSONObject("reference_snapshot")?.optJSONObject("age")?.let {age ->
         Text("HSS ${if(age.isNull("hss")) "belum tersedia" else age.optString("hss")} · HST ${if(age.isNull("hst")) "belum berlaku" else age.optString("hst")}")
         age.optJSONArray("reasons")?.let {reasons -> repeat(reasons.length()) {Text(reasons.getString(it),style=MaterialTheme.typography.bodySmall)}}

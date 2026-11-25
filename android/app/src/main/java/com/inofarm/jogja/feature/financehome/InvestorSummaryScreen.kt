@@ -59,7 +59,7 @@ fun investorTotals(bySequence: JSONArray): InvestorTotals {
         val sequences = body.getJSONArray("by_sequence")
         if (sequences.length() == 0) { Text("Belum ada musim yang tercatat."); return@Column }
         val totals = investorTotals(sequences)
-        FarmHeroCard {
+        FarmHeroCard(motif = false) {
             Text((if (totals.profit?.signum() == -1) "Rugi tercatat" else "Laba tercatat") + ", ${sequences.length()} musim", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(totals.profit?.let(::rupiah) ?: "Biaya belum lengkap", style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier.testTag("investor-profit"))
@@ -80,7 +80,8 @@ fun investorTotals(bySequence: JSONArray): InvestorTotals {
                     if (row.optInt("sequence", -1) != latest) continue
                     HorizontalDivider()
                     Row(Modifier.semantics(mergeDescendants = true) {}) {
-                        Text(row.getString("name"), Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                        Text(row.getString("name"), Modifier.weight(1f).padding(end = FarmSpace.Small), fontWeight = FontWeight.Bold,
+                            maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         Text(shortMillions(BigDecimal(row.getString("TR"))), Modifier.weight(1.2f), style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
                         Text(if (row.isNull("profit")) "-" else shortMillions(BigDecimal(row.getString("profit"))), Modifier.weight(1.2f), fontWeight = FontWeight.Bold,
                             color = if (!row.isNull("profit") && row.getString("profit").startsWith("-")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,

@@ -32,8 +32,10 @@ internal fun copiedSummary(copied: JSONObject): String {
 data class AdminState(val resource:AdminResource=AdminResource.GREENHOUSE,val greenhouse:String?=null,val rows:List<JSONObject> = emptyList(),val cursor:String?=null,
     val form:AdminForm?=null,val editing:Boolean=false,val pending:Boolean=false,val needsPassword:Boolean=false,val busy:Boolean=false,val saved:Boolean=true,
     val options:Map<String,List<JSONObject>> = emptyMap(),val message:String?=null,val rejected:Boolean=false,val server:JSONObject?=null,
-    val listChecked:Boolean=false,val detail:JSONObject?=null,val readiness:Map<String,Int>?=null,
-    val optionsLoading:Boolean=false,val period:JSONObject?=null,val setupGreenhouse:JSONObject?=null,
+    val listChecked:Boolean=false,
+    val optionsLoading:Boolean=false,
+    /** The greenhouse whose settings page is open; its counts are reloaded with the list after every save. */
+    val settingsFor:String?=null,val settings:GreenhouseSettings?=null,
     /** The user changed a field since the form opened, so cancelling asks first. */
     val dirty:Boolean=false,
     /** The cancel question is showing. */
@@ -85,21 +87,39 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
     fun choose(resource:AdminResource, greenhouse:String?=state.value.greenhouse) {
         if(state.value.busy) return
         mutable.value=state.value.copy(resource=resource,greenhouse=greenhouse,rows=emptyList(),cursor=null,
-            detail=null,readiness=null,period=null,listChecked=false)
+            listChecked=false,settingsFor=null,settings=null,message=null)
         reload()
     }
-    fun greenhouse(id:String) = choose(state.value.resource,id)
-    fun setup(resource: AdminResource, row: JSONObject) {
-        if (state.value.busy) return
-        mutable.value = state.value.copy(setupGreenhouse = row)
-        choose(resource, row.getString("id"))
+    /**
+     * Opens the settings page of one greenhouse. Always read again: setting its running period elsewhere bumps its version,
+     * and a cached row would make the next save a false "data changed" conflict.
+     */
+    fun openGreenhouse(id:String) {
+        if(state.value.busy) return
+        mutable.value=state.value.copy(resource=AdminResource.GREENHOUSE,greenhouse=id,rows=emptyList(),cursor=null,
+            listChecked=false,settingsFor=id,settings=null,message=null)
+        reload()
     }
-    fun returnToGreenhouse() {
-        val row = state.value.setupGreenhouse ?: return
-        if (state.value.busy) return
-        mutable.value = state.value.copy(resource = AdminResource.GREENHOUSE, setupGreenhouse = null,
-            rows = emptyList(), cursor = null, listChecked = false)
-        detail(row)
+    /**
+     * Ends the running period of the open greenhouse (planting_group_id null), the step the server asks for before the
+     * greenhouse can be turned off. The greenhouse is read again afterwards, so its new version is the one saved next.
+     */
+    fun clearPeriod(onAccepted:()->Unit) {
+        val id=state.value.settingsFor ?: return
+        val row=state.value.rows.find {it.optString("id")==id} ?: return
+        if(state.value.busy) return
+        viewModelScope.launch {
+            mutable.value=state.value.copy(busy=true,message=null)
+            val message=try {
+                val operation=repository.designateOperation(session,ticket,id,row.getLong("version"),null)
+                repository.sendDesignation(session,ticket,id,operation)
+                onAccepted()
+                "Tanam saat ini dikosongkan."
+            } catch(cancelled:CancellationException) {throw cancelled}
+            catch(error:Exception) {userMessage(error)}
+            load()
+            mutable.value=state.value.copy(message=message)
+        }
     }
     fun reload(more:Boolean=false) {if(!state.value.busy) viewModelScope.launch {load(more)}}
     /** Fills the selected greenhouse's master lists from [source]; the caller has already asked the manager. */
@@ -136,43 +156,12 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
             val data=page.getJSONArray("data");val rows=(0 until data.length()).map(data::getJSONObject)
             mutable.value=state.value.copy(rows=if(more) (state.value.rows+rows).distinctBy {it.getString("id")} else rows,
                 cursor=page.optString("next_cursor").takeUnless {it.isBlank() || it=="null"},listChecked=true)
+            val settings=state.value.settingsFor
+            if(settings!=null && resource==AdminResource.GREENHOUSE && greenhouse==settings)
+                mutable.value=state.value.copy(settings=repository.settings(session,ticket,settings))
         } catch(cancelled:CancellationException) {throw cancelled}
         catch(error:Exception) {mutable.value=state.value.copy(message=userMessage(error))}
         finally {mutable.value=state.value.copy(busy=false)}
-    }
-    fun detail(row:JSONObject) {
-        if(state.value.busy) return
-        mutable.value=state.value.copy(detail=row,readiness=null,period=null,message=null,busy=true)
-        viewModelScope.launch {
-            try {
-                val id=row.getString("id")
-                val resource=state.value.resource
-                // Workers reach every active greenhouse (17 Nov 2026), so assignments are no longer counted.
-                val counts=if(resource==AdminResource.USER) null else {
-                    val seasons=repository.options(session,ticket,"seasons",id)
-                        .filter {it.optString("status")=="open"}.map {it.getString("id")}.toSet()
-                    mapOf("Musim terbuka" to seasons.size,
-                        "Kelompok aktif pada musim terbuka" to repository.options(session,ticket,"planting-groups",id)
-                            .count {it.optBoolean("active") && it.optString("season_id") in seasons},
-                        "Bahan aktif" to repository.options(session,ticket,"materials",id).count {it.optBoolean("active")},
-                        "Satuan aktif" to repository.options(session,ticket,"units",id).count {it.optBoolean("active")},
-                        "Grade aktif" to repository.options(session,ticket,"grades",id).count {it.optBoolean("active")})
-                }
-                mutable.value=state.value.copy(readiness=counts)
-                if (resource == AdminResource.GREENHOUSE) {
-                    mutable.value = state.value.copy(period = repository.greenhousePeriod(session, ticket, id))
-                }
-            } catch(cancelled:CancellationException) {throw cancelled}
-            catch(error:Exception) {mutable.value=state.value.copy(message=userMessage(error))}
-            finally {mutable.value=state.value.copy(busy=false)}
-        }
-    }
-    fun closeDetail() {
-        if(!state.value.busy) {
-            val needsReload = !state.value.listChecked
-            mutable.value=state.value.copy(detail=null,readiness=null,period=null,message=null)
-            if (needsReload) reload()
-        }
     }
     /**
      * Opens a new or existing record. One form is kept at a time (it survives the app being closed), but it never
@@ -191,13 +180,15 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
         val current=state.value.form
         when {
             current==null -> start(target)
-            sameTarget(current,target) -> resume()
+            // An untouched form for an older version would only produce a false conflict; open the fresh row instead.
+            sameTarget(current,target) && (state.value.dirty || current.version==target.version) -> resume()
+            sameTarget(current,target) -> start(target)
             else -> mutable.value=state.value.copy(replace=target)
         }
     }
     private fun start(form:AdminForm,dirty:Boolean=false) {
         journal=JSONObject()
-        mutable.value=state.value.copy(form=form,editing=true,dirty=dirty,message=null,detail=null,readiness=null,
+        mutable.value=state.value.copy(form=form,editing=true,dirty=dirty,message=null,
             pending=false,needsPassword=false,rejected=false,server=null,replace=null,confirmCancel=false)
         flush();loadOptions()
     }
@@ -226,6 +217,16 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
             rejected=false,server=null,message=if(wasPending) "Pengiriman dibatalkan. Perubahan mungkin sudah tersimpan; periksa daftar." else null)
         journal=JSONObject();flush()
         if(wasPending) reload()
+    }
+    /**
+     * Opens an existing record with some values already changed (a new role, active off), so the form goes straight to
+     * its summary. Nothing is sent until the manager taps Simpan there.
+     */
+    fun openChanged(row:JSONObject,changes:Map<String,String>) {
+        if(state.value.busy || !loaded) return
+        val edit=AdminForm.edit(state.value.resource,row)
+        val target=edit.copy(values=edit.values+changes)
+        if(state.value.form==null) start(target,dirty=true) else mutable.value=state.value.copy(replace=target)
     }
     /** Turns a record on or off in one step from the list or detail; the caller has already asked the manager. */
     fun setActive(row:JSONObject,active:Boolean,onAccepted:()->Unit) {

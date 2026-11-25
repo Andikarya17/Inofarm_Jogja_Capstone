@@ -343,7 +343,7 @@ internal fun EntryReview(state: ActivityUiState, context: CultivationUiState, vm
         }
         if (entry.nutritionMaterials.isNotEmpty()) FarmFormSection("Nutrisi AB Mix") { entry.nutritionMaterials.forEach { Text(material(it)) } }
         if (entry.hasSpray) FarmFormSection("Penyemprotan") {
-            FarmFact("Waktu", "${entry.sprayDate} · ${SprayPeriods[entry.sprayPeriod].orEmpty()}")
+            FarmFact("Waktu", "${com.inofarm.jogja.feature.dayText(entry.sprayDate)} · ${SprayPeriods[entry.sprayPeriod].orEmpty()}")
             FarmFact("Varietas", entry.sprayGroups.sorted().joinToString(", ") { names[it] ?: "Varietas" })
             entry.spray.forEach { Text(material(it)) }
         }

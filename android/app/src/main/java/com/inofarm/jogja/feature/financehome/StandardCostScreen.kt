@@ -76,7 +76,7 @@ private fun raw(amount: BigDecimal?): String = amount?.stripTrailingZeros()?.let
                 Column(Modifier.weight(1f)) {
                     Text(if (summary) "Ringkasan biaya standar" else "Biaya standar", style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-                    Text(if (summary) "Langkah 2 dari 2" else "Per greenhouse, per musim · langkah 1 dari 2", style = MaterialTheme.typography.bodySmall,
+                    Text(if (summary) "Langkah 2 dari 2" else "Satu lembar untuk semua greenhouse · langkah 1 dari 2", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -89,7 +89,7 @@ private fun raw(amount: BigDecimal?): String = amount?.stripTrailingZeros()?.let
                 if (list.size > 1 && !summary) FarmSegmentedTabs(list.map { it.sequence.toString() to "Musim ${it.sequence}" }, sheet.sequence.toString(),
                     { id -> list.single { it.sequence.toString() == id }.let(::pick) }, tagPrefix = "cost-season-")
                 val preview = applied().first ?: sheet
-                FarmHeroCard {
+                FarmHeroCard(motif = false) {
                     Text("Biaya total satu GH · Musim ${sheet.sequence}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(preview.tc()?.let(::rupiah) ?: "Belum lengkap", style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.ExtraBold,
                         modifier = Modifier.testTag("cost-tc"))

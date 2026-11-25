@@ -9,6 +9,7 @@ import com.inofarm.jogja.feature.FarmReviewFrame
 import com.inofarm.jogja.core.design.FarmIcon
 import com.inofarm.jogja.core.design.FarmHeroCard
 import com.inofarm.jogja.core.design.FarmAmount
+import com.inofarm.jogja.core.design.measureText
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -52,8 +53,8 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
         FarmFormSection("Pembayaran dan pembeli") {
         if(draft.lockedSeason) Text("Musim: ${context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "terakhir tersimpan"}")
         else Choice("Musim penjualan",draft.seasonId,context.seasons.filter {it.optString("greenhouse_id")==draft.greenhouseId && it.optString("status")=="open"},"sale-season") {value -> vm.edit {it.copy(seasonId=value,items=listOf(SaleLine()))}}
-        FinanceDateField("Tanggal lunas (YYYY-MM-DD)",draft.date,{value -> vm.edit {it.copy(date=value)}},"sale-date",state.errors["paid_at"])
-        FinanceTimeField("Jam lunas WIB (HH:mm)",draft.time,{value -> vm.edit {it.copy(time=value)}},"sale-time",hint="Detik opsional HH:mm:ss.")
+        FinanceDateField("Tanggal lunas",draft.date,{value -> vm.edit {it.copy(date=value)}},"sale-date",state.errors["paid_at"])
+        FinanceTimeField("Jam lunas (WIB)",draft.time,{value -> vm.edit {it.copy(time=value)}},"sale-time")
         com.inofarm.jogja.feature.customers.BuyerSection(draft,state.errors["customer"],buyerSearch) {change -> vm.edit(change)}
         }
         val options=sources(context,draft)
@@ -64,8 +65,8 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
             // Mitra grades the fruit when buying (20 Nov 2026): one line per grade, the same Layak source may repeat.
             if(draft.buyerType=="partner") com.inofarm.jogja.core.design.FarmChoiceChips("Grade dari mitra",line.grade.ifBlank {null},
                 listOf("A","B","C").map {org.json.JSONObject().put("id",it).put("name","Grade $it")},"sale-grade-$index") {edit(line.copy(grade=it))}
-            FinanceField("Bobot ${index+1} (kg)",line.quantity,{edit(line.copy(quantity=it))},"sale-quantity-$index",state.errors["items.$index.quantity"],KeyboardType.Decimal,hint="Lebih dari nol, maksimal6 desimal; tanpa pemisah ribuan.", suffix = "kg", prominent = true)
-            FinanceField("Harga ${index+1} (IDR/kg)",line.price,{edit(line.copy(price=it))},"sale-price-$index",state.errors["items.$index.price"],KeyboardType.Decimal,hint="Harga manual, maksimal6 desimal. Kosong bukan nol.", suffix = "IDR/kg", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
+            FinanceField("Bobot ${index+1} (kg)",line.quantity,{edit(line.copy(quantity=it))},"sale-quantity-$index",state.errors["items.$index.quantity"],KeyboardType.Decimal,hint="Contoh 12,5", suffix = "kg", prominent = true)
+            FinanceField("Harga ${index+1} (IDR/kg)",line.price,{edit(line.copy(price=it))},"sale-price-$index",state.errors["items.$index.price"],KeyboardType.Decimal,hint="Ketik angka saja, titik ribuan muncul sendiri", suffix = "IDR/kg", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
             TextButton(onClick={vm.edit {it.copy(items=it.items.filterIndexed {i,_ -> i!=index})}},modifier=Modifier.testTag("sale-remove-$index")) {Text("Hapus rincian ${index+1}")}
         }}}
         OutlinedButton(onClick={vm.edit {it.copy(items=it.items+SaleLine())}},enabled=draft.items.size<30,modifier=Modifier.fillMaxWidth().testTag("sale-add")) {Text(if(draft.buyerType=="partner") "Tambah grade atau sumber panen" else "Tambah sumber panen")}
@@ -79,7 +80,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
             FarmHeroCard {
                 Text("Total penerimaan", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FarmAmount(moneyLabel(it.total.toPlainString()), com.inofarm.jogja.core.design.FarmType.HeroAmount)
-                Text("${it.weightKg.toPlainString()} kg dari rincian. Total isian, bukan nilai resmi.", style = MaterialTheme.typography.bodySmall,
+                Text("${measureText(it.weightKg.toPlainString())} kg terjual. Angka resmi dihitung server setelah tersimpan.", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -96,12 +97,12 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
     val preview=runCatching { draft.preview() }.getOrNull()
     if(acceptedTotal!=null) FarmFact("Total tercatat", moneyLabel(acceptedTotal),
         Modifier.testTag("sale-accepted-total").semantics(mergeDescendants=true) {}, prominent=true)
-    else if(preview!=null) FarmFact("Perkiraan total penjualan",moneyLabel(preview.total.toPlainString()),
+    else if(preview!=null) FarmFact("Total penjualan",moneyLabel(preview.total.toPlainString()),
         Modifier.testTag("sale-total-fact").semantics(mergeDescendants=true) {},prominent=true)
     else Notice("Total belum dapat dihitung dari isian ini.",true)
-    preview?.let { FarmFact("Bobot dari rincian", "${it.weightKg.toPlainString()} kg") }
+    preview?.let { FarmFact("Bobot terjual", "${measureText(it.weightKg.toPlainString())} kg") }
     FarmFact("Musim",context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "Nama belum tersedia")
-    FarmFact("Pembayaran","${draft.date} ${draft.time} WIB · ${if(draft.paid) "Lunas" else "Belum dikonfirmasi"}")
+    FarmFact("Pembayaran","${whenLabel(draft.date, draft.time)} · ${if(draft.paid) "Lunas" else "Belum dikonfirmasi"}")
     if(draft.customer.isNotBlank()) FarmFact("Pembeli",draft.customer)
     if(draft.hasBuyer()) FarmFact("Tipe pembeli",(if(draft.buyerType=="partner") "Mitra" else "Perorangan")+if(draft.buyerExisting) "" else " · pembeli baru, masuk daftar")
     val options=sources(context,draft)
@@ -109,8 +110,8 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
         HorizontalDivider()
         FarmFact("Sumber panen ${index+1}"+(if(line.grade.isNotBlank()) " · grade ${line.grade}" else ""),options.find {it.optString("id")==line.sourceId}
             ?.optString("name") ?: "Sumber belum tersedia pada data tersimpan")
-        FarmFact("Bobot", line.quantity.takeIf(String::isNotBlank)?.let { "$it kg" } ?: "Belum diisi")
-        FarmFact("Harga per kg", line.price.takeIf(String::isNotBlank)?.let { "$it IDR/kg" } ?: "Belum diisi")
+        FarmFact("Bobot", line.quantity.takeIf(String::isNotBlank)?.let { "${measureText(it.replace(',', '.'))} kg" } ?: "Belum diisi")
+        FarmFact("Harga per kg", line.price.takeIf(String::isNotBlank)?.let { "${moneyLabel(it.replace(',', '.'))}/kg" } ?: "Belum diisi")
     }
     if(draft.notes.isNotBlank()) FarmFact("Keterangan",draft.notes)
     if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi",draft.reason)

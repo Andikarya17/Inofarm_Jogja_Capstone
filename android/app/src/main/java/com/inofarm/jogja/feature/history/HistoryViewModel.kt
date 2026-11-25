@@ -109,14 +109,14 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
             finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(auditLoading=false)}
         }
     }
-    private fun mutate(action:suspend (FinanceSession,Long)->Unit) {
+    private fun mutate(done:String="Tersimpan. Terkirim otomatis saat ada internet.",action:suspend (FinanceSession,Long)->Unit) {
         if(state.value.busy) return
         val session=vault.current ?: return;val ticket=vault.generation
         viewModelScope.launch {
             mutable.value=state.value.copy(busy=true,message=null)
             try {
                 action(session,ticket)
-                if(vault.matches(ticket,session.scope)) {mutable.value=state.value.copy(comparison=null,message="Tersimpan. Terkirim otomatis saat ada internet.",changed=state.value.changed+1);reload()}
+                if(vault.matches(ticket,session.scope)) {mutable.value=state.value.copy(comparison=null,message=done,changed=state.value.changed+1);reload()}
             } catch(cancelled:CancellationException) {throw cancelled}
             catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error))}
             finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(busy=false)}
@@ -126,4 +126,5 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
     fun cancel(reviewed:LocalRecord,reason:String)=mutate {session,ticket -> repository.cancel(session,ticket,reviewed,reason)}
     fun season(reviewed:JSONObject,reason:String)=mutate {session,ticket -> repository.season(session,ticket,reviewed,reason)}
     fun retryClosed() {val reviewed=state.value.selected ?: return;mutate {session,ticket -> repository.retryClosed(session,ticket,reviewed)}}
+    fun discardRejected() {val reviewed=state.value.selected ?: return;mutate("Isian yang ditolak sudah dibuang.") {session,ticket -> repository.discardRejected(session,ticket,reviewed)}}
 }

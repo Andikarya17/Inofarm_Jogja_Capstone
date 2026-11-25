@@ -24,7 +24,7 @@ data class FinancialDraft(val id:String=UUID.randomUUID().toString(),val kind:Re
         if(kind==RecordKind.EXPENSE) {
             if(runCatching {WireContract.uuid(categoryId)}.isFailure) put("category","Pilih kategori pengeluaran.")
             if(paymentKind !in setOf("operating","asset_acquisition")) put("payment_kind","Pilih pembayaran operasi atau pembelian aset.")
-            if(runCatching {paidAt()}.isFailure) put("paid_at","Isi tanggal YYYY-MM-DD dan jam HH:mm WIB yang sah; detik opsional.")
+            if(runCatching {paidAt()}.isFailure) put("paid_at","Pilih tanggal dan jam pembayaran dari kalender dan jam.")
             if(notes.length>2000) put("notes","Keterangan maksimal 2.000 karakter.")
         } else {
             if(runCatching {WireContract.uuid(expenseId)}.isFailure) put("expense","Pilih pembayaran operasi yang sudah terkirim.")

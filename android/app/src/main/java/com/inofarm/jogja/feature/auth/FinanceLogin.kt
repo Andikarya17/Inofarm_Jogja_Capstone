@@ -229,12 +229,6 @@ internal fun FinanceLogin(
                         verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
                         if (endpoint == null) Notice("Alamat aplikasi belum diatur. Hubungi pengelola.", true)
                         state.error?.let { Notice(it, true) }
-                        when (state.logoutStatus) {
-                            LogoutStatus.Confirmed -> Notice("Sudah keluar. Draf dan catatan yang belum terkirim tetap tersimpan.")
-                            LogoutStatus.RevocationUnconfirmed ->
-                                FarmAttention("Sudah keluar dari perangkat ini. Draf tetap tersimpan. Akses akun belum dipastikan tercabut.")
-                            null -> Unit
-                        }
                         permissionMessage?.let { Notice(it, true) }
                     }
                     val press = remember { MutableInteractionSource() }
@@ -262,6 +256,13 @@ internal fun FinanceLogin(
                     }
                     Text("Lupa password? Minta pengelola mengatur ulang.", Modifier.fillMaxWidth(),
                         style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, textAlign = TextAlign.Center)
+                    // Logout news is information, not an error about this form: below Masuk, so it never pushes the button off screen.
+                    when (state.logoutStatus) {
+                        LogoutStatus.Confirmed -> Notice("Sudah keluar. Draf dan catatan yang belum terkirim tetap tersimpan.")
+                        LogoutStatus.RevocationUnconfirmed ->
+                            FarmAttention("Sudah keluar dari perangkat ini. Draf tetap tersimpan. Akses akun belum dipastikan tercabut.")
+                        null -> Unit
+                    }
                 }
                 }
             }

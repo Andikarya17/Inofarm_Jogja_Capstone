@@ -20,8 +20,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.inofarm.jogja.core.contracts.UserRole
 import com.inofarm.jogja.core.design.*
 import androidx.compose.animation.core.tween
@@ -63,7 +61,7 @@ internal object WizardRules {
     fun plantingErrors(season: String, start: String, varieties: List<Pair<String, String>>,
                        sowing: String, transplant: String): Map<String, String> = buildMap {
         if (season.isBlank()) put("season", "Isi nama musim.")
-        if (runCatching { LocalDate.parse(start) }.isFailure) put("start", "Isi tanggal mulai, contoh 2026-11-10.")
+        if (runCatching { LocalDate.parse(start) }.isFailure) put("start", "Pilih tanggal mulai musim dari kalender.")
         varieties.forEachIndexed { index, (name, population) ->
             when {
                 name.isBlank() -> put("variety$index", "Isi nama varietas.")
@@ -74,7 +72,7 @@ internal object WizardRules {
             if (population.toIntOrNull()?.let { it >= 0 } != true) put("population$index", "Isi jumlah tanaman sebagai angka bulat.")
         }
         val sown = runCatching { LocalDate.parse(sowing) }.getOrNull()
-        if (sown == null) put("sowing", "Isi tanggal semai, contoh 2026-11-10.")
+        if (sown == null) put("sowing", "Pilih tanggal semai dari kalender.")
         if (transplant.isNotBlank()) {
             val moved = runCatching { LocalDate.parse(transplant) }.getOrNull()
             if (moved == null) put("transplant", "Tanggal pindah tanam tidak sah.")
@@ -212,7 +210,7 @@ fun GreenhouseWizardHost(
 
     // Once the greenhouse is saved, leaving goes to the finish screen so the manager sees it already exists.
     val close: () -> Unit = { if (!busy) { if (ghDone && !finished && plantIn == null) finished = true else onClose() } }
-    Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false)) {
+    FarmFullScreenDialog(onDismissRequest = close) {
         BackHandler { if (!busy) { if (finished) onClose() else if (step > 1 && plantIn == null) step-- else close() } }
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             CompositionLocalProvider(LocalCanopyForm provides true) {
@@ -273,14 +271,14 @@ fun GreenhouseWizardHost(
                                         else WizardRules.seasonName(name, plantIn?.seasonNames.orEmpty())
                                     FarmFact("Nama musim", shown, Modifier.testTag("wizard-season"))
                                     fieldErrors["season"]?.let { Notice(it, true) }
-                                    FinanceDateField("Tanggal mulai musim", start, { start = it }, "wizard-start", fieldErrors["start"], hint = "contoh 2026-11-10", enabled = !busy && !seasonDone)
+                                    FinanceDateField("Tanggal mulai musim", start, { start = it }, "wizard-start", fieldErrors["start"], enabled = !busy && !seasonDone)
                                 }
                                 val planted = groupDone.any { it }
                                 FarmFormSection("Semai") {
                                     Text("Semua varietas di greenhouse ini disemai serentak.", style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    FinanceDateField("Tanggal semai", sowing, { sowing = it }, "wizard-sowing", fieldErrors["sowing"], hint = "contoh 2026-11-10", enabled = !busy && !planted)
-                                    FinanceDateField("Tanggal pindah tanam (opsional)", transplant, { transplant = it }, "wizard-transplant", fieldErrors["transplant"], hint = "contoh 2026-11-10", enabled = !busy && !planted)
+                                    FinanceDateField("Tanggal semai", sowing, { sowing = it }, "wizard-sowing", fieldErrors["sowing"], enabled = !busy && !planted)
+                                    FinanceDateField("Tanggal pindah tanam (opsional)", transplant, { transplant = it }, "wizard-transplant", fieldErrors["transplant"], enabled = !busy && !planted)
                                 }
                                 for (index in 0 until count) {
                                     FarmFormSection(if (count == 1) "Varietas" else "Varietas ${index + 1}") {

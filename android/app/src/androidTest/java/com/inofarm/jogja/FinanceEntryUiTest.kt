@@ -2071,7 +2071,7 @@ class FinanceEntryUiTest {
         val allocationId=acceptedFinancial("cost_allocation")
         rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","cost_allocation")
         awaitRecord("finance-record-$allocationId");rule.onNodeWithTag("finance-record-$allocationId").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
-        readyNode("expense-remaining-fact").performScrollTo().assertTextContains("40,00",substring=true)
+        readyNode("expense-remaining-fact").performScrollTo().assertTextContains("Rp40",substring=true)
         captureSecondary("allocation-detail")
         assertEquals(2,financePosts.get());assertEquals(original.id,runtime().store.outbox(session.scope.key).first {it.entityId==source}.id)
     }
@@ -2201,7 +2201,7 @@ class FinanceEntryUiTest {
         choose("expense-history-kind","asset")
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("asset-cost-fact").performScrollTo().assertExists()
-        rule.onNode(hasAnyAncestor(hasTestTag("asset-cost-fact")) and hasText("100,00", substring=true)).assertExists()
+        rule.onNode(hasAnyAncestor(hasTestTag("asset-cost-fact")) and hasText("Rp100", substring=true)).assertExists()
         captureSecondary("asset-detail")
     }
     @Test fun depreciationRequiresExplicitUsagePeriodBasisAndDoesNotInventAmount() {

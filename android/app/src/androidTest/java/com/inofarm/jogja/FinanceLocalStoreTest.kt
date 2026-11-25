@@ -322,6 +322,31 @@ class FinanceLocalStoreTest {
         assertEquals(original.hash,store.outbox("account-a").single {it.id==original.id}.hash)
         assertEquals("Ditolak",store.archived("account-a",id).single().getString("notes"))
     }
+    @Test fun aRejectionThatCannotBeResentCanBeDiscarded() {
+        val id=UUID.randomUUID().toString();store.saveAndQueue("account-a",id,gh,body("Periode lama"));val original=store.next("account-a")!!
+        // Still waiting: nothing to discard yet.
+        assertThrows(IllegalArgumentException::class.java) {store.discardRejected("account-a",id,store.record("account-a",id)!!.revision)}
+        store.mark("account-a",original,SyncState.REJECTED,JSONObject().put("code","running_period_changed"))
+        val rejected=store.record("account-a",id)!!
+        assertThrows(IllegalArgumentException::class.java) {store.discardRejected("account-a",id,rejected.revision+1)}
+        store.discardRejected("account-a",id,rejected.revision)
+        // Never accepted by the server: the record goes, and the "belum terkirim" count no longer sees its operation.
+        assertNull(store.record("account-a",id))
+        assertTrue(store.outbox("account-a").none {it.id==original.id})
+        assertNull(store.next("account-a"))
+    }
+    @Test fun aDiscardedRejectedEditFallsBackToTheServerCopy() {
+        val id=UUID.randomUUID().toString();store.saveAndQueue("account-a",id,gh,body("Asli"));val create=store.next("account-a")!!
+        store.acknowledge("account-a",create.id,receipt(id,create.id,"Diterima"))
+        val accepted=store.record("account-a",id)!!
+        store.saveAndQueue("account-a",id,gh,body("Koreksi"),accepted.revision,accepted.serverVersion)
+        val edit=store.next("account-a")!!;store.mark("account-a",edit,SyncState.REJECTED,JSONObject().put("code","running_period_changed"))
+        store.discardRejected("account-a",id,store.record("account-a",id)!!.revision)
+        val back=store.record("account-a",id)!!
+        assertEquals(SyncState.ACCEPTED,back.syncState);assertEquals("Diterima",back.body.getString("notes"));assertEquals(1L,back.baseVersion)
+        assertEquals("SUPERSEDED",store.outbox("account-a").single {it.id==edit.id}.state)
+        assertEquals("Koreksi",store.archived("account-a",id).first().getString("notes"))
+    }
     @Test fun demotedManagerCannotReadOrSendOldManagerRecords() {
         store.initialize("account-a",epoch,UserRole.MANAGER)
         val id=UUID.randomUUID().toString()
