@@ -117,9 +117,10 @@ internal fun FarmDiscardDialog(onDiscard: () -> Unit, onKeep: () -> Unit) {
         dismissButton = { TextButton(onClick = onKeep, modifier = Modifier.testTag("entry-discard-keep")) { Text("Lanjut mengisi") } })
 }
 
-/** Forest strip with the greenhouse and planting the form is for; [age] sits on the right when known. */
+/** Forest strip with the greenhouse and planting the form is for; [age] sits on the right when known, or an [action] such as "Ganti GH". */
 @Composable
-internal fun FarmContextStrip(greenhouse: String, planting: String?, age: String?, icon: FarmIcon = FarmIcon.Greenhouse) {
+internal fun FarmContextStrip(greenhouse: String, planting: String?, age: String?, icon: FarmIcon = FarmIcon.Greenhouse,
+                              action: (@Composable () -> Unit)? = null) {
     MaterialTheme(colorScheme = ForestScheme, typography = MaterialTheme.typography) {
         Surface(Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
             color = ForestScheme.background, contentColor = ForestScheme.onBackground) {
@@ -131,6 +132,7 @@ internal fun FarmContextStrip(greenhouse: String, planting: String?, age: String
                     planting?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = ForestScheme.onSurfaceVariant) }
                 }
                 age?.let { Text(it, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+                action?.invoke()
             }
         }
     }

@@ -13,6 +13,11 @@ class SaleValidationFailure(val fields:Map<String,String>,val baseVersion:Long?)
 class SaleRepository(val vault:FinanceSessionVault,private val store:LocalFinanceStore) {
     private val writes=Mutex()
     suspend fun flush(session:FinanceSession,ticket:Long,draft:SaleDraft)=save(session,ticket,draft,false,true)
+    /** Sales the server sent to this device, for the last price paid by a retail buyer. */
+    suspend fun pastSales(session:FinanceSession,ticket:Long):List<org.json.JSONObject> = withContext(Dispatchers.IO) {
+        check(vault.matches(ticket,session.scope)) {"Sesi berubah."};require(session.role==UserRole.MANAGER) {"Penjualan hanya untuk pengelola."}
+        store.cachedAll(session.scope.key,"sale")
+    }
     /** "Batal": undoes the autosaved edits of [id] back to [origin], the row as the form opened it (null when new). */
     suspend fun discard(session:FinanceSession,ticket:Long,id:String,origin:com.inofarm.jogja.core.database.LocalRecord?)=withContext(Dispatchers.IO) {writes.withLock {
         check(vault.matches(ticket,session.scope)) {"Sesi berubah."};store.restoreDraft(session.scope.key,id,origin)

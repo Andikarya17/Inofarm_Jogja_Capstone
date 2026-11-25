@@ -20,7 +20,9 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
     val paid:Boolean=false,val customer:String="",val notes:String="",val items:List<SaleLine> = listOf(SaleLine()),val reason:String="",val baseVersion:Long?=null,
     val lockedSources:Set<String> = emptySet(),val lockedSeason:Boolean=false,val replaceValidationRejected:Boolean=false,
     /** Buyer type "consumer", "retail" or "partner" (required for a new sale); [customer] holds the name of the registered buyer in [buyerId]. */
-    val buyerType:String="",val buyerId:String="",val buyerWhatsapp:String="",val buyerExisting:Boolean=false) {
+    val buyerType:String="",val buyerId:String="",val buyerWhatsapp:String="",val buyerExisting:Boolean=false,
+    /** "cash", "transfer" or "qris"; blank = not recorded, and an update then keeps what the server has. */
+    val paymentMethod:String="") {
     fun hasBuyer()=buyerType.isNotBlank()
     private fun hasCustomer()=hasBuyer() && (buyerType!="consumer" || buyerId.isNotBlank())
     fun paidAt()=ManualTime.encode(date,time)
@@ -32,7 +34,9 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
         if(!paid) put("paid","Konfirmasikan pembayaran sudah lunas sebelum menyimpan.")
         if(customer.length>200) put("customer","Nama pembeli maksimal200 karakter.")
         if(notes.length>2000) put("notes","Keterangan maksimal2.000 karakter.")
-        if(items.size !in 1..30) put("items","Sertakan 1–30 baris penjualan.")
+        if(items.isEmpty()) put("items","Pilih buah yang dijual.")
+        else if(items.size !in 1..30) put("items","Sertakan 1 sampai 30 baris penjualan.")
+        if(paymentMethod.isNotBlank() && paymentMethod !in PAYMENT_METHODS) put("payment_method","Cara bayar tidak dikenal.")
         if(items.map {it.id}.toSet().size!=items.size || items.map {Triple(it.groupId,it.gradeId,if(buyerType=="partner") it.buyerGrade else "")}.toSet().size!=items.size) put("items","Buah dan grade yang sama hanya boleh berulang dengan grade mitra yang berbeda.")
         if(items.any {it.buyerGrade.isNotBlank()} && buyerType!="partner") put("items","Grade A, B, C hanya untuk penjualan ke mitra.")
         if(items.any {it.buyerGrade.isNotBlank() && it.buyerGrade !in setOf("A","B","C")}) put("items","Grade mitra harus A, B, atau C.")
@@ -59,6 +63,7 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
             .put("lines",JSONArray().also {rows -> items.forEach {rows.put(JSONObject().put("id",it.id).put("planting_group_id",it.groupId).put("grade_id",it.gradeId).put("quantity_kg",decimal(it.quantity,true).toPlainString())
                 .put("fruit_count",it.fruitCount.trim().toIntOrNull() ?: JSONObject.NULL).put("price_per_kg",decimal(it.price,false).toPlainString()).apply {if(it.buyerGrade.isNotBlank()) put("buyer_grade",it.buyerGrade)})}})
             .apply {if(baseVersion!=null && reason.isNotBlank()) put("reason",reason)}
+            .apply {if(paymentMethod.isNotBlank()) put("payment_method",paymentMethod)}
             .apply {
                 if(hasCustomer()) put("customer_type",buyerType).put("customer",JSONObject().put("id",buyerId).put("type",buyerType).put("name",customer.trim())
                     .put("whatsapp",buyerWhatsapp.trim().ifBlank {null} ?: JSONObject.NULL))
@@ -70,7 +75,7 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
     fun localJson():JSONObject {
         val form=JSONObject().put("season_id",seasonId).put("date",date).put("time",time).put("paid",paid).put("customer_name",customer).put("notes",notes).put("reason",reason)
             .put("locked_season",lockedSeason).put("locked_sources",JSONArray(lockedSources.toList())).put("replace_validation_rejected",replaceValidationRejected)
-            .put("buyer_type",buyerType).put("buyer_id",buyerId).put("buyer_whatsapp",buyerWhatsapp).put("buyer_existing",buyerExisting)
+            .put("buyer_type",buyerType).put("buyer_id",buyerId).put("buyer_whatsapp",buyerWhatsapp).put("buyer_existing",buyerExisting).put("payment_method",paymentMethod)
             .put("lines",JSONArray().also {rows -> items.forEach {rows.put(JSONObject().put("id",it.id).put("group_id",it.groupId).put("grade_id",it.gradeId).put("buyer_grade",it.buyerGrade).put("quantity",it.quantity).put("fruit_count",it.fruitCount).put("price",it.price))}})
         return JSONObject().put("season_id",seasonId).put("paid_at",runCatching {paidAt()}.getOrNull() ?: JSONObject.NULL).put("customer_name",customer).put("notes",notes).put("completeness","draft").put("_local_form",form)
     }
@@ -80,6 +85,7 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
             return parsed.setScale(6)
         }
         val BUYER_TYPES=setOf("consumer","retail","partner")
+        val PAYMENT_METHODS=setOf("cash","transfer","qris")
         /** Rebuilds a draft from a local form or a server body; [stock] upgrades lines saved by app versions that picked a harvest item. */
         fun from(id:String,gh:String,body:JSONObject,base:Long?,stock:SaleStock=SaleStock.EMPTY)=fromLocal(id,gh,body,base,stock)
         fun fromLocal(id:String,gh:String,body:JSONObject,base:Long?,stock:SaleStock=SaleStock.EMPTY):SaleDraft {
@@ -91,7 +97,8 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
                 buyerType=local?.optString("buyer_type") ?: body.optString("customer_type").takeIf {!body.isNull("customer_type")}.orEmpty(),
                 buyerId=local?.optString("buyer_id") ?: body.optString("customer_id").takeIf {!body.isNull("customer_id")}.orEmpty(),
                 buyerWhatsapp=local?.optString("buyer_whatsapp").orEmpty(),
-                buyerExisting=local?.optBoolean("buyer_existing") ?: !body.isNull("customer_id"))
+                buyerExisting=local?.optBoolean("buyer_existing") ?: !body.isNull("customer_id"),
+                paymentMethod=local?.optString("payment_method") ?: body.optString("payment_method").takeIf {!body.isNull("payment_method")}.orEmpty())
         }
         private fun parseLines(raw:JSONObject,local:Boolean,stock:SaleStock):List<SaleLine> {
             fun rows(key:String)=raw.optJSONArray(key)?.let {a -> (0 until a.length()).map {a.getJSONObject(it)}}

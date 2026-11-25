@@ -14,7 +14,9 @@ data class StockAfter(val lineId: String, val groupId: String, val gradeId: Stri
  * picks a group and a grade; the server allocates harvest items FIFO (occurred_at, harvest id, item id), so this
  * class mirrors that order for the preview only.
  */
-class SaleStock(harvests: List<JSONObject>, balances: List<JSONObject>, private val groups: List<JSONObject>, private val varieties: List<JSONObject>, private val grades: List<JSONObject>) {
+class SaleStock(harvests: List<JSONObject>, balances: List<JSONObject>, private val groups: List<JSONObject>, private val varieties: List<JSONObject>, private val grades: List<JSONObject>,
+    /** Kg per harvest item that the sale being corrected already holds on the server; the balance counts it as sold. */
+    credit: Map<String, BigDecimal> = emptyMap()) {
     private class Item(val id: String, val harvestId: String, val groupId: String, val gradeId: String, val gradeName: String, val quality: String?, val occurredAt: String, val available: BigDecimal, val active: Boolean)
 
     private val items: List<Item> = run {
@@ -26,7 +28,8 @@ class SaleStock(harvests: List<JSONObject>, balances: List<JSONObject>, private 
                 val weight = amount(item.optString("weight_kg"))
                 val stale = byItem[item.optString("id")] != null && balance == null
                 // A balance row of another harvest version is unknown stock (0); the weight is assumed only when no row exists.
-                val available = if (balance != null) amount(balance.optString("available_weight_kg")) else if (stale) BigDecimal.ZERO else weight
+                val available = (if (balance != null) amount(balance.optString("available_weight_kg")) else if (stale) BigDecimal.ZERO else weight)
+                    .add(credit[item.optString("id")] ?: BigDecimal.ZERO)
                 Item(item.optString("id"), harvest.optString("id"), harvest.optString("planting_group_id"), item.optString("grade_id"), item.optString("grade_name"),
                     item.optString("quality").takeIf { it.isNotBlank() && !item.isNull("quality") }, harvest.optString("occurred_at"), available,
                     harvest.optString("record_state") == "active" && (balance == null || balance.optBoolean("active", true)))
@@ -70,7 +73,20 @@ class SaleStock(harvests: List<JSONObject>, balances: List<JSONObject>, private 
     private fun amount(text: String) = runCatching { BigDecimal(text) }.getOrDefault(BigDecimal.ZERO)
     private fun instant(text: String) = runCatching { OffsetDateTime.parse(text).toInstant().toEpochMilli() }.getOrDefault(Long.MAX_VALUE)
 
-    companion object { val EMPTY = SaleStock(emptyList(), emptyList(), emptyList(), emptyList(), emptyList()) }
+    companion object {
+        val EMPTY = SaleStock(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+
+        /** What a sale on the server took from each harvest item: line allocations, or the items of an older sale. */
+        fun creditOf(body: JSONObject?): Map<String, BigDecimal> {
+            val credit = mutableMapOf<String, BigDecimal>()
+            fun rows(array: org.json.JSONArray?) = array?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty()
+            fun add(row: JSONObject) { runCatching { BigDecimal(row.getString("quantity_kg")) }.getOrNull()?.let { credit.merge(row.optString("harvest_item_id"), it, BigDecimal::add) } }
+            val lines = body?.optJSONArray("lines")
+            if (lines != null) rows(lines).forEach { line -> rows(line.optJSONArray("allocations")).forEach(::add) }
+            else rows(body?.optJSONArray("items")).filter { it.optString("harvest_item_id").isNotBlank() }.forEach(::add)
+            return credit
+        }
+    }
 }
 
 data class RetailHint(val pricePerKg: String, val kg: String, val paidAt: String)
@@ -100,6 +116,31 @@ object SaleErrors {
     private val lineKey = Regex("""(?:^|\.)lines\.(\d+)\.([A-Za-z_]+)$""")
     /** Server field key such as `operation.payload.lines.2.fruit_count` to line index and field name. */
     fun lineField(key: String): Pair<Int, String>? = lineKey.find(key)?.let { it.groupValues[1].toInt() to it.groupValues[2] }
+
+    private val fieldNames = mapOf("quantity_kg" to "quantity", "price_per_kg" to "price", "fruit_count" to "fruit_count", "planting_group_id" to "source", "grade_id" to "source", "buyer_grade" to "buyer_grade")
+
+    /**
+     * A server rejection as form errors keyed like the local ones ("items.<i>.<field>"), so each shows on its line:
+     * `field_errors` of the sent lines, and the `harvest_exceeded` reasons that name a line and the kg it still has.
+     */
+    fun fromServer(error: JSONObject?, lines: List<SaleLine>): Map<String, String> = buildMap {
+        if (error == null) return@buildMap
+        error.optJSONObject("field_errors")?.let { fields ->
+            fields.keys().forEach { key ->
+                val (index, field) = lineField(key) ?: return@forEach
+                if (index !in lines.indices) return@forEach
+                val message = fields.optJSONArray(key)?.optString(0) ?: fields.optString(key)
+                if (message.isNotBlank()) put("items.$index.${fieldNames[field] ?: field}", message)
+            }
+        }
+        if (error.optString("code") == "harvest_exceeded") error.optJSONArray("reasons")?.let { reasons ->
+            for (i in 0 until reasons.length()) {
+                val reason = reasons.optJSONObject(i) ?: continue
+                val index = lines.indexOfFirst { it.id == reason.optString("line_id") }
+                if (index >= 0) put("items.$index.quantity", "Sisa hanya ${SaleFormModel.kg(runCatching { BigDecimal(reason.getString("available_kg")) }.getOrDefault(BigDecimal.ZERO))} kg")
+            }
+        }
+    }
 }
 
 object BuyerTypes {
