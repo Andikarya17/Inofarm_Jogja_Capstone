@@ -47,7 +47,7 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::post('consumer-prices', [ConsumerPriceController::class, 'store'])->middleware('finance-manager');
         Route::patch('consumer-prices/{id}', [ConsumerPriceController::class, 'update'])->whereUuid('id')->middleware('finance-manager');
         Route::get('reports/income',[FieldReportController::class, 'income'])->middleware('finance-manager');
-        Route::get('reports/profit-summary', [FieldReportController::class, 'profitSummary'])->middleware('finance-manager');
+        Route::get('reports/season-overview', [FieldReportController::class, 'seasonOverview'])->middleware('finance-manager');
         Route::get('season-cost-sheets',[SeasonCostSheetController::class, 'index'])->middleware('finance-manager');
         Route::get('season-cost-sheets/{id}', [SeasonCostSheetController::class, 'show'])->whereUuid('id')->middleware('finance-manager');
         Route::patch('season-cost-sheets/{id}', [SeasonCostSheetController::class, 'update'])->whereUuid('id')->middleware('finance-manager');

@@ -19815,18 +19815,18 @@
         }
       }
     },
-    "/reports/profit-summary": {
+    "/reports/season-overview": {
       "get": {
-        "operationId": "profit_summary",
-        "summary": "Laba berbasis biaya standar: musim terbuka, per Musim ke-n dan per greenhouse (pengelola). Dihitung langsung, bukan laporan terbit.",
+        "operationId": "season_overview",
+        "summary": "Ringkasan per Musim ke-n lintas greenhouse aktif: lembar biaya standar, penjualan per tipe pembeli, per greenhouse dan per minggu (pengelola). Tanpa laba atau rasio. Tanpa sequence: musim berjalan terbesar.",
         "parameters": [
           {
-            "name": "greenhouse_id",
+            "name": "sequence",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              "type": "integer",
+              "minimum": 1
             }
           }
         ],
@@ -19836,7 +19836,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProfitSummary"
+                  "$ref": "#/components/schemas/SeasonOverviewReport"
                 }
               }
             }
@@ -19852,6 +19852,16 @@
             }
           },
           "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Kesalahan terstruktur",
             "content": {
               "application/json": {
@@ -31497,11 +31507,30 @@
             "additionalProperties": false,
             "required": [
               "consumer",
+              "retail",
               "partner",
               "unspecified"
             ],
             "properties": {
               "consumer": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "receipts",
+                  "weight_kg"
+                ],
+                "properties": {
+                  "receipts": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                  },
+                  "weight_kg": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                  }
+                }
+              },
+              "retail": {
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
@@ -31610,11 +31639,30 @@
                     "additionalProperties": false,
                     "required": [
                       "consumer",
+                      "retail",
                       "partner",
                       "unspecified"
                     ],
                     "properties": {
                       "consumer": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "receipts",
+                          "weight_kg"
+                        ],
+                        "properties": {
+                          "receipts": {
+                            "type": "string",
+                            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                          },
+                          "weight_kg": {
+                            "type": "string",
+                            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                          }
+                        }
+                      },
+                      "retail": {
                         "type": "object",
                         "additionalProperties": false,
                         "required": [
@@ -31676,7 +31724,7 @@
           }
         }
       },
-      "ProfitSummary": {
+      "SeasonOverviewReport": {
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -31687,126 +31735,39 @@
             "type": "object",
             "additionalProperties": false,
             "required": [
-              "open",
-              "by_sequence",
-              "by_greenhouse"
+              "sequences",
+              "selected"
             ],
             "properties": {
-              "open": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "greenhouse_count",
-                  "TR",
-                  "TC",
-                  "profit",
-                  "rc",
-                  "complete",
-                  "bep_price",
-                  "bep_kg",
-                  "sold_kg"
-                ],
-                "properties": {
-                  "greenhouse_count": {
-                    "type": "integer"
-                  },
-                  "TR": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "TC": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "profit": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "rc": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "complete": {
-                    "type": "boolean"
-                  },
-                  "bep_price": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "bep_kg": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "sold_kg": {
-                    "type": "string",
-                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                  }
-                }
-              },
-              "by_sequence": {
+              "sequences": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
                     "sequence",
+                    "status",
                     "greenhouse_count",
-                    "TR",
-                    "TC",
-                    "profit",
-                    "rc",
-                    "complete"
+                    "fc",
+                    "vc",
+                    "tc",
+                    "sales_amount",
+                    "sales_kg"
                   ],
                   "properties": {
                     "sequence": {
                       "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "running",
+                        "closed"
+                      ]
                     },
                     "greenhouse_count": {
                       "type": "integer"
                     },
-                    "TR": {
+                    "fc": {
                       "anyOf": [
                         {
                           "type": "string",
@@ -31817,7 +31778,7 @@
                         }
                       ]
                     },
-                    "TC": {
+                    "vc": {
                       "anyOf": [
                         {
                           "type": "string",
@@ -31828,7 +31789,7 @@
                         }
                       ]
                     },
-                    "profit": {
+                    "tc": {
                       "anyOf": [
                         {
                           "type": "string",
@@ -31839,110 +31800,497 @@
                         }
                       ]
                     },
-                    "rc": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                    "sales_amount": {
+                      "type": "string",
+                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
                     },
-                    "complete": {
-                      "type": "boolean"
+                    "sales_kg": {
+                      "type": "string",
+                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
                     }
                   }
                 }
               },
-              "by_greenhouse": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "greenhouse_id",
-                    "name",
-                    "season_id",
-                    "sequence",
-                    "TR",
-                    "TC",
-                    "profit",
-                    "rc",
-                    "complete"
-                  ],
-                  "properties": {
-                    "greenhouse_id": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "season_id": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-                    },
-                    "sequence": {
-                      "anyOf": [
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "null"
+              "selected": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "sequence",
+                      "date_range",
+                      "cost_sheet",
+                      "sales",
+                      "by_greenhouse",
+                      "weekly"
+                    ],
+                    "properties": {
+                      "sequence": {
+                        "type": "integer"
+                      },
+                      "date_range": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "from",
+                          "until",
+                          "running"
+                        ],
+                        "properties": {
+                          "from": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "until": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "running": {
+                            "type": "boolean"
+                          }
                         }
-                      ]
-                    },
-                    "TR": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                        },
-                        {
-                          "type": "null"
+                      },
+                      "cost_sheet": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "version",
+                          "lines",
+                          "per_greenhouse",
+                          "farm"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "lines": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "name",
+                                "cost_class",
+                                "amount",
+                                "is_required"
+                              ],
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "cost_class": {
+                                  "enum": [
+                                    "FC",
+                                    "VC"
+                                  ]
+                                },
+                                "amount": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "is_required": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "per_greenhouse": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "fc",
+                              "vc",
+                              "tc"
+                            ],
+                            "properties": {
+                              "fc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "vc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "tc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "farm": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "fc",
+                              "vc",
+                              "tc"
+                            ],
+                            "properties": {
+                              "fc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "vc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "tc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          }
                         }
-                      ]
-                    },
-                    "TC": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                        },
-                        {
-                          "type": "null"
+                      },
+                      "sales": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "amount",
+                          "kg",
+                          "count",
+                          "by_type"
+                        ],
+                        "properties": {
+                          "amount": {
+                            "type": "string",
+                            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                          },
+                          "kg": {
+                            "type": "string",
+                            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                          },
+                          "count": {
+                            "type": "integer"
+                          },
+                          "by_type": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "consumer",
+                              "retail",
+                              "partner",
+                              "unspecified"
+                            ],
+                            "properties": {
+                              "consumer": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "amount",
+                                  "kg",
+                                  "count"
+                                ],
+                                "properties": {
+                                  "amount": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "kg": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "count": {
+                                    "type": "integer"
+                                  }
+                                }
+                              },
+                              "retail": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "amount",
+                                  "kg",
+                                  "count"
+                                ],
+                                "properties": {
+                                  "amount": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "kg": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "count": {
+                                    "type": "integer"
+                                  }
+                                }
+                              },
+                              "partner": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "amount",
+                                  "kg",
+                                  "count"
+                                ],
+                                "properties": {
+                                  "amount": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "kg": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "count": {
+                                    "type": "integer"
+                                  }
+                                }
+                              },
+                              "unspecified": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "amount",
+                                  "kg",
+                                  "count"
+                                ],
+                                "properties": {
+                                  "amount": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "kg": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "count": {
+                                    "type": "integer"
+                                  }
+                                }
+                              }
+                            }
+                          }
                         }
-                      ]
-                    },
-                    "profit": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                        },
-                        {
-                          "type": "null"
+                      },
+                      "by_greenhouse": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "greenhouse_id",
+                            "name",
+                            "amount",
+                            "kg",
+                            "count"
+                          ],
+                          "properties": {
+                            "greenhouse_id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "amount": {
+                              "type": "string",
+                              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                            },
+                            "kg": {
+                              "type": "string",
+                              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                            },
+                            "count": {
+                              "type": "integer"
+                            }
+                          }
                         }
-                      ]
-                    },
-                    "rc": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                        },
-                        {
-                          "type": "null"
+                      },
+                      "weekly": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "key",
+                            "label",
+                            "start",
+                            "amount",
+                            "kg",
+                            "by_type"
+                          ],
+                          "properties": {
+                            "key": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            },
+                            "start": {
+                              "type": "string"
+                            },
+                            "amount": {
+                              "type": "string",
+                              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                            },
+                            "kg": {
+                              "type": "string",
+                              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                            },
+                            "by_type": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "consumer",
+                                "retail",
+                                "partner",
+                                "unspecified"
+                              ],
+                              "properties": {
+                                "consumer": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "amount",
+                                    "kg",
+                                    "count"
+                                  ],
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "kg": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                },
+                                "retail": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "amount",
+                                    "kg",
+                                    "count"
+                                  ],
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "kg": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                },
+                                "partner": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "amount",
+                                    "kg",
+                                    "count"
+                                  ],
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "kg": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                },
+                                "unspecified": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "amount",
+                                    "kg",
+                                    "count"
+                                  ],
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "kg": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
                         }
-                      ]
-                    },
-                    "complete": {
-                      "type": "boolean"
+                      }
                     }
+                  },
+                  {
+                    "type": "null"
                   }
-                }
+                ]
               }
             }
           }

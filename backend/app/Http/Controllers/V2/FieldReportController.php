@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V2;
 
 use App\Domain\Finance\FieldReports;
+use App\Domain\Finance\SeasonOverview;
 use App\Domain\Sync\ScopedRead;
 use App\Http\Controllers\Controller;
 use App\Models\User;
@@ -34,11 +35,11 @@ final class FieldReportController extends Controller
         return app(ScopedRead::class)->run($request, fn (User $actor) => ['data' => $reports->income($actor, $input['granularity'], $input['from'], $input['until'], $input['greenhouse_id'] ?? null)]);
     }
 
-    public function profitSummary(Request $request, FieldReports $reports)
+    public function seasonOverview(Request $request, SeasonOverview $overview)
     {
-        $input = $request->validate(['greenhouse_id' => 'nullable|uuid']);
+        $input = $request->validate(['sequence' => 'nullable|integer|min:1']);
 
-        return app(ScopedRead::class)->run($request, fn (User $actor) => ['data' => $reports->profitSummary($actor, $input['greenhouse_id'] ?? null)]);
+        return app(ScopedRead::class)->run($request, fn (User $actor) => ['data' => $overview->build($actor, isset($input['sequence']) ? (int) $input['sequence'] : null)]);
     }
 
     public function compare(Request $request, FieldReports $reports)

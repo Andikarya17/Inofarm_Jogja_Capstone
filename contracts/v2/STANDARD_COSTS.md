@@ -31,12 +31,10 @@ Sejak formula `season-standard-cost-rational-half-up-v2`, FC dan VC laporan musi
 - Hanya penjualan aktif dan lunas. Bucket WIB: minggu mulai Senin (`key` = tanggal Senin), bulan (`YYYY-MM`), tahun (`YYYY`). Maksimal 104 bucket (lebih: 422).
 - Setiap bucket: `receipts`, `weight_kg`, dan `by_type.consumer|partner|unspecified`. Penjualan lama tanpa `customer_type` masuk `unspecified`.
 
-## Ringkasan laba
+## Ringkasan musim
 
-`GET reports/profit-summary[?greenhouse_id=]` menghitung langsung (bukan laporan terbit) dengan rumus laporan musim:
+`GET reports/season-overview[?sequence=n]` (pengelola) menggantikan `reports/profit-summary`. Tanpa laba, R/C atau BEP.
 
-- `open`: semua musim yang sedang terbuka di greenhouse aktif: TR, TC, laba, R/C, BEP harga, BEP kg, kg terjual, `complete`.
-- `by_sequence`: per Musim ke-n lintas greenhouse.
-- `by_greenhouse`: per musim greenhouse.
-
-Penjualan yang belum ada dihitung nol; biaya yang belum lengkap membuat TC, laba dan rasio `null` dengan `complete: false`.
+- `sequences`: per Musim ke-n (terbesar dulu) `status` running/closed, `greenhouse_count` (GH aktif), `fc`/`vc`/`tc` seluruh kebun (lembar x jumlah GH; `null` bila ada baris kosong), `sales_amount`, `sales_kg`.
+- `selected` (tanpa `sequence`: musim berjalan terbesar, atau terbesar bila tak ada yang berjalan; tidak ada: 404): `date_range`, `cost_sheet` (baris, `per_greenhouse`, `farm`), `sales` dengan `by_type` consumer/retail/partner/unspecified (`amount`, `kg`, `count`), `by_greenhouse`, dan `weekly` (minggu Senin WIB dari penjualan pertama sampai minggu akhir rentang).
+- Penjualan aktif dan lunas pada musim bernomor itu di GH aktif. `reports/income` kini juga memuat `by_type.retail`.

@@ -91,31 +91,21 @@ class FinanceIncomeReportTest extends FinanceTestCase
         $this->getJson('/api/v2/reports/income?granularity=week&from=2024-01-01&until=2026-11-30')->assertUnprocessable();
     }
 
-    public function test_profit_summary_open_seasons(): void
+    public function test_income_by_type_has_retail(): void
     {
-        $manager = $this->account();
-        $a = $this->context($manager);
-        $b = $this->context($manager);
-        $this->standardCosts('7581100.00', '3430000.00');
-        $this->sale($a, $this->harvest($a), '2026-11-05T09:00:00+07:00', '500', '30000', 'consumer');
-        $this->sale($b, $this->harvest($b), '2026-11-06T09:00:00+07:00', '500', '30000', 'partner');
+        $ctx = $this->context($this->account());
+        $this->sale($ctx, $this->harvest($ctx), '2026-11-05T09:00:00+07:00', '10', '30000', 'retail');
 
-        $summary = $this->getJson('/api/v2/reports/profit-summary')->assertOk()->json('data');
+        $report = $this->income('month', '2026-11-01', '2026-11-30');
+        $nov = collect($report['buckets'])->firstWhere('key', '2026-11');
 
-        $this->assertSame(2, $summary['open']['greenhouse_count']);
-        $this->assertSame('30000000.00', $summary['open']['TR']);
-        $this->assertSame('22022200.00', $summary['open']['TC']);
-        $this->assertSame('7977800.00', $summary['open']['profit']);
-        $this->assertSame('1000.000000', $summary['open']['sold_kg']);
-        $this->assertTrue($summary['open']['complete']);
-        $this->assertSame([1], array_column($summary['by_sequence'], 'sequence'));
-        $this->assertCount(2, $summary['by_greenhouse']);
+        $this->assertSame('300000.00', $nov['by_type']['retail']['receipts']);
+        $this->assertSame('300000.00', $report['totals']['by_type']['retail']['receipts']);
     }
 
-    public function test_profit_summary_worker_403(): void
+    public function test_income_worker_403(): void
     {
         $this->context($this->account());
-        $this->asUser($this->account('worker'))->getJson('/api/v2/reports/profit-summary')->assertForbidden();
-        $this->getJson('/api/v2/reports/income?granularity=month&from=2026-11-01&until=2026-11-30')->assertForbidden();
+        $this->asUser($this->account('worker'))->getJson('/api/v2/reports/income?granularity=month&from=2026-11-01&until=2026-11-30')->assertForbidden();
     }
 }
