@@ -29,7 +29,7 @@ final class EntityIdentity
         'expense_attachment' => ['record_attachments', 'id', ['owner_type' => 'expense']],
         'backup_run' => ['backup_runs', 'id'], 'restore_run' => ['restore_runs', 'id'],
         'season_cost_sheet' => ['season_cost_sheets', 'id'], 'season_cost_line' => ['season_cost_lines', 'id'],
-        'customer' => ['customers', 'id'],
+        'customer' => ['customers', 'id'], 'consumer_price' => ['consumer_prices', 'id'],
     ];
 
     /** Includes historical root IDs even if an external writer removed a physical row. */

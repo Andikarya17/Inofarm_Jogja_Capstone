@@ -265,3 +265,24 @@ short = json.loads(json.dumps(cost_fixture['operation']))
 short['payload']['lines'] = short['payload']['lines'][:6]
 assert not cost_validator.is_valid(short)
 print('Standard cost sheet envelope, blank-is-not-zero amounts and minimum required lines: PASS')
+
+# 25 Nov 2026: consumer (individual) price list per variety and quality.
+price_schema = json.loads((root / 'consumer-price-operation.schema.json').read_text(encoding='utf-8'))
+Draft202012Validator.check_schema(price_schema)
+price_validator = Draft202012Validator(price_schema, format_checker=wire_formats)
+price_fixture = json.loads((root / 'fixtures/consumer-price-operation.json').read_text(encoding='utf-8'))
+price_validator.validate(price_fixture['operation'])
+assert hashlib.sha256(json.dumps(price_fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest() == price_fixture['canonical_sha256']
+update = {**price_fixture['operation'], 'action': 'update', 'base_version': 1, 'payload': {**price_fixture['operation']['payload'], 'record_state': 'inactive'}}
+price_validator.validate(update)
+for patch in ({'action': 'update'}, {'base_version': 1}, {'action': 'update', 'base_version': None}, {'entity_type': 'customer'}):
+    assert not price_validator.is_valid({**price_fixture['operation'], **patch}), patch
+for invalid in (25000, '-1', '1,5', '1.1234567', '', None):
+    sample = json.loads(json.dumps(price_fixture['operation']))
+    sample['payload']['price_per_kg'] = invalid
+    assert not price_validator.is_valid(sample), invalid
+for patch in ({'quality': 'grade_a'}, {'variety_name': ' '}, {'record_state': 'cancelled'}):
+    sample = json.loads(json.dumps(price_fixture['operation']))
+    sample['payload'].update(patch)
+    assert not price_validator.is_valid(sample), patch
+print('Consumer price envelope, non-negative decimal strings and create/update base_version: PASS')

@@ -7,6 +7,7 @@ use App\Http\Controllers\V2\AttachmentController;
 use App\Http\Controllers\V2\AuthController;
 use App\Http\Controllers\V2\ChangeFeedController;
 use App\Http\Controllers\V2\ContextController;
+use App\Http\Controllers\V2\ConsumerPriceController;
 use App\Http\Controllers\V2\CustomerController;
 use App\Http\Controllers\V2\ExpenseController;
 use App\Http\Controllers\V2\FieldReportController;
@@ -42,6 +43,9 @@ Route::prefix('v2')->middleware(FinanceLocale::class)->group(function () {
         Route::get('customers', [CustomerController::class, 'index'])->middleware('finance-manager');
         Route::post('customers/import', [CustomerController::class, 'import'])->middleware('finance-manager');
         Route::get('customers/{id}', [CustomerController::class, 'show'])->whereUuid('id')->middleware('finance-manager');
+        Route::get('consumer-prices', [ConsumerPriceController::class, 'index'])->middleware('finance-manager');
+        Route::post('consumer-prices', [ConsumerPriceController::class, 'store'])->middleware('finance-manager');
+        Route::patch('consumer-prices/{id}', [ConsumerPriceController::class, 'update'])->whereUuid('id')->middleware('finance-manager');
         Route::get('reports/income',[FieldReportController::class, 'income'])->middleware('finance-manager');
         Route::get('reports/profit-summary', [FieldReportController::class, 'profitSummary'])->middleware('finance-manager');
         Route::get('season-cost-sheets',[SeasonCostSheetController::class, 'index'])->middleware('finance-manager');
