@@ -19,7 +19,7 @@ final class EntityIdentity
         'activity_review' => ['activity_reviews', 'id'],
         'harvest_review' => ['harvest_reviews', 'id'],
         'expense' => ['expenses', 'id'], 'expense_balance' => ['expenses', 'balance_id'], 'cost_allocation' => ['cost_allocations', 'id'],
-        'sale' => ['sales', 'id'], 'sale_item' => ['sale_items', 'id'],
+        'sale' => ['sales', 'id'], 'sale_item' => ['sale_items', 'id'], 'sale_line' => ['sale_lines', 'id'],
         'asset' => ['assets', 'id'], 'depreciation_allocation' => ['depreciation_allocations', 'id'],
         'investment_scenario' => ['investment_scenarios', 'id'],
         'investment_report' => ['report_snapshots', 'id', ['kind' => 'investment_report']],

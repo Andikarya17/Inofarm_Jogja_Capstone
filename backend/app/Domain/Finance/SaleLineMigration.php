@@ -37,7 +37,9 @@ final class SaleLineMigration
                     'fruit_count' => null, 'price_per_kg' => $item->price_per_kg, 'exact_amount' => $item->exact_amount, 'active' => $item->active,
                     'created_at' => $now, 'updated_at' => $now];
             }
-            DB::table('sale_lines')->insertOrIgnore($lines);
+            // Plain insert: rows come from sale items without a line and ids are deterministic, so a rerun selects nothing.
+            DB::table('sale_lines')->insert($lines);
+            DB::table('entity_identities')->insert(array_map(fn ($line) => ['entity_id' => $line['id'], 'entity_type' => 'sale_line'], $lines));
             foreach ($items as $item) {
                 DB::table('sale_items')->where('id', $item->id)->update(['sale_line_id' => self::lineId($item->id)]);
             }
