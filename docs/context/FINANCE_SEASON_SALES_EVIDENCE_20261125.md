@@ -23,6 +23,19 @@ Label bukti: **tes otomatis** (PHPUnit/JUnit), **backend nyata** (`artisan serve
 - `scripts/check-finance-contracts.py`: semua blok PASS (termasuk lembar biaya dan harga perorangan). `scripts/check-finance-context.py`: 0 error.
 - Instrumentasi `FinanceEntryUiTest` penuh **tidak dijalankan** pada branch ini.
 
+## Perbaikan review akhir (26 November 2026)
+
+| Temuan | Perbaikan | Bukti |
+|---|---|---|
+| C1 penjualan sebelum migration 24 tidak bisa dikoreksi dari Android (409 `entity_exists`) | Server memetakan id item lama yang dikirim sebagai id baris ke baris hasil backfill (`SaleService::checkedLines`). Android memberi nama varietas pada penjualan lama dari cache panen (`SaleStock.withLines`) untuk daftar penjualan musim, petunjuk harga retail dan rincian | `test_backfilled_sale_corrected_with_old_item_id`, `test_backfilled_sale_with_two_items_same_grade_corrected_with_old_item_ids` (RED: 409 dan 422, GREEN sesudah perbaikan); JVM `backfilledSaleBodyWithItemsOnlyGetsVarietyNamesFromCache` |
+| I1 Android menolak baris berulang yang sudah ada di server | Validasi melewati kunci berulang bila semua barisnya sudah ada di penjualan server (sama dengan aturan server) | JVM `repeatedKeyAllowedWhenEveryLineIsAlreadyOnTheServerSale` (RED lalu GREEN) |
+| I2 restore terisolasi akan gagal (MySQL 3105) bila `consumer_prices` berisi | `RecoveryInventory` tidak memasukkan kolom `VIRTUAL/STORED GENERATED` ke paket (kolom `DEFAULT_GENERATED` tetap ikut); total desimal kini juga `sale_lines` dan `consumer_prices.price_per_kg`. Migration 24 tidak diubah | `FinanceRecoveryTest::test_backup_omits_generated_columns_and_restored_rows_insert` (RED: `active_key` ada di paket); drill restore terisolasi penuh tidak dijalankan |
+| I3 "Musim belum dimuat" sesudah kembali dari rincian penjualan | Ringkasan musim terakhir disimpan di `FinanceHomeRepository` (memori, per akun dan sesi masuk); membuka rincian tidak lagi memindah halaman ke buku besar; halaman Penjualan musim menampilkan status memuat atau galat dengan "Coba lagi" | `FinanceOverviewUiTest.backFromSaleDetailKeepsSeasonSalesList` (RED di kode lama: daftar tidak kembali; GREEN), `seasonSalesWithoutSummaryShowsLoadingThenRetry`; emulator `Inofarm_Botanical_API30`, fixture |
+| M1 `ensureFor` membaca ulang tanpa kunci | Pembacaan ulang sesudah unique violation memakai `lockForUpdate()` | backend penuh |
+| Mitra ke tipe lain membuang baris B/C diam-diam | Dialog "Ganti ke Retail?" menyebut grade dan kg yang dihapus, pilihan "Ganti dan hapus" atau "Tetap Mitra" | JVM `leavingMitraNamesTheGradeLinesThatAreRemoved`, `FinanceEntryUiTest.saleLeavingPartnerConfirmsBeforeDroppingGrades` |
+
+Hasil sesudah perbaikan: backend **266 tes / 5.856 assertion OK**; JVM **227 tes, 0 gagal**; lint 0 error, 19 warning, 3 hint; `assembleDebugAndroidTest` OK; emulator `FinanceOverviewUiTest` **7/7** dan 8 tes penjualan `FinanceEntryUiTest` **8/8** (fixture, bukan backend nyata); kontrak dan context check lulus.
+
 ## Uji emulator terhadap backend nyata
 
 Fixture `scripts/finance-device-fixture.php create recording-rework` (dipakai karena GH A punya dua varietas; GH B satu varietas; GH C nonaktif; bukan `manager-home` yang hanya satu varietas per GH). Data lewat API: 9 panen (Layak dan Cacat, tiga tanggal per kelompok), lembar biaya Musim 1 (angka sintetis), dua pembeli (Retail, Mitra). APK debug dibangun dengan `-PinofarmFinanceDebugApiUrl=http://127.0.0.1:8001/api/v2/`. Port 8000 tidak disentuh. Seluruh penjualan, harga dan unduhan dilakukan lewat layar.
@@ -59,15 +72,18 @@ Perubahan harness (bukan kode produk): `FinanceBackendDeviceTest` fase `sale-sou
 - Belum diuji di ponsel fisik, TalkBack, mode gelap, font 200% atau layar 360 dp.
 - `inofarm_finance_local` **belum** dimigrasi ke 24 (masih 28 migration / 58 tabel). Migration 24 hanya atas permintaan pengguna, dengan backup.
 - Snapshot laporan musim yang sudah terbit dan PDF/CSV-nya tidak diubah, jadi unduhan laporan lama masih memuat laba/R/C/BEP (pertanyaan spec 10.2 belum dijawab).
-- `FinanceEntryUiTest` penuh tidak dijalankan; tes UI penjualan lama yang merujuk tag lama mungkin gagal.
+- `FinanceEntryUiTest` penuh tidak dijalankan; delapan tes penjualannya lulus di emulator sesudah perbaikan review akhir, tes lain belum.
+- "Musim belum dimuat" sesudah kembali dari rincian penjualan yang dibuka dari daftar penjualan musim: **diperbaiki** pada perbaikan review akhir, bukti `FinanceOverviewUiTest.backFromSaleDetailKeepsSeasonSalesList` (fixture, emulator). Belum diulang terhadap backend nyata.
+- Total musim dan daftar penjualan musim hanya menghitung greenhouse yang aktif sekarang: penjualan GH yang kemudian dinonaktifkan tidak ikut (disengaja, agar daftar sama dengan ringkasan server).
+- Fase `sale-verify` `FinanceBackendDeviceTest` gagal di navigasi riwayat lama dan `verify` fixture tidak dijalankan.
+- Penjualan lama (sebelum migration 24) yang dikoreksi dari Android: jalur server teruji PHPUnit, belum diuji di emulator terhadap backend nyata. Restore terisolasi penuh dengan `consumer_prices` berisi belum dijalankan (hanya paket dan insert ulang di tes).
 - Minor dari review yang ditunda:
-  - Hitungan penghitung pasca-alokasi pada jalur `lines` melempar 409 dengan alasan teks (SaleService); `fruit_count` menerima string numerik "38"; grade dari GH lain atau tak cocok kelompok memberi `harvest_exceeded 0` alih-alih error validasi; `RecoveryInventory` belum mencakup kolom desimal `sale_lines`; id baris lama nonaktif bisa dipakai ulang melewati cek tabrakan.
+  - Hitungan penghitung pasca-alokasi pada jalur `lines` melempar 409 dengan alasan teks (SaleService); `fruit_count` menerima string numerik "38"; grade dari GH lain atau tak cocok kelompok memberi `harvest_exceeded 0` alih-alih error validasi; id baris lama nonaktif bisa dipakai ulang melewati cek tabrakan.
   - SALES.md baris 409 lama menyebut alasan teks padahal runtime tanpa `reasons`.
   - PATCH `consumer-prices` tanpa `record_state` mengaktifkan ulang harga nonaktif (Android selalu mengirimnya); tanpa tes replay, tabrakan aktivasi ulang dan PATCH oleh pekerja.
-  - `selected` null bila belum ada nomor musim; `date_range.until` musim tertutup bisa lebih awal dari penjualan akhir; konsumen harus memakai satu sumber jumlah GH; `ensureFor` memilih ulang di dalam transaksi luar (REPEATABLE READ) dan komentar usang.
+  - `selected` null bila belum ada nomor musim; `date_range.until` musim tertutup bisa lebih awal dari penjualan akhir; konsumen harus memakai satu sumber jumlah GH.
   - Excel: U+FFFE/FFFF, `tempnam` bisa gagal, harga ditampilkan `#,##0.00` menyembunyikan 6 desimal; belum dibuka di Excel sungguhan (hanya zip + XML dibaca).
-  - Form: "Harga perorangan" berada di bagian Data master sendiri, bukan dekat Pekerja dan akun; pengisian ulang harga yang sengaja dikosongkan, Ganti GH pada draf yang dibuka ulang meninggalkan draf lama, Mitra ke tipe lain membuang baris B/C diam-diam, kredit ditambahkan pada baris saldo basi; tidak ada tes untuk nama pembeli bebas pada penjualan lama tanpa tipe.
+  - Form: "Harga perorangan" berada di bagian Data master sendiri, bukan dekat Pekerja dan akun; pengisian ulang harga yang sengaja dikosongkan, Ganti GH pada draf yang dibuka ulang meninggalkan draf lama, kredit ditambahkan pada baris saldo basi; tidak ada tes untuk nama pembeli bebas pada penjualan lama tanpa tipe.
   - Tab Keuangan: penjualan lokal belum terkirim tidak masuk daftar penjualan musim (pilihan produk perlu dikonfirmasi); teks rumus/asumsi laporan dari server belum diperiksa penuh untuk kata rasio; nama parameter `stackHeights`; motif daun melewati angka per GH.
   - Unduh Excel: pratinjau nama berkas memakai tanggal perangkat; sheet muncul lagi di belakang picker setelah rotasi; recreate activity saat picker terbuka membuang berkas.
-  - Membuka rincian penjualan dari daftar penjualan musim membawa ke layar buku besar lama; kembali dari sana menjatuhkan ke "Musim belum dimuat" (teramati sekali saat uji, tidak diperiksa lanjut).
   - Sumber androidTest tidak dikompilasi oleh skrip build biasa (`assembleDebugAndroidTest` dijalankan manual).

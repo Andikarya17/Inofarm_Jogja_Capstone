@@ -2,7 +2,7 @@
 
 ## Keuangan per musim dan penjualan per baris, 26 November 2026
 
-Dari source branch `keuangan-per-musim-penjualan`: tab Keuangan Android per Musim ke-n tanpa laba, R/C atau BEP; form penjualan per varietas + Layak/Cacat untuk Perorangan, Retail dan Mitra dengan alokasi FIFO di server (`sale_lines`), harga perorangan di Kelola, daftar penjualan musim dan unduhan Excel. Migration 24 di source dan `inofarm_test`; `inofarm_finance_local` tetap di 23. Tes: backend 263, JVM 224, lint 0 error; emulator terhadap backend nyata. [Bukti dan batas](FINANCE_SEASON_SALES_EVIDENCE_20261125.md).
+Dari source branch `keuangan-per-musim-penjualan`: tab Keuangan Android per Musim ke-n tanpa laba, R/C atau BEP; form penjualan per varietas + Layak/Cacat untuk Perorangan, Retail dan Mitra dengan alokasi FIFO di server (`sale_lines`), harga perorangan di Kelola, daftar penjualan musim dan unduhan Excel. Migration 24 di source dan `inofarm_test`; `inofarm_finance_local` tetap di 23. Tes sesudah perbaikan review akhir 26 November: backend 266, JVM 227, lint 0 error; `FinanceOverviewUiTest` 7/7 dan 8 tes penjualan `FinanceEntryUiTest` di emulator dengan fixture; sebelumnya emulator terhadap backend nyata. Celah: fase `sale-verify` `FinanceBackendDeviceTest` gagal di navigasi riwayat lama, dan `verify` fixture (`scripts/finance-device-fixture.php verify`) tidak dijalankan. [Bukti dan batas](FINANCE_SEASON_SALES_EVIDENCE_20261125.md).
 
 ## Status input pengelola, 17 November 2026
 
