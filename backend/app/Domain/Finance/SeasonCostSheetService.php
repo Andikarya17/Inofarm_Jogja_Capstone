@@ -32,7 +32,8 @@ final class SeasonCostSheetService
         try {
             return DB::transaction(fn () => $this->createSheet($sequence, $actor));
         } catch (UniqueConstraintViolationException) {
-            return DB::table('season_cost_sheets')->where('sequence', $sequence)->first() ?? throw new \RuntimeException('Lembar biaya standar tidak ditemukan.');
+            // A locking read sees the winner's committed row even inside an outer REPEATABLE READ snapshot (ScopedRead).
+            return DB::table('season_cost_sheets')->where('sequence', $sequence)->lockForUpdate()->first() ?? throw new \RuntimeException('Lembar biaya standar tidak ditemukan.');
         }
     }
 

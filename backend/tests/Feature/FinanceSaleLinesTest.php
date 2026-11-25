@@ -206,6 +206,58 @@ class FinanceSaleLinesTest extends FinanceTestCase
             ->assertJsonPath('message', 'Baris dengan varietas, kualitas dan grade mitra yang sama tidak boleh berulang dalam satu penjualan.');
     }
 
+    /** Backfilled sales reach Android through feed snapshots with items only, so the app sends the old item ids as line ids. */
+    private function correctWithItemIds(string $saleId, string $price): \Illuminate\Testing\TestResponse
+    {
+        $before = $this->getJson('/api/v2/sales/'.$saleId)->assertOk()->json();
+        $groups = DB::table('harvest_items as hi')->join('harvests as h', 'h.id', '=', 'hi.harvest_id')->pluck('h.planting_group_id', 'hi.id');
+        $lines = array_map(fn ($item) => ['id' => $item['id'], 'planting_group_id' => $groups[$item['harvest_item_id']], 'grade_id' => $item['grade_id'],
+            'quantity_kg' => $item['quantity_kg'], 'fruit_count' => null, 'price_per_kg' => $price, 'buyer_grade' => $item['buyer_grade']], $before['items']);
+        $payload = ['season_id' => $before['season_id'], 'paid_at' => '2026-11-20T10:00:00+07:00', 'payment_status' => 'paid', 'customer_name' => '', 'notes' => '',
+            'lines' => $lines, 'reason' => 'Harga dikoreksi'];
+
+        return $this->patchJson('/api/v2/sales/'.$saleId, $this->operation('sale', $payload, 'update', $saleId, 1));
+    }
+
+    public function test_backfilled_sale_corrected_with_old_item_id(): void
+    {
+        [$ctx, $first] = $this->threeHarvests();
+        $sale = $this->postJson('/api/v2/sales', $this->operation('sale', ['season_id' => $ctx['season']['id'], 'paid_at' => '2026-11-20T10:00:00+07:00',
+            'payment_status' => 'paid', 'customer_name' => '', 'notes' => '', 'items' => [
+                ['id' => (string) Str::uuid(), 'harvest_item_id' => $first[1], 'quantity_kg' => '4', 'price_per_kg' => '30000'],
+            ]]))->assertCreated()->json('data');
+        $this->wipeLines();
+        SaleLineMigration::backfill();
+        $lineIds = DB::table('sale_lines')->where('sale_id', $sale['id'])->pluck('id')->all();
+
+        $after = $this->correctWithItemIds($sale['id'], '35000')->assertOk()->json('data');
+
+        $this->assertSame('140000.00', $after['total_amount']);
+        $this->assertSame($lineIds, collect($after['lines'])->pluck('id')->all());
+        $this->assertSame(1, DB::table('sale_lines')->where('sale_id', $sale['id'])->count());
+        $this->assertSame('4.000000', $this->sold($first[1]));
+    }
+
+    public function test_backfilled_sale_with_two_items_same_grade_corrected_with_old_item_ids(): void
+    {
+        [$ctx, $first, $second] = $this->threeHarvests();
+        $sale = $this->postJson('/api/v2/sales', $this->operation('sale', ['season_id' => $ctx['season']['id'], 'paid_at' => '2026-11-20T10:00:00+07:00',
+            'payment_status' => 'paid', 'customer_name' => '', 'notes' => '', 'items' => [
+                ['id' => (string) Str::uuid(), 'harvest_item_id' => $first[1], 'quantity_kg' => '4', 'price_per_kg' => '30000'],
+                ['id' => (string) Str::uuid(), 'harvest_item_id' => $second[1], 'quantity_kg' => '6', 'price_per_kg' => '30000'],
+            ]]))->assertCreated()->json('data');
+        $this->wipeLines();
+        SaleLineMigration::backfill();
+        $lineIds = DB::table('sale_lines')->where('sale_id', $sale['id'])->orderBy('id')->pluck('id')->all();
+
+        $after = $this->correctWithItemIds($sale['id'], '32000')->assertOk()->json('data');
+
+        $this->assertSame('320000.00', $after['total_amount']);
+        $this->assertSame($lineIds, collect($after['lines'])->pluck('id')->sort()->values()->all());
+        $this->assertSame(2, DB::table('sale_lines')->where('sale_id', $sale['id'])->count());
+        $this->assertSame('10.000000', (string) DB::table('harvest_items')->sum('sold_weight_kg'));
+    }
+
     public function test_legacy_items_payload_still_accepted(): void
     {
         $saleId = $this->saleWithTwoItems();
