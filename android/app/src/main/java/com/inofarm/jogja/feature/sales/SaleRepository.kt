@@ -29,15 +29,18 @@ class SaleRepository(val vault:FinanceSessionVault,private val store:LocalFinanc
             val errors=effective.validation(session.role!=UserRole.MANAGER);if(errors.isNotEmpty()) throw SaleValidationFailure(errors,effective.baseVersion)
             val season=store.cachedOne(session.scope.key,"seasons",effective.seasonId) ?: error("Musim belum tersedia di perangkat. Perbarui dulu.")
             require(season.getString("greenhouse_id")==draft.greenhouseId && season.getString("status")=="open") {"Pilih musim terbuka dari greenhouse yang sama."}
-            effective.items.forEach {line ->
-                val balance=store.cachedOne(session.scope.key,"harvest_balance",line.sourceId) ?: error("Saldo sumber panen belum tersedia. Simpan draf dan perbarui dulu.")
-                val harvest=store.cachedOne(session.scope.key,"harvest",balance.getString("harvest_id")) ?: error("Panen sumber belum terkirim.")
-                val group=store.cachedOne(session.scope.key,"planting_groups",harvest.getString("planting_group_id")) ?: error("Kelompok sumber belum tersedia.")
-                require(group.getString("season_id")==effective.seasonId && balance.optBoolean("active") && harvest.optString("record_state")=="active" && balance.getLong("harvest_version")==harvest.getLong("version")) {"Sumber panen harus aktif, satu musim, dan sesuai saldo terakhir."}
-                val own=existing?.serverBody?.optJSONArray("items")?.let {rows -> (0 until rows.length()).map {rows.getJSONObject(it)}.filter {it.optString("harvest_item_id")==line.sourceId}.fold(java.math.BigDecimal.ZERO) {sum,row -> sum.add(java.math.BigDecimal(row.getString("quantity_kg")))}} ?: java.math.BigDecimal.ZERO
-                val weight=java.math.BigDecimal(balance.getString("weight_kg"));val available=java.math.BigDecimal(balance.getString("available_weight_kg"))
-                require(available.signum()>=0 && available<=weight) {"Saldo tersimpan belum cocok. Perbarui lalu periksa sumber panen."}
-                require(SaleDraft.decimal(line.quantity,true)<=available.add(own).min(weight)) {"Bobot melebihi saldo terakhir. Perbarui lalu periksa sumber panen."}
+            val key=session.scope.key
+            val stock=SaleStock(store.cachedAll(key,"harvest"),store.cachedAll(key,"harvest_balance"),store.cachedAll(key,"planting_groups"),store.cachedAll(key,"varieties"),store.cachedAll(key,"grades"))
+            // What this sale already holds on the server is credited back, since the balance counts it as sold.
+            val own=mutableMapOf<Pair<String,String>,java.math.BigDecimal>()
+            existing?.serverBody?.let {body ->
+                body.optJSONArray("lines")?.let {rows -> (0 until rows.length()).map {rows.getJSONObject(it)}.forEach {row -> own.merge(row.optString("planting_group_id") to row.optString("grade_id"),java.math.BigDecimal(row.getString("quantity_kg")),java.math.BigDecimal::add)}}
+                    ?: body.optJSONArray("items")?.let {rows -> (0 until rows.length()).map {rows.getJSONObject(it)}.forEach {row -> stock.sourceOf(row.optString("harvest_item_id"))?.let {source -> own.merge(source,java.math.BigDecimal(row.getString("quantity_kg")),java.math.BigDecimal::add)}}}
+            }
+            val options=stock.options(effective.seasonId)
+            effective.items.groupBy {it.groupId to it.gradeId}.forEach {(source,rows) ->
+                val available=(options.find {it.groupId==source.first && it.gradeId==source.second}?.availableKg ?: java.math.BigDecimal.ZERO).add(own[source] ?: java.math.BigDecimal.ZERO)
+                require(rows.fold(java.math.BigDecimal.ZERO) {sum,row -> sum.add(SaleDraft.decimal(row.quantity,true))}<=available) {"Bobot melebihi saldo terakhir. Perbarui lalu periksa buah dan grade."}
             }
             val locked=effective.copy(lockedSeason=true,lockedSources=effective.lockedSources+effective.items.map {it.id})
             store.saveAndQueue(session.scope.key,effective.id,effective.greenhouseId,locked.localJson().put("completeness","ready"),existing?.revision,effective.baseVersion,effective.replaceValidationRejected,kind="sale",queuePayload=effective.payload())

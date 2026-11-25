@@ -35,14 +35,14 @@ import com.inofarm.jogja.feature.context.CultivationUiState
 import com.inofarm.jogja.feature.expenses.moneyLabel
 import org.json.JSONObject
 
-private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject> = context.harvests.filter {harvest -> harvest.optString("record_state")=="active" && context.groups.any {it.optString("id")==harvest.optString("planting_group_id") && it.optString("season_id")==draft.seasonId}}
-    .flatMap {harvest -> val rows=harvest.optJSONArray("items");(0 until (rows?.length() ?: 0)).map {index ->
-        val item=rows!!.getJSONObject(index);val balance=context.harvestBalances.find {it.optString("id")==item.optString("id") && it.optLong("harvest_version")==harvest.optLong("version")}
-        val grade = item.optString("grade_name").ifBlank { "Grade belum tersedia" }
-        val detail = "${timeLabel(harvest.optString("occurred_at"))} · ${balance?.optString("available_weight_kg")?.let { kg -> "sisa ${runCatching { java.math.BigDecimal(kg).stripTrailingZeros().toPlainString().replace('.', ',') }.getOrDefault(kg)} kg" } ?: "saldo belum tersedia"}"
-        JSONObject().put("id", item.getString("id")).put("name", "$grade · $detail")
-            .put("choice_label", grade).put("choice_detail", detail)
-    }}
+internal fun saleStock(context:CultivationUiState)=SaleStock(context.harvests,context.harvestBalances,context.groups,context.varieties,context.grades)
+private fun lineKey(line:SaleLine)=if(line.groupId.isBlank()) "" else "${line.groupId}|${line.gradeId}"
+/** Compile-level bridge until the new form (Task 9): one choice per planting group and grade with its summed stock. */
+private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject> = saleStock(context).options(draft.seasonId).map {option ->
+    val detail="sisa ${option.availableKg.stripTrailingZeros().toPlainString().replace('.', ',')} kg"
+    val grade=option.gradeName.ifBlank {"Grade belum tersedia"}
+    JSONObject().put("id","${option.groupId}|${option.gradeId}").put("name","${option.varietyName} · $grade · $detail").put("choice_label","${option.varietyName} · $grade").put("choice_detail",detail)
+}
 
 @Composable fun SaleForm(state:SaleEntryState,context:CultivationUiState,vm:SaleEntryViewModel,buyerSearch:(suspend (String,String)->List<com.inofarm.jogja.feature.customers.Customer>)?=null) {
     val draft=state.draft ?: return
@@ -60,11 +60,11 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
         val options=sources(context,draft)
         draft.items.forEachIndexed {index,line -> key(line.id) { FarmFormSection("Rincian panen ${index+1}") {
             fun edit(updated:SaleLine) {vm.edit {it.copy(items=it.items.toMutableList().apply {set(index,updated)})}}
-            if(line.id in draft.lockedSources) Text(options.find {it.optString("id")==line.sourceId}?.optString("name") ?: "Sumber terakhir tersimpan · perbarui untuk saldo terbaru")
-            else Choice("Sumber panen ${index+1}",line.sourceId,options,"sale-source-$index") {edit(line.copy(sourceId=it))}
+            if(line.id in draft.lockedSources) Text(options.find {it.optString("id")==lineKey(line)}?.optString("name") ?: "Sumber terakhir tersimpan · perbarui untuk saldo terbaru")
+            else Choice("Buah dan grade ${index+1}",lineKey(line),options,"sale-source-$index") {edit(line.copy(groupId=it.substringBefore('|'),gradeId=it.substringAfter('|',"")))}
             // Mitra grades the fruit when buying (20 Nov 2026): one line per grade, the same Layak source may repeat.
-            if(draft.buyerType=="partner") com.inofarm.jogja.core.design.FarmChoiceChips("Grade dari mitra",line.grade.ifBlank {null},
-                listOf("A","B","C").map {org.json.JSONObject().put("id",it).put("name","Grade $it")},"sale-grade-$index") {edit(line.copy(grade=it))}
+            if(draft.buyerType=="partner") com.inofarm.jogja.core.design.FarmChoiceChips("Grade dari mitra",line.buyerGrade.ifBlank {null},
+                listOf("A","B","C").map {org.json.JSONObject().put("id",it).put("name","Grade $it")},"sale-grade-$index") {edit(line.copy(buyerGrade=it))}
             FinanceField("Bobot ${index+1} (kg)",line.quantity,{edit(line.copy(quantity=it))},"sale-quantity-$index",state.errors["items.$index.quantity"],KeyboardType.Decimal,hint="Contoh 12,5", suffix = "kg", prominent = true)
             FinanceField("Harga ${index+1} (IDR/kg)",line.price,{edit(line.copy(price=it))},"sale-price-$index",state.errors["items.$index.price"],KeyboardType.Decimal,hint="Ketik angka saja, titik ribuan muncul sendiri", suffix = "IDR/kg", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
             TextButton(onClick={vm.edit {it.copy(items=it.items.filterIndexed {i,_ -> i!=index})}},modifier=Modifier.testTag("sale-remove-$index")) {Text("Hapus rincian ${index+1}")}
@@ -104,11 +104,11 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
     FarmFact("Musim",context.seasons.find {it.optString("id")==draft.seasonId}?.optString("name") ?: "Nama belum tersedia")
     FarmFact("Pembayaran","${whenLabel(draft.date, draft.time)} · ${if(draft.paid) "Lunas" else "Belum dikonfirmasi"}")
     if(draft.customer.isNotBlank()) FarmFact("Pembeli",draft.customer)
-    if(draft.hasBuyer()) FarmFact("Tipe pembeli",(if(draft.buyerType=="partner") "Mitra" else "Perorangan")+if(draft.buyerExisting) "" else " · pembeli baru, masuk daftar")
+    if(draft.hasBuyer()) FarmFact("Tipe pembeli",when(draft.buyerType) {"partner" -> "Mitra";"retail" -> "Pengecer";else -> "Perorangan"}+if(draft.buyerExisting) "" else " · pembeli baru, masuk daftar")
     val options=sources(context,draft)
     draft.items.forEachIndexed {index,line ->
         HorizontalDivider()
-        FarmFact("Sumber panen ${index+1}"+(if(line.grade.isNotBlank()) " · grade ${line.grade}" else ""),options.find {it.optString("id")==line.sourceId}
+        FarmFact("Sumber panen ${index+1}"+(if(line.buyerGrade.isNotBlank()) " · grade ${line.buyerGrade}" else ""),options.find {it.optString("id")==lineKey(line)}
             ?.optString("name") ?: "Sumber belum tersedia pada data tersimpan")
         FarmFact("Bobot", line.quantity.takeIf(String::isNotBlank)?.let { "${measureText(it.replace(',', '.'))} kg" } ?: "Belum diisi")
         FarmFact("Harga per kg", line.price.takeIf(String::isNotBlank)?.let { "${moneyLabel(it.replace(',', '.'))}/kg" } ?: "Belum diisi")
@@ -117,7 +117,7 @@ private fun sources(context:CultivationUiState,draft:SaleDraft):List<JSONObject>
     if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi",draft.reason)
 }
 @Composable fun SaleFacts(record:LocalRecord,context:CultivationUiState) {
-    val draft=runCatching {SaleDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion)}.getOrNull()
+    val draft=runCatching {SaleDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion,saleStock(context))}.getOrNull()
     if(draft==null) {Notice("Rincian penjualan belum lengkap. Data tetap tersimpan.",true);return}
     SaleDraftFacts(draft,context,record.body.optString("total_amount").takeUnless {
         record.body.isNull("total_amount") || it.isBlank()

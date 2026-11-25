@@ -39,7 +39,7 @@ class SaleEntryViewModel(private val repository:SaleRepository):ViewModel() {
     fun open(record:LocalRecord,replaceRejected:Boolean=false) {
         pauseAutosave();require(record.kind=="sale")
         val draft=SaleDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion ?: record.serverVersion)
-        mutable.value=state.value.copy(draft=draft.copy(replaceValidationRejected=replaceRejected,lockedSeason=draft.lockedSeason || record.serverVersion!=null || record.latestOperationId!=null,lockedSources=draft.lockedSources+(record.serverBody?.optJSONArray("items")?.let {rows -> (0 until rows.length()).map {rows.getJSONObject(it).getString("id")}} ?: emptyList())),errors=emptyMap(),reviewing=false,saved=true,message=null)
+        mutable.value=state.value.copy(draft=draft.copy(replaceValidationRejected=replaceRejected,lockedSeason=draft.lockedSeason || record.serverVersion!=null || record.latestOperationId!=null,lockedSources=draft.lockedSources+((record.serverBody?.let {it.optJSONArray("lines") ?: it.optJSONArray("items")})?.let {rows -> (0 until rows.length()).map {rows.getJSONObject(it).getString("id")}} ?: emptyList())),errors=emptyMap(),reviewing=false,saved=true,message=null)
         entry.start(record,state.value.draft)
     }
     fun edit(change:(SaleDraft)->SaleDraft) {

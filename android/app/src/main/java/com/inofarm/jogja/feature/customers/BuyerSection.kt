@@ -26,11 +26,11 @@ import java.util.UUID
  * Excel or added before) and pick one, or fill a new buyer that joins the list when the sale is saved.
  */
 @Composable internal fun BuyerSection(draft: SaleDraft, error: String?, search: (suspend (String, String) -> List<Customer>)?, edit: ((SaleDraft) -> SaleDraft) -> Unit) {
-    FarmChoiceChips("Tipe pembeli", draft.buyerType.ifBlank { "none" },
-        listOf(org.json.JSONObject().put("id", "consumer").put("name", "Perorangan"), org.json.JSONObject().put("id", "partner").put("name", "Mitra"),
-            org.json.JSONObject().put("id", "none").put("name", "Tidak dicatat")), "sale-buyer-type") { id ->
-        edit { it.copy(buyerType = if (id == "none") "" else id, buyerId = "", buyerExisting = false, customer = if (id == "none") it.customer else "", buyerWhatsapp = "",
-            items = if (id == "partner") it.items else it.items.map { line -> line.copy(grade = "") }) }
+    FarmChoiceChips("Tipe pembeli", draft.buyerType.ifBlank { null },
+        listOf(org.json.JSONObject().put("id", "consumer").put("name", "Perorangan"), org.json.JSONObject().put("id", "retail").put("name", "Pengecer"), org.json.JSONObject().put("id", "partner").put("name", "Mitra"),
+            ), "sale-buyer-type") { id ->
+        edit { it.copy(buyerType = id, buyerId = "", buyerExisting = false, customer = "", buyerWhatsapp = "",
+            items = if (id == "partner") it.items else it.items.map { line -> line.copy(buyerGrade = "") }) }
     }
     if (!draft.hasBuyer()) {
         FinanceField("Nama pembeli (boleh kosong)", draft.customer, { value -> edit { it.copy(customer = value) } }, "sale-customer", error)
