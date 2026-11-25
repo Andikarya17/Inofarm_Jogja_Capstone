@@ -8,11 +8,11 @@ use ZipArchive;
 
 /**
  * Minimal .xlsx writer without a dependency: inline strings, numbers as numeric cells.
- * A string that is a plain decimal is written as a number; null cells are left out so blank stays blank.
+ * Only XlsxNumber cells are numbers, strings are always text; null cells are left out so blank stays blank.
  */
 final class SeasonWorkbook
 {
-    /** @param list<array{name: string, rows: list<list<string|int|float|null>>}> $sheets */
+    /** @param list<array{name: string, rows: list<list<string|XlsxNumber|null>>, bold?: list<int>}> $sheets */
     public static function render(array $sheets): string
     {
         if ($sheets === []) {
@@ -37,7 +37,7 @@ final class SeasonWorkbook
             }));
             $zip->addFromString('xl/styles.xml', self::stylesXml());
             foreach ($sheets as $i => $sheet) {
-                $zip->addFromString('xl/worksheets/sheet'.($i + 1).'.xml', self::sheetXml($sheet['rows']));
+                $zip->addFromString('xl/worksheets/sheet'.($i + 1).'.xml', self::sheetXml($sheet['rows'], $sheet['bold'] ?? []));
             }
             $zip->close();
             $bytes = file_get_contents($path);
@@ -125,9 +125,12 @@ final class SeasonWorkbook
             .'<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
             .'<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
             .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            .'<cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            .'<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             .'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
-            .'<xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>'
+            .'<xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+            .'<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+            .'<xf numFmtId="3" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/>'
+            .'<xf numFmtId="4" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/></cellXfs>'
             .'</styleSheet>';
     }
 
@@ -142,20 +145,14 @@ final class SeasonWorkbook
         return $name;
     }
 
-    private static function numeric(string|int|float $value): ?string
+    /** 0 plain, 1 bold, 2 #,##0, 3 #,##0.00, 4 bold #,##0, 5 bold #,##0.00. */
+    private static function style(string $format, bool $bold): int
     {
-        if (is_int($value)) {
-            return (string) $value;
-        }
-        if (is_float($value)) {
-            return is_finite($value) ? rtrim(rtrim(sprintf('%.6F', $value), '0'), '.') : null;
-        }
-        if (! preg_match('/^-?\d+(\.\d+)?$/', $value) || strlen($value) > 15 && ! str_contains($value, '.')) {
-            return null;
-        }
-        $text = str_contains($value, '.') ? rtrim(rtrim($value, '0'), '.') : $value;
-
-        return $text === '-0' || $text === '' ? '0' : $text;
+        return match ($format) {
+            'int' => $bold ? 4 : 2,
+            'cents' => $bold ? 5 : 3,
+            default => $bold ? 1 : 0,
+        };
     }
 
     private static function clean(string $text): string
@@ -163,7 +160,7 @@ final class SeasonWorkbook
         return preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $text) ?? '';
     }
 
-    private static function sheetXml(array $rows): string
+    private static function sheetXml(array $rows, array $boldRows): string
     {
         $w = new XMLWriter;
         $w->openMemory();
@@ -180,14 +177,13 @@ final class SeasonWorkbook
                     continue;
                 }
                 $ref = self::column($c).$number;
-                $bold = $number <= 2;
-                $num = self::numeric($value);
+                $bold = $number <= 2 || in_array($number, $boldRows, true);
                 $w->startElement('c');
                 $w->writeAttribute('r', $ref);
-                if ($num !== null) {
+                if ($value instanceof XlsxNumber) {
                     $w->writeAttribute('t', 'n');
-                    $w->writeAttribute('s', $bold ? '1' : '0');
-                    $w->writeElement('v', $num);
+                    $w->writeAttribute('s', (string) self::style($value->format, $bold));
+                    $w->writeElement('v', $value->value);
                 } else {
                     $w->writeAttribute('t', 'inlineStr');
                     $w->writeAttribute('s', $bold ? '1' : '0');

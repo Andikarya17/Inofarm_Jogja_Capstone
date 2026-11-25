@@ -102,6 +102,7 @@ class FinanceSeasonExportTest extends FinanceTestCase
         $this->assertMatchesRegularExpression('/<c [^>]*t="n"[^>]*><v>11011100<\/v><\/c>/', $sheet);
         $this->assertStringContainsString('GH sintetis', $sheet);
         $this->assertStringContainsString('1 GH', $sheet);
+        $this->assertMatchesRegularExpression('/<c r="A4"[^>]*><is><t[^>]*>Total<\/t>/', $sheet);
     }
 
     public function test_workbook_leaves_blank_cost_cells_empty(): void
@@ -127,6 +128,43 @@ class FinanceSeasonExportTest extends FinanceTestCase
         foreach (['50', '38', '28000', '1400000'] as $number) {
             $this->assertMatchesRegularExpression('/t="n"[^>]*><v>'.$number.'<\/v>/', $sheet);
         }
+        $this->assertMatchesRegularExpression('/<c r="A3"[^>]*><v>1<\/v>/', $sheet);
+        $this->assertStringContainsString('>Musim<', $sheet);
+    }
+
+    public function test_digit_only_names_stay_text(): void
+    {
+        $ctx = $this->context($this->account());
+        DB::table('greenhouses')->where('id', $ctx['gh']['id'])->update(['name' => '001']);
+        $this->sold($ctx, '50', '28000', 38);
+        DB::table('sales')->update(['customer_name' => '08123456789']);
+
+        $entries = $this->workbook();
+
+        $this->assertMatchesRegularExpression('/t="inlineStr"[^>]*><is><t[^>]*>001<\/t>/', $entries['xl/worksheets/sheet1.xml']);
+        $this->assertMatchesRegularExpression('/t="inlineStr"[^>]*><is><t[^>]*>08123456789<\/t>/', $entries['xl/worksheets/sheet3.xml']);
+        $this->assertDoesNotMatchRegularExpression('/<v>8123456789<\/v>/', $entries['xl/worksheets/sheet3.xml']);
+    }
+
+    public function test_sales_footer_equals_overview_amount_even_when_line_rounding_differs(): void
+    {
+        $ctx = $this->context($this->account());
+        $good = (string) Str::uuid();
+        $bad = (string) Str::uuid();
+        $this->postJson('/api/v2/harvests', $this->operation('harvest', ['planting_group_id' => $ctx['group']['id'], 'occurred_at' => '2026-11-17T12:00:00+07:00', 'notes' => '',
+            'items' => [['id' => $good, 'quality' => 'saleable', 'fruit_count' => null, 'weight_kg' => '200'], ['id' => $bad, 'quality' => 'defective', 'fruit_count' => null, 'weight_kg' => '200']]]))->assertCreated();
+        $line = fn (string $item) => ['id' => (string) Str::uuid(), 'planting_group_id' => $ctx['group']['id'], 'grade_id' => DB::table('harvest_items')->where('id', $item)->value('grade_id'), 'quantity_kg' => '2',
+            'fruit_count' => null, 'price_per_kg' => '50.002', 'buyer_grade' => null];
+        $this->postJson('/api/v2/sales', $this->operation('sale', ['season_id' => $ctx['season']['id'], 'paid_at' => '2026-11-20T10:00:00+07:00',
+            'payment_status' => 'paid', 'customer_name' => '', 'notes' => '', 'lines' => [$line($good), $line($bad)]]))->assertCreated();
+        $overview = $this->getJson('/api/v2/reports/season-overview?sequence=1')->assertOk()->json('data.selected.sales.amount');
+
+        $sheet = $this->workbook()['xl/worksheets/sheet3.xml'];
+
+        $this->assertSame('200.01', $overview);
+        $this->assertSame(2, preg_match_all('/<c r="L[34]"[^>]*><v>100<\/v>/', $sheet));
+        $this->assertMatchesRegularExpression('/<c r="A5"[^>]*><is><t[^>]*>Total<\/t>/', $sheet);
+        $this->assertMatchesRegularExpression('/<c r="L5"[^>]*><v>200\.01<\/v>/', $sheet);
     }
 
     public function test_parts_filter_and_validation(): void
