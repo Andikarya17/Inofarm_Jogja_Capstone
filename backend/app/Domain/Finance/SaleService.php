@@ -64,7 +64,7 @@ final class SaleService
                 $quote = null;$lines = [];$allocations = [];
             } else {
                 abort_unless(isset($p['lines']) xor isset($p['items']), 422, 'Kirim baris penjualan atau rincian lama, tidak keduanya.');
-                $lines = isset($p['lines']) ? $this->checkedLines($p['lines']) : $this->legacyLines($p['items']);
+                $lines = isset($p['lines']) ? $this->checkedLines($p['lines'], $oldLines) : $this->legacyLines($p['items']);
                 $quote = SaleMath::quote($lines, isset($p['lines']) ? 'lines' : 'items');
                 $lines = $quote['items'];
                 $allocations = SaleAllocator::allocate($seasonId, $lines, $old);
@@ -126,12 +126,20 @@ final class SaleService
         });
     }
 
-    /** New-shape lines: one line per group + grade (+ mitra grade); SaleAllocator picks the stock. */
-    private function checkedLines(array $lines): array
+    /**
+     * New-shape lines: one line per group + grade (+ mitra grade); SaleAllocator picks the stock. A backfilled sale may
+     * already hold several lines with one key (one per old harvest item), so a repeated key is allowed only when every
+     * line carrying it already exists on this sale.
+     */
+    private function checkedLines(array $lines, Collection $oldLines): array
     {
-        $keys = array_map(fn ($line) => $line['planting_group_id'].'|'.$line['grade_id'].'|'.($line['buyer_grade'] ?? ''), $lines);
-        abort_unless(count(array_unique(array_column($lines, 'id'))) === count($lines) && count(array_unique($keys)) === count($lines), 422,
-            'Baris dengan varietas, kualitas dan grade mitra yang sama tidak boleh berulang dalam satu penjualan.');
+        abort_unless(count(array_unique(array_column($lines, 'id'))) === count($lines), 422, 'Identitas baris penjualan tidak boleh berulang.');
+        $byKey = [];
+        foreach ($lines as $line) {$byKey[$line['planting_group_id'].'|'.$line['grade_id'].'|'.($line['buyer_grade'] ?? '')][] = $line['id'];}
+        foreach ($byKey as $ids) {
+            abort_if(count($ids) > 1 && collect($ids)->contains(fn ($id) => ! $oldLines->has($id)), 422,
+                'Baris dengan varietas, kualitas dan grade mitra yang sama tidak boleh berulang dalam satu penjualan.');
+        }
 
         return array_map(fn ($line) => [...$line, 'fruit_count' => $line['fruit_count'] ?? null, 'buyer_grade' => $line['buyer_grade'] ?? null], $lines);
     }

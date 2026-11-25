@@ -177,6 +177,35 @@ class FinanceSaleLinesTest extends FinanceTestCase
         $this->assertSame(collect($before['lines'])->pluck('id')->sort()->values()->all(), collect($after['lines'])->pluck('id')->sort()->values()->all());
     }
 
+    public function test_correcting_backfilled_sale_with_two_harvests_same_grade(): void
+    {
+        [$ctx, $first, $second] = $this->threeHarvests();
+        $sale = $this->postJson('/api/v2/sales', $this->operation('sale', ['season_id' => $ctx['season']['id'], 'paid_at' => '2026-11-20T10:00:00+07:00',
+            'payment_status' => 'paid', 'customer_name' => '', 'notes' => '', 'items' => [
+                ['id' => (string) Str::uuid(), 'harvest_item_id' => $first[1], 'quantity_kg' => '4', 'price_per_kg' => '30000'],
+                ['id' => (string) Str::uuid(), 'harvest_item_id' => $second[1], 'quantity_kg' => '6', 'price_per_kg' => '30000'],
+            ]]))->assertCreated()->json('data');
+        $this->wipeLines();
+        SaleLineMigration::backfill();
+        $before = $this->getJson('/api/v2/sales/'.$sale['id'])->assertOk()->json();
+        $this->assertCount(2, $before['lines']);
+        $lines = array_map(fn ($line) => ['id' => $line['id'], 'planting_group_id' => $line['planting_group_id'], 'grade_id' => $line['grade_id'],
+            'quantity_kg' => $line['quantity_kg'], 'fruit_count' => $line['fruit_count'], 'price_per_kg' => '32000', 'buyer_grade' => $line['buyer_grade']], $before['lines']);
+        $payload = ['season_id' => $ctx['season']['id'], 'paid_at' => '2026-11-20T10:00:00+07:00', 'payment_status' => 'paid', 'customer_name' => '', 'notes' => '',
+            'lines' => $lines, 'reason' => 'Harga dikoreksi'];
+        $after = $this->patchJson('/api/v2/sales/'.$sale['id'], $this->operation('sale', $payload, 'update', $sale['id'], 1))->assertOk()->json('data');
+
+        $this->assertSame('10.000000', $after['total_weight_kg']);
+        $this->assertSame('320000.00', $after['total_amount']);
+        $this->assertSame('10.000000', (string) DB::table('harvest_items')->sum('sold_weight_kg'));
+        $this->assertSame(0, DB::table('harvest_items')->where(fn ($q) => $q->whereColumn('sold_weight_kg', '>', 'weight_kg')->orWhere('sold_weight_kg', '<', 0))->count());
+
+        // A new line id repeating the same key is still rejected.
+        $extra = $this->operation('sale', [...$payload, 'lines' => [...$lines, $this->line($ctx['group']['id'], $first[2], '1')]], 'update', $sale['id'], 2);
+        $this->patchJson('/api/v2/sales/'.$sale['id'], $extra)->assertUnprocessable()
+            ->assertJsonPath('message', 'Baris dengan varietas, kualitas dan grade mitra yang sama tidak boleh berulang dalam satu penjualan.');
+    }
+
     public function test_legacy_items_payload_still_accepted(): void
     {
         $saleId = $this->saleWithTwoItems();
