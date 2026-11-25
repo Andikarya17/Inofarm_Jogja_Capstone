@@ -131,4 +131,19 @@ class SaleFormModelTest {
         assertTrue(ready.copy(paymentMethod = "cek").validation().containsKey("payment_method"))
         assertEquals("Pilih buah yang dijual.", ready.copy(items = emptyList()).validation()["items"])
     }
+
+    @Test fun consumerHintNamesKelolaOnlyWhileTheLineHoldsTheListPrice() {
+        val d = SaleFormModel.addLine(draft("consumer"), option(golden, layak), "34000")
+        val line = d.items.single()
+        assertEquals("Harga perorangan Golden Layak, diisi dari Kelola. Masih bisa diubah.", SaleFormModel.priceHint(d, option(golden, layak), prices, emptyList(), line))
+        assertEquals("Harga perorangan Golden Layak, diisi dari Kelola. Masih bisa diubah.", SaleFormModel.priceHint(d, option(golden, layak), prices, emptyList(), line.copy(price = "34000,00")))
+        assertEquals("Harga perorangan bisa diubah.", SaleFormModel.priceHint(d, option(golden, layak), prices, emptyList(), line.copy(price = "30000")))
+        assertEquals("Harga perorangan bisa diubah.", SaleFormModel.priceHint(d, option(golden, layak), prices, emptyList(), line.copy(price = "")))
+    }
+
+    @Test fun buyerGradeServerErrorMapsToItsLine() {
+        val lines = listOf(SaleLine(id = "l0"), SaleLine(id = "l1"))
+        val error = JSONObject().put("field_errors", JSONObject().put("operation.payload.lines.1.buyer_grade", JSONArray().put("Grade mitra harus A, B, atau C.")))
+        assertEquals(mapOf("items.1.buyer_grade" to "Grade mitra harus A, B, atau C."), SaleErrors.fromServer(error, lines))
+    }
 }

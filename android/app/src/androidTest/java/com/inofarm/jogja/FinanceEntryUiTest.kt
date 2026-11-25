@@ -2078,6 +2078,22 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("sale-total-fact").assertTextEquals("Rp1.920.000")
         captureSecondary("sale-summary-retail")
     }
+    /** The real entry point: Catat → Penjualan for the greenhouse, then Simpan opens the Ringkasan. */
+    @Test fun saleFromCatatSheetReachesRingkasan() {
+        saleStockFixture.set(true);managerLogin()
+        rule.openRecordIn("sale",gh)
+        rule.waitUntil(15000) {rule.onAllNodesWithTag("sale-review").fetchSemanticsNodes().isNotEmpty()}
+        rule.waitUntil(10000) {saleEditor().state.value.draft?.seasonId==season}
+        assertEquals(gh,saleEditor().state.value.draft!!.greenhouseId)
+        rule.onNodeWithTag("sale-type-consumer").performScrollTo().performClick()
+        val id=addSaleLine(inthanonGroup,gradeCacat,"5",null,"10000")
+        rule.onNodeWithTag("sale-price-hint-$id").performScrollTo().assertTextEquals("Belum ada harga perorangan Inthanon Cacat di Kelola. Ketik harganya.")
+        rule.onNodeWithTag("sale-paid").performScrollTo().performClick()
+        rule.onNodeWithTag("sale-review").performClick()
+        readyNode("sale-summary-stock-$inthanonGroup-$gradeCacat").performScrollTo().assertTextContains("20 kg",substring=true)
+        rule.onNodeWithText("Data transaksi").assertExists()
+        rule.onNodeWithTag("sale-total-fact").assertTextEquals("Rp50.000")
+    }
     @Test fun salePartnerSplitsGrades() {
         saleStockFixture.set(true);managerLogin();openSaleForm()
         pickBuyer("partner",custPartner)
@@ -2113,6 +2129,7 @@ class FinanceEntryUiTest {
         captureSecondary("sale-form-consumer")
         // Still editable: a typed price replaces the list price.
         fillSaleLine(id,"3",null,"30000");rule.onNodeWithTag("sale-total").performScrollTo().assertTextEquals("Rp90.000")
+        rule.onNodeWithTag("sale-price-hint-$id").performScrollTo().assertTextEquals("Harga perorangan bisa diubah.")
     }
     @Test fun saleOfflineDraftRecreationExactTotalAndAuditUseDedicatedFlow() {
         saleFormWithSources();offline.set(true)

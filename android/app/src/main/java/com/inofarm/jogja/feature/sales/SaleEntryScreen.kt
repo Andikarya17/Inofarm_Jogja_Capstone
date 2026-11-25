@@ -192,16 +192,17 @@ private fun seasonName(context: CultivationUiState, id: String) = context.season
                                 if (card.lines.size > 1) TextButton({ vm.edit { d -> d.copy(items = d.items.filterNot { it.id == line.id }) } },
                                     Modifier.heightIn(min = FarmSpace.Touch).testTag("sale-remove-grade-${line.id}")) { Text("Hapus grade") }
                             }
+                            errors["items.$index.buyer_grade"]?.let { FieldError(it) }
                             FarmFieldPair({
                                 FinanceField("Bobot", line.quantity, { editLine(line.copy(quantity = it)) }, "sale-kg-${line.id}", errors["items.$index.quantity"],
                                     KeyboardType.Decimal, suffix = "kg", prominent = true)
                             }, {
-                                FinanceField("Buah (opsional)", line.fruitCount, { editLine(line.copy(fruitCount = it)) }, "sale-fruit-${line.id}", errors["items.$index.fruit_count"],
+                                FinanceField(if (graded) "Buah (opsional)" else "Jumlah buah (opsional)", line.fruitCount, { editLine(line.copy(fruitCount = it)) }, "sale-fruit-${line.id}", errors["items.$index.fruit_count"],
                                     KeyboardType.Number, suffix = "buah", prominent = true)
                             })
                             FinanceField("Harga per kg", line.price, { editLine(line.copy(price = it)) }, "sale-price-${line.id}", errors["items.$index.price"],
                                 KeyboardType.Decimal, suffix = "/kg", prominent = true, visual = IdrGrouping, leadingIcon = { Text("Rp", color = colors.onSurfaceVariant) })
-                            Text(SaleFormModel.priceHint(draft, option, prices, sales), Modifier.testTag("sale-price-hint-${line.id}"),
+                            Text(SaleFormModel.priceHint(draft, option, prices, sales, line), Modifier.testTag("sale-price-hint-${line.id}"),
                                 style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                             errors["items.$index.source"]?.let { FieldError(it) }
                             SaleFormModel.lineCalc(line)?.let { (calc, amount) ->
@@ -299,6 +300,7 @@ private fun seasonName(context: CultivationUiState, id: String) = context.season
                     style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        Text("Data transaksi", Modifier.padding(horizontal = FarmSpace.Tiny).semantics { heading() }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Surface(Modifier.fillMaxWidth(), shape = FarmShape.Card, color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)) {
             Column(Modifier.padding(horizontal = FarmSpace.Large, vertical = 6.dp)) {
                 val rows = buildList {

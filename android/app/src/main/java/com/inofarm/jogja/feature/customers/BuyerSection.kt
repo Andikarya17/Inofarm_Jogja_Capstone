@@ -27,7 +27,13 @@ import java.util.UUID
  * joins the list when the sale is saved. A Perorangan buyer may stay unnamed.
  */
 @Composable internal fun BuyerSection(draft: SaleDraft, error: String?, search: (suspend (String, String) -> List<Customer>)?, edit: ((SaleDraft) -> SaleDraft) -> Unit) {
-    if (!draft.hasBuyer()) return
+    if (!draft.hasBuyer()) {
+        // A sale saved before buyer types existed keeps its typed name; it stays editable until a type is chosen.
+        if (draft.customer.isNotBlank() || error != null) com.inofarm.jogja.feature.FarmFormSection("Pembeli") {
+            FinanceField("Nama pembeli (boleh kosong)", draft.customer, { value -> edit { it.copy(customer = value) } }, "sale-customer", error)
+        }
+        return
+    }
     if (draft.buyerExisting) {
         val colors = MaterialTheme.colorScheme
         Surface(Modifier.fillMaxWidth(), shape = FarmShape.Card, color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)) {

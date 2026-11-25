@@ -140,11 +140,18 @@ object SaleFormModel {
     }
 
     /** The line under a price field: where the price came from, or the last price paid by this retail buyer. */
-    fun priceHint(draft: SaleDraft, option: StockOption?, prices: List<JSONObject>, sales: List<JSONObject>): String {
+    fun priceHint(draft: SaleDraft, option: StockOption?, prices: List<JSONObject>, sales: List<JSONObject>, line: SaleLine? = null): String {
         val variety = option?.varietyName.orEmpty()
         return when (draft.buyerType) {
-            "consumer" -> if (consumerPrice(prices, option) != null) "Harga perorangan $variety ${qualityLabel(option?.quality)}, diisi dari Kelola. Masih bisa diubah."
+            "consumer" -> {
+                val listed = consumerPrice(prices, option)
+                val typed = line?.let { runCatching { SaleDraft.decimal(it.price, false) }.getOrNull() }
+                // The Kelola sentence only while the line still holds that price; a typed price gets a neutral note.
+                if (listed != null && (line == null || (typed != null && typed.compareTo(SaleDraft.decimal(listed, false)) == 0)))
+                    "Harga perorangan $variety ${qualityLabel(option?.quality)}, diisi dari Kelola. Masih bisa diubah."
+                else if (listed != null) "Harga perorangan bisa diubah."
                 else "Belum ada harga perorangan $variety ${qualityLabel(option?.quality)} di Kelola. Ketik harganya.".replace("  ", " ")
+            }
             "partner" -> "Grade dinilai mitra, harga ditawar."
             "retail" -> {
                 if (draft.buyerId.isBlank()) return "Harga ditawar."
