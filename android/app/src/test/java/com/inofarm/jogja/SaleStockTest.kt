@@ -87,4 +87,22 @@ class SaleStockTest {
     @Test fun buyerTypeLabels() {
         assertEquals("Perorangan", BuyerTypes.label("consumer"));assertEquals("Retail", BuyerTypes.label("retail"));assertEquals("Mitra", BuyerTypes.label("partner"))
     }
+
+    @Test fun backfilledSaleBodyWithItemsOnlyGetsVarietyNamesFromCache() {
+        val group = "30000000-0000-4000-8000-0000000000aa"
+        val stock = SaleStock(listOf(JSONObject().put("id", "h1").put("planting_group_id", group).put("occurred_at", "2026-11-17T08:00:00+07:00").put("version", 1)
+            .put("record_state", "active").put("items", JSONArray().put(JSONObject().put("id", "i1").put("grade_id", "g1").put("grade_name", "Layak").put("weight_kg", "10")))),
+            emptyList(), listOf(JSONObject().put("id", group).put("variety_id", "v1")), listOf(JSONObject().put("id", "v1").put("name", "Golden")), emptyList())
+        val body = JSONObject().put("id", "s1").put("customer_id", "c1").put("record_state", "active").put("paid_at", "2026-11-20T10:00:00+07:00")
+            .put("items", JSONArray().put(JSONObject().put("id", "si1").put("harvest_item_id", "i1").put("grade_id", "g1").put("grade_name", "Layak")
+                .put("quantity_kg", "2.500000").put("price_per_kg", "30000.000000").put("buyer_grade", JSONObject.NULL))
+                .put(JSONObject().put("id", "si2").put("harvest_item_id", "hilang").put("grade_name", "Layak").put("quantity_kg", "1.000000").put("price_per_kg", "1.000000")))
+        val lines = stock.withLines(body).getJSONArray("lines")
+        assertEquals("Golden", lines.getJSONObject(0).getString("variety_name"));assertEquals(group, lines.getJSONObject(0).getString("planting_group_id"))
+        assertTrue(lines.getJSONObject(1).isNull("variety_name"))
+        assertEquals("30000.000000", SalePricing.lastRetailPrice(listOf(stock.withLines(body)), "c1", "golden")?.pricePerKg)
+        // A body that already has lines is returned unchanged.
+        val modern = JSONObject().put("lines", JSONArray())
+        assertSame(modern, stock.withLines(modern))
+    }
 }

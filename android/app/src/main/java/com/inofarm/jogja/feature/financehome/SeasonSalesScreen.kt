@@ -39,6 +39,8 @@ private val SaleTypes = listOf("all" to "Semua", "consumer" to "Perorangan", "re
     filter: SalesFilter = SalesFilter(), onFilter: (SalesFilter) -> Unit = {},
     /** Changes after each sync, so the list rereads the cache. */
     refresh: Long = 0L,
+    /** While [detail] is null: the season summary is still being read, or why it could not be read. */
+    seasonLoading: Boolean = false, seasonError: String? = null, onRetry: () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(top = FarmSpace.Small), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -54,7 +56,16 @@ private val SaleTypes = listOf("all" to "Semua", "consumer" to "Perorangan", "re
                 Box(contentAlignment = Alignment.Center) { FarmControlIcon(FarmIcon.Download, "Unduh Excel") }
             }
         }
-        if (detail == null) { Notice("Musim belum dimuat. Kembali ke Keuangan lalu coba lagi.", true); return@Column }
+        if (detail == null) {
+            if (seasonLoading) Row(Modifier.padding(top = FarmSpace.Large).testTag("season-sales-loading"), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp); Text("Memuat musim…")
+            } else Column(Modifier.padding(top = FarmSpace.Medium), verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                Notice(seasonError?.let { "Musim belum bisa dimuat. $it" } ?: "Musim belum dimuat.", true)
+                OutlinedButton(onRetry, shape = FarmShape.Control, modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("season-sales-retry")) { Text("Coba lagi") }
+            }
+            return@Column
+        }
         var rows by remember(detail.sequence) { mutableStateOf<List<SeasonSaleRow>?>(null) }
         var error by remember(detail.sequence) { mutableStateOf<String?>(null) }
         var attempt by remember { mutableIntStateOf(0) }

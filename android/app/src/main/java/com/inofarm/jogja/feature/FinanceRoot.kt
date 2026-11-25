@@ -1115,9 +1115,11 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                     com.inofarm.jogja.feature.financehome.FinanceOverviewScreen(session, ticket, financeHomeRepository, financeVisibility, syncUpdates,
                         onRecordSale = { startRecord(RecordChoice.SALE) }, customers = customerRepository, exports = runtime.seasonExports,
                         loadSales = { n ->
+                            // Sales from before migration 24 carry items only; the cached harvests name their varieties.
+                            val stock = com.inofarm.jogja.feature.sales.saleStock(context)
                             context.seasons.filter { it.optInt("sequence", -1) == n }.flatMap { season ->
                                 runtime.saleHistory.records(session, com.inofarm.jogja.core.database.LocalHistoryFilter(seasonId = season.optString("id")), 5000)
-                                    .mapNotNull { it.serverBody ?: it.body.takeUnless { body -> body.has("_local_form") } }
+                                    .mapNotNull { it.serverBody ?: it.body.takeUnless { body -> body.has("_local_form") } }.map(stock::withLines)
                             }
                         },
                         onOpenSale = { id ->

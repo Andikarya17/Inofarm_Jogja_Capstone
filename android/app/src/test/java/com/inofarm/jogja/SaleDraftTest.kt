@@ -58,6 +58,15 @@ class SaleDraftTest {
         assertTrue(partner.copy(items=listOf(a,b.copy(buyerGrade="A"))).validation().containsKey("items"))
         assertTrue(withBuyer("retail").copy(items=listOf(line(),line().copy(id=UUID.randomUUID().toString()))).validation().containsKey("items"))
     }
+    @Test fun repeatedKeyAllowedWhenEveryLineIsAlreadyOnTheServerSale() {
+        // A backfilled sale holds one line per old harvest item, so two lines can share group + grade; the server keeps them.
+        val first=line();val second=line().copy(id=UUID.randomUUID().toString())
+        val correcting=withBuyer("retail").copy(items=listOf(first,second),baseVersion=2,lockedSources=setOf(first.id,second.id),reason="Harga dikoreksi")
+        assertFalse(correcting.validation().containsKey("items"))
+        val added=line().copy(id=UUID.randomUUID().toString())
+        assertTrue(correcting.copy(items=listOf(first,second,added)).validation().containsKey("items"))
+        assertTrue(correcting.copy(baseVersion=null).validation().containsKey("items"))
+    }
     @Test fun acceptedLineIdsSeasonAndWibSecondsArePreservedForReasonedCorrection() {
         val draft=ready();val accepted=draft.payload().put("paid_at","2026-10-30T01:12:34.000000Z")
         val restored=SaleDraft.from(draft.id,gh,JSONObject().put("season_id",season).put("paid_at",accepted.getString("paid_at")).put("payment_status","paid").put("customer_type","consumer")

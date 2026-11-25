@@ -72,6 +72,16 @@ class SaleFormModelTest {
         assertNull(SaleFormModel.fillConsumerPrices(consumer, stock, prices))
     }
 
+    @Test fun leavingMitraNamesTheGradeLinesThatAreRemoved() {
+        var d = SaleFormModel.addLine(draft("partner"), option(golden, layak), null)
+        assertNull(SaleFormModel.switchLoss(d, "retail"))
+        d = SaleFormModel.addGrade(SaleFormModel.addGrade(d, golden, layak), golden, layak).let { it.copy(items = it.items.map { l -> l.copy(quantity = "5") }) }
+        assertEquals("Grade B dan C hanya untuk mitra. Baris grade B dan C dihapus beserta 10 kg.", SaleFormModel.switchLoss(d, "consumer"))
+        assertNull(SaleFormModel.switchLoss(d, "partner"))
+        val single = SaleFormModel.addGrade(SaleFormModel.addLine(draft("partner"), option(golden, layak), null), golden, layak)
+        assertEquals("Grade B hanya untuk mitra. Baris grade B dihapus.", SaleFormModel.switchLoss(single, "retail"))
+    }
+
     @Test fun consumerAddPrefillsAndHintsSayWhereThePriceComesFrom() {
         val d = SaleFormModel.addLine(draft("consumer"), option(golden, layak), SaleFormModel.consumerPrice(prices, option(golden, layak)))
         assertEquals("34000", d.items.single().price)

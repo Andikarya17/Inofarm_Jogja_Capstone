@@ -69,6 +69,7 @@ private fun seasonName(context: CultivationUiState, id: String) = context.season
         if (SaleFormModel.fillConsumerPrices(draft, stock, prices) != null) vm.edit { SaleFormModel.fillConsumerPrices(it, stock, prices) ?: it }
     }
     var pickGreenhouse by remember { mutableStateOf(false) }
+    var pendingType by remember { mutableStateOf<String?>(null) }
     val correcting = draft.baseVersion != null || draft.lockedSeason
     FarmFormFrame(header = {
         FarmFormHeader(if (draft.baseVersion == null) "Catat penjualan" else "Koreksi penjualan", state.saved, "sale-draft-status", "sale-close", cancel, !state.busy,
@@ -86,7 +87,10 @@ private fun seasonName(context: CultivationUiState, id: String) = context.season
         if (!correcting && openSeason == null) Notice("Greenhouse ini belum punya musim berjalan. Mulai semai dulu atau pilih greenhouse lain.", true)
         state.errors["season"]?.let { FieldError(it) }
 
-        BuyerTypePicker(draft.buyerType) { type -> if (type != draft.buyerType) vm.edit { SaleFormModel.switchType(it, type, stock, prices) } }
+        BuyerTypePicker(draft.buyerType) { type ->
+            // Leaving Mitra drops grade B and C lines; the manager confirms first instead of losing kg silently.
+            if (type != draft.buyerType) { if (SaleFormModel.switchLoss(draft, type) != null) pendingType = type else vm.edit { SaleFormModel.switchType(it, type, stock, prices) } }
+        }
         state.errors["buyer_type"]?.let { FieldError(it) }
         com.inofarm.jogja.feature.customers.BuyerSection(draft, state.errors["customer"], buyerSearch) { change -> vm.edit(change) }
 
@@ -112,6 +116,15 @@ private fun seasonName(context: CultivationUiState, id: String) = context.season
         if (lineErrors) Notice("Periksa baris buah yang ditandai merah.", true)
         rest.forEach { Notice(it, true) }
         state.message?.let { Notice(it, true) }
+    }
+    pendingType?.let { type ->
+        val loss = SaleFormModel.switchLoss(draft, type)
+        if (loss == null) { LaunchedEffect(type) { pendingType = null }; return@let }
+        AlertDialog(onDismissRequest = { pendingType = null }, containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Ganti ke ${BuyerTypes.label(type)}?") },
+            text = { Text(loss, Modifier.testTag("sale-switch-loss")) },
+            confirmButton = { TextButton({ pendingType = null; vm.edit { SaleFormModel.switchType(it, type, stock, prices) } }, Modifier.testTag("sale-switch-confirm")) { Text("Ganti dan hapus") } },
+            dismissButton = { TextButton({ pendingType = null }, Modifier.testTag("sale-switch-cancel")) { Text("Tetap Mitra") } })
     }
     if (pickGreenhouse) FarmPicker(
         title = "Pilih greenhouse",
@@ -406,7 +419,7 @@ private fun seasonName(context: CultivationUiState, id: String) = context.season
     val draft = runCatching { SaleDraft.from(record.id, record.greenhouseId, record.body, record.baseVersion, saleStock(context)) }.getOrNull()
     if (draft == null) { Notice("Rincian penjualan belum lengkap. Data tetap tersimpan.", true); return }
     SaleDraftFacts(draft, context, record.body.optString("total_amount").takeUnless { record.body.isNull("total_amount") || it.isBlank() })
-    record.body.optJSONArray("lines")?.let { lines ->
+    saleStock(context).withLines(record.body).optJSONArray("lines")?.let { lines ->
         repeat(lines.length()) { i -> val line = lines.getJSONObject(i); if (line.has("variety_name") && !line.isNull("variety_name")) Text("${line.getString("variety_name")} · ${line.optString("grade_name")}", style = MaterialTheme.typography.bodySmall) }
     }
     if (record.body.optString("record_state") == "cancelled") Notice("Penjualan dibatalkan dan tidak dihitung lagi di penjualan aktif.", true)

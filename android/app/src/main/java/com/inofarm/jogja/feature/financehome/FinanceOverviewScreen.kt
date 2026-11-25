@@ -83,7 +83,8 @@ private enum class FinancePage { OVERVIEW, COSTS, LEDGER, CUSTOMERS, SALES }
     var sequence by rememberSaveable(session.scope.key) { mutableIntStateOf(-1) }
     var salesFilter by remember(session.scope.key) { mutableStateOf(SalesFilter()) }
     var reload by remember { mutableIntStateOf(0) }
-    var overview by remember(session.scope.key) { mutableStateOf<SeasonOverview?>(null) }
+    // Starts from the repository's copy, so coming back from a sale detail (which replaces this screen) keeps the season.
+    var overview by remember(session.scope.key) { mutableStateOf(repository.cachedOverview(session, ticket, sequence.takeIf { it > 0 })) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
     var exportOpen by rememberSaveable { mutableStateOf(false) }
@@ -104,7 +105,8 @@ private enum class FinancePage { OVERVIEW, COSTS, LEDGER, CUSTOMERS, SALES }
         onFullScreen(fullScreen)
         onDispose { onFullScreen(false) }
     }
-    val openSale: ((String) -> Unit)? = onOpenSale?.let { open -> { id: String -> open(id); ledgerReturn = page; page = FinancePage.LEDGER } }
+    // The root shows the sale detail over this screen, so the page stays where it is and Back returns to the list.
+    val openSale: ((String) -> Unit)? = onOpenSale
     when (page) {
         FinancePage.COSTS -> StandardCostScreen(session, ticket, repository, initialSequence = overview?.selected?.sequence) {
             page = FinancePage.OVERVIEW; reload++
@@ -113,7 +115,8 @@ private enum class FinancePage { OVERVIEW, COSTS, LEDGER, CUSTOMERS, SALES }
         FinancePage.CUSTOMERS -> com.inofarm.jogja.feature.customers.CustomerListScreen(session, ticket, customers) { page = FinancePage.OVERVIEW }
         FinancePage.SALES -> SeasonSalesScreen(overview?.selected, overview?.sequences?.find { it.sequence == overview?.selected?.sequence }?.greenhouseCount,
             loadSales, onBack = { page = FinancePage.OVERVIEW; salesFilter = SalesFilter() }, onOpen = openSale, onExcel = onExcel,
-            filter = salesFilter, onFilter = { salesFilter = it }, refresh = refresh)
+            filter = salesFilter, onFilter = { salesFilter = it }, refresh = refresh,
+            seasonLoading = overview == null && error == null, seasonError = error.takeIf { overview == null }, onRetry = { reload++ })
         FinancePage.OVERVIEW -> Overview(session, preference, overview, error, loading, onSequence = { sequence = it }, onRetry = { reload++ },
             onRecordSale = onRecordSale, onExcel = onExcel, open = { ledgerReturn = FinancePage.OVERVIEW; page = it })
     }

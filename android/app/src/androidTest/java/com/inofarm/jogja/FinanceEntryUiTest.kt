@@ -2116,6 +2116,24 @@ class FinanceEntryUiTest {
         assertEquals(listOf("A","B"),lines.map {it.getString("buyer_grade")});assertEquals(listOf("70.000000","40.000000"),lines.map {it.getString("quantity_kg")})
         assertEquals(listOf(52,31),lines.map {it.getInt("fruit_count")});assertEquals("partner",payload.getString("customer_type"));assertEquals(custPartner,payload.getJSONObject("customer").getString("id"))
     }
+    /** Leaving Mitra asks first, because grade B and C lines and their kg are removed. */
+    @Test fun saleLeavingPartnerConfirmsBeforeDroppingGrades() {
+        saleStockFixture.set(true);managerLogin();openSaleForm()
+        pickBuyer("partner",custPartner)
+        addSaleLine(goldenGroup,gradeLayak,"70",null,"26000")
+        rule.onNodeWithTag("sale-add-grade-$goldenGroup").performScrollTo().performClick()
+        rule.waitUntil(10000) {saleLines().size==2}
+        fillSaleLine(saleLines().single {it.buyerGrade=="B"}.id,"40",null,"22000")
+        rule.onNodeWithTag("sale-type-retail").performScrollTo().performClick()
+        readyNode("sale-switch-loss").assertTextEquals("Grade B hanya untuk mitra. Baris grade B dihapus beserta 40 kg.")
+        captureSecondary("sale-switch-partner-confirm")
+        rule.onNodeWithTag("sale-switch-cancel").performClick()
+        rule.waitForIdle();assertEquals("partner",saleEditor().state.value.draft!!.buyerType);assertEquals(2,saleLines().size)
+        rule.onNodeWithTag("sale-type-retail").performScrollTo().performClick()
+        readyNode("sale-switch-confirm").performClick()
+        rule.waitUntil(10000) {saleEditor().state.value.draft!!.buyerType=="retail"}
+        assertEquals(1,saleLines().size);assertEquals("",saleLines().single().buyerGrade);assertEquals("70",saleLines().single().quantity)
+    }
     @Test fun saleConsumerPrefillsPrice() {
         saleStockFixture.set(true);managerLogin();openSaleForm()
         rule.onNodeWithTag("sale-type-consumer").performScrollTo().performClick()

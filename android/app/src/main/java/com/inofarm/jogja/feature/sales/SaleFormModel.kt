@@ -120,11 +120,22 @@ object SaleFormModel {
         val options = stock.options(draft.seasonId).associateBy { it.groupId to it.gradeId }
         val lines = if (type == "partner") draft.items.map { line ->
             if (line.buyerGrade.isBlank() && graded(type, options[line.groupId to line.gradeId]?.quality)) line.copy(buyerGrade = "A") else line
-        } else draft.items.filterIndexed { index, line ->
-            line.groupId.isBlank() || draft.items.indexOfFirst { it.groupId == line.groupId && it.gradeId == line.gradeId } == index
-        }.map { it.copy(buyerGrade = "") }
+        } else draft.items.filterIndexed { index, line -> keptOnSwitch(draft, index, line) }.map { it.copy(buyerGrade = "") }
         val switched = draft.copy(buyerType = type, buyerId = "", buyerExisting = false, customer = "", buyerWhatsapp = "", items = lines)
         return fillConsumerPrices(switched, stock, prices) ?: switched
+    }
+
+    private fun keptOnSwitch(draft: SaleDraft, index: Int, line: SaleLine) =
+        line.groupId.isBlank() || draft.items.indexOfFirst { it.groupId == line.groupId && it.gradeId == line.gradeId } == index
+
+    /** What leaving Mitra for [type] removes: the extra mitra grade lines and their kg, or null when nothing is lost. */
+    fun switchLoss(draft: SaleDraft, type: String): String? {
+        if (type == "partner") return null
+        val dropped = draft.items.filterIndexed { index, line -> !keptOnSwitch(draft, index, line) }
+        if (dropped.isEmpty()) return null
+        val grades = dropped.map { it.buyerGrade }.filter { it.isNotBlank() }.distinct().sorted().joinToString(" dan ").ifBlank { "lain" }
+        val weight = dropped.fold(BigDecimal.ZERO) { sum, line -> sum.add(kgOf(line)) }
+        return "Grade $grades hanya untuk mitra. Baris grade $grades dihapus" + (if (weight.signum() > 0) " beserta ${kg(weight)} kg." else ".")
     }
 
     /** Perorangan lines with no price yet take the price list's price; null when nothing changes. */

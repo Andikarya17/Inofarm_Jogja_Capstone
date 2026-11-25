@@ -16,7 +16,10 @@ class SaleRepository(val vault:FinanceSessionVault,private val store:LocalFinanc
     /** Sales the server sent to this device, for the last price paid by a retail buyer. */
     suspend fun pastSales(session:FinanceSession,ticket:Long):List<org.json.JSONObject> = withContext(Dispatchers.IO) {
         check(vault.matches(ticket,session.scope)) {"Sesi berubah."};require(session.role==UserRole.MANAGER) {"Penjualan hanya untuk pengelola."}
-        store.cachedAll(session.scope.key,"sale")
+        val key=session.scope.key
+        // Sales from before migration 24 carry items only; the cached harvests give their lines a variety name.
+        val stock=SaleStock(store.cachedAll(key,"harvest"),store.cachedAll(key,"harvest_balance"),store.cachedAll(key,"planting_groups"),store.cachedAll(key,"varieties"),store.cachedAll(key,"grades"))
+        store.cachedAll(key,"sale").map(stock::withLines)
     }
     /** "Batal": undoes the autosaved edits of [id] back to [origin], the row as the form opened it (null when new). */
     suspend fun discard(session:FinanceSession,ticket:Long,id:String,origin:com.inofarm.jogja.core.database.LocalRecord?)=withContext(Dispatchers.IO) {writes.withLock {

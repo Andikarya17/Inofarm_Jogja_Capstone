@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
@@ -203,9 +205,58 @@ class FinanceOverviewUiTest {
         rule.onNodeWithTag("season-sales-summary").assertTextContains("Hasil pencarian",substring=true).assertTextContains("Rp1.160.000",substring=true);shot("season-sales-search")
         rule.onNodeWithTag("season-sale-50000000-0000-4000-8000-000000000003").performClick()
         assertEquals("50000000-0000-4000-8000-000000000003",opened)
-        rule.onNodeWithText("Buku biaya nyata").assertExists()
+        // The root shows the sale detail over this screen; the page itself no longer jumps to the ledger.
+        rule.onAllNodesWithText("Buku biaya nyata").assertCountEquals(0)
+        rule.onNodeWithTag("season-sales-search").assertTextContains("toko");rule.onAllNodesWithText("Mitra 1").assertCountEquals(0)
+    }
+
+    /**
+     * Like FinanceRoot: opening a sale replaces the Keuangan screen with the sale detail (inside the tab's saveable state),
+     * and Back brings the screen back. The season list must still show its data, even when the refetch then fails.
+     */
+    @Test fun backFromSaleDetailKeepsSeasonSalesList() {
+        var failOverview=false
+        val flaky=object:FinanceApi by api {
+            override suspend fun request(base:String,token:String?,path:String,method:String,body:JSONObject?,query:Map<String,String>):JSONObject {
+                if(failOverview && path=="reports/season-overview") throw java.io.IOException("Server tidak terjangkau")
+                return api.request(base,token,path,method,body,query)
+            }
+        }
+        val repository=FinanceHomeRepository(vault,flaky)
+        rule.setContent {com.inofarm.jogja.core.design.InofarmTheme {Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {Box(Modifier.padding(horizontal=16.dp)) {
+            val holder=androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+            var detail by androidx.compose.runtime.remember {androidx.compose.runtime.mutableStateOf<String?>(null)}
+            if(detail!=null) {
+                androidx.activity.compose.BackHandler {detail=null}
+                androidx.compose.material3.Text("Detail penjualan $detail")
+            } else holder.SaveableStateProvider(4) {
+                FinanceOverviewScreen(session,vault.generation,repository,preference,0,onRecordSale={},customers=CustomerRepository(vault,flaky),
+                    loadSales={sales},onOpenSale={detail=it}) {androidx.compose.material3.Text("Buku biaya nyata")}
+            }
+        }}}}
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-tc").fetchSemanticsNodes().isNotEmpty()}
+        scrollTo("finance-season-sales");rule.onNodeWithTag("finance-season-sales").performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("season-sales-list").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("season-sale-50000000-0000-4000-8000-000000000003").performClick()
+        rule.onNodeWithText("Detail penjualan 50000000-0000-4000-8000-000000000003").assertExists()
+        failOverview=true
         Espresso.pressBack()
         rule.waitUntil(5000) {rule.onAllNodesWithTag("season-sales-list").fetchSemanticsNodes().isNotEmpty()}
-        rule.onNodeWithTag("season-sales-search").assertTextContains("toko");rule.onAllNodesWithText("Mitra 1").assertCountEquals(0)
+        rule.onNodeWithText("Penjualan Musim 3").assertExists()
+        rule.onNodeWithText("Toko Segar").assertExists()
+        rule.onAllNodesWithText("Musim belum dimuat",substring=true).assertCountEquals(0)
+        rule.onAllNodesWithText("Buku biaya nyata").assertCountEquals(0);shot("season-sales-after-detail")
+    }
+
+    @Test fun seasonSalesWithoutSummaryShowsLoadingThenRetry() {
+        var retried=0
+        var failed by androidx.compose.runtime.mutableStateOf(false)
+        rule.setContent {com.inofarm.jogja.core.design.InofarmTheme {Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
+            SeasonSalesScreen(null,null,{sales},onBack={},onOpen=null,onExcel=null,seasonLoading=!failed,seasonError=if(failed) "Server tidak terjangkau" else null,onRetry={retried++})
+        }}}
+        rule.onNodeWithTag("season-sales-loading").assertExists();rule.onAllNodesWithText("Musim belum dimuat",substring=true).assertCountEquals(0)
+        failed=true
+        rule.onNodeWithText("Musim belum bisa dimuat. Server tidak terjangkau").assertExists()
+        rule.onNodeWithTag("season-sales-retry").performClick();assertEquals(1,retried)
     }
 }

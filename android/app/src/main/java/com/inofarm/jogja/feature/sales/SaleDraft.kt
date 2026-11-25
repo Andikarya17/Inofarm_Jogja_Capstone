@@ -37,7 +37,11 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
         if(items.isEmpty()) put("items","Pilih buah yang dijual.")
         else if(items.size !in 1..30) put("items","Sertakan 1 sampai 30 baris penjualan.")
         if(paymentMethod.isNotBlank() && paymentMethod !in PAYMENT_METHODS) put("payment_method","Cara bayar tidak dikenal.")
-        if(items.map {it.id}.toSet().size!=items.size || items.map {Triple(it.groupId,it.gradeId,if(buyerType=="partner") it.buyerGrade else "")}.toSet().size!=items.size) put("items","Buah dan grade yang sama hanya boleh berulang dengan grade mitra yang berbeda.")
+        // Same rule as the server: a repeated key is fine only when every line carrying it is already on the sale (a backfilled
+        // sale keeps one line per old harvest item). lockedSources holds the server line ids of a correction.
+        val serverLines=if(baseVersion!=null) lockedSources else emptySet()
+        val repeated=items.groupBy {Triple(it.groupId,it.gradeId,if(buyerType=="partner") it.buyerGrade else "")}.values.any {rows -> rows.size>1 && rows.any {it.id !in serverLines}}
+        if(items.map {it.id}.toSet().size!=items.size || repeated) put("items","Buah dan grade yang sama hanya boleh berulang dengan grade mitra yang berbeda.")
         if(items.any {it.buyerGrade.isNotBlank()} && buyerType!="partner") put("items","Grade A, B, C hanya untuk penjualan ke mitra.")
         if(items.any {it.buyerGrade.isNotBlank() && it.buyerGrade !in setOf("A","B","C")}) put("items","Grade mitra harus A, B, atau C.")
         items.forEachIndexed {index,line ->

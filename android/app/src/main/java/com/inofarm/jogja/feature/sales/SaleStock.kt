@@ -70,6 +70,28 @@ class SaleStock(harvests: List<JSONObject>, balances: List<JSONObject>, private 
     /** Group and grade of a harvest item, used to upgrade drafts saved before lines existed. */
     fun sourceOf(harvestItemId: String): Pair<String, String>? = items.find { it.id == harvestItemId }?.let { it.groupId to it.gradeId }
 
+    /**
+     * Sales recorded before migration 24 reach the cache as feed snapshots with items only. This copy adds one line per
+     * item with its group and variety from the cached harvests, so lists and price hints can name the fruit. An item whose
+     * harvest is not cached keeps a null variety. Bodies that already have lines are returned as they are.
+     */
+    fun withLines(body: JSONObject): JSONObject {
+        if (body.has("lines") && !body.isNull("lines")) return body
+        val rows = body.optJSONArray("items") ?: return body
+        val lines = org.json.JSONArray()
+        for (index in 0 until rows.length()) {
+            val item = rows.getJSONObject(index)
+            val source = sourceOf(item.optString("harvest_item_id"))
+            val variety = source?.let { (groupId, _) -> groups.find { it.optString("id") == groupId } }
+                ?.let { group -> varieties.find { it.optString("id") == group.optString("variety_id") } }?.optString("name")?.takeIf { it.isNotBlank() }
+            lines.put(JSONObject().put("id", item.optString("id")).put("planting_group_id", source?.first ?: JSONObject.NULL)
+                .put("grade_id", item.optString("grade_id").ifBlank { source?.second.orEmpty() }).put("grade_name", item.optString("grade_name"))
+                .put("variety_name", variety ?: JSONObject.NULL).put("buyer_grade", if (item.isNull("buyer_grade")) JSONObject.NULL else item.opt("buyer_grade") ?: JSONObject.NULL)
+                .put("quantity_kg", item.optString("quantity_kg")).put("fruit_count", JSONObject.NULL).put("price_per_kg", item.optString("price_per_kg")))
+        }
+        return JSONObject(body.toString()).put("lines", lines)
+    }
+
     private fun amount(text: String) = runCatching { BigDecimal(text) }.getOrDefault(BigDecimal.ZERO)
     private fun instant(text: String) = runCatching { OffsetDateTime.parse(text).toInstant().toEpochMilli() }.getOrDefault(Long.MAX_VALUE)
 
