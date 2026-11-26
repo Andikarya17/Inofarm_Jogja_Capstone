@@ -8,6 +8,12 @@ Semua input pengelola kini Batal / Simpan, lalu Ringkasan dengan Ubah / Simpan; 
 
 Sesi baru mulai dari [serah terima 17 November](HANDOFF_20261117.md): posisi `github/main` setelah PR #70, kronologi 10–17 November, hasil tes terakhir, pekerjaan terbuka dan preferensi kerja pengguna. [Audit alur input pengelola](MANAGER_INPUT_FLOW_AUDIT_20261117.md) memetakan input mana yang sudah langsung simpan dan mana yang masih wajib Periksa (delapan form domain), dengan rekomendasi R1–R4 yang belum diputuskan. Hanya dokumen; kode tidak berubah.
 
+## Audit visi pekerja, 10 November 2026
+
+Keputusan pengguna setelah audit: pekerja memilih greenhouse seperti pengelola, HSS/HST read-only, panen pekerja memerlukan verifikasi pengelola, dan pekerja boleh melihat progres target panen tanpa keuangan. [Master prompt pekerja](MASTER_PROMPT_WORKER_ALIGNMENT.md) serta [prompt mulai](RUN_WORKER_ALIGNMENT.md) mencakup empat perbaikan, review/progres panen, visual botani dan motion dengan antislop DURING + Impeccable. Status masih rencana, bukan perubahan runtime.
+
+[Audit fitur, akses dan UI pekerja](WORKER_VISION_AUDIT_20261110.md) mencocokkan kegiatan/HSS/HST/EC/PPM, panen dan larangan keuangan dengan source serta tes baru. Screenshot emulator memakai data sintetis. Temuan utama: kartu pengukuran pekerja dari cache lokal belum memfilter verifikasi invalid seperti pengelola. Audit ini tidak mengubah runtime atau kebijakan bisnis.
+
 ## Status setelah remediasi10 November2026
 
 [Bukti remediasi](AUDIT_REMEDIATION_20261110.md) mengatasi status terbuka pada audit sebelumnya. DB-01 selesai pada database lokal inofarm_finance_local, kini finance19/54 tabel/75 FK dan Beranda terbaca. API-01/API-02 selesai dengan152 operasi OpenAPI yang setara153 route runtime setelah ekspansi, schema respons dan tes parity. API-03 selesai dengan filter review invalid versi aktif. FE-01 selesai dengan pembacaan seluruh halaman cache scoped. Backend144 tes, JVM74 dan instrumentasi32 tes API30 lulus. QA-01, benchmark produksi dan keputusan bisnis tetap terbuka. Gunakan [CLAUDE.md](../../CLAUDE.md) sebagai pintu masuk terkini.

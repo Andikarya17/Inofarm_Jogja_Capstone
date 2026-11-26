@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Inofarm v2 consumer_price operation",
+  "description": "Harga per kg untuk pembeli perorangan, satu harga aktif per varietas dan kualitas (Layak/Cacat). Create tanpa base_version; update dengan base_version. record_state inactive menonaktifkan harga. Nama varietas dicocokkan tanpa membedakan huruf besar/kecil dan spasi berlebih; duplikat aktif ditolak 409 duplicate. Tidak ada hapus.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "2"},
+    "sync_epoch": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "operation_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "entity_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "entity_type": {"const": "consumer_price"},
+    "action": {"enum": ["create", "update"]},
+    "base_version": {"anyOf": [{"type": "integer", "minimum": 1, "maximum": 2147483647}, {"type": "null"}]},
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["variety_name", "quality", "price_per_kg"],
+      "properties": {
+        "variety_name": {"type": "string", "minLength": 1, "maxLength": 150, "pattern": "\\S"},
+        "quality": {"enum": ["saleable", "defective"]},
+        "price_per_kg": {"type": "string", "pattern": "^[0-9]{1,14}(\\.[0-9]{1,6})?$"},
+        "record_state": {"enum": ["active", "inactive"]}
+      }
+    }
+  },
+  "required": ["schema_version", "sync_epoch", "operation_id", "entity_id", "entity_type", "action", "base_version", "payload"],
+  "allOf": [
+    {"if": {"properties": {"action": {"const": "create"}}}, "then": {"properties": {"base_version": {"type": "null"}}}},
+    {"if": {"properties": {"action": {"const": "update"}}}, "then": {"properties": {"base_version": {"type": "integer"}}}}
+  ]
+}

@@ -43,7 +43,7 @@ class ReportExportTransportTest {
         val fixture=JSONObject(javaClass.getResource("/investment-report-public.json")!!.readText());val data=fixture.getJSONObject("receipt").getJSONObject("data")
         val row=LocalRecord(data.getString("id"),InvestmentContract.REPORT,data.getString("greenhouse_id"),1,1,1,data,data,null,SyncState.ACCEPTED,null)
         val selection=ReportExportSelection.from("scope-fixture",row,"pdf");assertEquals(selection,ReportExportSelection.parse(JSONObject(selection.json().toString())))
-        assertEquals("inofarm-investment_report-${row.id}.pdf",selection.filename)
+        assertEquals("Inofarm-analisis-investasi-${row.id.take(8)}.pdf",selection.filename)
         assertThrows(IllegalArgumentException::class.java) {ReportExportSelection.from("scope-fixture",row.copy(serverVersion=null),"pdf")}
         assertThrows(IllegalArgumentException::class.java) {ReportExportSelection.from("scope-fixture",row.copy(kind=InvestmentContract.SCENARIO),"csv")}
     }

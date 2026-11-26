@@ -43,6 +43,9 @@ internal fun initialsOf(name: String): String {
 private val dayNames = listOf("Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu")
 private val monthNames = listOf("Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des")
 
+/** "17 Nov", for harvest and payment days inside a sentence. */
+internal fun dayMonthLabel(date: java.time.LocalDate): String = "${date.dayOfMonth} ${monthNames[date.monthValue - 1]}"
+
 /** "Rabu, 11 Nov 2026" for the app bar. */
 internal fun dateLabel(date: java.time.LocalDate): String =
     "${dayNames[date.dayOfWeek.value - 1]}, ${date.dayOfMonth} ${monthNames[date.monthValue - 1]} ${date.year}"

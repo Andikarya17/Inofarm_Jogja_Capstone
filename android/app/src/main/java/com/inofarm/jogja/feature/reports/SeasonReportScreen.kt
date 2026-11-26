@@ -86,7 +86,11 @@ data class SeasonReportWorkspace(val state:SeasonReportState,val vm:SeasonReport
         } else {
             item {Choice("Greenhouse laporan",state.greenhouse,listOf(option("","Semua greenhouse"))+context.greenhouses,"report-gh") {vm.filter(it,"")}}
             item {Choice("Musim",state.season,listOf(option("","Semua musim"))+context.seasons.filter {state.greenhouse.isBlank() || it.optString("greenhouse_id")==state.greenhouse},"report-filter-season") {vm.filter(state.greenhouse,it)}}
-            item {Button(onClick={vm.new()},enabled=context.greenhouses.any {it.optString("id")==state.greenhouse},modifier=Modifier.fillMaxWidth().testTag("report-new")) {Text("Buat evaluasi musim")}}
+            item {
+                val chosen=context.greenhouses.any {it.optString("id")==state.greenhouse}
+                Button(onClick={vm.new()},enabled=chosen,modifier=Modifier.fillMaxWidth().testTag("report-new")) {Text("Buat evaluasi musim")}
+                if(!chosen) Text("Pilih greenhouse laporan dulu untuk membuat evaluasi.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             if(state.records.isEmpty()) item {Notice("Belum ada laporan.")}
             items(state.records,key={it.id}) {row ->OutlinedCard(onClick={vm.select(row.id)},modifier=Modifier.fillMaxWidth().testTag("report-record-${row.id}")) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                 Text(row.serverBody?.optJSONObject("scope")?.optJSONObject("season")?.optString("name") ?: context.seasons.find {it.optString("id")==row.body.optString("season_id")}?.optString("name") ?: "Evaluasi tersimpan")
@@ -120,10 +124,11 @@ private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",n
         Text(scope.getJSONObject("greenhouse").getString("name"), style = MaterialTheme.typography.bodyMedium)
         Text(if (data.getString("report_state") == "reviewed_final") "Akhir" else "Sementara",
             modifier = Modifier.testTag("report-status"), style = MaterialTheme.typography.labelLarge)
-        val start = if (season.isNull("start_date")) "Awal belum tersedia" else season.getString("start_date")
-        val end = if (season.isNull("end_date")) "akhir belum tercatat" else season.getString("end_date")
-        FarmFact("Periode musim", "$start · $end")
-        FarmFact("Dasar evaluasi", "${data.getInt("source_count")} sumber · metode biaya tercatat, versi 1")
+        val start = if (season.isNull("start_date")) "Awal belum tersedia" else com.inofarm.jogja.feature.dayText(season.getString("start_date"))
+        val end = if (season.isNull("end_date")) "belum selesai" else com.inofarm.jogja.feature.dayText(season.getString("end_date"))
+        FarmFact("Periode musim", "$start sampai $end")
+        val basis = if (data.optString("formula_version") == SeasonReportContract.VERSION) "biaya standar musim" else "biaya yang dibayar"
+        FarmFact("Dasar evaluasi", "${data.getInt("source_count")} sumber · $basis")
         Text("Biaya dan alokasi ${coverageLabel(coverage.getString("costs"))}. Penjualan ${coverageLabel(coverage.getString("sales"))}.")
         if (accepted) {
             Text("Diterbitkan ${timeLabel(data.getString("generated_at"))}", style = MaterialTheme.typography.bodySmall)
@@ -132,16 +137,10 @@ private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",n
         FarmFact("Catatan", data.getString("review_note"))
     }
 }
+/** Costs, sales and kg only; ratio metrics stay in older snapshots and their PDF/CSV but are not shown here. */
 private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
-    val groups = listOf(
-        "Hasil usaha" to listOf("L", "RC", "BC"),
-        "Penerimaan dan biaya" to listOf("TR", "Q", "P", "TC", "FC", "VC"),
-        "Titik impas" to listOf("BEP_Q", "BEP_PRICE")
-    )
-    for ((title, keys) in groups) {
-        item("result-$title") { FarmSectionHeading(title, Modifier.padding(top = FarmSpace.Medium)) }
-        items(keys, key = { "result-$it" }) { key -> Indicator(key, metrics.getJSONObject(key)) }
-    }
+    item("result-heading") { FarmSectionHeading("Biaya dan penjualan", Modifier.padding(top = FarmSpace.Medium)) }
+    items(SeasonReportContract.labels.keys.toList(), key = { "result-$it" }) { key -> Indicator(key, metrics.getJSONObject(key)) }
 }
 
 @Composable private fun Indicator(key:String,metric:JSONObject) {
@@ -160,11 +159,9 @@ private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
         TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Tutup perhitungan" else "Rumus dan asumsi")}
         if(expanded) {
             FarmFact("Rumus", metric.getString("formula"))
-            if (key == "BC") Text("B/C sederhana membagi laba dari biaya tercatat dengan total biaya.")
-            if (key in setOf("BEP_Q", "BEP_PRICE")) Text("Titik impas memakai total biaya tercatat dan penjualan lunas pada musim ini.")
             val inputs=metric.getJSONObject("inputs")
             inputs.keys().forEach { name ->
-                FarmFact(SeasonReportContract.labels[name] ?: name, if(inputs.isNull(name)) "Belum diketahui" else inputs.getString(name))
+                FarmFact(inputLabel(name), if(inputs.isNull(name)) "Belum diketahui" else inputs.getString(name))
             }
             val assumptions=metric.getJSONArray("assumptions");repeat(assumptions.length()) {Text(assumptions.getString(it))}
             metric.optJSONObject("exact_fraction")?.let {Text("Pecahan sebelum pembulatan: ${it.getString("numerator")} / ${it.getString("denominator")}",style=MaterialTheme.typography.bodySmall)}
@@ -181,7 +178,7 @@ private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
     val label=when(source.getString("kind")) {"asset"->"Aset";"expense"->"Pembayaran";"cost_allocation"->"Alokasi biaya";"depreciation_allocation"->"Alokasi penyusutan";else->"Penjualan"}
     OutlinedCard(Modifier.fillMaxWidth().animateContentSize(androidx.compose.animation.core.tween(com.inofarm.jogja.core.design.FarmMotion.State))) {Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
         Text("$label · versi ${source.getInt("version")}",style=MaterialTheme.typography.titleMedium);Text(source.getString("reason"))
-        source.optJSONObject("contribution")?.let {values->values.keys().forEach {key->Text("${SeasonReportContract.labels[key] ?: key}: ${reportValue(values.getString(key),if(key=="Q") "kg" else "IDR",if(key=="Q") 6 else 2)}")}}
+        source.optJSONObject("contribution")?.let {values->values.keys().asSequence().filter {it in SeasonReportContract.labels}.forEach {key->Text("${SeasonReportContract.labels.getValue(key)}: ${reportValue(values.getString(key),if(key=="Q") "kg" else "IDR",if(key=="Q") 6 else 2)}")}}
         TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Tutup rincian" else "Lihat rincian")}
         if(expanded) {
             for(key in listOf("name","category_name","season_name","customer_name","recorded_by_name")) data.optString(key).takeUnless {it.isBlank() || it=="null"}?.let {Text(it)}
@@ -202,10 +199,15 @@ private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
     }}
 }
 
+/** Formula inputs keep plain names; a metric outside the shown set keeps its wire key. */
+private fun inputLabel(name:String)=SeasonReportContract.labels[name] ?: if(name=="P") "Harga rata-rata" else name
+
 private fun reportValue(value:String,unit:String,scale:Int):String {
     val amount=BigDecimal(value)
     if(unit=="IDR") return moneyLabel(value)
     val formatter=if(unit=="IDR/kg") NumberFormat.getCurrencyInstance(Locale.forLanguageTag("id-ID")) else NumberFormat.getNumberInstance(Locale.forLanguageTag("id-ID"))
-    formatter.minimumFractionDigits=if(unit=="IDR/kg") 2 else 0;formatter.maximumFractionDigits=scale
-    return formatter.format(amount)+when(unit) {"IDR/kg"->"/kg";"ratio"->" rasio";else->" $unit"}
+    // The screen reads like the finance tab (0,08 · 128,57 kg · Rp450.000/kg); the PDF and CSV keep the server's full scale.
+    formatter.minimumFractionDigits=if(unit=="IDR/kg" && amount.stripTrailingZeros().scale()>0) 2 else 0
+    formatter.maximumFractionDigits=minOf(scale,2)
+    return formatter.format(amount)+when(unit) {"IDR/kg"->"/kg";"ratio"->"";else->" $unit"}
 }

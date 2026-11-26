@@ -1,0 +1,43 @@
+{
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "30000000-0000-4000-8000-000000000101",
+    "operation_id": "30000000-0000-4000-8000-000000000102",
+    "entity_id": "30000000-0000-4000-8000-000000000103",
+    "entity_type": "sale",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "season_id": "30000000-0000-4000-8000-000000000104",
+      "paid_at": "2026-11-25T09:00:00+07:00",
+      "payment_status": "paid",
+      "customer_name": "Toko Segar",
+      "customer_type": "retail",
+      "notes": "Penjualan retail dua varietas",
+      "lines": [
+        {
+          "id": "30000000-0000-4000-8000-000000000110",
+          "planting_group_id": "30000000-0000-4000-8000-000000000120",
+          "grade_id": "30000000-0000-4000-8000-000000000130",
+          "quantity_kg": "50.000000",
+          "fruit_count": 38,
+          "price_per_kg": "28000.000000"
+        },
+        {
+          "id": "30000000-0000-4000-8000-000000000111",
+          "planting_group_id": "30000000-0000-4000-8000-000000000121",
+          "grade_id": "30000000-0000-4000-8000-000000000130",
+          "quantity_kg": "20.000000",
+          "fruit_count": 16,
+          "price_per_kg": "26000.000000"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "total_amount": "1920000.00",
+    "exact_total": "1920000.000000000000",
+    "total_weight_kg": "70.000000"
+  },
+  "canonical_sha256": "b104aae66eaec133bd667db447c31c9478179c825da32c182ab78a3d2fcb1207"
+}

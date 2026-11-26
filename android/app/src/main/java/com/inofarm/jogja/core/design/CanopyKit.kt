@@ -178,9 +178,13 @@ internal fun Modifier.farmListItem(scope: androidx.compose.foundation.lazy.LazyI
         style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = content)
 }
 
-/** Forest surface with the leaf motif in a corner. Content is drawn with the forest colour scheme in both themes. */
+/**
+ * Forest surface with the leaf motif in a corner. Content is drawn with the forest colour scheme in both themes.
+ * [motif] false for cards that hold a chart or a column of figures: the leaves scale with the card and would run over the data.
+ */
 @Composable internal fun FarmHeroCard(
-    modifier: Modifier = Modifier, motifShift: Float = 0f, motifAlpha: Float = 0.28f, content: @Composable ColumnScope.() -> Unit
+    modifier: Modifier = Modifier, motifShift: Float = 0f, motifAlpha: Float = 0.28f, motif: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit
 ) {
     val dark = LocalFarmTheme.current.dark
     MaterialTheme(colorScheme = ForestScheme, typography = MaterialTheme.typography) {
@@ -188,7 +192,7 @@ internal fun Modifier.farmListItem(scope: androidx.compose.foundation.lazy.LazyI
             color = if (dark) ForestTile else ForestScheme.background, contentColor = ForestScheme.onBackground,
             border = if (dark) BorderStroke(1.dp, ForestScheme.outlineVariant) else null) {
             Box {
-                FarmLeafMotif(Modifier.matchParentSize(), shift = motifShift, alpha = motifAlpha)
+                if (motif) FarmLeafMotif(Modifier.matchParentSize(), shift = motifShift, alpha = motifAlpha)
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium), content = content)
             }
         }
@@ -224,12 +228,16 @@ internal fun Modifier.farmListItem(scope: androidx.compose.foundation.lazy.LazyI
 private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
 
 /** Scrollable tab row; the selected pill slides between tabs. Tags are "$tagPrefix$id". */
+/**
+ * Tonal segmented control. By default tabs hug their labels and the row scrolls; with [equalWidth] the tabs split the
+ * width into equal columns (for two or three short choices such as a theme or a filter) and labels may wrap.
+ */
 @Composable internal fun FarmSegmentedTabs(
     tabs: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier, tagPrefix: String = "hub-section-"
+    modifier: Modifier = Modifier, tagPrefix: String = "hub-section-", equalWidth: Boolean = false
 ) {
     val colors = MaterialTheme.colorScheme
-    val positions = remember { mutableStateMapOf<String, Pair<Int, Int>>() }
+    val positions = remember { mutableStateMapOf<String, Triple<Int, Int, Int>>() }
     val target = positions[selected]
     var settled by remember { mutableStateOf(false) }
     LaunchedEffect(target != null) { if (target != null) settled = true }
@@ -237,29 +245,34 @@ private val RoundedCornerShapeLarge = androidx.compose.foundation.shape.RoundedC
     val w by animateIntAsState(target?.second ?: 0, if (settled) pillSpring() else snap(), label = "Pill lebar")
     val scroll = rememberScrollState()
     val margin = with(LocalDensity.current) { 16.dp.roundToPx() }
-    LaunchedEffect(selected, target) { if (target != null) scroll.animateScrollTo((target.first - margin).coerceAtLeast(0)) }
+    LaunchedEffect(selected, target) { if (!equalWidth && target != null) scroll.animateScrollTo((target.first - margin).coerceAtLeast(0)) }
     val track = colors.secondaryContainer
+    val density = LocalDensity.current
     Box(modifier.fillMaxWidth().background(track, androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
         .drawWithContent {
             drawContent()
-            if (scroll.canScrollForward) {
+            if (!equalWidth && scroll.canScrollForward) {
                 val edge = 24.dp.toPx()
                 drawRect(Brush.horizontalGradient(listOf(Color.Transparent, track), startX = size.width - edge, endX = size.width),
                     topLeft = Offset(size.width - edge, 0f), size = androidx.compose.ui.geometry.Size(edge, size.height))
             }
-        }.horizontalScroll(scroll).padding(4.dp)) {
-        if (target != null) Box(Modifier.offset { IntOffset(x, 0) }.width(with(LocalDensity.current) { w.toDp() })
-            .height(FarmSpace.Touch).background(colors.primary, androidx.compose.foundation.shape.RoundedCornerShape(14.dp)))
-        Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        }.then(if (equalWidth) Modifier else Modifier.horizontalScroll(scroll)).padding(4.dp)) {
+        if (target != null) Box(Modifier.offset { IntOffset(x, 0) }.width(with(density) { w.toDp() })
+            .height(if (equalWidth) with(density) { target.third.toDp() } else FarmSpace.Touch)
+            .background(colors.primary, androidx.compose.foundation.shape.RoundedCornerShape(14.dp)))
+        Row(Modifier.then(if (equalWidth) Modifier.fillMaxWidth().height(IntrinsicSize.Min) else Modifier).selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             tabs.forEach { (id, label) ->
                 val on = id == selected
                 val text by animateColorAsState(if (on) colors.onPrimary else colors.onSecondaryContainer, tween(FarmMotion.State), label = "Teks tab")
-                Box(Modifier.heightIn(min = FarmSpace.Touch).onGloballyPositioned {
-                    positions[id] = it.positionInParent().x.roundToInt() to it.size.width
-                }.selectable(on, onClick = { onSelect(id) }, role = Role.Tab).padding(horizontal = 14.dp)
+                Box(Modifier.then(if (equalWidth) Modifier.weight(1f).fillMaxHeight() else Modifier).heightIn(min = FarmSpace.Touch)
+                    .onGloballyPositioned {
+                        positions[id] = Triple(it.positionInParent().x.roundToInt(), it.size.width, it.size.height)
+                    }.selectable(on, onClick = { onSelect(id) }, role = Role.Tab)
+                    .padding(horizontal = if (equalWidth) 8.dp else 14.dp, vertical = if (equalWidth) 4.dp else 0.dp)
                     .testTag("$tagPrefix$id"), contentAlignment = Alignment.Center) {
                     Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium,
-                        color = text, maxLines = 1)
+                        color = text, maxLines = if (equalWidth) 2 else 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
             }
         }
@@ -380,5 +393,35 @@ internal fun dockItemAt(slot: Int, itemCount: Int): Int? = when {
             }
         }
     }
+    }
+}
+
+/**
+ * Full-screen dialog drawn edge to edge like the activity: the window no longer fits the system bars, the bars are
+ * transparent and their icons follow the in-app theme. Content must apply its own insets (e.g. `safeDrawingPadding`).
+ */
+@Composable internal fun FarmFullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismissRequest, properties = androidx.compose.ui.window.DialogProperties(
+        usePlatformDefaultWidth = false, dismissOnBackPress = false, decorFitsSystemWindows = false)) {
+        val view = androidx.compose.ui.platform.LocalView.current
+        val dark = LocalFarmTheme.current.dark
+        val window = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+        if (window != null) SideEffect {
+            window.setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+            @Suppress("DEPRECATION") window.statusBarColor = android.graphics.Color.TRANSPARENT
+            @Suppress("DEPRECATION") window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            window.isNavigationBarContrastEnforced = false
+            window.setDimAmount(0f)
+            androidx.core.view.WindowCompat.getInsetsController(window, view).run {
+                isAppearanceLightStatusBars = !dark
+                isAppearanceLightNavigationBars = !dark
+            }
+        }
+        content()
     }
 }

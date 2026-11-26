@@ -19,7 +19,7 @@ final class EntityIdentity
         'activity_review' => ['activity_reviews', 'id'],
         'harvest_review' => ['harvest_reviews', 'id'],
         'expense' => ['expenses', 'id'], 'expense_balance' => ['expenses', 'balance_id'], 'cost_allocation' => ['cost_allocations', 'id'],
-        'sale' => ['sales', 'id'], 'sale_item' => ['sale_items', 'id'],
+        'sale' => ['sales', 'id'], 'sale_item' => ['sale_items', 'id'], 'sale_line' => ['sale_lines', 'id'],
         'asset' => ['assets', 'id'], 'depreciation_allocation' => ['depreciation_allocations', 'id'],
         'investment_scenario' => ['investment_scenarios', 'id'],
         'investment_report' => ['report_snapshots', 'id', ['kind' => 'investment_report']],
@@ -29,7 +29,7 @@ final class EntityIdentity
         'expense_attachment' => ['record_attachments', 'id', ['owner_type' => 'expense']],
         'backup_run' => ['backup_runs', 'id'], 'restore_run' => ['restore_runs', 'id'],
         'season_cost_sheet' => ['season_cost_sheets', 'id'], 'season_cost_line' => ['season_cost_lines', 'id'],
-        'customer' => ['customers', 'id'],
+        'customer' => ['customers', 'id'], 'consumer_price' => ['consumer_prices', 'id'],
     ];
 
     /** Includes historical root IDs even if an external writer removed a physical row. */

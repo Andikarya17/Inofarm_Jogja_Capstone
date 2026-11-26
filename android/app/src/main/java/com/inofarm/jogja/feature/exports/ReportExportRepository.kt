@@ -16,7 +16,8 @@ import java.io.IOException
 
 data class ReportExportSelection(val scope:String,val id:String,val greenhouse:String,val kind:String,val hash:String,val format:String) {
     val mime get()=if(format=="pdf") "application/pdf" else "text/csv"
-    val filename get()="inofarm-$kind-$id.$format"
+    /** "Inofarm-evaluasi-musim-f6330d94.pdf": readable in the Files app; the short id keeps two reports apart. */
+    val filename get()="Inofarm-${if(kind==InvestmentContract.REPORT) "analisis-investasi" else "evaluasi-musim"}-${id.take(8)}.$format"
     fun json()=JSONObject().put("scope",scope).put("id",id).put("greenhouse",greenhouse).put("kind",kind).put("hash",hash).put("format",format)
     companion object {
         fun from(scope:String,row:LocalRecord,format:String):ReportExportSelection {

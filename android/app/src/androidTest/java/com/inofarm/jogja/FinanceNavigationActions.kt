@@ -43,6 +43,17 @@ internal fun FinanceTestRule.openRecord(choice: String) {
     onNodeWithTag("record-$choice").performClick()
 }
 
+/** Catat → greenhouse chip (when the sheet offers one) → [choice], for money records that only need a greenhouse. */
+internal fun FinanceTestRule.openRecordIn(choice: String, greenhouse: String) {
+    waitUntil(10_000) { onAllNodesWithTag("finance-record-fab").fetchSemanticsNodes().isNotEmpty() }
+    onNodeWithTag("finance-record-fab").performClick()
+    waitUntil(10_000) { onAllNodesWithTag("record-$choice").fetchSemanticsNodes().isNotEmpty() }
+    if (onAllNodesWithTag("record-greenhouse-option-$greenhouse").fetchSemanticsNodes().isNotEmpty())
+        onNodeWithTag("record-greenhouse-option-$greenhouse").performScrollTo().performClick()
+    onNodeWithTag("record-$choice").performScrollTo().performClick()
+    if (onAllNodesWithTag("record-greenhouse-$greenhouse").fetchSemanticsNodes().isNotEmpty()) onNodeWithTag("record-greenhouse-$greenhouse").performClick()
+}
+
 /** The "N belum terkirim" button in the top bar opens the outbox sheet; it only exists while something is unsent. */
 internal fun FinanceTestRule.openFinanceOutbox() {
     waitUntil(10_000) { onAllNodesWithTag("finance-unsent").fetchSemanticsNodes().isNotEmpty() }

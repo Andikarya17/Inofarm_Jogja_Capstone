@@ -62,7 +62,7 @@ import androidx.compose.ui.unit.dp
 internal enum class FarmIcon {
     Account, Sync, Eye, EyeOff, Close, ChevronRight, ChevronDown,
     Allocate, Payment, Asset, Depreciation, Report, Investment, Backup, Logout, Greenhouse, Schedule, Add,
-    Mail, Lock, AlertTriangle, Droplet, Basket, BarChart, CheckList, GreenhouseAdd, Check, Calendar, Trash, Wallet, TrendUp
+    Mail, Lock, AlertTriangle, Droplet, Basket, BarChart, CheckList, GreenhouseAdd, Check, Calendar, Trash, Wallet, TrendUp, Store, Truck, ChevronLeft, Download, Search
 }
 
 @Composable internal fun FarmControlIcon(icon: FarmIcon, description: String?) {
@@ -228,6 +228,31 @@ internal enum class FarmIcon {
             FarmIcon.TrendUp -> {
                 path.moveTo(3 * u, 17 * u); path.lineTo(9 * u, 11 * u); path.lineTo(13 * u, 15 * u); path.lineTo(21 * u, 6 * u)
                 path.moveTo(15 * u, 6 * u); path.lineTo(21 * u, 6 * u); path.lineTo(21 * u, 12 * u)
+            }
+            FarmIcon.Store -> {
+                path.moveTo(4 * u, 9 * u); path.lineTo(5.5f * u, 4 * u); path.lineTo(18.5f * u, 4 * u); path.lineTo(20 * u, 9 * u); path.close()
+                path.moveTo(4 * u, 9 * u); path.quadraticTo(4 * u, 13 * u, 6.7f * u, 13 * u); path.quadraticTo(9.3f * u, 13 * u, 9.3f * u, 10.5f * u)
+                path.quadraticTo(9.3f * u, 13 * u, 12 * u, 13 * u); path.quadraticTo(14.7f * u, 13 * u, 14.7f * u, 10.5f * u)
+                path.quadraticTo(14.7f * u, 13 * u, 17.3f * u, 13 * u); path.quadraticTo(20 * u, 13 * u, 20 * u, 9 * u)
+                path.moveTo(5.5f * u, 13 * u); path.lineTo(5.5f * u, 20 * u); path.lineTo(18.5f * u, 20 * u); path.lineTo(18.5f * u, 13 * u)
+            }
+            FarmIcon.Truck -> {
+                path.moveTo(3 * u, 17 * u); path.lineTo(3 * u, 8 * u); path.lineTo(14 * u, 8 * u); path.lineTo(14 * u, 17 * u)
+                path.moveTo(14 * u, 11 * u); path.lineTo(18 * u, 11 * u); path.lineTo(21 * u, 14 * u); path.lineTo(21 * u, 17 * u); path.lineTo(14 * u, 17 * u)
+                drawCircle(color, 2 * u, Offset(7 * u, 18 * u), style = stroke)
+                drawCircle(color, 2 * u, Offset(17 * u, 18 * u), style = stroke)
+            }
+            FarmIcon.ChevronLeft -> {
+                path.moveTo(15 * u, 5 * u); path.lineTo(8 * u, 12 * u); path.lineTo(15 * u, 19 * u)
+            }
+            FarmIcon.Download -> {
+                path.moveTo(12 * u, 4 * u); path.lineTo(12 * u, 15 * u)
+                path.moveTo(7 * u, 10 * u); path.lineTo(12 * u, 15 * u); path.lineTo(17 * u, 10 * u)
+                path.moveTo(5 * u, 20 * u); path.lineTo(19 * u, 20 * u)
+            }
+            FarmIcon.Search -> {
+                drawCircle(color, 6.5f * u, Offset(11 * u, 11 * u), style = stroke)
+                path.moveTo(16 * u, 16 * u); path.lineTo(20 * u, 20 * u)
             }
             FarmIcon.Logout -> {
                 path.moveTo(12 * u, 4 * u); path.lineTo(4 * u, 4 * u); path.lineTo(4 * u, 20 * u); path.lineTo(12 * u, 20 * u)

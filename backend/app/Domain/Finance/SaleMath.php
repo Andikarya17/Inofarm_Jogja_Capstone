@@ -9,10 +9,11 @@ use InvalidArgumentException;
 /** Exact line products; HALF_UP exactly once on the transaction total, never on individual lines. */
 final class SaleMath
 {
-    public static function quote(array $items): array
+    /** $items are sale lines (or legacy items) with the same keys; $key names the payload field in error messages. */
+    public static function quote(array $items, string $key = 'items'): array
     {
         if (count($items) < 1 || count($items) > 30) {
-            throw ValidationException::withMessages(['items' => 'Sertakan1–30 rincian sumber panen per transaksi.']);
+            throw ValidationException::withMessages([$key => 'Sertakan 1–30 baris penjualan per transaksi.']);
         }
         $sum = '0.000000000000';$weight = '0.000000';$lines = [];
         foreach ($items as $index => $item) {
@@ -20,10 +21,10 @@ final class SaleMath
                 try {
                     DecimalValue::parse($item[$field] ?? null);
                     if (str_starts_with($item[$field], '-') || ($field === 'quantity_kg' && bccomp($item[$field], '0', 6) <= 0)) {
-                        throw new InvalidArgumentException($field === 'quantity_kg' ? 'Bobot penjualan harus lebih dari nol.' : 'Harga tidak boleh negatif.');
+                        throw new InvalidArgumentException($field === 'quantity_kg' ? 'Bobot baris penjualan harus lebih dari nol.' : 'Harga baris penjualan tidak boleh negatif.');
                     }
                 } catch (InvalidArgumentException $error) {
-                    throw ValidationException::withMessages(["items.$index.$field" => $error->getMessage()]);
+                    throw ValidationException::withMessages(["$key.$index.$field" => $error->getMessage()]);
                 }
             }
             $quantity = bcadd($item['quantity_kg'], '0', 6);
@@ -35,7 +36,7 @@ final class SaleMath
         // All inputs are nonnegative. Adding half a cent then truncating implements HALF_UP.
         $total = bcadd(bcadd($sum, '0.005', 12), '0', 2);
         try {DecimalValue::parse($total, 2);DecimalValue::parse($weight, 6);} catch (InvalidArgumentException $error) {
-            throw ValidationException::withMessages(['items' => 'Total transaksi atau bobot melebihi rentang angka yang didukung.']);
+            throw ValidationException::withMessages([$key => 'Total transaksi atau bobot melebihi rentang angka yang didukung.']);
         }
 
         return ['items' => $lines, 'exact_total' => $sum, 'total_amount' => $total, 'total_weight_kg' => $weight, 'currency' => 'IDR', 'rounding' => 'HALF_UP_TRANSACTION'];

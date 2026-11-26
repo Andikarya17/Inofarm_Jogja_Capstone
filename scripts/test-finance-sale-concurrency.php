@@ -19,7 +19,7 @@ $actor = DB::transaction(function () {
     DB::table('sync_state')->where('id', 1)->lockForUpdate()->first();$id = (string) Str::uuid();app(EntityIdentity::class)->claim('users', $id);
     return User::create(['public_id' => $id, 'name' => 'Synthetic sale race', 'role' => 'manager', 'email' => Str::uuid().'@example.invalid', 'password' => Str::random(40)]);
 });
-$mode = $argv[1] ?? 'oversell';if (!in_array($mode, ['oversell', 'update', 'cancel'], true)) {throw new InvalidArgumentException('Use oversell, update or cancel.');}
+$mode = $argv[1] ?? 'oversell';if (!in_array($mode, ['oversell', 'update', 'cancel', 'fifo'], true)) {throw new InvalidArgumentException('Use oversell, update, cancel or fifo.');}
 $ids = [];$children = [];$files = [];$dir = dirname(__DIR__).'/tmp/finance-sale-race-'.Str::uuid();mkdir($dir, 0700, true);
 try {
     $create = fn ($kind, $payload) => app(MasterService::class)->mutate($actor, $kind, $op($kind, $payload))['body']['entity_id'];
@@ -28,10 +28,10 @@ try {
     $ids['season'] = $create('seasons', ['greenhouse_id' => $ids['gh'], 'name' => 'Synthetic season', 'start_date' => '2026-10-01', 'end_date' => null]);
     $ids['group'] = $create('planting_groups', ['season_id' => $ids['season'], 'variety_id' => $ids['variety'], 'name' => 'Synthetic group', 'population' => 10, 'sowing_date' => '2026-10-01', 'transplant_date' => null]);
     $ids['grade'] = $create('grades', ['greenhouse_id' => $ids['gh'], 'name' => 'Synthetic grade']);$ids['source'] = (string) Str::uuid();
-    $harvest = $op('harvest', ['planting_group_id' => $ids['group'], 'occurred_at' => '2026-10-30T08:00:00+07:00', 'notes' => 'Synthetic harvest', 'items' => [['id' => $ids['source'], 'grade_id' => $ids['grade'], 'fruit_count' => 3, 'weight_kg' => '5']]]);
+    $harvest = $op('harvest', ['planting_group_id' => $ids['group'], 'occurred_at' => '2026-10-30T08:00:00+07:00', 'notes' => 'Synthetic harvest', 'items' => [['id' => $ids['source'], 'grade_id' => $ids['grade'], 'fruit_count' => 3, 'weight_kg' => $mode === 'fifo' ? '60' : '5']]]);
     app(HarvestService::class)->mutate($actor, $harvest);$ids['harvest'] = $harvest['entity_id'];
     $initial = null;
-    if ($mode !== 'oversell') {
+    if (!in_array($mode, ['oversell', 'fifo'], true)) {
         $ids['initial_line'] = (string) Str::uuid();
         $initial = $op('sale', ['season_id' => $ids['season'], 'paid_at' => '2026-10-30T09:00:00+07:00', 'payment_status' => 'paid', 'customer_name' => '', 'notes' => 'Synthetic initial sale', 'items' => [['id' => $ids['initial_line'], 'harvest_item_id' => $ids['source'], 'quantity_kg' => $mode === 'update' ? '1' : '3.01', 'price_per_kg' => '10000']]]);
         app(SaleService::class)->mutate($actor, $initial);$ids['initial_sale'] = $initial['entity_id'];
@@ -40,7 +40,11 @@ try {
     foreach ([0, 1] as $i) {
         $input = $dir.'/input-'.$i.'.json';$ready = $dir.'/ready-'.$i;$result = $dir.'/result-'.$i.'.json';$error = $dir.'/error-'.$i.'.txt';array_push($files, $input, $ready, $result, $error);
         $ids['line'.$i] = (string) Str::uuid();$sale = $op('sale', ['season_id' => $ids['season'], 'paid_at' => '2026-10-30T09:00:00+07:00', 'payment_status' => 'paid', 'customer_name' => '', 'notes' => 'Synthetic competing paid sale', 'items' => [['id' => $ids['line'.$i], 'harvest_item_id' => $ids['source'], 'quantity_kg' => '3.01', 'price_per_kg' => '10000']]]);
-        if ($mode === 'update') {
+        if ($mode === 'fifo') {
+            // Sale lines (25 Nov 2026): both managers sell 40 kg of the same group + grade from 60 kg of stock.
+            $sale['payload']['lines'] = [['id' => $ids['line'.$i], 'planting_group_id' => $ids['group'], 'grade_id' => $ids['grade'], 'quantity_kg' => '40', 'fruit_count' => null, 'price_per_kg' => '10000', 'buyer_grade' => null]];
+            unset($sale['payload']['items']);
+        } elseif ($mode === 'update') {
             $sale = [...$initial, 'operation_id' => (string) Str::uuid(), 'action' => 'update', 'base_version' => 1];
             $sale['payload']['reason'] = 'Synthetic competing correction';$sale['payload']['items'][0]['quantity_kg'] = (string) (2 + $i);
         } elseif ($mode === 'cancel' && $i === 0) {
@@ -56,10 +60,14 @@ try {
     $source = DB::table('harvest_items')->where('id', $ids['source'])->first();
     if (count(array_unique(array_column($results, 'pid'))) !== 2 || count(array_unique(array_column($results, 'connection_id'))) !== 2) {throw new RuntimeException('Independent process/connection proof missing.');}
     $active = DB::table('sale_items')->join('sales', 'sales.id', '=', 'sale_items.sale_id')->where('sale_items.harvest_item_id', $source->id)->where('sales.record_state', 'active')->where('sale_items.active', true)->sum('sale_items.quantity_kg');
-    if (bccomp((string) $active, $source->sold_weight_kg, 6) !== 0 || bccomp($source->sold_weight_kg, '5', 6) > 0) {throw new RuntimeException('Accepted sales and counter do not reconcile.');}
+    if (bccomp((string) $active, $source->sold_weight_kg, 6) !== 0 || bccomp($source->sold_weight_kg, $source->weight_kg, 6) > 0) {throw new RuntimeException('Accepted sales and counter do not reconcile.');}
     $sales = DB::table('sales')->where('season_id', $ids['season']);
     if ($mode === 'oversell') {
         if ($statuses !== ['accepted', 'harvest_exceeded'] || $source->sold_weight_kg !== '3.010000' || $source->balance_version !== 2 || $sales->count() !== 1 || $sales->value('total_amount') !== '30100.00') {throw new RuntimeException('Oversell race failed: '.json_encode($results));}
+        $expectedLedger = 1;$expectedBalances = 2;
+    } elseif ($mode === 'fifo') {
+        if ($statuses !== ['accepted', 'harvest_exceeded'] || $source->sold_weight_kg !== '40.000000' || $source->balance_version !== 2 || $sales->count() !== 1
+            || DB::table('sale_lines')->whereIn('sale_id', $sales->pluck('id'))->where('active', true)->count() !== 1) {throw new RuntimeException('FIFO oversell race failed: '.json_encode($results));}
         $expectedLedger = 1;$expectedBalances = 2;
     } elseif ($mode === 'update') {
         if ($statuses !== ['accepted', 'version_conflict'] || !in_array($source->sold_weight_kg, ['2.000000', '3.000000'], true) || $source->balance_version !== 3 || $sales->count() !== 1 || $sales->value('version') !== 2) {throw new RuntimeException('Sale update race failed: '.json_encode($results));}
@@ -75,7 +83,7 @@ try {
     $sale = DB::table('sales')->where('season_id', $ids['season'])->first();
     file_put_contents(dirname(__DIR__).'/tmp/finance-sale-contract-output.json', json_encode(app(\App\Domain\Finance\SaleService::class)->publicRow($sale), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
     file_put_contents(dirname(__DIR__).'/tmp/finance-sale-contract-'.$mode.'.json', json_encode(app(\App\Domain\Finance\SaleService::class)->publicRow($sale), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
-    echo 'PASS: sale '.$mode.' race, independent PHP/MySQL processes; statuses='.implode(',', $statuses).'; active quantity=counter'.$source->sold_weight_kg.' <=5kg, balance version'.$source->balance_version.', ledger/feed'.$expectedLedger.'. MySQL inofarm_test only.'.PHP_EOL;
+    echo 'PASS: sale '.$mode.' race, independent PHP/MySQL processes; statuses='.implode(',', $statuses).'; active quantity=counter'.$source->sold_weight_kg.' <= harvest weight, balance version'.$source->balance_version.', ledger/feed'.$expectedLedger.'. MySQL inofarm_test only.'.PHP_EOL;
 } finally {
     foreach ($children as $process) {if (proc_get_status($process)['running']) {proc_terminate($process);}proc_close($process);}
     DB::transaction(function () use ($ids, $actor) {
@@ -83,13 +91,16 @@ try {
         $registry = [...DB::table('sync_operations')->where('actor_id', $actor->id)->pluck('entity_id')->all(), $actor->public_id,
             ...DB::table('harvest_items')->where('harvest_id', $ids['harvest'] ?? '')->pluck('id')->all(),
             ...DB::table('sale_items')->whereIn('sale_id', $ownedSales)->pluck('id')->all(),
-            ...DB::table('greenhouse_assignments')->where('user_id', $actor->id)->pluck('id')->all()];
-        DB::table('sale_items')->whereIn('sale_id', $ownedSales)->delete();DB::table('sales')->whereIn('id', $ownedSales)->delete();
+            ...DB::table('sale_lines')->whereIn('sale_id', $ownedSales)->pluck('id')->all(),
+            ...DB::table('greenhouse_assignments')->where('user_id', $actor->id)->pluck('id')->all(),
+            // A new greenhouse gets the shared spray material list (18 Nov 2026).
+            ...DB::table('materials')->where('greenhouse_id', $ids['gh'] ?? '')->pluck('id')->all()];
+        DB::table('sale_items')->whereIn('sale_id', $ownedSales)->delete();DB::table('sale_lines')->whereIn('sale_id', $ownedSales)->delete();DB::table('sales')->whereIn('id', $ownedSales)->delete();
         DB::table('harvest_reference_snapshots')->where('harvest_id', $ids['harvest'] ?? '')->delete();DB::table('harvest_items')->where('harvest_id', $ids['harvest'] ?? '')->delete();DB::table('harvests')->where('id', $ids['harvest'] ?? '')->delete();
         DB::table('entity_identities')->whereIn('entity_id', $registry)->delete();
         foreach (['audit_logs', 'sync_operations'] as $table) {DB::table($table)->where('actor_id', $actor->id)->delete();}DB::table('change_feed')->where('greenhouse_id', $ids['gh'] ?? '')->delete();
         DB::table('planting_groups')->where('id', $ids['group'] ?? '')->delete();DB::table('grades')->where('id', $ids['grade'] ?? '')->delete();DB::table('varieties')->where('id', $ids['variety'] ?? '')->delete();DB::table('seasons')->where('id', $ids['season'] ?? '')->delete();
-        DB::table('greenhouse_assignments')->where('user_id', $actor->id)->delete();DB::table('greenhouses')->where('id', $ids['gh'] ?? '')->where('created_by', $actor->id)->delete();$actor->delete();
+        DB::table('greenhouse_assignments')->where('user_id', $actor->id)->delete();DB::table('materials')->where('greenhouse_id', $ids['gh'] ?? '')->delete();DB::table('greenhouses')->where('id', $ids['gh'] ?? '')->where('created_by', $actor->id)->delete();$actor->delete();
     });
     foreach ($files as $file) {if (is_file($file)) {unlink($file);}}rmdir($dir);
 }

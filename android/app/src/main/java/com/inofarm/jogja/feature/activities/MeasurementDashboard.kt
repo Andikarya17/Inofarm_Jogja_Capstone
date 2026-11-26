@@ -93,8 +93,9 @@ private fun MeasurementPair(pair: ManualMeasurement?, loading: Boolean, unavaila
             unavailable -> "Belum dapat dibaca"
             else -> "Belum ada pengukuran"
         }
-        val ec = pair?.ec ?: if (pair != null) "EC belum tersedia" else empty
-        val ppm = pair?.ppm ?: if (pair != null) "PPM tidak diisi" else empty
+        // Decimal comma, the same as the forms and summaries ("2,1"), not the wire's "2.1".
+        val ec = pair?.ec?.let { com.inofarm.jogja.core.design.measureText(it) } ?: if (pair != null) "EC belum tersedia" else empty
+        val ppm = pair?.ppm?.let { com.inofarm.jogja.core.design.measureText(it) } ?: if (pair != null) "PPM tidak diisi" else empty
         if (stacked) Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
             MeasurementCard("EC", ec, pair?.ec != null, "mS/cm", Modifier.fillMaxWidth())
             MeasurementCard("PPM", ppm, pair?.ppm != null, "ppm", Modifier.fillMaxWidth())

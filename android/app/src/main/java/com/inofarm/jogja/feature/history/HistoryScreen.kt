@@ -325,14 +325,14 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
                 DateFilterButton("Dari",from,"history-from") {from=it}
                 DateFilterButton("Sampai",until,"history-until") {until=it}
             } else {
-                FinanceDateField("Dari tanggal WIB",from,{from=it},"history-from",hint="YYYY-MM-DD; kosong untuk semua")
-                FinanceDateField("Sampai tanggal WIB",until,{until=it},"history-until",hint="YYYY-MM-DD; termasuk tanggal ini")
+                FinanceDateField("Dari tanggal",from,{from=it},"history-from",hint="Kosongkan untuk semua tanggal")
+                FinanceDateField("Sampai tanggal",until,{until=it},"history-until",hint="Tanggal ini ikut dihitung")
             }
         }
         error?.let {Notice(it,true)}
         Button(onClick={
             val valid=runCatching {val start=from.takeIf {it.isNotBlank()}?.let(LocalDate::parse);val end=until.takeIf {it.isNotBlank()}?.let(LocalDate::parse);require(start==null || end==null || !end.isBefore(start))}.isSuccess
-            if(!valid) error="Gunakan tanggal YYYY-MM-DD yang sah; tanggal akhir tidak sebelum awal."
+            if(!valid) error="Pilih tanggal dari kalender; tanggal akhir tidak boleh sebelum tanggal awal."
             else {
                 val selectedSeason = season.takeIf { it.isNotBlank() }
                 onApply(LocalHistoryFilter(
@@ -406,6 +406,16 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
         }
         if(pending.any {it.state=="CONFLICT"}) Button(onClick=vm::compare,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("history-compare")) {Text("Bandingkan isian saya dengan data terbaru")}
         if(reviewable && (own || session.role==UserRole.MANAGER)) OutlinedButton(onClick={onEdit(record,true)},modifier=Modifier.fillMaxWidth().testTag("history-fix-rejected")) {Text("Perbaiki catatan yang ditolak")}
+        // A rejection nobody can resend as is (for example the running period changed) would otherwise stay unsent forever.
+        val stuck=pending.isNotEmpty() && !reviewable && pending.all {it.state=="REJECTED" && it.error?.optString("code")!="season_closed"}
+        if(stuck && (own || session.role==UserRole.MANAGER)) {
+            var confirm by remember {mutableStateOf(false)}
+            OutlinedButton(onClick={confirm=true},enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("history-discard-rejected")) {Text("Buang isian yang ditolak")}
+            if(confirm) AlertDialog(onDismissRequest={confirm=false},
+                text={Text(if(record.serverVersion==null) "Isian ini belum pernah diterima server dan akan dihapus dari perangkat." else "Perubahan ini dibuang. Catatan kembali ke versi yang sudah diterima server.")},
+                confirmButton={TextButton(onClick={confirm=false;vm.discardRejected()}) {Text("Buang")}},
+                dismissButton={TextButton(onClick={confirm=false}) {Text("Batal")}})
+        }
         if(pending.any {it.state=="REJECTED" && it.error?.optString("code")=="season_closed"}) {
             Notice("Catatan tertahan karena musim ditutup. Setelah musim dibuka, kirim ulang.")
             OutlinedButton(onClick=vm::retryClosed,enabled=!state.busy,modifier=Modifier.fillMaxWidth().testTag("history-retry-closed")) {Text("Kirim ulang")}

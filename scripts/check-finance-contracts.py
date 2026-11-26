@@ -1,5 +1,6 @@
 """Read-only v2 JSON Schema/fixture/reference check; requires jsonschema in authoring runtime."""
 import hashlib
+from decimal import Decimal
 import base64
 import json
 from pathlib import Path
@@ -142,6 +143,27 @@ for key, value in [('quantity_kg', '0'), ('quantity_kg', '0.000000'), ('quantity
     assert not sale_validator.is_valid(invalid), (key, value)
 print('PASS: paid-sale schema and independent multiline HALF_UP operation golden')
 
+sale_lines = json.loads((root / 'fixtures/sale-lines-retail.json').read_text(encoding='utf-8'))
+sale_validator.validate(sale_lines['operation'])
+encoded = json.dumps(sale_lines['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+assert hashlib.sha256(encoded.encode()).hexdigest() == sale_lines['canonical_sha256']
+total = sum(Decimal(l['quantity_kg']) * Decimal(l['price_per_kg']) for l in sale_lines['operation']['payload']['lines'])
+assert f'{total:.2f}' == sale_lines['expected']['total_amount']
+both = json.loads(json.dumps(sale['operation']))
+both['payload']['lines'] = sale_lines['operation']['payload']['lines']
+assert not sale_validator.is_valid(both), 'items and lines are mutually exclusive'
+neither = json.loads(json.dumps(sale_lines['operation']))
+del neither['payload']['lines']
+assert not sale_validator.is_valid(neither), 'one of items or lines is required'
+for key, value in [('fruit_count', 0), ('fruit_count', 1.5), ('quantity_kg', '0'), ('buyer_grade', 'D')]:
+    invalid = json.loads(json.dumps(sale_lines['operation']))
+    invalid['payload']['lines'][0][key] = value
+    assert not sale_validator.is_valid(invalid), (key, value)
+nullable = json.loads(json.dumps(sale_lines['operation']))
+nullable['payload']['lines'][0]['fruit_count'] = None
+sale_validator.validate(nullable)
+print('PASS: sale lines retail fixture, items/lines exclusivity and fruit_count rules')
+
 # Response timestamps are normalized to UTC by services; operation input rules stay strict.
 for resource in ['ExpensePublic', 'SalePublic']:
     timestamp = Draft202012Validator(api['components']['schemas'][resource]['properties']['paid_at'], format_checker=wire_formats)
@@ -243,3 +265,24 @@ short = json.loads(json.dumps(cost_fixture['operation']))
 short['payload']['lines'] = short['payload']['lines'][:6]
 assert not cost_validator.is_valid(short)
 print('Standard cost sheet envelope, blank-is-not-zero amounts and minimum required lines: PASS')
+
+# 25 Nov 2026: consumer (individual) price list per variety and quality.
+price_schema = json.loads((root / 'consumer-price-operation.schema.json').read_text(encoding='utf-8'))
+Draft202012Validator.check_schema(price_schema)
+price_validator = Draft202012Validator(price_schema, format_checker=wire_formats)
+price_fixture = json.loads((root / 'fixtures/consumer-price-operation.json').read_text(encoding='utf-8'))
+price_validator.validate(price_fixture['operation'])
+assert hashlib.sha256(json.dumps(price_fixture['operation'], sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest() == price_fixture['canonical_sha256']
+update = {**price_fixture['operation'], 'action': 'update', 'base_version': 1, 'payload': {**price_fixture['operation']['payload'], 'record_state': 'inactive'}}
+price_validator.validate(update)
+for patch in ({'action': 'update'}, {'base_version': 1}, {'action': 'update', 'base_version': None}, {'entity_type': 'customer'}):
+    assert not price_validator.is_valid({**price_fixture['operation'], **patch}), patch
+for invalid in (25000, '-1', '1,5', '1.1234567', '', None):
+    sample = json.loads(json.dumps(price_fixture['operation']))
+    sample['payload']['price_per_kg'] = invalid
+    assert not price_validator.is_valid(sample), invalid
+for patch in ({'quality': 'grade_a'}, {'variety_name': ' '}, {'record_state': 'cancelled'}):
+    sample = json.loads(json.dumps(price_fixture['operation']))
+    sample['payload'].update(patch)
+    assert not price_validator.is_valid(sample), patch
+print('Consumer price envelope, non-negative decimal strings and create/update base_version: PASS')

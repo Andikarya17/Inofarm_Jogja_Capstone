@@ -45,6 +45,7 @@ class FinanceDependencies(application:Application) {
     val harvestHistory=HistoryRepository(vault,store,api,OperationalKind.HARVEST)
     val recovery=com.inofarm.jogja.feature.recovery.RecoveryRepository(vault,store,api)
     val reportExports=com.inofarm.jogja.feature.exports.ReportExportRepository(application,vault,store,api)
+    val seasonExports=com.inofarm.jogja.feature.financehome.SeasonExportRepository(application,vault,api)
     val investments=com.inofarm.jogja.feature.investments.InvestmentRepository(vault,store,api)
     val reports=com.inofarm.jogja.feature.reports.SeasonReportRepository(vault,store,api)
     val assets=com.inofarm.jogja.feature.assets.AssetRepository(vault,store)
@@ -73,6 +74,7 @@ class FinanceRuntime(application:Application):AndroidViewModel(application) {
     val harvestHistory get()=dependencies.harvestHistory
     val recovery get()=dependencies.recovery
     val reportExports get()=dependencies.reportExports
+    val seasonExports get()=dependencies.seasonExports
     val investments get()=dependencies.investments
     val reports get()=dependencies.reports
     val assets get()=dependencies.assets

@@ -60,7 +60,7 @@ data class HarvestDraft(val id:String=UUID.randomUUID().toString(),val greenhous
     }
     private fun single(reasonRequired:Boolean):Map<String,String> = buildMap {
         if(runCatching {WireContract.uuid(groupId)}.isFailure) put("group","Pilih kelompok tanam.")
-        if(runCatching {occurredAt()}.isFailure) put("occurred_at","Gunakan tanggal YYYY-MM-DD dan jam HH:mm yang sah; detik opsional.")
+        if(runCatching {occurredAt()}.isFailure) put("occurred_at","Pilih tanggal panen dari kalender.")
         val sent=sentItems
         if(sent.isEmpty() || sent.size>30) put("items",if(items.any { it.legacy }) "Isi 1–30 rincian grade panen." else "Isi bobot buah layak atau cacat.")
         val graded=sent.filter { it.legacy }; val rated=sent.filterNot { it.legacy }

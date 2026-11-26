@@ -631,9 +631,9 @@ DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses, $seas
     $ownedSales = DB::table('sales')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->pluck('id')->all();
     $registryIds = [...DB::table('change_feed')->whereIn('greenhouse_id', $greenhouses)->pluck('entity_id')->all(),
         ...DB::table('greenhouse_assignments')->whereIn('greenhouse_id', $greenhouses)->pluck('id')->all(), ...$actors->pluck('public_id')->all(), ...DB::table('sale_items')->whereIn('sale_id', $ownedSales)->pluck('id')->all(),
-        ...$typedSpray];
+        ...DB::table('sale_lines')->whereIn('sale_id', $ownedSales)->pluck('id')->all(), ...$typedSpray];
     DB::table('record_attachments')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
-    DB::table('sale_items')->whereIn('sale_id', $ownedSales)->delete();DB::table('sales')->whereIn('id', $ownedSales)->delete();
+    DB::table('sale_items')->whereIn('sale_id', $ownedSales)->delete();DB::table('sale_lines')->whereIn('sale_id', $ownedSales)->delete();DB::table('sales')->whereIn('id', $ownedSales)->delete();
     DB::table('entity_identities')->whereIn('entity_id', array_unique($registryIds))->delete();
     $expenses = DB::table('expenses')->whereIn('greenhouse_id', $greenhouses)->whereIn('recorded_by', $actors->pluck('id'))->select('id');
     DB::table('cost_allocations')->whereIn('expense_id', $expenses)->whereIn('recorded_by', $actors->pluck('id'))->delete();
@@ -655,12 +655,14 @@ DB::transaction(function () use ($fixture, $actors, $groups, $greenhouses, $seas
     $farmWide = fn (string $type) => DB::table('audit_logs')->where('entity_type', $type)->where('action', 'create')
         ->whereIn('actor_id', $actors->pluck('id'))->pluck('entity_id')->all();
     $customers = $farmWide('customer');
+    $prices = $farmWide('consumer_price');
     $sheets = $farmWide('season_cost_sheet');
     $lines = DB::table('season_cost_lines')->whereIn('sheet_id', $sheets)->pluck('id')->all();
     DB::table('customers')->whereIn('id', $customers)->whereNotExists(fn ($q) => $q->from('sales')->whereColumn('sales.customer_id', 'customers.id'))->delete();
+    DB::table('consumer_prices')->whereIn('id', $prices)->delete();
     DB::table('season_cost_lines')->whereIn('id', $lines)->delete();
     DB::table('season_cost_sheets')->whereIn('id', $sheets)->delete();
-    DB::table('entity_identities')->whereIn('entity_id', [...$customers, ...$sheets, ...$lines])->delete();
+    DB::table('entity_identities')->whereIn('entity_id', [...$customers, ...$prices, ...$sheets, ...$lines])->delete();
     DB::table('audit_logs')->whereIn('actor_id', $actors->pluck('id'))->delete();
     DB::table('sync_operations')->whereIn('actor_id', $actors->pluck('id'))->delete();
     DB::table('change_feed')->whereIn('greenhouse_id', $greenhouses)->delete();

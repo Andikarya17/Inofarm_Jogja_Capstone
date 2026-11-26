@@ -117,9 +117,10 @@ internal fun FarmDiscardDialog(onDiscard: () -> Unit, onKeep: () -> Unit) {
         dismissButton = { TextButton(onClick = onKeep, modifier = Modifier.testTag("entry-discard-keep")) { Text("Lanjut mengisi") } })
 }
 
-/** Forest strip with the greenhouse and planting the form is for; [age] sits on the right when known. */
+/** Forest strip with the greenhouse and planting the form is for; [age] sits on the right when known, or an [action] such as "Ganti GH". */
 @Composable
-internal fun FarmContextStrip(greenhouse: String, planting: String?, age: String?, icon: FarmIcon = FarmIcon.Greenhouse) {
+internal fun FarmContextStrip(greenhouse: String, planting: String?, age: String?, icon: FarmIcon = FarmIcon.Greenhouse,
+                              action: (@Composable () -> Unit)? = null) {
     MaterialTheme(colorScheme = ForestScheme, typography = MaterialTheme.typography) {
         Surface(Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
             color = ForestScheme.background, contentColor = ForestScheme.onBackground) {
@@ -131,6 +132,7 @@ internal fun FarmContextStrip(greenhouse: String, planting: String?, age: String
                     planting?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = ForestScheme.onSurfaceVariant) }
                 }
                 age?.let { Text(it, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+                action?.invoke()
             }
         }
     }
@@ -205,6 +207,10 @@ private fun Modifier.fullBleed(inset: androidx.compose.ui.unit.Dp): Modifier = l
     val placeable = measurable.measure(constraints.copy(minWidth = constraints.maxWidth + extra, maxWidth = constraints.maxWidth + extra))
     layout(constraints.maxWidth, placeable.height) { placeable.place(-extra / 2, 0) }
 }
+
+/** "Kamis, 12 Nov 2026" for a valid ISO date, otherwise the text as it is. */
+internal fun dayText(date: String): String =
+    runCatching { dateLabel(java.time.LocalDate.parse(date.trim())) }.getOrDefault(date)
 
 /** "Kamis, 12 Nov 2026 · 21:13 WIB" for a valid date, otherwise the typed values as they are. */
 internal fun whenLabel(date: String, time: String): String {

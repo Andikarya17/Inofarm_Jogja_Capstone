@@ -84,6 +84,45 @@ class FinanceRecoveryTest extends FinanceTestCase
         $this->assertSame(1, DB::table('backup_runs')->where('state', 'failed')->count());
     }
 
+    /** consumer_prices.active_key is generated; a restore inserting it would fail with MySQL error 3105. */
+    public function test_backup_omits_generated_columns_and_restored_rows_insert(): void
+    {
+        [, $ctx] = $this->operator();
+        DB::table('consumer_prices')->insert(['id' => (string) Str::uuid(), 'variety_key' => 'golden', 'variety_name' => 'Golden', 'quality' => 'saleable',
+            'price_per_kg' => '45000.500000', 'record_state' => 'active', 'version' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        $item = (string) Str::uuid();
+        $this->postJson('/api/v2/harvests', $this->operation('harvest', ['planting_group_id' => $ctx['group']['id'], 'occurred_at' => '2026-11-02T12:00:00+07:00', 'notes' => '',
+            'items' => [['id' => $item, 'quality' => 'saleable', 'fruit_count' => null, 'weight_kg' => '10']]]))->assertCreated();
+        $gradeId = DB::table('harvest_items')->where('id', $item)->value('grade_id');
+        $this->postJson('/api/v2/sales', $this->operation('sale', ['season_id' => $ctx['season']['id'], 'paid_at' => '2026-11-03T10:00:00+07:00', 'payment_status' => 'paid',
+            'customer_name' => '', 'notes' => '', 'lines' => [['id' => (string) Str::uuid(), 'planting_group_id' => $ctx['group']['id'], 'grade_id' => $gradeId,
+                'quantity_kg' => '2.5', 'fruit_count' => null, 'price_per_kg' => '30000', 'buyer_grade' => null]]]))->assertCreated();
+
+        [, $data] = $this->backup();
+        $package = app(RecoveryPackage::class);
+        $m = $package->validate($data['id'], $data['manifest_hash']);
+        $this->assertNotContains('active_key', $m['tables']['consumer_prices']['columns']);
+        $this->assertSame(1, $m['tables']['consumer_prices']['rows']);
+        $this->assertSame(1, $m['tables']['sale_lines']['rows']);
+        foreach (['sale_lines.quantity_kg' => '2.500000', 'sale_lines.price_per_kg' => '30000.000000', 'sale_lines.exact_amount' => '75000.000000000000', 'consumer_prices.price_per_kg' => '45000.500000'] as $key => $total) {
+            $this->assertSame($total, $m['totals'][$key]);
+        }
+
+        // Replays the restore insert of IsolatedRestore for the package rows on an emptied table.
+        foreach (['consumer_prices', 'sale_lines'] as $table) {
+            $rows = array_map(fn ($line) => array_map(fn ($v) => $v === null ? null : base64_decode($v, true), json_decode($line, true)), file($package->tablePath($data['id'], $table)));
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+            try {
+                DB::table($table)->delete();
+                DB::table($table)->insert($rows);
+            } finally {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            }
+        }
+        $this->assertSame('golden|saleable', DB::table('consumer_prices')->value('active_key'));
+        $this->assertSame('75000.000000000000', (string) DB::table('sale_lines')->value('exact_amount'));
+    }
+
     public function test_missing_corrupt_and_unexpected_package_files_fail_closed(): void
     {
         $this->operator();

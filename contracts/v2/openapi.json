@@ -19815,18 +19815,18 @@
         }
       }
     },
-    "/reports/profit-summary": {
+    "/reports/season-overview": {
       "get": {
-        "operationId": "profit_summary",
-        "summary": "Laba berbasis biaya standar: musim terbuka, per Musim ke-n dan per greenhouse (pengelola). Dihitung langsung, bukan laporan terbit.",
+        "operationId": "season_overview",
+        "summary": "Ringkasan per Musim ke-n lintas greenhouse aktif: lembar biaya standar, penjualan per tipe pembeli, per greenhouse dan per minggu (pengelola). Tanpa laba atau rasio. Tanpa sequence: musim berjalan terbesar.",
         "parameters": [
           {
-            "name": "greenhouse_id",
+            "name": "sequence",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              "type": "integer",
+              "minimum": 1
             }
           }
         ],
@@ -19836,7 +19836,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProfitSummary"
+                  "$ref": "#/components/schemas/SeasonOverviewReport"
                 }
               }
             }
@@ -19852,6 +19852,131 @@
             }
           },
           "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/season-export": {
+      "get": {
+        "operationId": "season_export",
+        "summary": "Unduh Excel (.xlsx) keuangan per Musim ke-n atau semua musim: Ringkasan per GH, Rincian biaya dan Daftar penjualan (pengelola). Sel biaya yang belum diisi dibiarkan kosong.",
+        "parameters": [
+          {
+            "name": "sequence",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(all|[1-9][0-9]{0,8})$"
+            }
+          },
+          {
+            "name": "parts",
+            "in": "query",
+            "required": true,
+            "description": "Daftar dipisah koma: summary, costs, sales.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(summary|costs|sales)(,(summary|costs|sales))*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berkas Excel; khusus pengelola.",
+            "headers": {
+              "X-Content-SHA256": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": "private, no-store"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            },
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Kesalahan terstruktur",
             "content": {
               "application/json": {
@@ -19896,6 +20021,7 @@
             "schema": {
               "enum": [
                 "consumer",
+                "retail",
                 "partner"
               ]
             }
@@ -20074,6 +20200,7 @@
                   "type": {
                     "enum": [
                       "consumer",
+                      "retail",
                       "partner"
                     ]
                   },
@@ -20182,6 +20309,249 @@
           }
         }
       }
+    },
+    "/consumer-prices": {
+      "get": {
+        "operationId": "list_consumer_prices",
+        "summary": "Harga per kg pembeli perorangan (pengelola); aktif saja, all=1 menyertakan yang nonaktif",
+        "parameters": [
+          {
+            "name": "all",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil; khusus pengelola.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerPriceList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create_consumer_price",
+        "summary": "Buat harga perorangan (pengelola); satu harga aktif per varietas dan kualitas, duplikat ditolak 409 duplicate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "consumer-price-operation.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dibuat; khusus pengelola.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerPriceReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consumer-prices/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        }
+      ],
+      "patch": {
+        "operationId": "update_consumer_price",
+        "summary": "Ubah harga atau nonaktifkan dengan record_state inactive (pengelola); tidak ada hapus",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "consumer-price-operation.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Berhasil; khusus pengelola.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerPriceReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Kesalahan terstruktur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -20218,7 +20588,30 @@
           "reasons": {
             "type": "array",
             "items": {
-              "type": "string"
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "line_id",
+                    "available_kg"
+                  ],
+                  "properties": {
+                    "line_id": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                    },
+                    "available_kg": {
+                      "type": "string",
+                      "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$"
+                    }
+                  },
+                  "description": "harvest_exceeded 422 untuk payload lines: baris yang kekurangan dan kg tersedia."
+                }
+              ]
             }
           },
           "current_version": {
@@ -22279,6 +22672,18 @@
               }
             ],
             "description": "Grade dari mitra (21 Nov 2026); hanya untuk pembeli bertipe partner. Satu rincian panen boleh muncul sekali per grade."
+          },
+          "sale_line_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Baris penjualan tempat alokasi ini berasal; null untuk data lama."
           }
         }
       },
@@ -22425,6 +22830,7 @@
               {
                 "enum": [
                   "consumer",
+                  "retail",
                   "partner"
                 ]
               },
@@ -22444,6 +22850,13 @@
               }
             ],
             "description": "Pembeli terdaftar (21 Nov 2026); customer_name tetap salinan saat penjualan."
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleLine"
+            },
+            "description": "Baris penjualan aktif (25 Nov 2026) dengan alokasi FIFO per rincian panen."
           }
         }
       },
@@ -31209,11 +31622,30 @@
             "additionalProperties": false,
             "required": [
               "consumer",
+              "retail",
               "partner",
               "unspecified"
             ],
             "properties": {
               "consumer": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "receipts",
+                  "weight_kg"
+                ],
+                "properties": {
+                  "receipts": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                  },
+                  "weight_kg": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                  }
+                }
+              },
+              "retail": {
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
@@ -31322,11 +31754,30 @@
                     "additionalProperties": false,
                     "required": [
                       "consumer",
+                      "retail",
                       "partner",
                       "unspecified"
                     ],
                     "properties": {
                       "consumer": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "receipts",
+                          "weight_kg"
+                        ],
+                        "properties": {
+                          "receipts": {
+                            "type": "string",
+                            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                          },
+                          "weight_kg": {
+                            "type": "string",
+                            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                          }
+                        }
+                      },
+                      "retail": {
                         "type": "object",
                         "additionalProperties": false,
                         "required": [
@@ -31388,7 +31839,7 @@
           }
         }
       },
-      "ProfitSummary": {
+      "SeasonOverviewReport": {
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -31399,126 +31850,39 @@
             "type": "object",
             "additionalProperties": false,
             "required": [
-              "open",
-              "by_sequence",
-              "by_greenhouse"
+              "sequences",
+              "selected"
             ],
             "properties": {
-              "open": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "greenhouse_count",
-                  "TR",
-                  "TC",
-                  "profit",
-                  "rc",
-                  "complete",
-                  "bep_price",
-                  "bep_kg",
-                  "sold_kg"
-                ],
-                "properties": {
-                  "greenhouse_count": {
-                    "type": "integer"
-                  },
-                  "TR": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "TC": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "profit": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "rc": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "complete": {
-                    "type": "boolean"
-                  },
-                  "bep_price": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "bep_kg": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "sold_kg": {
-                    "type": "string",
-                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                  }
-                }
-              },
-              "by_sequence": {
+              "sequences": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
                     "sequence",
+                    "status",
                     "greenhouse_count",
-                    "TR",
-                    "TC",
-                    "profit",
-                    "rc",
-                    "complete"
+                    "fc",
+                    "vc",
+                    "tc",
+                    "sales_amount",
+                    "sales_kg"
                   ],
                   "properties": {
                     "sequence": {
                       "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "running",
+                        "closed"
+                      ]
                     },
                     "greenhouse_count": {
                       "type": "integer"
                     },
-                    "TR": {
+                    "fc": {
                       "anyOf": [
                         {
                           "type": "string",
@@ -31529,7 +31893,7 @@
                         }
                       ]
                     },
-                    "TC": {
+                    "vc": {
                       "anyOf": [
                         {
                           "type": "string",
@@ -31540,7 +31904,7 @@
                         }
                       ]
                     },
-                    "profit": {
+                    "tc": {
                       "anyOf": [
                         {
                           "type": "string",
@@ -31551,110 +31915,497 @@
                         }
                       ]
                     },
-                    "rc": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                    "sales_amount": {
+                      "type": "string",
+                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
                     },
-                    "complete": {
-                      "type": "boolean"
+                    "sales_kg": {
+                      "type": "string",
+                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
                     }
                   }
                 }
               },
-              "by_greenhouse": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "greenhouse_id",
-                    "name",
-                    "season_id",
-                    "sequence",
-                    "TR",
-                    "TC",
-                    "profit",
-                    "rc",
-                    "complete"
-                  ],
-                  "properties": {
-                    "greenhouse_id": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "season_id": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-                    },
-                    "sequence": {
-                      "anyOf": [
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "null"
+              "selected": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "sequence",
+                      "date_range",
+                      "cost_sheet",
+                      "sales",
+                      "by_greenhouse",
+                      "weekly"
+                    ],
+                    "properties": {
+                      "sequence": {
+                        "type": "integer"
+                      },
+                      "date_range": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "from",
+                          "until",
+                          "running"
+                        ],
+                        "properties": {
+                          "from": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "until": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "running": {
+                            "type": "boolean"
+                          }
                         }
-                      ]
-                    },
-                    "TR": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                        },
-                        {
-                          "type": "null"
+                      },
+                      "cost_sheet": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "version",
+                          "lines",
+                          "per_greenhouse",
+                          "farm"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "lines": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "name",
+                                "cost_class",
+                                "amount",
+                                "is_required"
+                              ],
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "cost_class": {
+                                  "enum": [
+                                    "FC",
+                                    "VC"
+                                  ]
+                                },
+                                "amount": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "is_required": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "per_greenhouse": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "fc",
+                              "vc",
+                              "tc"
+                            ],
+                            "properties": {
+                              "fc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "vc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "tc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "farm": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "fc",
+                              "vc",
+                              "tc"
+                            ],
+                            "properties": {
+                              "fc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "vc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "tc": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          }
                         }
-                      ]
-                    },
-                    "TC": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                        },
-                        {
-                          "type": "null"
+                      },
+                      "sales": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "amount",
+                          "kg",
+                          "count",
+                          "by_type"
+                        ],
+                        "properties": {
+                          "amount": {
+                            "type": "string",
+                            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                          },
+                          "kg": {
+                            "type": "string",
+                            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                          },
+                          "count": {
+                            "type": "integer"
+                          },
+                          "by_type": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "consumer",
+                              "retail",
+                              "partner",
+                              "unspecified"
+                            ],
+                            "properties": {
+                              "consumer": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "amount",
+                                  "kg",
+                                  "count"
+                                ],
+                                "properties": {
+                                  "amount": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "kg": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "count": {
+                                    "type": "integer"
+                                  }
+                                }
+                              },
+                              "retail": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "amount",
+                                  "kg",
+                                  "count"
+                                ],
+                                "properties": {
+                                  "amount": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "kg": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "count": {
+                                    "type": "integer"
+                                  }
+                                }
+                              },
+                              "partner": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "amount",
+                                  "kg",
+                                  "count"
+                                ],
+                                "properties": {
+                                  "amount": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "kg": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "count": {
+                                    "type": "integer"
+                                  }
+                                }
+                              },
+                              "unspecified": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "amount",
+                                  "kg",
+                                  "count"
+                                ],
+                                "properties": {
+                                  "amount": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "kg": {
+                                    "type": "string",
+                                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                  },
+                                  "count": {
+                                    "type": "integer"
+                                  }
+                                }
+                              }
+                            }
+                          }
                         }
-                      ]
-                    },
-                    "profit": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                        },
-                        {
-                          "type": "null"
+                      },
+                      "by_greenhouse": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "greenhouse_id",
+                            "name",
+                            "amount",
+                            "kg",
+                            "count"
+                          ],
+                          "properties": {
+                            "greenhouse_id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "amount": {
+                              "type": "string",
+                              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                            },
+                            "kg": {
+                              "type": "string",
+                              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                            },
+                            "count": {
+                              "type": "integer"
+                            }
+                          }
                         }
-                      ]
-                    },
-                    "rc": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
-                        },
-                        {
-                          "type": "null"
+                      },
+                      "weekly": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "key",
+                            "label",
+                            "start",
+                            "amount",
+                            "kg",
+                            "by_type"
+                          ],
+                          "properties": {
+                            "key": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            },
+                            "start": {
+                              "type": "string"
+                            },
+                            "amount": {
+                              "type": "string",
+                              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                            },
+                            "kg": {
+                              "type": "string",
+                              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                            },
+                            "by_type": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "consumer",
+                                "retail",
+                                "partner",
+                                "unspecified"
+                              ],
+                              "properties": {
+                                "consumer": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "amount",
+                                    "kg",
+                                    "count"
+                                  ],
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "kg": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                },
+                                "retail": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "amount",
+                                    "kg",
+                                    "count"
+                                  ],
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "kg": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                },
+                                "partner": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "amount",
+                                    "kg",
+                                    "count"
+                                  ],
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "kg": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                },
+                                "unspecified": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "amount",
+                                    "kg",
+                                    "count"
+                                  ],
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "kg": {
+                                      "type": "string",
+                                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
                         }
-                      ]
-                    },
-                    "complete": {
-                      "type": "boolean"
+                      }
                     }
+                  },
+                  {
+                    "type": "null"
                   }
-                }
+                ]
               }
             }
           }
@@ -31683,6 +32434,7 @@
           "type": {
             "enum": [
               "consumer",
+              "retail",
               "partner"
             ]
           },
@@ -31827,6 +32579,203 @@
                 }
               }
             }
+          }
+        }
+      },
+      "SaleLine": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "planting_group_id",
+          "grade_id",
+          "grade_name",
+          "variety_name",
+          "quality",
+          "buyer_grade",
+          "quantity_kg",
+          "fruit_count",
+          "price_per_kg",
+          "exact_amount",
+          "allocations"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "planting_group_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "grade_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "grade_name": {
+            "type": "string"
+          },
+          "variety_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "enum": [
+                  "saleable",
+                  "defective"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "buyer_grade": {
+            "anyOf": [
+              {
+                "enum": [
+                  "A",
+                  "B",
+                  "C"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity_kg": {
+            "type": "string"
+          },
+          "fruit_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "price_per_kg": {
+            "type": "string"
+          },
+          "exact_amount": {
+            "type": "string"
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "harvest_item_id",
+                "harvest_id",
+                "quantity_kg"
+              ],
+              "properties": {
+                "harvest_item_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "harvest_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "quantity_kg": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerPrice": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "variety_name",
+          "quality",
+          "price_per_kg",
+          "version",
+          "record_state",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "variety_name": {
+            "type": "string"
+          },
+          "quality": {
+            "enum": [
+              "saleable",
+              "defective"
+            ]
+          },
+          "price_per_kg": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}\\.[0-9]{6}$"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "record_state": {
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsumerPriceList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerPrice"
+            }
+          }
+        }
+      },
+      "ConsumerPriceReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_id",
+          "entity_id",
+          "version",
+          "committed_at",
+          "data"
+        ],
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "entity_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "committed_at": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerPrice"
           }
         }
       }

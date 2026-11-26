@@ -22,32 +22,45 @@ import kotlinx.coroutines.delay
 import java.util.UUID
 
 /**
- * Buyer part of the sale form (Inofarm 20 Nov 2026): pick perorangan or mitra, search the buyer list (imported from
- * Excel or added before) and pick one, or fill a new buyer that joins the list when the sale is saved.
+ * Buyer part of the sale form (Inofarm 20 Nov 2026, buyer types 25 Nov 2026): the type is picked above it, this part
+ * searches the buyer list of that type (imported from Excel or added before) and picks one, or fills a new buyer that
+ * joins the list when the sale is saved. A Perorangan buyer may stay unnamed.
  */
 @Composable internal fun BuyerSection(draft: SaleDraft, error: String?, search: (suspend (String, String) -> List<Customer>)?, edit: ((SaleDraft) -> SaleDraft) -> Unit) {
-    FarmChoiceChips("Tipe pembeli", draft.buyerType.ifBlank { "none" },
-        listOf(org.json.JSONObject().put("id", "consumer").put("name", "Perorangan"), org.json.JSONObject().put("id", "partner").put("name", "Mitra"),
-            org.json.JSONObject().put("id", "none").put("name", "Tidak dicatat")), "sale-buyer-type") { id ->
-        edit { it.copy(buyerType = if (id == "none") "" else id, buyerId = "", buyerExisting = false, customer = if (id == "none") it.customer else "", buyerWhatsapp = "",
-            items = if (id == "partner") it.items else it.items.map { line -> line.copy(grade = "") }) }
-    }
     if (!draft.hasBuyer()) {
-        FinanceField("Nama pembeli (boleh kosong)", draft.customer, { value -> edit { it.copy(customer = value) } }, "sale-customer", error)
-        return
-    }
-    if (draft.buyerExisting) {
-        Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, FarmShape.Tile).padding(FarmSpace.Medium),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
-            Column(Modifier.weight(1f)) {
-                Text(draft.customer, fontWeight = FontWeight.Bold)
-                Text(draft.buyerWhatsapp.ifBlank { "Tanpa WhatsApp" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            OutlinedButton({ edit { it.copy(buyerId = "", buyerExisting = false, customer = "", buyerWhatsapp = "") } }, shape = FarmShape.Control,
-                modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("sale-buyer-change")) { Text("Ganti") }
+        // A sale saved before buyer types existed keeps its typed name; it stays editable until a type is chosen.
+        if (draft.customer.isNotBlank() || error != null) com.inofarm.jogja.feature.FarmFormSection("Pembeli") {
+            FinanceField("Nama pembeli (boleh kosong)", draft.customer, { value -> edit { it.copy(customer = value) } }, "sale-customer", error)
         }
         return
     }
+    if (draft.buyerExisting) {
+        val colors = MaterialTheme.colorScheme
+        Surface(Modifier.fillMaxWidth(), shape = FarmShape.Card, color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)) {
+            Row(Modifier.padding(start = FarmSpace.Large, end = FarmSpace.Medium, top = FarmSpace.Medium, bottom = FarmSpace.Medium),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
+                Text(draft.customer.trim().take(1).uppercase(), Modifier.size(44.dp).background(colors.primary, RoundedCornerShape(22.dp)).wrapContentSize(),
+                    color = colors.onPrimary, fontWeight = FontWeight.Bold)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(buyerRole(draft.buyerType), style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+                    Text(draft.customer, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(draft.buyerWhatsapp.ifBlank { "Tanpa WhatsApp" }, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                }
+                OutlinedButton({ edit { it.copy(buyerId = "", buyerExisting = false, customer = "", buyerWhatsapp = "") } }, shape = FarmShape.Control,
+                    modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("sale-buyer-change")) { Text("Ganti") }
+            }
+        }
+        return
+    }
+    com.inofarm.jogja.feature.FarmFormSection(if (draft.buyerType == "consumer") "Pembeli (boleh kosong)" else "Pembeli") {
+        BuyerPicker(draft, error, search, edit)
+    }
+}
+
+/** "Pembeli retail", "Mitra (tengkulak)": the line above the buyer's name. */
+internal fun buyerRole(type: String) = when (type) { "partner" -> "Mitra (tengkulak)"; "retail" -> "Pembeli retail"; else -> "Pembeli perorangan" }
+
+@Composable private fun BuyerPicker(draft: SaleDraft, error: String?, search: (suspend (String, String) -> List<Customer>)?, edit: ((SaleDraft) -> SaleDraft) -> Unit) {
     if (draft.buyerId.isNotBlank()) {
         FinanceField("Nama pembeli baru", draft.customer, { value -> edit { it.copy(customer = value) } }, "sale-customer", error)
         FinanceField("Nomor WhatsApp (opsional)", draft.buyerWhatsapp, { value -> edit { it.copy(buyerWhatsapp = value) } }, "sale-buyer-whatsapp", null, KeyboardType.Phone,
@@ -68,7 +81,7 @@ import java.util.UUID
         search == null || failure != null -> Text("Daftar pembeli butuh koneksi. Isi sebagai pembeli baru; server tidak membuat data ganda untuk nomor yang sama.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         hits == null -> Text("Mencari…", style = MaterialTheme.typography.bodySmall)
-        hits!!.isEmpty() -> Text(if (query.isBlank()) "Belum ada pembeli ${if (draft.buyerType == "partner") "mitra" else "perorangan"} terdaftar." else "Tidak ada pembeli bernama atau bernomor \"$query\".",
+        hits!!.isEmpty() -> Text(if (query.isBlank()) "Belum ada pembeli ${com.inofarm.jogja.feature.sales.BuyerTypes.label(draft.buyerType).lowercase()} terdaftar." else "Tidak ada pembeli bernama atau bernomor \"$query\".",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else -> Surface(shape = FarmShape.Tile, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Column {

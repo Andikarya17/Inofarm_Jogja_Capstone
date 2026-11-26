@@ -50,8 +50,11 @@ import androidx.compose.ui.draw.alpha
 import java.text.NumberFormat
 import java.util.Locale
 
+/** "Rp350.000", or "Rp350.000,50" when there are cents: the same whole-rupiah look as the home and finance heroes. */
 internal fun moneyLabel(value:String)=runCatching {
-    NumberFormat.getCurrencyInstance(Locale.forLanguageTag("id-ID")).apply {minimumFractionDigits=2;maximumFractionDigits=2}.format(BigDecimal(value))
+    val amount=BigDecimal(value)
+    val cents=if(amount.stripTrailingZeros().scale()>0) 2 else 0
+    NumberFormat.getCurrencyInstance(Locale.forLanguageTag("id-ID")).apply {minimumFractionDigits=cents;maximumFractionDigits=2}.format(amount)
 }.getOrDefault("Nominal belum lengkap: $value")
 private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",name)
 private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â· ${row.optString("notes").ifBlank {"Pembayaran operasi"}} Â· ${timeLabel(row.optString("paid_at"))}"
@@ -78,7 +81,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
     val haptics = com.inofarm.jogja.core.design.rememberFarmHaptics()
     key(kind) {
         HistoryScreen(session,context,when(kind) {RecordKind.ASSET -> asset.history;RecordKind.DEPRECIATION -> asset.depreciation;RecordKind.EXPENSE -> expense;RecordKind.SALE -> saleHistory;else -> allocation},when(kind) {RecordKind.ASSET -> asset.historyVm;RecordKind.DEPRECIATION -> asset.depreciationVm;RecordKind.EXPENSE -> expenseVm;RecordKind.SALE -> saleHistoryVm;else -> allocationVm},queue,
-            canopy=true,onEdit={record,replace -> if(kind in setOf(RecordKind.ASSET,RecordKind.DEPRECIATION)) {asset.vm.open(record,replace);if(kind==RecordKind.ASSET) asset.historyVm.close() else asset.depreciationVm.close()} else if(kind==RecordKind.SALE) {sales.open(record,replace);saleHistoryVm.close()} else {entry.open(record,replace);if(kind==RecordKind.EXPENSE) expenseVm.close() else allocationVm.close()}},kind=kind,onSync=onSync,contentFade=kindChanged,
+            canopy=true,onEdit={record,replace -> if(kind in setOf(RecordKind.ASSET,RecordKind.DEPRECIATION)) {asset.vm.open(record,replace);if(kind==RecordKind.ASSET) asset.historyVm.close() else asset.depreciationVm.close()} else if(kind==RecordKind.SALE) {sales.open(record,replace,com.inofarm.jogja.feature.sales.saleStock(context));saleHistoryVm.close()} else {entry.open(record,replace);if(kind==RecordKind.EXPENSE) expenseVm.close() else allocationVm.close()}},kind=kind,onSync=onSync,contentFade=kindChanged,
             historyKindPicker={
                 FarmChoiceChips("Riwayat keuangan",selected,listOf(option(RecordKind.EXPENSE.wire,"Pembayaran"),option(RecordKind.SALE.wire,"Penjualan lunas"),option(RecordKind.COST_ALLOCATION.wire,"Alokasi biaya"),option(RecordKind.ASSET.wire,"Aset"),option(RecordKind.DEPRECIATION.wire,"Penyusutan")),"expense-history-kind",scroll=true) {
                     if (it != selected) { kindChanged = true; haptics.segmentTick() }
@@ -147,7 +150,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
                 FarmSection("Hitung hasil") {
                     val stack = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
                     val cards: @Composable (Modifier) -> Unit = { m ->
-                        ResultCard("Evaluasi musim", "Biaya, penerimaan, laba dan titik impas", FarmIcon.Report, "report-open", m) {
+                        ResultCard("Evaluasi musim", "Biaya tetap, biaya variabel dan penjualan per musim", FarmIcon.Report, "report-open", m) {
                             showTools = false; reports.vm.show(gh)
                         }
                         ResultCard("Analisis investasi", "Investasi awal dan arus kas tahunan", FarmIcon.Investment, "investment-open", m) {
@@ -211,7 +214,7 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
         FarmFormSection(if (draft.kind == RecordKind.EXPENSE) "Nominal pembayaran" else "Nominal alokasi") {
             FinanceField("Nominal IDR (Rp)", draft.amount, { v -> vm.edit { it.copy(amount = v) } },
                 "expense-amount", state.errors["amount"], KeyboardType.Decimal,
-                hint = "Ketik angka tanpa titik; pemisah ribuan tampil sendiri. Desimal boleh koma, maksimal 2 angka. Kosong bukan nol.", suffix = "IDR", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
+                hint = "Ketik angka saja, titik ribuan muncul sendiri", suffix = "IDR", prominent = true, visual = com.inofarm.jogja.core.design.IdrGrouping)
         }
         FarmFormSection(if (draft.kind == RecordKind.EXPENSE) "Pembayaran" else "Sumber dan musim tujuan") {
         if(draft.kind==RecordKind.EXPENSE) {
@@ -219,8 +222,8 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
             if(draft.lockedParents) Text(if(draft.paymentKind=="asset_acquisition") "Pembelian aset" else "Pembayaran operasi")
             else FarmChoiceChips("Jenis pembayaran",draft.paymentKind,listOf(option("operating","Pembayaran operasi"),option("asset_acquisition","Pembelian aset")),"expense-payment-kind") {v -> vm.edit {it.copy(paymentKind=v)}}
             state.errors["payment_kind"]?.let { FieldError(it) }
-            FinanceDateField("Tanggal pembayaran (YYYY-MM-DD)",draft.date,{v -> vm.edit {it.copy(date=v)}},"expense-date",state.errors["paid_at"])
-            FinanceTimeField("Jam pembayaran WIB (HH:mm)",draft.time,{v -> vm.edit {it.copy(time=v)}},"expense-time",hint="Detik boleh ditulis HH:mm:ss.")
+            FinanceDateField("Tanggal pembayaran",draft.date,{v -> vm.edit {it.copy(date=v)}},"expense-date",state.errors["paid_at"])
+            FinanceTimeField("Jam pembayaran (WIB)",draft.time,{v -> vm.edit {it.copy(time=v)}},"expense-time")
         } else {
             val source=context.expenses.find {it.optString("id")==draft.expenseId}
             if(draft.lockedParents) {

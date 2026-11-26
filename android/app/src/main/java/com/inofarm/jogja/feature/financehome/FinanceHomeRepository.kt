@@ -37,17 +37,31 @@ class FinanceHomeRepository(private val vault: FinanceSessionVault, private val 
         CostSheet.from(api.request(session.scope.server, session.token, "season-cost-sheets/${sheet.id}", "PATCH", operation).getJSONObject("data"))
     }
 
-    suspend fun income(session: FinanceSession, ticket: Long, period: IncomePeriod): List<IncomeBar> = withContext(Dispatchers.IO) {
-        check(session, ticket)
-        val (from, until) = period.range()
-        val body = api.request(session.scope.server, session.token, "reports/income",
-            query = mapOf("granularity" to period.wire, "from" to from.toString(), "until" to until.toString()))
-        IncomeBar.list(body.getJSONObject("data"))
+    /**
+     * Last overview per account and season number, in memory only. Opening a sale from "Penjualan Musim n" takes the
+     * Keuangan screen out of composition; on Back it shows this copy at once instead of "Musim belum dimuat".
+     */
+    private var cacheOwner: Pair<String, Long>? = null
+    private val overviews = mutableMapOf<Int, SeasonOverview>()
+
+    /** The overview last read for [sequence] (null or -1 = the server's pick) by this account and sign-in, or null. */
+    fun cachedOverview(session: FinanceSession, ticket: Long, sequence: Int?): SeasonOverview? = synchronized(overviews) {
+        if (cacheOwner != (session.scope.key to ticket) || !vault.matches(ticket, session.scope)) null else overviews[sequence ?: -1]
     }
 
-    suspend fun profitSummary(session: FinanceSession, ticket: Long): JSONObject = withContext(Dispatchers.IO) {
+    private fun store(session: FinanceSession, ticket: Long, sequence: Int?, overview: SeasonOverview) = synchronized(overviews) {
+        // Another account or a new sign-in starts an empty cache.
+        if (cacheOwner != (session.scope.key to ticket)) { overviews.clear(); cacheOwner = session.scope.key to ticket }
+        overviews[sequence ?: -1] = overview
+        overview.selected?.sequence?.let { overviews[it] = overview }
+    }
+
+    /** GET reports/season-overview; without [sequence] the server picks the largest running season number. */
+    suspend fun seasonOverview(session: FinanceSession, ticket: Long, sequence: Int?): SeasonOverview = withContext(Dispatchers.IO) {
         check(session, ticket)
-        api.request(session.scope.server, session.token, "reports/profit-summary").getJSONObject("data")
+        val body = api.request(session.scope.server, session.token, "reports/season-overview",
+            query = sequence?.let { mapOf("sequence" to it.toString()) } ?: emptyMap())
+        SeasonOverview.from(body.getJSONObject("data")).also { store(session, ticket, sequence, it) }
     }
 
     companion object {

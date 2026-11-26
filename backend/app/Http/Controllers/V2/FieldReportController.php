@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\V2;
 
 use App\Domain\Finance\FieldReports;
+use App\Domain\Finance\SeasonExport;
+use App\Domain\Finance\SeasonOverview;
 use App\Domain\Sync\ScopedRead;
 use App\Http\Controllers\Controller;
 use App\Models\User;
@@ -34,11 +36,25 @@ final class FieldReportController extends Controller
         return app(ScopedRead::class)->run($request, fn (User $actor) => ['data' => $reports->income($actor, $input['granularity'], $input['from'], $input['until'], $input['greenhouse_id'] ?? null)]);
     }
 
-    public function profitSummary(Request $request, FieldReports $reports)
+    public function seasonOverview(Request $request, SeasonOverview $overview)
     {
-        $input = $request->validate(['greenhouse_id' => 'nullable|uuid']);
+        $input = $request->validate(['sequence' => 'nullable|integer|min:1']);
 
-        return app(ScopedRead::class)->run($request, fn (User $actor) => ['data' => $reports->profitSummary($actor, $input['greenhouse_id'] ?? null)]);
+        return app(ScopedRead::class)->run($request, fn (User $actor) => ['data' => $overview->build($actor, isset($input['sequence']) ? (int) $input['sequence'] : null)]);
+    }
+
+    public function seasonExport(Request $request, SeasonExport $export)
+    {
+        $input = $request->validate(['sequence' => ['required', 'regex:/^(all|[1-9][0-9]{0,8})$/'], 'parts' => 'required|string']);
+        $parts = array_values(array_unique(explode(',', $input['parts'])));
+        abort_if(array_diff($parts, SeasonExport::PARTS) !== [], 422, 'Bagian ekspor tidak dikenal.');
+        $file = app(ScopedRead::class)->run($request, fn (User $actor) => $export->build($actor, $input['sequence'] === 'all' ? null : (int) $input['sequence'], $parts));
+        $name = 'inofarm-keuangan-musim-'.$file['label'].'-'.CarbonImmutable::now('Asia/Jakarta')->format('Ymd').'.xlsx';
+
+        return response($file['bytes'], 200, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Length' => (string) strlen($file['bytes']), 'Content-Disposition' => 'attachment; filename="'.$name.'"',
+            'Cache-Control' => 'private, no-store, max-age=0', 'Pragma' => 'no-cache', 'X-Content-Type-Options' => 'nosniff',
+            'X-Content-SHA256' => hash('sha256', $file['bytes'])]);
     }
 
     public function compare(Request $request, FieldReports $reports)

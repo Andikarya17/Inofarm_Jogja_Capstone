@@ -30,11 +30,13 @@ interface FinanceApi {
     suspend fun upload(base:String,token:String,envelope:JSONObject,source:()->InputStream):JSONObject = error("Pengiriman berkas belum tersedia.")
     suspend fun download(base:String,token:String,id:String,bytes:Long,consume:(InputStream)->Unit):Unit = error("Pengunduhan berkas belum tersedia.")
     suspend fun exportReport(base:String,token:String,id:String,format:String,snapshotHash:String):ReportFile = error("Ekspor laporan belum tersedia.")
+    suspend fun exportSeason(base:String,token:String,sequence:String,parts:Set<String>):ExportFile = error("Unduhan Excel belum tersedia.")
 }
 
 class FinanceHttpApi(private val allowHttp: Boolean, private val client: OkHttpClient = OkHttpClient.Builder()
     .connectTimeout(10,TimeUnit.SECONDS).readTimeout(20,TimeUnit.SECONDS).callTimeout(30,TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()) : FinanceApi {
     override suspend fun exportReport(base:String,token:String,id:String,format:String,snapshotHash:String)=ReportExportTransport(client).fetch(validateBase(base),token,id,format,snapshotHash)
+    override suspend fun exportSeason(base:String,token:String,sequence:String,parts:Set<String>)=SeasonExportTransport(client).fetch(validateBase(base),token,sequence,parts)
     override fun validateBase(base: String): String {
         val normalized=ApiBaseUrl.validate(base,allowHttp)
         require(normalized.toHttpUrl().encodedPath.endsWith("/v2/")) { "Alamat layanan harus berakhir dengan /v2/." }

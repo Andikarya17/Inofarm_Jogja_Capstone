@@ -20,7 +20,9 @@ final class RecoveryInventory
             }
             $ddl = array_values((array) DB::selectOne('SHOW CREATE TABLE `'.$name.'`'))[1];
             $ddl = preg_replace('/ AUTO_INCREMENT=\d+/', '', $ddl);
-            $columns = array_map(fn ($c) => $c->name, DB::select('SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$name]));
+            // Generated columns (consumer_prices.active_key) are recomputed by MySQL; inserting them fails with error 3105.
+            // DEFAULT_GENERATED only marks an expression default and stays in the package.
+            $columns = array_map(fn ($c) => $c->name, DB::select("SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND EXTRA NOT LIKE '%VIRTUAL GENERATED%' AND EXTRA NOT LIKE '%STORED GENERATED%' ORDER BY ORDINAL_POSITION", [$name]));
             $pk = array_map(fn ($c) => $c->name, DB::select('SELECT COLUMN_NAME AS name FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND CONSTRAINT_NAME=\'PRIMARY\' ORDER BY ORDINAL_POSITION', [$name]));
             if ($pk === []) {
                 throw new \RuntimeException('A primary key is required for deterministic recovery.');
@@ -74,7 +76,7 @@ final class RecoveryInventory
     public function totals(): array
     {
         $result = [];
-        foreach (['expenses' => ['amount'], 'cost_allocations' => ['amount'], 'assets' => ['cost', 'residual'], 'depreciation_allocations' => ['amount'], 'sales' => ['total_amount', 'total_weight_kg', 'exact_total'], 'sale_items' => ['quantity_kg', 'exact_amount'], 'harvest_items' => ['weight_kg', 'sold_weight_kg'], 'investment_scenarios' => ['initial_outlay'], 'investment_cash_flow_versions' => ['amount']] as $table => $columns) {
+        foreach (['expenses' => ['amount'], 'cost_allocations' => ['amount'], 'assets' => ['cost', 'residual'], 'depreciation_allocations' => ['amount'], 'sales' => ['total_amount', 'total_weight_kg', 'exact_total'], 'sale_items' => ['quantity_kg', 'exact_amount'], 'sale_lines' => ['quantity_kg', 'price_per_kg', 'exact_amount'], 'consumer_prices' => ['price_per_kg'], 'harvest_items' => ['weight_kg', 'sold_weight_kg'], 'investment_scenarios' => ['initial_outlay'], 'investment_cash_flow_versions' => ['amount']] as $table => $columns) {
             $known = array_column(DB::select('SHOW COLUMNS FROM `'.$table.'`'), 'Field');
             foreach ($columns as $column) {
                 if (in_array($column, $known, true)) {

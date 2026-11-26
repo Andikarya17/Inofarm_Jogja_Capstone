@@ -127,8 +127,7 @@
         "paid_at",
         "payment_status",
         "customer_name",
-        "notes",
-        "items"
+        "notes"
       ],
       "properties": {
         "season_id": {
@@ -155,44 +154,9 @@
           "type": "array",
           "minItems": 1,
           "maxItems": 30,
+          "description": "Bentuk lama (satu baris per rincian panen). Tidak boleh bersama lines.",
           "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "id",
-              "harvest_item_id",
-              "quantity_kg",
-              "price_per_kg"
-            ],
-            "properties": {
-              "id": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-              },
-              "harvest_item_id": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-              },
-              "quantity_kg": {
-                "type": "string",
-                "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$",
-                "not": {
-                  "enum": [
-                    "0",
-                    "0.0",
-                    "0.00",
-                    "0.000",
-                    "0.0000",
-                    "0.00000",
-                    "0.000000"
-                  ]
-                }
-              },
-              "price_per_kg": {
-                "type": "string",
-                "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$"
-              }
-            }
+            "$ref": "#/$defs/legacyItem"
           }
         },
         "payment_method": {
@@ -221,19 +185,43 @@
           ]
         },
         "customer_type": {
-          "anyOf": [
-            {
-              "enum": [
-                "consumer",
-                "partner"
-              ]
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/buyerType"
+        },
+        "lines": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "description": "Baris per kelompok tanam dan grade; server mengalokasikan kg dari panen terlama dulu. Tidak boleh bersama items.",
+          "items": {
+            "$ref": "#/$defs/saleLine"
+          }
+        },
+        "customer": {
+          "$ref": "#/$defs/customer"
         }
-      }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "items"
+          ],
+          "not": {
+            "required": [
+              "lines"
+            ]
+          }
+        },
+        {
+          "required": [
+            "lines"
+          ],
+          "not": {
+            "required": [
+              "items"
+            ]
+          }
+        }
+      ]
     },
     "update": {
       "type": "object",
@@ -243,8 +231,7 @@
         "paid_at",
         "payment_status",
         "customer_name",
-        "notes",
-        "items"
+        "notes"
       ],
       "properties": {
         "season_id": {
@@ -271,44 +258,9 @@
           "type": "array",
           "minItems": 1,
           "maxItems": 30,
+          "description": "Bentuk lama (satu baris per rincian panen). Tidak boleh bersama lines.",
           "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "id",
-              "harvest_item_id",
-              "quantity_kg",
-              "price_per_kg"
-            ],
-            "properties": {
-              "id": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-              },
-              "harvest_item_id": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-              },
-              "quantity_kg": {
-                "type": "string",
-                "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$",
-                "not": {
-                  "enum": [
-                    "0",
-                    "0.0",
-                    "0.00",
-                    "0.000",
-                    "0.0000",
-                    "0.00000",
-                    "0.000000"
-                  ]
-                }
-              },
-              "price_per_kg": {
-                "type": "string",
-                "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$"
-              }
-            }
+            "$ref": "#/$defs/legacyItem"
           }
         },
         "reason": {
@@ -343,19 +295,43 @@
           ]
         },
         "customer_type": {
-          "anyOf": [
-            {
-              "enum": [
-                "consumer",
-                "partner"
-              ]
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/buyerType"
+        },
+        "lines": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "description": "Baris per kelompok tanam dan grade; server mengalokasikan kg dari panen terlama dulu. Tidak boleh bersama items.",
+          "items": {
+            "$ref": "#/$defs/saleLine"
+          }
+        },
+        "customer": {
+          "$ref": "#/$defs/customer"
         }
-      }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "items"
+          ],
+          "not": {
+            "required": [
+              "lines"
+            ]
+          }
+        },
+        {
+          "required": [
+            "lines"
+          ],
+          "not": {
+            "required": [
+              "items"
+            ]
+          }
+        }
+      ]
     },
     "cancel": {
       "type": "object",
@@ -369,6 +345,185 @@
           "pattern": "\\S"
         }
       }
+    },
+    "legacyItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "harvest_item_id",
+        "quantity_kg",
+        "price_per_kg"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "harvest_item_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "quantity_kg": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$",
+          "not": {
+            "enum": [
+              "0",
+              "0.0",
+              "0.00",
+              "0.000",
+              "0.0000",
+              "0.00000",
+              "0.000000"
+            ]
+          }
+        },
+        "price_per_kg": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$"
+        },
+        "buyer_grade": {
+          "anyOf": [
+            {
+              "enum": [
+                "A",
+                "B",
+                "C"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "saleLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "planting_group_id",
+        "grade_id",
+        "quantity_kg",
+        "price_per_kg"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "planting_group_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "grade_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "quantity_kg": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$",
+          "not": {
+            "enum": [
+              "0",
+              "0.0",
+              "0.00",
+              "0.000",
+              "0.0000",
+              "0.00000",
+              "0.000000"
+            ]
+          }
+        },
+        "price_per_kg": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$"
+        },
+        "fruit_count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "buyer_grade": {
+          "anyOf": [
+            {
+              "enum": [
+                "A",
+                "B",
+                "C"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "buyerType": {
+      "anyOf": [
+        {
+          "enum": [
+            "consumer",
+            "retail",
+            "partner"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "customer": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "type",
+            "name",
+            "whatsapp"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "type": {
+              "enum": [
+                "consumer",
+                "retail",
+                "partner"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 200,
+              "pattern": "\\S"
+            },
+            "whatsapp": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 40
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   }
 }

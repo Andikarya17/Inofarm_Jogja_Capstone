@@ -14,7 +14,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class SaleEntryState(val draft:SaleDraft?=null,val errors:Map<String,String> = emptyMap(),val busy:Boolean=false,
-    val reviewing:Boolean=false,val saved:Boolean=false,val message:String?=null,val changed:Long=0)
+    val reviewing:Boolean=false,val saved:Boolean=false,val message:String?=null,val changed:Long=0,
+    /** Kg per harvest item that the sale being corrected holds on the server, counted back into the stock shown. */
+    val credit:Map<String,java.math.BigDecimal> = emptyMap())
 class SaleEntryViewModel(private val repository:SaleRepository):ViewModel() {
     private val vault get()=repository.vault
     private val reasonRequired get()=vault.current?.role!=com.inofarm.jogja.core.contracts.UserRole.MANAGER
@@ -26,7 +28,29 @@ class SaleEntryViewModel(private val repository:SaleRepository):ViewModel() {
         scope=session?.scope?.key;pauseAutosave();mutable.value=SaleEntryState()
     }
     private val entry=EntryOrigin<SaleDraft>()
-    fun new(gh:String) {pauseAutosave();mutable.value=state.value.copy(draft=SaleDraft(greenhouseId=gh),errors=emptyMap(),reviewing=false,saved=false,message=null);entry.start(null,state.value.draft)}
+    fun new(gh:String) {pauseAutosave();mutable.value=state.value.copy(draft=SaleDraft(greenhouseId=gh,items=emptyList()),errors=emptyMap(),reviewing=false,saved=false,message=null,credit=emptyMap());entry.start(null,state.value.draft)}
+    /** The open season the form found for its greenhouse. Before the first edit it is part of the untouched form. */
+    fun settleSeason(seasonId:String) {
+        val draft=state.value.draft ?: return
+        if(draft.seasonId.isNotBlank() || draft.lockedSeason || draft.baseVersion!=null) return
+        val updated=draft.copy(seasonId=seasonId);mutable.value=state.value.copy(draft=updated)
+        if(!entry.touched) entry.start(null,updated)
+    }
+    /**
+     * "Ganti GH": a record cannot move to another greenhouse, so the form starts a new sale there. Buyer, payment and
+     * notes are kept; the fruit lines belong to the old greenhouse's stock and are cleared.
+     */
+    fun changeGreenhouse(gh:String) {
+        val draft=state.value.draft ?: return
+        if(draft.greenhouseId==gh || draft.baseVersion!=null) return
+        pauseAutosave()
+        entry.undo(viewModelScope,vault,draft.id,{session,ticket,id,origin -> repository.discard(session,ticket,id,origin)}) {
+            mutable.value=state.value.copy(changed=state.value.changed+1,message=it)
+        }
+        val fresh=draft.copy(id=java.util.UUID.randomUUID().toString(),greenhouseId=gh,seasonId="",items=emptyList(),lockedSources=emptySet(),lockedSeason=false)
+        entry.start(null,SaleDraft(id=fresh.id,greenhouseId=gh,items=emptyList()))
+        mutable.value=state.value.copy(draft=fresh,errors=emptyMap(),reviewing=false,saved=false,message=null,credit=emptyMap())
+    }
     fun hasChanges()=entry.changed(state.value.draft)
     /** "Batal": closes the form and undoes its autosave, so nothing stays behind as a draft. */
     fun cancel() {
@@ -36,10 +60,13 @@ class SaleEntryViewModel(private val repository:SaleRepository):ViewModel() {
             mutable.value=state.value.copy(changed=state.value.changed+1,message=it)
         }
     }
-    fun open(record:LocalRecord,replaceRejected:Boolean=false) {
+    /** [stock] maps lines of drafts saved before sale lines existed (a harvest item) to their fruit and grade. */
+    fun open(record:LocalRecord,replaceRejected:Boolean=false,stock:SaleStock=SaleStock.EMPTY) {
         pauseAutosave();require(record.kind=="sale")
-        val draft=SaleDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion ?: record.serverVersion)
-        mutable.value=state.value.copy(draft=draft.copy(replaceValidationRejected=replaceRejected,lockedSeason=draft.lockedSeason || record.serverVersion!=null || record.latestOperationId!=null,lockedSources=draft.lockedSources+(record.serverBody?.optJSONArray("items")?.let {rows -> (0 until rows.length()).map {rows.getJSONObject(it).getString("id")}} ?: emptyList())),errors=emptyMap(),reviewing=false,saved=true,message=null)
+        val draft=SaleDraft.from(record.id,record.greenhouseId,record.body,record.baseVersion ?: record.serverVersion,stock)
+        // A rejected send comes back with the server's reasons on each line (field errors, or the kg a line still has).
+        val rejected=SaleErrors.fromServer(record.error,draft.items)
+        mutable.value=state.value.copy(credit=SaleStock.creditOf(record.serverBody),draft=draft.copy(replaceValidationRejected=replaceRejected,lockedSeason=draft.lockedSeason || record.serverVersion!=null || record.latestOperationId!=null,lockedSources=draft.lockedSources+((record.serverBody?.let {it.optJSONArray("lines") ?: it.optJSONArray("items")})?.let {rows -> (0 until rows.length()).map {rows.getJSONObject(it).getString("id")}} ?: emptyList())),errors=rejected,reviewing=false,saved=true,message=null)
         entry.start(record,state.value.draft)
     }
     fun edit(change:(SaleDraft)->SaleDraft) {

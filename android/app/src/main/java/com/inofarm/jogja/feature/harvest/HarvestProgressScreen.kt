@@ -38,6 +38,7 @@ internal fun HarvestProgressScreen(
     onBack: () -> Unit,
     onSync: () -> Unit,
     onOutbox: () -> Unit,
+    backLabel: String = "Kembali ke Panen",
 ) {
     var greenhouse by rememberSaveable { mutableStateOf(defaultGreenhouse) }
     var group by rememberSaveable { mutableStateOf(defaultGroup) }
@@ -48,7 +49,7 @@ internal fun HarvestProgressScreen(
     }
     FarmMenuList(Modifier.testTag("harvest-progress")) {
         item {
-            TextButton(onClick = onBack, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text("Kembali ke Panen") }
+            TextButton(onClick = onBack, modifier = Modifier.heightIn(min = FarmSpace.Touch)) { Text(backLabel) }
             FarmPageTitle("Rekap panen")
         }
         item {

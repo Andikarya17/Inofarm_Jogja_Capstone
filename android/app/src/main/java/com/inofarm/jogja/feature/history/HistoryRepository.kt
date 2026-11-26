@@ -96,6 +96,10 @@ class HistoryRepository(val vault:FinanceSessionVault,private val store:LocalFin
         val old=store.record(session.scope.key,id)
         store.queueAction(session.scope.key,id,gh,"seasons",reviewed,JSONObject().apply {if(reason.isNotBlank()) put("reason",reason)},action,reviewed.getLong("version"),old?.revision)
     }
+    suspend fun discardRejected(session:FinanceSession,ticket:Long,record:LocalRecord)=withContext(Dispatchers.IO) {
+        check(session,ticket);require(record.kind==kind.wire)
+        store.discardRejected(session.scope.key,record.id,record.revision)
+    }
     suspend fun retryClosed(session:FinanceSession,ticket:Long,record:LocalRecord)=withContext(Dispatchers.IO) {
         check(session,ticket)
         if(kind.financial) {

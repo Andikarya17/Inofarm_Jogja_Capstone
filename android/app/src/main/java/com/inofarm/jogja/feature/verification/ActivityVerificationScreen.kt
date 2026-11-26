@@ -234,8 +234,8 @@ internal fun ActivityVerificationScreen(
                             if (workerCursor != null || workerMessage != null) TextButton(onClick = { workerPage++ }) { Text("Muat pencatat") }
                             Choice("Jenis kegiatan", type, listOf(option("", "Semua jenis")) +
                                 ActivityType.entries.map { option(it.wire, it.label) }, "verification-type") { type = it }
-                            FinanceDateField("Dari tanggal WIB (YYYY-MM-DD)", from, { from = it }, "verification-from")
-                            FinanceDateField("Sampai tanggal WIB (YYYY-MM-DD)", until, { until = it }, "verification-until")
+                            FinanceDateField("Dari tanggal", from, { from = it }, "verification-from")
+                            FinanceDateField("Sampai tanggal", until, { until = it }, "verification-until")
                             val validDates = runCatching {
                                 val first = from.takeIf(String::isNotBlank)?.let(LocalDate::parse)
                                 val last = until.takeIf(String::isNotBlank)?.let(LocalDate::parse)

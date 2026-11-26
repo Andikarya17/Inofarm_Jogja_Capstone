@@ -47,7 +47,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
 
             return response()->json(['code' => $e instanceof DomainFailure ? $e->domainCode : ($codes[$status] ?? 'server_error'), 'message' => $message,
                 'field_errors' => (object) ($e instanceof ValidationException ? $e->errors() : []),
-                'request_id' => (string) Str::uuid(), 'reasons' => [$message],
+                'request_id' => (string) Str::uuid(), 'reasons' => $e instanceof DomainFailure && $e->reasons !== null ? $e->reasons : [$message],
                 ...($e instanceof DomainFailure ? ['current_version' => $e->currentVersion, 'current_data' => $e->currentData] : [])], $status,
                 $e instanceof HttpExceptionInterface ? $e->getHeaders() : []);
         });

@@ -163,7 +163,7 @@ internal fun CanopyRecordRow(
     }
     val spoken = when (kind) {
         OperationalKind.EXPENSE -> amountText?.let { "Pembayaran $it" }
-        OperationalKind.SALE -> amountText?.let { "Penerimaan $it" }
+        OperationalKind.SALE -> amountText?.let { "Penjualan lunas $it" }
         else -> amountText
     }
     val grades = if (kind == OperationalKind.HARVEST) facts.optJSONArray("items")?.let { arr ->

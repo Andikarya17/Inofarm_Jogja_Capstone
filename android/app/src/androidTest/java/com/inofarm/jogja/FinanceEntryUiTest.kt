@@ -82,6 +82,15 @@ class FinanceEntryUiTest {
     @Volatile private var revokedGreenhouse: String? = null
     private val unit=UUID.randomUUID().toString();private val materialA=UUID.randomUUID().toString();private val materialB=UUID.randomUUID().toString()
     private val saleRejectNext=AtomicBoolean(false)
+    /** Golden and Inthanon in the main season, Layak and Cacat stock, price list and buyers (sale form, 25 Nov 2026). */
+    private val saleStockFixture=AtomicBoolean(false)
+    /** An earlier sale of Golden to the retail buyer, for the last-price hint. */
+    private val pastRetailSale=AtomicBoolean(false)
+    private val goldenGroup=UUID.randomUUID().toString();private val inthanonGroup=UUID.randomUUID().toString()
+    private val varGolden=UUID.randomUUID().toString();private val varInthanon=UUID.randomUUID().toString()
+    private val gradeLayak=UUID.randomUUID().toString();private val gradeCacat=UUID.randomUUID().toString()
+    private val custRetail=UUID.randomUUID().toString();private val custPartner=UUID.randomUUID().toString()
+    private val saleHarvests=List(3) {UUID.randomUUID().toString()};private val saleItems=List(5) {UUID.randomUUID().toString()}
     private val assetConflictNext=AtomicBoolean(false)
     private val category=UUID.randomUUID().toString();private val financeReceipts=ConcurrentHashMap<String,JSONObject>();private val financeKinds=ConcurrentHashMap<String,String>();private val financePosts=AtomicInteger()
     @Before fun prepare() {
@@ -117,6 +126,16 @@ class FinanceEntryUiTest {
                     "sync/status" -> response.setBody(JSONObject().put("schema_version","2").put("sync_epoch",epoch).toString())
                     "sync/changes" -> response.setBody(page(request.getHeader("Authorization").orEmpty().contains("manager-fixture")).toString())
                     "recovery/policy" -> response.setBody("{\"data\":{\"available\":false}}")
+                    "consumer-prices" -> response.setBody(JSONObject().put("data",JSONArray().apply {
+                        if(saleStockFixture.get()) put(JSONObject().put("id",UUID.randomUUID().toString()).put("variety_name","golden").put("quality","saleable").put("price_per_kg","34000.00").put("version",1).put("updated_at","2026-11-20T00:00:00Z"))
+                    }).toString())
+                    "customers" -> {
+                        val type=request.requestUrl!!.queryParameter("type")
+                        val rows=JSONArray()
+                        if(saleStockFixture.get() && type=="retail") rows.put(JSONObject().put("id",custRetail).put("type","retail").put("name","Toko Buah Segar").put("whatsapp_display","0813-2222-1010").put("purchase_count",4).put("total_kg","60").put("source","manual"))
+                        if(saleStockFixture.get() && type=="partner") rows.put(JSONObject().put("id",custPartner).put("type","partner").put("name","Mitra 1").put("whatsapp_display","0857-1111-2020").put("purchase_count",6).put("total_kg","0").put("source","manual"))
+                        response.setBody(JSONObject().put("data",rows).put("next_cursor",JSONObject.NULL).toString())
+                    }
                     "manager-home" -> {
                         val selection = request.requestUrl!!.queryParameter("greenhouse_id")
                         if (selection != null && selection == delayedGreenhouse) {
@@ -267,6 +286,30 @@ class FinanceEntryUiTest {
                 .put("decision", "invalid").put("reason", "Foto belum jelas"))
         }
         for((id,name) in listOf(gradeA to "Grade A sintetis",gradeB to "Grade B sintetis")) row("grades",id,JSONObject().put("greenhouse_id",gh).put("name",name).put("active",true))
+        if(saleStockFixture.get()) {
+            row("varieties",varGolden,JSONObject().put("greenhouse_id",gh).put("name","Golden").put("active",true))
+            row("varieties",varInthanon,JSONObject().put("greenhouse_id",gh).put("name","Inthanon").put("active",true))
+            for((id,variety) in listOf(goldenGroup to varGolden,inthanonGroup to varInthanon)) row("planting_groups",id,JSONObject().put("season_id",season).put("variety_id",variety)
+                .put("name",if(variety==varGolden) "Golden" else "Inthanon").put("active",true).put("sowing_date","2026-09-01").put("transplant_date",JSONObject.NULL))
+            row("grades",gradeLayak,JSONObject().put("greenhouse_id",gh).put("name","Layak").put("active",true))
+            row("grades",gradeCacat,JSONObject().put("greenhouse_id",gh).put("name","Cacat").put("active",true))
+            fun item(id:String,grade:String,kg:String)=JSONObject().put("id",id).put("grade_id",grade).put("grade_name",if(grade==gradeLayak) "Layak" else "Cacat").put("grade_version",1)
+                .put("weight_kg",kg).put("fruit_count",JSONObject.NULL).put("quality",if(grade==gradeLayak) "saleable" else "defective")
+            val harvests=listOf(Triple(saleHarvests[0],goldenGroup,"2026-11-17T08:00:00+07:00") to listOf(item(saleItems[0],gradeLayak,"32.000000"),item(saleItems[1],gradeCacat,"40.000000")),
+                Triple(saleHarvests[1],goldenGroup,"2026-11-20T08:00:00+07:00") to listOf(item(saleItems[2],gradeLayak,"308.000000")),
+                Triple(saleHarvests[2],inthanonGroup,"2026-11-18T08:00:00+07:00") to listOf(item(saleItems[3],gradeLayak,"210.000000"),item(saleItems[4],gradeCacat,"25.000000")))
+            harvests.forEach {(head,items) ->
+                row("harvest",head.first,JSONObject().put("planting_group_id",head.second).put("occurred_at",head.third).put("record_state","active").put("notes","")
+                    .put("recorded_by",worker).put("recorded_by_name","Pekerja sintetis").put("completeness","ready").put("items",JSONArray(items)))
+                items.forEach {row("harvest_balance",it.getString("id"),JSONObject().put("harvest_id",head.first).put("harvest_version",1).put("active",true)
+                    .put("weight_kg",it.getString("weight_kg")).put("sold_weight_kg","0.000000").put("available_weight_kg",it.getString("weight_kg")))}
+            }
+            if(managerAccess && pastRetailSale.get()) row("sale",UUID.randomUUID().toString(),JSONObject().put("season_id",season).put("paid_at","2026-11-12T10:00:00+07:00").put("payment_status","paid")
+                .put("customer_name","Toko Buah Segar").put("customer_id",custRetail).put("customer_type","retail").put("notes","").put("record_state","active")
+                .put("total_amount","1680000.00").put("total_weight_kg","60.000000").put("items",JSONArray())
+                .put("lines",JSONArray().put(JSONObject().put("id",UUID.randomUUID().toString()).put("planting_group_id",goldenGroup).put("grade_id",gradeLayak)
+                    .put("variety_name","Golden").put("quality","saleable").put("quantity_kg","60.000000").put("price_per_kg","28000.000000").put("allocations",JSONArray()))))
+        }
         row("units",unit,JSONObject().put("greenhouse_id",gh).put("name","gram uji").put("active",true).put("dimension","mass"))
         for((id,name) in listOf(materialA to "Bahan A sintetis",materialB to "Bahan B sintetis")) row("materials",id,JSONObject().put("greenhouse_id",gh).put("name",name).put("active",true).put("dimension","mass"))
         if(managerAccess) {
@@ -284,7 +327,7 @@ class FinanceEntryUiTest {
         harvestReceipts.values.forEach {receipt -> row("harvest",receipt.getString("entity_id"),JSONObject(receipt.getJSONObject("data").toString()))}
         harvestReceipts.values.groupBy {it.getString("entity_id")}.values.forEach {versions -> val receipt=versions.maxBy {it.getInt("version")};val data=receipt.getJSONObject("data");val items=data.getJSONArray("items")
             repeat(items.length()) {index -> val item=items.getJSONObject(index);val active=data.getString("record_state")=="active"
-                val sold=financeReceipts.values.filter {financeKinds[it.getString("entity_id")]=="sale"}.groupBy {it.getString("entity_id")}.values.map {it.maxBy {r -> r.getInt("version")}.getJSONObject("data")}.filter {it.optString("record_state")=="active"}.fold(java.math.BigDecimal.ZERO) {sum,sale -> val lines=sale.getJSONArray("items");sum+(0 until lines.length()).map {lines.getJSONObject(it)}.filter {it.getString("harvest_item_id")==item.getString("id")}.fold(java.math.BigDecimal.ZERO) {subtotal,line -> subtotal+java.math.BigDecimal(line.getString("quantity_kg"))}}
+                val sold=financeReceipts.values.filter {financeKinds[it.getString("entity_id")]=="sale"}.groupBy {it.getString("entity_id")}.values.map {it.maxBy {r -> r.getInt("version")}.getJSONObject("data")}.filter {it.optString("record_state")=="active"}.fold(java.math.BigDecimal.ZERO) {sum,sale -> val lines=sale.optJSONArray("items") ?: JSONArray();sum+(0 until lines.length()).map {lines.getJSONObject(it)}.filter {it.getString("harvest_item_id")==item.getString("id")}.fold(java.math.BigDecimal.ZERO) {subtotal,line -> subtotal+java.math.BigDecimal(line.getString("quantity_kg"))}}
                 row("harvest_balance",item.getString("id"),JSONObject().put("version",receipt.getInt("version")+financeReceipts.values.count {financeKinds[it.getString("entity_id")]=="sale"}).put("harvest_id",receipt.getString("entity_id")).put("harvest_version",receipt.getInt("version")).put("active",active).put("weight_kg",item.getString("weight_kg")).put("sold_weight_kg",sold.setScale(6).toPlainString()).put("available_weight_kg",if(active) (java.math.BigDecimal(item.getString("weight_kg"))-sold).setScale(6).toPlainString() else "0.000000"))}
         }
         val scope = if (managerAccess) JSONArray(managerGreenhouses()) else JSONArray().put(JSONObject().put("id",gh).put("active",true)).also { if (secondGreenhouse.get()) it.put(JSONObject().put("id",gh2).put("active",true)) }
@@ -316,7 +359,7 @@ class FinanceEntryUiTest {
             .put("created_at","2026-10-30T00:00:00+07:00").put("updated_at","2026-10-30T00:00:00+07:00")
         if(kind !in setOf("sale","asset")) data.put("amount",java.math.BigDecimal(data.getString("amount")).setScale(2).toPlainString())
         else if(kind=="sale") {
-            val lines=data.getJSONArray("items");var exact=java.math.BigDecimal.ZERO;var weight=java.math.BigDecimal.ZERO
+            val lines=data.optJSONArray("lines") ?: data.getJSONArray("items");if(data.has("lines")) data.put("items",JSONArray());var exact=java.math.BigDecimal.ZERO;var weight=java.math.BigDecimal.ZERO
             repeat(lines.length()) {index -> val line=lines.getJSONObject(index);val q=java.math.BigDecimal(line.getString("quantity_kg"));val price=java.math.BigDecimal(line.getString("price_per_kg"));exact=exact+q*price;weight=weight+q;line.put("quantity_kg",q.setScale(6).toPlainString()).put("price_per_kg",price.setScale(6).toPlainString()).put("grade_name","Grade penjualan sintetis").put("harvest_version",1)}
             data.put("total_amount",exact.setScale(2,java.math.RoundingMode.HALF_UP).toPlainString()).put("total_weight_kg",weight.setScale(6).toPlainString()).put("exact_total",exact.setScale(12).toPlainString())
         }
@@ -1974,25 +2017,143 @@ class FinanceEntryUiTest {
     private fun managerLogin() {
         rule.logoutFromAccount();rule.waitUntil(10000) {rule.onAllNodesWithTag("finance-login").fetchSemanticsNodes().isNotEmpty()};login("manager@example.invalid")
     }
-    private fun saleFormWithSources():List<String> {
-        fillHarvest("Sumber penjualan UI",true)
-        rule.onNodeWithTag("harvest-weight-1").performScrollTo().performTextReplacement("5");hideKeyboard();queueHarvest()
-        rule.waitUntil(10000) {harvestPosts.get()==1}
-        val sources=harvestReceipts.values.single().getJSONObject("data").getJSONArray("items").let {rows -> (0 until rows.length()).map {rows.getJSONObject(it).getString("id")}}
-        managerLogin();rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",gh);rule.clickFinanceTool("sale-new")
-        choose("sale-season",season)
-        sources.forEachIndexed {index,id ->
-            if(index>0) rule.onNodeWithTag("sale-add").performScrollTo().performClick()
-            choose("sale-source-$index",id);rule.onNodeWithTag("sale-quantity-$index").performScrollTo().performTextReplacement("1")
-            rule.onNodeWithTag("sale-price-$index").performScrollTo().performTextReplacement("0,004");hideKeyboard()
-        }
-        rule.onNodeWithTag("sale-paid").performScrollTo().performClick();return sources
+    /** Two consumer lines of 1 kg at 0,004 (Golden Layak and Cacat from the stock fixture), paid; the exact total rounds to 0,01. */
+    private fun saleFormWithSources() {
+        saleStockFixture.set(true);managerLogin();openSaleForm()
+        rule.onNodeWithTag("sale-type-consumer").performScrollTo().performClick()
+        listOf(gradeLayak,gradeCacat).forEach {grade -> addSaleLine(goldenGroup,grade,"1",null,"0,004")}
+        rule.onNodeWithTag("sale-paid").performScrollTo().performClick()
+    }
+    /** Opens a sale's detail the way Riwayat does; the ledger list now sits behind the Keuangan eye toggle. */
+    private fun openSaleRecord(id:String) {
+        rule.waitUntil(10000) {runtime().vault.current?.let {runtime().store.record(it.scope.key,id)}!=null}
+        rule.runOnIdle {ViewModelProvider(rule.activity)["sale-history",com.inofarm.jogja.feature.history.HistoryViewModel::class.java].select(id)}
+    }
+    private fun openSaleForm() {
+        // The Keuangan tab lists sales per season now; the form is the one the Catat sheet opens for this greenhouse.
+        rule.waitUntil(15000) {runtime().vault.current?.role==com.inofarm.jogja.core.contracts.UserRole.MANAGER && rule.onAllNodesWithTag("finance-tab-2").fetchSemanticsNodes().isNotEmpty()}
+        val editor=saleEditor();rule.runOnIdle {editor.new(gh)}
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("sale-review").fetchSemanticsNodes().isNotEmpty()}
+    }
+    private fun saleEditor():com.inofarm.jogja.feature.sales.SaleEntryViewModel {
+        lateinit var editor:com.inofarm.jogja.feature.sales.SaleEntryViewModel
+        rule.runOnIdle {editor=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.sales.SaleEntryViewModel::class.java]}
+        return editor
+    }
+    private fun saleLines()=saleEditor().state.value.draft!!.items
+    /** Taps the "Tambah buah" chip of a fruit and fills the new line; returns its id, which the line's fields are tagged with. */
+    private fun addSaleLine(group:String,grade:String,kg:String,fruit:String?,price:String?):String {
+        readyNode("sale-add-$group-$grade").performScrollTo().performClick()
+        rule.waitUntil(10000) {saleLines().any {it.groupId==group && it.gradeId==grade}}
+        val id=saleLines().last {it.groupId==group && it.gradeId==grade}.id
+        fillSaleLine(id,kg,fruit,price);return id
+    }
+    private fun fillSaleLine(id:String,kg:String,fruit:String?,price:String?) {
+        readyNode("sale-kg-$id").performScrollTo().performTextReplacement(kg)
+        fruit?.let {rule.onNodeWithTag("sale-fruit-$id").performScrollTo().performTextReplacement(it)}
+        price?.let {rule.onNodeWithTag("sale-price-$id").performScrollTo().performTextReplacement(it)}
+        hideKeyboard()
+    }
+    private fun pickBuyer(type:String,id:String) {
+        rule.onNodeWithTag("sale-type-$type").performScrollTo().performClick()
+        rule.waitUntil(10000) {rule.onAllNodesWithTag("sale-buyer-hit-$id").fetchSemanticsNodes().isNotEmpty()}
+        rule.onNodeWithTag("sale-buyer-hit-$id").performScrollTo().performClick()
+        readyNode("sale-buyer-change")
+    }
+    @Test fun saleRetailTwoVarietiesShowsTotalAndStock() {
+        saleStockFixture.set(true);pastRetailSale.set(true);managerLogin();openSaleForm()
+        pickBuyer("retail",custRetail)
+        val golden=addSaleLine(goldenGroup,gradeLayak,"50","38","28000")
+        rule.waitUntil(10000) {runCatching {rule.onNodeWithTag("sale-price-hint-$golden").assertTextEquals("Harga ditawar. Terakhir ke Toko Buah Segar: Rp28.000/kg untuk 60 kg, 12 Nov.")}.isSuccess}
+        val inthanon=addSaleLine(inthanonGroup,gradeLayak,"20","16","26000")
+        rule.onNodeWithTag("sale-price-hint-$inthanon").performScrollTo().assertTextEquals("Harga ditawar. Belum ada penjualan sebelumnya ke pembeli ini.")
+        rule.onNodeWithTag("sale-after-$goldenGroup-$gradeLayak").performScrollTo().assertTextEquals("Sesudah dijual sisa 290 kg")
+        rule.onNodeWithTag("sale-total").performScrollTo().assertTextEquals("Rp1.920.000")
+        captureSecondary("sale-form-retail")
+        rule.onNodeWithTag("sale-paid").performScrollTo().performClick()
+        rule.onNodeWithTag("sale-review").performClick()
+        readyNode("sale-summary-stock-$goldenGroup-$gradeLayak").performScrollTo()
+            .assertTextContains("290 kg",substring=true).assertTextContains("Diambil dari panen 17 Nov (32 kg) dan 20 Nov (18 kg), yang paling lama lebih dulu")
+        rule.onNodeWithTag("sale-summary-stock-$inthanonGroup-$gradeLayak").performScrollTo().assertTextContains("Diambil dari panen 18 Nov (20 kg)")
+        rule.onNodeWithTag("sale-total-fact").assertTextEquals("Rp1.920.000")
+        captureSecondary("sale-summary-retail")
+    }
+    /** The real entry point: Catat → Penjualan for the greenhouse, then Simpan opens the Ringkasan. */
+    @Test fun saleFromCatatSheetReachesRingkasan() {
+        saleStockFixture.set(true);managerLogin()
+        rule.openRecordIn("sale",gh)
+        rule.waitUntil(15000) {rule.onAllNodesWithTag("sale-review").fetchSemanticsNodes().isNotEmpty()}
+        rule.waitUntil(10000) {saleEditor().state.value.draft?.seasonId==season}
+        assertEquals(gh,saleEditor().state.value.draft!!.greenhouseId)
+        rule.onNodeWithTag("sale-type-consumer").performScrollTo().performClick()
+        val id=addSaleLine(inthanonGroup,gradeCacat,"5",null,"10000")
+        rule.onNodeWithTag("sale-price-hint-$id").performScrollTo().assertTextEquals("Belum ada harga perorangan Inthanon Cacat di Kelola. Ketik harganya.")
+        rule.onNodeWithTag("sale-paid").performScrollTo().performClick()
+        rule.onNodeWithTag("sale-review").performClick()
+        readyNode("sale-summary-stock-$inthanonGroup-$gradeCacat").performScrollTo().assertTextContains("20 kg",substring=true)
+        rule.onNodeWithText("Data transaksi").assertExists()
+        rule.onNodeWithTag("sale-total-fact").assertTextEquals("Rp50.000")
+    }
+    @Test fun salePartnerSplitsGrades() {
+        saleStockFixture.set(true);managerLogin();openSaleForm()
+        pickBuyer("partner",custPartner)
+        val a=addSaleLine(goldenGroup,gradeLayak,"70","52","26000")
+        assertEquals("A",saleLines().single {it.id==a}.buyerGrade)
+        readyNode("sale-price-hint-$a").performScrollTo().assertTextEquals("Grade dinilai mitra, harga ditawar.")
+        rule.onNodeWithTag("sale-add-grade-$goldenGroup").performScrollTo().performClick()
+        rule.waitUntil(10000) {saleLines().size==2}
+        val b=saleLines().single {it.buyerGrade=="B"}.id
+        fillSaleLine(b,"40","31","22000")
+        rule.onNodeWithTag("sale-after-$goldenGroup-$gradeLayak").performScrollTo().assertTextEquals("Sesudah dijual sisa 230 kg")
+        rule.onNodeWithTag("sale-total").performScrollTo().assertTextEquals("Rp2.700.000")
+        captureSecondary("sale-form-partner")
+        rule.onNodeWithTag("sale-paid").performScrollTo().performClick()
+        rule.onNodeWithTag("sale-review").performClick();readyNode("sale-queue").performClick()
+        val session=runtime().vault.current!!
+        rule.waitUntil(10000) {runtime().store.outbox(session.scope.key).any {it.envelope.optString("entity_type")=="sale"}}
+        val payload=runtime().store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="sale"}.envelope.getJSONObject("payload")
+        val lines=payload.getJSONArray("lines").let {rows -> (0 until rows.length()).map {rows.getJSONObject(it)}}
+        assertEquals(listOf("A","B"),lines.map {it.getString("buyer_grade")});assertEquals(listOf("70.000000","40.000000"),lines.map {it.getString("quantity_kg")})
+        assertEquals(listOf(52,31),lines.map {it.getInt("fruit_count")});assertEquals("partner",payload.getString("customer_type"));assertEquals(custPartner,payload.getJSONObject("customer").getString("id"))
+    }
+    /** Leaving Mitra asks first, because grade B and C lines and their kg are removed. */
+    @Test fun saleLeavingPartnerConfirmsBeforeDroppingGrades() {
+        saleStockFixture.set(true);managerLogin();openSaleForm()
+        pickBuyer("partner",custPartner)
+        addSaleLine(goldenGroup,gradeLayak,"70",null,"26000")
+        rule.onNodeWithTag("sale-add-grade-$goldenGroup").performScrollTo().performClick()
+        rule.waitUntil(10000) {saleLines().size==2}
+        fillSaleLine(saleLines().single {it.buyerGrade=="B"}.id,"40",null,"22000")
+        rule.onNodeWithTag("sale-type-retail").performScrollTo().performClick()
+        readyNode("sale-switch-loss").assertTextEquals("Grade B hanya untuk mitra. Baris grade B dihapus beserta 40 kg.")
+        captureSecondary("sale-switch-partner-confirm")
+        rule.onNodeWithTag("sale-switch-cancel").performClick()
+        rule.waitForIdle();assertEquals("partner",saleEditor().state.value.draft!!.buyerType);assertEquals(2,saleLines().size)
+        rule.onNodeWithTag("sale-type-retail").performScrollTo().performClick()
+        readyNode("sale-switch-confirm").performClick()
+        rule.waitUntil(10000) {saleEditor().state.value.draft!!.buyerType=="retail"}
+        assertEquals(1,saleLines().size);assertEquals("",saleLines().single().buyerGrade);assertEquals("70",saleLines().single().quantity)
+    }
+    @Test fun saleConsumerPrefillsPrice() {
+        saleStockFixture.set(true);managerLogin();openSaleForm()
+        rule.onNodeWithTag("sale-type-consumer").performScrollTo().performClick()
+        readyNode("sale-add-$goldenGroup-$gradeLayak").performScrollTo().performClick()
+        // The price list arrives from the server; an empty Perorangan price is filled as soon as it does.
+        rule.waitUntil(10000) {saleLines().singleOrNull()?.price=="34000"}
+        val id=saleLines().single().id
+        rule.onNodeWithTag("sale-price-hint-$id").performScrollTo().assertTextEquals("Harga perorangan Golden Layak, diisi dari Kelola. Masih bisa diubah.")
+        fillSaleLine(id,"3","2",null)
+        rule.onNodeWithTag("sale-total").performScrollTo().assertTextEquals("Rp102.000")
+        captureSecondary("sale-form-consumer")
+        // Still editable: a typed price replaces the list price.
+        fillSaleLine(id,"3",null,"30000");rule.onNodeWithTag("sale-total").performScrollTo().assertTextEquals("Rp90.000")
+        rule.onNodeWithTag("sale-price-hint-$id").performScrollTo().assertTextEquals("Harga perorangan bisa diubah.")
     }
     @Test fun saleOfflineDraftRecreationExactTotalAndAuditUseDedicatedFlow() {
         saleFormWithSources();offline.set(true)
-        rule.activityRule.scenario.recreate();rule.onNodeWithTag("sale-price-0").performScrollTo().assertTextContains("0,004")
+        rule.activityRule.scenario.recreate();rule.onNodeWithTag("sale-price-${saleLines().first().id}").performScrollTo().assertTextContains("0,004")
         captureSecondary("sale-form")
-        rule.onNodeWithTag("sale-review").scrollIfScrollable().performClick()
+        rule.onNodeWithTag("sale-review").performClick()
         captureSecondary("sale-review")
         rule.onNodeWithTag("sale-queue").scrollIfScrollable().performClick()
         val session=runtime().vault.current!!
@@ -2000,8 +2161,7 @@ class FinanceEntryUiTest {
         val op=runtime().store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="sale"};assertEquals("QUEUED",op.state)
         offline.set(false);rule.sendQueuedNow();val id=acceptedFinancial("sale")
         assertEquals("0.01",runtime().store.record(session.scope.key,id)!!.body.getString("total_amount"));assertEquals(op.hash,runtime().store.outbox(session.scope.key).single {it.id==op.id}.hash)
-        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","sale")
-        awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        openSaleRecord(id)
         readyNode("sale-accepted-total").performScrollTo().assertTextContains("0,01",substring=true)
         captureSecondary("sale-detail")
         readyNode("history-audit").performScrollTo().performClick();rule.waitUntil(10000) {rule.onAllNodesWithText("Audit biaya sintetis",substring=true).fetchSemanticsNodes().isNotEmpty()}
@@ -2011,11 +2171,11 @@ class FinanceEntryUiTest {
         rule.onNodeWithTag("sale-review").scrollIfScrollable().performClick();rule.onNodeWithTag("sale-queue").scrollIfScrollable().performClick()
         val session=runtime().vault.current!!;rule.waitUntil(15000) {runtime().store.outbox(session.scope.key).any {it.error?.optString("code")=="harvest_exceeded"}}
         val original=runtime().store.outbox(session.scope.key).single {it.error?.optString("code")=="harvest_exceeded"}
-        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","sale")
-        awaitRecord("finance-record-${original.entityId}");rule.onNodeWithTag("finance-record-${original.entityId}").performScrollTo().performClick()
+        openSaleRecord(original.entityId)
         rule.waitUntil(10000) {rule.onAllNodesWithTag("history-fix-rejected").fetchSemanticsNodes().isNotEmpty()}
         readyNode("history-fix-rejected").performScrollTo().performClick()
-        rule.onNodeWithTag("sale-quantity-0").performScrollTo().performTextReplacement("0,5");hideKeyboard()
+        rule.waitUntil(10000) {saleEditor().state.value.draft!=null}
+        readyNode("sale-kg-${saleLines().first().id}").performScrollTo().performTextReplacement("0,5");hideKeyboard()
         rule.onNodeWithTag("sale-review").scrollIfScrollable().performClick();rule.onNodeWithTag("sale-queue").scrollIfScrollable().performClick();acceptedFinancial("sale")
         val operations=runtime().store.outbox(session.scope.key).filter {it.entityId==original.entityId};assertEquals(2,operations.size)
         assertEquals("SUPERSEDED",operations.single {it.id==original.id}.state);assertEquals(original.hash,operations.single {it.id==original.id}.hash)
@@ -2025,9 +2185,11 @@ class FinanceEntryUiTest {
         lateinit var editor:com.inofarm.jogja.feature.sales.SaleEntryViewModel
         rule.runOnIdle {editor=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.sales.SaleEntryViewModel::class.java];editor.new(gh);editor.edit {it.copy(date="belum",items=listOf(com.inofarm.jogja.feature.sales.SaleLine(quantity="1,2,3",price="")))};editor.pauseAutosave()}
         val draft=editor.state.value.draft!!
-        rule.logoutFromAccount();rule.waitUntil(10000) {runtime().vault.current==null}
+        // The open form hides the account menu; this is the flush its Keluar runs before the session ends.
+        rule.runOnIdle {val ticket=runtime().vault.generation;ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.auth.AuthViewModel::class.java].logout {runtime().sales.flush(session,ticket,draft)}}
+        rule.waitUntil(10000) {runtime().vault.current==null}
         val saved=runtime().store.record(session.scope.key,draft.id)!!;val raw=saved.body.getJSONObject("_local_form")
-        assertEquals("belum",raw.getString("date"));assertFalse(raw.getBoolean("paid"));assertEquals("1,2,3",raw.getJSONArray("items").getJSONObject(0).getString("quantity"));assertTrue(runtime().store.outbox(session.scope.key).isEmpty())
+        assertEquals("belum",raw.getString("date"));assertFalse(raw.getBoolean("paid"));assertEquals("1,2,3",raw.getJSONArray("lines").getJSONObject(0).getString("quantity"));assertTrue(runtime().store.outbox(session.scope.key).isEmpty())
     }
     private fun financialForm(allocation:Boolean=false) {
         rule.selectFinanceTab(2);choose("expense-gh",gh)
@@ -2071,7 +2233,7 @@ class FinanceEntryUiTest {
         val allocationId=acceptedFinancial("cost_allocation")
         rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-history-kind","cost_allocation")
         awaitRecord("finance-record-$allocationId");rule.onNodeWithTag("finance-record-$allocationId").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
-        readyNode("expense-remaining-fact").performScrollTo().assertTextContains("40,00",substring=true)
+        readyNode("expense-remaining-fact").performScrollTo().assertTextContains("Rp40",substring=true)
         captureSecondary("allocation-detail")
         assertEquals(2,financePosts.get());assertEquals(original.id,runtime().store.outbox(session.scope.key).first {it.entityId==source}.id)
     }
@@ -2201,7 +2363,7 @@ class FinanceEntryUiTest {
         choose("expense-history-kind","asset")
         awaitRecord("finance-record-$id");rule.onNodeWithTag("finance-record-$id").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         readyNode("asset-cost-fact").performScrollTo().assertExists()
-        rule.onNode(hasAnyAncestor(hasTestTag("asset-cost-fact")) and hasText("100,00", substring=true)).assertExists()
+        rule.onNode(hasAnyAncestor(hasTestTag("asset-cost-fact")) and hasText("Rp100", substring=true)).assertExists()
         captureSecondary("asset-detail")
     }
     @Test fun depreciationRequiresExplicitUsagePeriodBasisAndDoesNotInventAmount() {

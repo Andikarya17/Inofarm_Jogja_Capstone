@@ -49,7 +49,7 @@ import kotlinx.coroutines.withContext
             IconButton(onBack, Modifier.size(FarmSpace.Touch).testTag("customers-back")) { FarmControlIcon(FarmIcon.Close, "Kembali ke Keuangan") }
             Text("Daftar pembeli", Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
-        FarmSegmentedTabs(listOf("consumer" to "Perorangan", "partner" to "Mitra"), type, { type = it }, tagPrefix = "customers-type-")
+        FarmSegmentedTabs(listOf("consumer" to "Perorangan", "retail" to "Retail", "partner" to "Mitra"), type, { type = it }, tagPrefix = "customers-type-", equalWidth = true)
         Button({ importing = true }, Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("customers-import"), shape = RoundedCornerShape(14.dp)) {
             Text("Impor dari Excel")
         }
@@ -122,7 +122,7 @@ import kotlinx.coroutines.withContext
                 IconButton(onDone, Modifier.size(FarmSpace.Touch).testTag("import-close")) { FarmControlIcon(FarmIcon.Close, "Batal") }
                 Column(Modifier.weight(1f)) {
                     Text("Impor pembeli", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-                    Text(if (type == "partner") "Mitra" else "Perorangan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(com.inofarm.jogja.feature.sales.BuyerTypes.label(type), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             message?.let { (text, error) -> Notice(text, error) }

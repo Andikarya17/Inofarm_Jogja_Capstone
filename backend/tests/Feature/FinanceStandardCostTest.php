@@ -263,4 +263,27 @@ class FinanceStandardCostTest extends FinanceTestCase
 
         $this->assertSame(2, $next['sequence']);
     }
+
+    public function test_ensure_for_survives_a_competing_insert_of_the_same_sequence(): void
+    {
+        $manager = $this->account();
+        $this->context($manager);
+        $competing = (string) Str::uuid();
+        $armed = true;
+        // Fires right after the lookup missed, before ensureFor opens its own transaction: the rival wins the unique sequence.
+        DB::listen(function ($query) use (&$armed, $competing) {
+            if ($armed && str_contains($query->sql, 'from `season_cost_sheets` where `sequence` = ?')) {
+                $armed = false;
+                DB::table('season_cost_sheets')->insert(['id' => $competing, 'sequence' => 7, 'record_state' => 'active', 'version' => 1, 'created_at' => now(), 'updated_at' => now()]);
+            }
+        });
+
+        $sheet = app(\App\Domain\Finance\SeasonCostSheetService::class)->ensureFor(7, $manager);
+
+        $this->assertFalse($armed);
+        $this->assertSame($competing, $sheet->id);
+        $this->assertSame(1, DB::table('season_cost_sheets')->where('sequence', 7)->count());
+        $this->assertSame(0, DB::table('season_cost_lines')->where('sheet_id', $competing)->count());
+        $this->assertSame(0, DB::table('audit_logs')->where('entity_type', 'season_cost_sheet')->where('entity_id', $competing)->count());
+    }
 }

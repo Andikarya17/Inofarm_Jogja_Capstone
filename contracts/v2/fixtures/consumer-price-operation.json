@@ -1,0 +1,18 @@
+{
+  "note": "Fixture sintetis. Harga contoh hanya untuk kontrak, bukan seed; produksi tidak memiliki harga bawaan.",
+  "operation": {
+    "schema_version": "2",
+    "sync_epoch": "0b6f3f8e-9a51-4d2c-8a39-3f5c3e7d1a10",
+    "operation_id": "7d1e4a52-3c8b-4f60-9a2d-5b6c7d8e9f01",
+    "entity_id": "2e5b8c1d-4a7f-4d90-8b3e-6c1d2e3f4a5b",
+    "entity_type": "consumer_price",
+    "action": "create",
+    "base_version": null,
+    "payload": {
+      "variety_name": "Golden",
+      "quality": "saleable",
+      "price_per_kg": "25000.000000"
+    }
+  },
+  "canonical_sha256": "8d71bcb6c5349160ca8e9eeeb33599876ed04f254ee3da4940df3dfc4e95a439"
+}

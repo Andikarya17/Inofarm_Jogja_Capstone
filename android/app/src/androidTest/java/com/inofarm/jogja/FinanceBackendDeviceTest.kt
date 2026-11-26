@@ -650,13 +650,11 @@ class FinanceBackendDeviceTest {
     @Test fun queueSaleHarvestWithBackendOffline() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("devicePhase")=="sale-source-queue")
         val f=fixture();login(f,"worker");val ctx=f.getJSONArray("contexts").getJSONObject(0)
-        choose("finance-gh",ctx.getString("greenhouse_id"));choose("finance-season",ctx.getString("season_id"));choose("finance-group",ctx.getString("group_id"))
-        rule.openRecord("harvest")
-        rule.onNodeWithTag("harvest-manual-time").performScrollTo().performClick()
-        rule.onNodeWithTag("harvest-date").performScrollTo().performTextReplacement("2026-10-30")
+        // Worker Catat only asks for the greenhouse (17 Nov 2026).
+        rule.openRecordIn("harvest",ctx.getString("greenhouse_id"))
+        // The harvest form of 20 Nov 2026 opens with one Layak and one Cacat line (no grade, no add button).
+        rule.waitUntil(20000) {rule.onAllNodesWithTag("harvest-weight-0").fetchSemanticsNodes().isNotEmpty()}
         repeat(2) {index ->
-            rule.onNodeWithTag("harvest-add-item").performScrollTo().performClick();choose("harvest-grade-$index",ctx.getJSONArray("grade_ids").getString(index))
-            choose("harvest-quality-$index", "saleable")
             rule.onNodeWithTag("harvest-count-$index").performScrollTo().performTextReplacement("3")
             rule.onNodeWithTag("harvest-weight-$index").performScrollTo().performTextReplacement("5");hideKeyboard()
         }
@@ -677,16 +675,29 @@ class FinanceBackendDeviceTest {
         val sourceOp=model.store.outbox(worker.scope.key).single {it.id==proof.getString("harvest_op")};assertEquals(proof.getString("harvest_hash"),sourceOp.hash)
         model.api.request(worker.scope.server,worker.token,"harvests","POST",sourceOp.envelope)
         login(f,"manager");val ctx=f.getJSONArray("contexts").getJSONObject(0)
-        rule.onNodeWithTag("finance-tab-2").performClick();choose("expense-gh",ctx.getString("greenhouse_id"));rule.clickFinanceTool("sale-new")
-        choose("sale-season",ctx.getString("season_id"));rule.onNodeWithTag("sale-date").performScrollTo().performTextReplacement("2026-10-30")
-        repeat(2) {index ->
-            if(index>0) rule.onNodeWithTag("sale-add").performScrollTo().performClick()
-            choose("sale-source-$index",proof.getJSONArray("sources").getString(index))
-            rule.onNodeWithTag("sale-quantity-$index").performScrollTo().performTextReplacement("1");rule.onNodeWithTag("sale-price-$index").performScrollTo().performTextReplacement("0,004");hideKeyboard()
+        // Sale form of 25 Nov 2026: the Catat sheet opens it for the greenhouse, the open season is picked by itself, and each
+        // line is a planting group and grade (the server takes the kg from the oldest harvest).
+        rule.openRecordIn("sale",ctx.getString("greenhouse_id"))
+        rule.waitUntil(15000) {rule.onAllNodesWithTag("sale-review").fetchSemanticsNodes().isNotEmpty()}
+        lateinit var editor:com.inofarm.jogja.feature.sales.SaleEntryViewModel
+        rule.runOnIdle {editor=ViewModelProvider(rule.activity)[com.inofarm.jogja.feature.sales.SaleEntryViewModel::class.java]}
+        rule.waitUntil(15000) {editor.state.value.draft?.seasonId==ctx.getString("season_id")}
+        rule.onNodeWithTag("sale-type-consumer").performScrollTo().performClick()
+        rule.onNodeWithTag("sale-date").performScrollTo().performTextReplacement("2026-10-30")
+        // Layak/Cacat lines carry no grade of their own: read the server's system grades from the accepted harvest.
+        val manager=model.vault.current!!;val sourceItems=model.api.request(manager.scope.server,manager.token,"harvests/${proof.getString("harvest_id")}").getJSONArray("items")
+        val grades=(0 until sourceItems.length()).map {sourceItems.getJSONObject(it).getString("grade_id")}.distinct()
+        grades.forEach {grade ->
+            val tag="sale-add-${ctx.getString("group_id")}-$grade"
+            rule.waitUntil(20000) {rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()}
+            rule.onNodeWithTag(tag).performScrollTo().performClick()
+            rule.waitUntil(10000) {editor.state.value.draft!!.items.any {it.gradeId==grade}}
+            val line=editor.state.value.draft!!.items.single {it.gradeId==grade}.id
+            rule.onNodeWithTag("sale-kg-$line").performScrollTo().performTextReplacement("1");rule.onNodeWithTag("sale-price-$line").performScrollTo().performTextReplacement("0,004");hideKeyboard()
         }
         rule.onNodeWithTag("sale-paid").performScrollTo().performClick();rule.onNodeWithTag("sale-notes").performScrollTo().performTextReplacement("DEVICE SALE ${f.getString("fixture_id")}");hideKeyboard()
         financialOfflineBarrier(f,"sale")
-        rule.onNodeWithTag("sale-review").scrollIfScrollable().performClick();rule.onNodeWithTag("sale-queue").scrollIfScrollable().performClick()
+        rule.onNodeWithTag("sale-review").performClick();rule.onNodeWithTag("sale-queue").performClick()
         val session=model.vault.current!!;rule.waitUntil(10000) {model.store.outbox(session.scope.key).any {it.envelope.optString("entity_type")=="sale"}}
         val op=model.store.outbox(session.scope.key).single {it.envelope.optString("entity_type")=="sale"};assertEquals("QUEUED",op.state)
         proof.put("sale_pid",android.os.Process.myPid()).put("sale_id",op.entityId).put("sale_op",op.id).put("sale_hash",op.hash);file("finance-device-sale-proof.json").writeText(proof.toString())
