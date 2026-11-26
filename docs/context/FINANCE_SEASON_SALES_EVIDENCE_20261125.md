@@ -70,7 +70,7 @@ Perubahan harness (bukan kode produk): `FinanceBackendDeviceTest` fase `sale-sou
 ## Batas dan celah terbuka
 
 - Belum diuji di ponsel fisik, TalkBack, mode gelap, font 200% atau layar 360 dp.
-- `inofarm_finance_local` **belum** dimigrasi ke 24 (masih 28 migration / 58 tabel). Migration 24 hanya atas permintaan pengguna, dengan backup.
+- `inofarm_finance_local` sudah dimigrasi ke 24 pada 26 November 2026 (lihat bagian di bawah). Aplikasi belum dibuka terhadap database ini sesudah migration, dan restore backup belum diuji.
 - Snapshot laporan musim yang sudah terbit dan PDF/CSV-nya tidak diubah, jadi unduhan laporan lama masih memuat laba/R/C/BEP (pertanyaan spec 10.2 belum dijawab).
 - `FinanceEntryUiTest` penuh tidak dijalankan; delapan tes penjualannya lulus di emulator sesudah perbaikan review akhir, tes lain belum.
 - "Musim belum dimuat" sesudah kembali dari rincian penjualan yang dibuka dari daftar penjualan musim: **diperbaiki** pada perbaikan review akhir, bukti `FinanceOverviewUiTest.backFromSaleDetailKeepsSeasonSalesList` (fixture, emulator). Belum diulang terhadap backend nyata.
@@ -87,3 +87,19 @@ Perubahan harness (bukan kode produk): `FinanceBackendDeviceTest` fase `sale-sou
   - Tab Keuangan: penjualan lokal belum terkirim tidak masuk daftar penjualan musim (pilihan produk perlu dikonfirmasi); teks rumus/asumsi laporan dari server belum diperiksa penuh untuk kata rasio; nama parameter `stackHeights`; motif daun melewati angka per GH.
   - Unduh Excel: pratinjau nama berkas memakai tanggal perangkat; sheet muncul lagi di belakang picker setelah rotasi; recreate activity saat picker terbuka membuang berkas.
   - Sumber androidTest tidak dikompilasi oleh skrip build biasa (`assembleDebugAndroidTest` dijalankan manual).
+
+## Penerapan ke database aplikasi, 26 November 2026
+
+Atas permintaan pengguna, dengan backup lebih dulu. Koneksi efektif `backend/.env`: MySQL `127.0.0.1:3307`, database `inofarm_finance_local`.
+
+| Langkah | Hasil |
+|---|---|
+| Sebelum | `migrate:status --pending=1`: hanya `2026_11_25_000024_sale_lines_retail_consumer_prices` tertunda; 58 tabel, 28 migration; `sales` 1, `sale_items` 1, `customers` 1, `harvest_items` 4 baris |
+| Backup `scripts/backup-mysql.ps1` | `outputs/rollout-20261126/inofarm_finance_local-20261126-083908.sql`, 472.225 byte, 58 `CREATE TABLE`, penanda "Dump completed" ada |
+| SHA-256 backup | `ce3c96ad21c6d9834e91ac1a845224a8c11e90de895f42ef35434825e9245ac0` |
+| `php artisan migrate --force` | migration 24 DONE (285 ms); `migrate:status --pending=1` sesudahnya: tidak ada yang tertunda |
+| Sesudah | 60 tabel, 29 migration; `sales`/`sale_items`/`customers`/`harvest_items` jumlah baris tidak berubah; `sale_lines` 1, `consumer_prices` 0 |
+| Backfill | `sale_items` tanpa `sale_line_id`: 0; item yang menunjuk baris tak ada: 0; id baris = `SaleLineMigration::lineId(sale_item.id)`; kg 10, harga 35.000/kg, `exact_amount` 350.000 sama dengan item dan `sales.total_amount` |
+| CHECK `customer_values` | tipe `consumer`, `retail`, `partner` |
+
+Belum: membuka aplikasi terhadap database ini sesudah migration, mengisi harga perorangan, dan uji restore backup 26 November.
