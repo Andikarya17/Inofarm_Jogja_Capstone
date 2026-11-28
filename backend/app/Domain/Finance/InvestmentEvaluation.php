@@ -33,7 +33,7 @@ final class InvestmentEvaluation
             return ['formula' => $formula, 'unit' => $unit, 'status' => $n === null ? $missing : (($partial || ! $sourcesComplete) ? 'provisional' : 'available'),
                 'value' => $n === null ? null : RationalDecimal::round($n, $d, $scale), 'display_scale' => $scale, 'rounding' => 'HALF_UP',
                 'exact_fraction' => $n === null ? null : ['numerator' => $n, 'denominator' => $d], 'reasons' => array_values(array_unique($reasons)), 'inputs' => $inputs,
-                'assumptions' => ['I0 dihitung sekali pada tahun0; CF adalah kas neto tahunan yang dinyatakan pengguna, bukan otomatis laba musim.',
+                'assumptions' => ['Investasi awal dihitung sekali di awal (tahun ke-0); kas neto tiap tahun diisi pengelola, bukan diambil otomatis dari laba musim.',
                     'Tidak ada depresiasi/nilai sisa yang ditambahkan otomatis; periksa basis setiap input dan asumsi realisasi.'], 'calculation_detail' => $detail ?: ['method' => $n === null ? 'not_calculated' : 'exact-rational-half-up-v1']];
         };
         $npvReasons = [];
@@ -118,7 +118,7 @@ final class InvestmentEvaluation
                 $reasons[] = 'Arus kas setelah pemulihan pertama belum seluruhnya diketahui.';
             }
             if ($recovery === null) {
-                $reasons[] = 'Belum kembali dalam horizon yang diketahui; bukan nilai nol.';
+                $reasons[] = 'Modal belum kembali dalam jumlah tahun skenario.';
             }
 
             return $make($formula, 'year', 8, $rn, $rd, $reasons, ['convention' => $convention, 'recovery_year' => $recovery, 'negative_after_recovery' => $negativeAfter], $unknown, $recovery === null ? 'not_recovered' : 'unavailable');
@@ -151,9 +151,9 @@ final class InvestmentEvaluation
                 $scaled = bcmul($solved['rate_fraction'], bcpow('10', self::PRECISION, 0), 0);
                 $irr['value'] = RationalDecimal::round(bcmul($scaled, '100', 0), bcpow('10', self::PRECISION, 0), 8);
                 $irr['exact_fraction'] = null;
-                $irr['reasons'][] = 'IRR merupakan pendekatan numerik dalam batas interval solver, bukan pecahan eksak.';
+                $irr['reasons'][] = 'IRR dicari dengan perkiraan bertahap, jadi angkanya hasil pembulatan.';
                 if ($irr['value'] === '-100.00000000') {
-                    $irr['reasons'][] = 'Angka tampilan dibulatkan ke-100%; akar tetap di atas-100%. Lihat batas solver.';
+                    $irr['reasons'][] = 'IRR sangat rendah; angka tampilan dibatasi -100%.';
                 }
             }
         }

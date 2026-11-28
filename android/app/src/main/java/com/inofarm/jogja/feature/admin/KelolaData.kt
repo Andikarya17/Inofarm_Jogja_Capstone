@@ -23,11 +23,22 @@ internal fun assignmentCurrent(row: JSONObject, now: Instant): Boolean {
     return runCatching { Instant.parse(row.getString("effective_until")) > now }.getOrDefault(true)
 }
 
+/**
+ * Only worker accounts count as "pekerja" (QA 28 Nov 2026: old assignments of the pengelola made GH1 show "1 pekerja").
+ * Without the account list every current assignment counts, as before.
+ */
+internal fun workerAssignment(row: JSONObject, users: List<JSONObject>): Boolean {
+    val id = row.optString("user_id")
+    if (users.isEmpty() || id.isBlank()) return true
+    val user = users.find { it.optString("id") == id } ?: return true
+    return user.optString("role") == "worker"
+}
+
 internal fun buildKelolaOverview(
     greenhouses: List<JSONObject>, periods: Map<String, JSONObject>, assignments: List<JSONObject>,
     targets: List<JSONObject>, users: List<JSONObject>, now: Instant = Instant.now(),
 ): KelolaOverview {
-    val workerCount = assignments.filter { assignmentCurrent(it, now) }.groupingBy { it.optString("greenhouse_id") }.eachCount()
+    val workerCount = assignments.filter { assignmentCurrent(it, now) && workerAssignment(it, users) }.groupingBy { it.optString("greenhouse_id") }.eachCount()
     val targetGroups = targets.filter { it.optBoolean("active", true) }.map { it.optString("planting_group_id") }.toSet()
     val rows = greenhouses.map { row ->
         val id = row.getString("id")
@@ -75,8 +86,8 @@ internal fun masterRowDetail(resource: AdminResource, row: JSONObject): String? 
             else -> DimensionLabels[text("dimension")]
         }
         AdminResource.UNIT -> DimensionLabels[text("dimension")]
-        AdminResource.SEASON -> text("start_date")?.let { "Mulai $it" }
-        AdminResource.GROUP -> text("sowing_date")?.let { "Semai $it" }
+        AdminResource.SEASON -> text("start_date")?.let { "Mulai ${com.inofarm.jogja.core.design.FarmFormat.date(it)}" }
+        AdminResource.GROUP -> text("sowing_date")?.let { "Semai ${com.inofarm.jogja.core.design.FarmFormat.date(it)}" }
         AdminResource.SCHEDULE -> text("planned_at")?.let { com.inofarm.jogja.feature.timeLabel(it) }
         AdminResource.TARGET -> listOfNotNull(text("target_value")?.let { "Target $it" },
             text("minimum")?.let { min -> text("maximum")?.let { "$min sampai $it" } }).firstOrNull()?.let { "$it ${text("unit").orEmpty()}".trim() }

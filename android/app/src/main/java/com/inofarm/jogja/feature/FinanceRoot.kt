@@ -1,5 +1,7 @@
 package com.inofarm.jogja.feature
 
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.animateContentSize
@@ -890,6 +892,22 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
             harvestVm.clearMessage()
         }
     }
+    // Pengelola: once a form closes after Simpan, its result ("Tersimpan di server.", or why it is still queued)
+    // shows here; before, nothing confirmed the save (QA 28 Nov 2026).
+    val managerSaved = if (!manager) null else listOfNotNull(
+        activity.message.takeIf { activity.draft == null && activity.entry == null },
+        harvest.message.takeIf { harvest.draft == null },
+        sale.message.takeIf { sale.draft == null },
+        financial.message.takeIf { financial.draft == null },
+        asset.entry.message.takeIf { asset.entry.draft == null },
+    ).firstOrNull()
+    LaunchedEffect(managerSaved) {
+        if (managerSaved != null) {
+            // Show first, then clear: clearing first changes the key and cancels this effect before the snackbar shows.
+            snackbar.showSnackbar(managerSaved)
+            vm.clearMessage(); harvestVm.clearMessage(); saleVm.clearMessage(); financialVm.clearMessage(); asset.vm.clearMessage()
+        }
+    }
     Scaffold(
         contentWindowInsets=WindowInsets.safeDrawing,snackbarHost={ SnackbarHost(snackbar) },topBar={ Column(
             Modifier.fillMaxWidth()
@@ -1117,7 +1135,7 @@ internal fun LocalRecord.recorderId():String=body.optString("recorded_by").ifBla
                         loadSales = { n ->
                             // Sales from before migration 24 carry items only; the cached harvests name their varieties.
                             val stock = com.inofarm.jogja.feature.sales.saleStock(context)
-                            context.seasons.filter { it.optInt("sequence", -1) == n }.flatMap { season ->
+                            com.inofarm.jogja.feature.financehome.SeasonSequence.seasonsFor(context.seasons, n).flatMap { season ->
                                 runtime.saleHistory.records(session, com.inofarm.jogja.core.database.LocalHistoryFilter(seasonId = season.optString("id")), 5000)
                                     .mapNotNull { it.serverBody ?: it.body.takeUnless { body -> body.has("_local_form") } }.map(stock::withLines)
                             }
@@ -1352,7 +1370,7 @@ internal fun ExpiredSessionNotice() {
         val figure = ageFigure(age?.hst?.toString()?.toIntOrNull(), age?.hss?.toString()?.toIntOrNull())
         // Workers keep their draft; a manager form has only Batal and Simpan, and Simpan opens the summary.
         val cancel = if (worker || run != null) null else rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
-        FarmFormFrame(
+        FarmFormFrame(errors = state.errors,
             header = { if (cancel == null) FarmFormHeader(title, state.saved, "finance-draft-status", "finance-close", vm::saveAndClose, !state.busy)
                 else FarmFormHeader(title, state.saved, "finance-draft-status", "finance-close", cancel, !state.busy, showDraftStatus = false, closeLabel = "Batal", step = 1) },
             bar = {
@@ -1633,7 +1651,7 @@ internal fun ExpiredSessionNotice() {
             if(record.serverVersion==null || record.recorderId()==session.scope.accountId) session.name else "Nama pencatat belum tersedia"
         }
         Text("Pencatat: $recorder")
-        if(session.role==UserRole.MANAGER) Text(record.serverVersion?.let { "Revisi ke-$it di server" } ?: "Belum diterima server")
+        if(session.role==UserRole.MANAGER) Text(record.serverVersion?.let { if(it>1) "Sudah diubah ${it-1} kali" else "Belum pernah diubah" } ?: "Belum diterima server")
         val snapshot=record.body.optJSONObject("reference_snapshot")
         snapshot?.let { snap -> val age=snap.optJSONObject("age")
             // A typed plant age (K6) replaces the computed one; the computed age stays for older records only.
@@ -1715,7 +1733,10 @@ internal fun ExpiredSessionNotice() {
     val largeAmount = grouped && LocalDensity.current.fontScale > 1.3f
     val support = listOfNotNull(error ?: hint, if (largeAmount && value.isNotBlank()) "Tertulis: " + com.inofarm.jogja.core.design.IdrGrouping.group(value) else null)
         .joinToString("\n").ifEmpty { null }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val errorFocus = LocalFirstErrorFocus.current
+    val errorView = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    LaunchedEffect(error) { if (error != null && errorFocus?.claim() == true) errorView.bringIntoView() }
+    Column(Modifier.fillMaxWidth().bringIntoViewRequester(errorView), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (labelAbove) Text(label, Modifier.clearAndSetSemantics {}, style = MaterialTheme.typography.labelLarge,
             fontWeight = if (canopy) androidx.compose.ui.text.font.FontWeight.SemiBold else null)
         OutlinedTextField(

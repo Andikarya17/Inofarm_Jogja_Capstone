@@ -17,7 +17,8 @@ enum class AdminResource(val path:String,val kind:String,val label:String) {
     ASSIGNMENT("assignments","greenhouse_assignments","Pekerja greenhouse"), SCHEDULE("schedules","schedules","Jadwal"), TARGET("targets","targets","Target");
 
     fun fields(update:Boolean,action:String):List<AdminField> = buildList {
-        if(action in setOf("close","reopen")) { add(AdminField("reason","Catatan",true));return@buildList }
+        // Closing a season with unsold fruit needs the note (server rule), so the label says when it is required.
+        if(action in setOf("close","reopen")) { add(AdminField("reason",if(action=="close") "Catatan (wajib bila masih ada buah belum terjual)" else "Catatan",true));return@buildList }
         if((!update && this@AdminResource !in setOf(GREENHOUSE,GROUP,SCHEDULE,TARGET)) || this@AdminResource==USER)
             add(AdminField("greenhouse_id","Greenhouse",source="greenhouses"))
         when(this@AdminResource) {
@@ -77,7 +78,7 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
                 field.type=="boolean" -> {require(value in setOf("true","false"));value.toBooleanStrict()}
                 field.type=="integer" -> value.toInt().also {require(it>=0) {"${field.label} tidak boleh negatif."}}
                 field.type=="date" -> LocalDate.parse(value).toString()
-                field.type=="timestamp" -> OffsetDateTime.parse(value).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"))
+                field.type=="timestamp" -> wireTimestamp(field.label,value)
                 field.type=="decimal" -> value.replace(',','.').also {require(it.matches(Regex("[0-9]+(\\.[0-9]+)?"))) {"${field.label} harus angka tanpa pemisah ribuan."}}
                 else -> value.also {
                     require(field.choices.isEmpty() || it in field.choices) {"Pilihan ${field.label} tidak sah."}
@@ -92,8 +93,14 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
         }
         if(has("effective_from") && has("effective_until") && !isNull("effective_until")) require(OffsetDateTime.parse(getString("effective_until")).toInstant()>OffsetDateTime.parse(getString("effective_from")).toInstant()) {"Akhir berlaku harus sesudah awal."}
         if (resource == AdminResource.TARGET) {
-            val unit = mapOf("manual_ec" to "mS/cm", "manual_ppm" to "ppm", "manual_ph" to "pH").getValue(getString("parameter"))
+            val unit = TARGET_UNITS.getValue(getString("parameter"))
             require(getString("unit") == unit) { "Satuan parameter ini harus $unit." }
+            fun number(key: String) = if (isNull(key)) null else getString(key).toBigDecimalOrNull()
+            val low = number("minimum"); val high = number("maximum")
+            require(low == null || high == null || low <= high) { "Batas minimum tidak boleh melebihi batas maksimum." }
+            if (getString("parameter") == "manual_ph") listOf("target_value", "minimum", "maximum").forEach { key ->
+                number(key)?.let { require(it >= java.math.BigDecimal.ZERO && it <= java.math.BigDecimal(14)) { "Nilai pH harus 0 sampai 14." } }
+            }
         }
         if (resource == AdminResource.GROUP && fields.any { it.key == "target_fruit_count" }) {
             val count = remove("target_fruit_count")
@@ -112,6 +119,18 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
     }
     fun json()=JSONObject().put("resource",resource.name).put("id",id).put("version",version ?: JSONObject.NULL).put("action",action).put("values",JSONObject(values))
     companion object {
+        val TARGET_UNITS=mapOf("manual_ec" to "mS/cm", "manual_ppm" to "ppm", "manual_ph" to "pH")
+        private val WIRE_TIME=DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssxxx")
+        /**
+         * Times are shown and sent in WIB with an explicit +07:00 offset. The server answers in UTC with micro-
+         * seconds ("...00.000000Z") but only accepts Y-m-d\TH:i:sP, which rejects both "Z" and fractions; editing a
+         * schedule used to resend it as is and always fail (QA 28 Nov 2026).
+         */
+        fun wireTimestamp(label:String,value:String):String {
+            val parsed=runCatching { OffsetDateTime.parse(value.trim()) }.getOrNull()
+                ?: throw IllegalArgumentException("$label belum sesuai. Tulis seperti 2026-11-29T07:00:00+07:00.")
+            return parsed.atZoneSameInstant(com.inofarm.jogja.core.cultivation.ManualTime.WIB).withNano(0).format(WIRE_TIME)
+        }
         fun parse(json:JSONObject):AdminForm {
             val values=json.getJSONObject("values")
             return AdminForm(AdminResource.valueOf(json.getString("resource")),json.getString("id"),if(json.isNull("version")) null else json.getLong("version"),json.getString("action"),values.keys().asSequence().associateWith {values.getString(it)})
@@ -124,6 +143,7 @@ data class AdminForm(val resource:AdminResource,val id:String=UUID.randomUUID().
                     target.optString(key).takeUnless { target.isNull(key) }
                 }.orEmpty()
                 field.key=="reason" || row.isNull(field.key) -> ""
+                field.type=="timestamp" -> runCatching { wireTimestamp(field.label,row.getString(field.key)) }.getOrDefault(row.get(field.key).toString())
                 field.type=="boolean" -> when(row.get(field.key).toString()) {"1","true" -> "true";"0","false" -> "false";else -> error("Status aktif tidak dikenali.")}
                 else -> row.get(field.key).toString()
             }})

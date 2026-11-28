@@ -237,7 +237,13 @@ internal fun RecentRecords(
                 val type = record.text("activity_type")
                 val harvest = record.text("kind") == "harvest"
                 val measurement = type == ActivityType.MEASUREMENT.wire
-                val label = if (harvest) "Panen" else ActivityType.entries.find { it.wire == type }?.label ?: "Kegiatan"
+                // One Catat kegiatan entry arrives as one record with its sections (QA 28 Nov 2026: it showed as 4-5 rows).
+                val sections = record.optJSONArray("sections")?.let { array -> (0 until array.length()).map { array.optString(it) } }.orEmpty()
+                val label = when {
+                    harvest -> "Panen"
+                    sections.size > 1 -> "Isian kegiatan · " + sections.map { when (it) { "measurement" -> "ukur"; "nutrition" -> "nutrisi"; "spray" -> "semprot"; "stage" -> "stadia"; else -> "catatan" } }.distinct().joinToString(", ")
+                    else -> ActivityType.entries.find { it.wire == type }?.label ?: "Kegiatan"
+                }
                 val gh = record.getString("greenhouse_id")
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button) { onOpen(record) }

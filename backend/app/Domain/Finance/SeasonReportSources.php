@@ -84,7 +84,7 @@ final class SeasonReportSources
                     continue;
                 }
                 $sources[] = ['kind' => $kind, 'id' => $row->id, 'version' => $row->version, 'included' => $included,
-                    'role' => 'season_transaction', 'contribution' => $contribution, 'reason' => $included ? 'Termasuk agregasi biaya/penjualan tercatat.' : 'Dibatalkan atau bukan penjualan lunas; dikeluarkan dari agregasi.', 'data' => $body];
+                    'role' => 'season_transaction', 'contribution' => $contribution, 'reason' => $included ? 'Ikut dihitung dalam biaya/penjualan.' : 'Dibatalkan atau bukan penjualan lunas; dikeluarkan dari agregasi.', 'data' => $body];
             }
         }
         $sheet = $this->standardCosts($actor, $season, $sources, $totals, $counts);

@@ -45,7 +45,7 @@ import java.math.BigDecimal
     run {
         // Workers keep their draft; a manager form has only Batal and Simpan, and Simpan opens the summary.
         val cancel = if (worker) null else rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
-        FarmFormFrame(
+        FarmFormFrame(errors = state.errors,
             header = { if (cancel == null) FarmFormHeader(title, state.saved, "harvest-draft-status", "harvest-close", vm::saveAndClose, !state.busy)
                 else FarmFormHeader(title, state.saved, "harvest-draft-status", "harvest-close", cancel, !state.busy, showDraftStatus = false, closeLabel = "Batal", step = 1) },
             bar = { if (cancel == null) FarmFormBar("harvest-save-draft", vm::saveAndClose, "harvest-review", "Periksa", vm::review, enabled = !state.busy, busy = state.busy,
@@ -258,17 +258,15 @@ import java.math.BigDecimal
             FarmFact(gradeName(line, context), "$count · $weight · ${line.quality?.label ?: "Kondisi belum diketahui"}", prominent = true)
             if (session.role == UserRole.MANAGER) {
                 val balance=context.harvestBalances.find {it.optString("id")==line.id && it.optString("harvest_id")==record.id}
-                Text(if(balance!=null && record.serverVersion!=null && balance.optLong("harvest_version")==record.serverVersion) "Saldo terakhir diterima: ${balance.optString("available_weight_kg")} kg tersedia · ${balance.optString("sold_weight_kg")} kg terpakai · versi saldo ${balance.optLong("version")}" else "Saldo bobot tersedia belum dapat dibandingkan dengan versi panen ini.",style=MaterialTheme.typography.bodySmall)
+                Text(if(balance!=null && record.serverVersion!=null && balance.optLong("harvest_version")==record.serverVersion) "Belum terjual ${com.inofarm.jogja.core.design.FarmFormat.kg(balance.optString("available_weight_kg"))} · sudah terjual ${com.inofarm.jogja.core.design.FarmFormat.kg(balance.optString("sold_weight_kg"))}" else "Sisa stok panen ini belum terbaca. Tarik ke bawah untuk memperbarui.",style=MaterialTheme.typography.bodySmall)
             }
         }
         if(draft.notes.isNotBlank()) Text(draft.notes)
     } else Notice("Isian panen belum dapat dibaca lengkap. Catatan tetap tersimpan.",true)
     val name=record.body.optString("recorded_by_name").ifBlank {record.serverBody?.optString("recorded_by_name").orEmpty()}.ifBlank {if(record.serverVersion==null || record.recorderId()==session.scope.accountId) session.name else "Nama pencatat belum tersedia"}
-    Text("Pencatat: $name");if(session.role==UserRole.MANAGER) Text(record.serverVersion?.let { "Revisi ke-$it di server" } ?: "Belum diterima server")
-    record.body.optJSONObject("reference_snapshot")?.optJSONObject("age")?.let {age ->
-        Text("HSS ${if(age.isNull("hss")) "belum tersedia" else age.optString("hss")} · HST ${if(age.isNull("hst")) "belum berlaku" else age.optString("hst")}")
-        age.optJSONArray("reasons")?.let {reasons -> repeat(reasons.length()) {Text(reasons.getString(it),style=MaterialTheme.typography.bodySmall)}}
-    }
+    Text("Pencatat: $name");if(session.role==UserRole.MANAGER) Text(record.serverVersion?.let { if(it>1) "Sudah diubah ${it-1} kali" else "Belum pernah diubah" } ?: "Belum diterima server")
+    // No age computed from the sowing date here: Inofarm types the age (HSS/HST) with each activity (decision 20 Nov
+    // 2026), and the computed one contradicted it ("HSS 6" next to "HSS 27", QA 28 Nov 2026).
 }
 
 /** "20 Nov 2026": a harvest is recorded by date only (Inofarm, 20 Nov 2026). */

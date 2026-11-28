@@ -132,7 +132,7 @@ private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",n
         Text("Biaya dan alokasi ${coverageLabel(coverage.getString("costs"))}. Penjualan ${coverageLabel(coverage.getString("sales"))}.")
         if (accepted) {
             Text("Diterbitkan ${timeLabel(data.getString("generated_at"))}", style = MaterialTheme.typography.bodySmall)
-            Text("Pengelola ${data.getString("recorded_by_name")}", style = MaterialTheme.typography.bodySmall)
+            Text("Oleh ${data.getString("recorded_by_name")}", style = MaterialTheme.typography.bodySmall)
         }
         FarmFact("Catatan", data.getString("review_note"))
     }
@@ -186,7 +186,7 @@ private fun LazyListScope.seasonIndicators(metrics: JSONObject) {
             if(data.has("total_weight_kg")) Text("Terjual: ${reportValue(data.getString("total_weight_kg"),"kg",6)}")
             if(data.has("paid_at")) Text("Pembayaran: ${timeLabel(data.getString("paid_at"))}")
             if(data.has("cost_class")) Text("Kelompok biaya: ${if(data.getString("cost_class")=="FC") "biaya tetap" else "biaya variabel"}")
-            if(data.has("usage_year")) Text("Tahun pemakaian ke-${data.getInt("usage_year")}: ${data.getString("period_start")} hingga ${data.getString("period_end")} (tanggal akhir tidak termasuk)")
+            if(data.has("usage_year")) Text("Tahun pemakaian ke-${data.getInt("usage_year")}: ${com.inofarm.jogja.core.design.FarmFormat.period(data.getString("period_start"),data.getString("period_end"))}")
             for(key in listOf("notes","allocation_basis","usage_basis")) data.optString(key).takeUnless {it.isBlank() || it=="null"}?.let {Text(it)}
             if(data.has("life_years")) Text("Umur manfaat: ${data.getInt("life_years")} tahun; mulai digunakan ${data.getString("in_service_date")}")
             if(data.has("year_budget")) Text("Anggaran penyusutan tahun pemakaian: ${moneyLabel(data.getString("year_budget"))}")

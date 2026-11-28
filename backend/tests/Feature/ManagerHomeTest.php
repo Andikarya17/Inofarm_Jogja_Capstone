@@ -165,9 +165,16 @@ final class ManagerHomeTest extends FinanceTestCase
         ]))->assertCreated();
         $asset = $this->operation('expense', [...$payment, 'amount' => '90.10', 'payment_kind' => 'asset_acquisition']);
         $this->postJson('/api/v2/expenses', $asset)->assertCreated();
+        // A payment cannot be dated after today (28 Nov 2026), so the one just past the month is written on that day.
+        $this->postJson('/api/v2/expenses', $this->operation('expense', [...$payment, 'paid_at' => '2026-12-01T00:00:00+07:00']))->assertUnprocessable();
+        $manager = \App\Models\User::where('role', 'manager')->orderByDesc('id')->firstOrFail();
+        $this->travelTo(CarbonImmutable::parse('2026-12-01T08:00:00+07:00'));
+        $this->asUser($manager);
         foreach (['2026-10-31T23:59:59+07:00', '2026-12-01T00:00:00+07:00'] as $outside) {
             $this->postJson('/api/v2/expenses', $this->operation('expense', [...$payment, 'paid_at' => $outside]))->assertCreated();
         }
+        $this->travelTo(CarbonImmutable::parse('2026-11-08T08:00:00+07:00'));
+        $this->asUser($manager);
         $grade = $this->createMaster('grades', ['greenhouse_id' => $gh, 'name' => 'Grade sintetis']);
         $item = (string) Str::uuid();
         $harvest = $this->operation('harvest', ['planting_group_id' => $group, 'occurred_at' => '2026-11-07T12:00:00+07:00',

@@ -106,7 +106,7 @@ internal fun EntryForm(state: ActivityUiState, context: CultivationUiState, vm: 
     val greenhouse = context.greenhouses.find { it.optString("id") == entry.greenhouseId }?.optString("name") ?: "Greenhouse terakhir tersimpan"
     val varieties = context.entryVarieties(entry)
     val cancel = if (worker || run != null) null else rememberEntryCancel(state.busy, vm::entryChanged, vm::cancelEntry)
-    FarmFormFrame(
+    FarmFormFrame(errors = state.errors,
         header = {
             if (cancel == null) FarmFormHeader(if (run != null) "Cek nutrisi semua greenhouse" else "Catat kegiatan", state.saved, "finance-draft-status",
                 "finance-close", vm::saveEntryAndClose, !state.busy)

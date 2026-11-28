@@ -125,10 +125,16 @@ class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
         if(queue || close) mutable.value=state.value.copy(busy=true)
         try {
             val saved=repository.saveEntry(session,ticket,entry,queue)
+            // Pengelola waits for the server. A refused section keeps the entry open with the reason; the sections
+            // already sent stay saved, and the refused one can be fixed from Riwayat.
+            val delivery=if(queue) com.inofarm.jogja.core.sync.ManagerDelivery.deliver(session,saved.sections().map { it.id }) else null
+            if(delivery is com.inofarm.jogja.core.sync.ManagerDelivery.Result.Rejected && vault.matches(ticket,session.scope) && state.value.entry?.id==entry.id) {
+                mutable.value=state.value.copy(reviewing=false,message=delivery.message+" Bagian lain sudah tersimpan; perbaiki bagian ini dari Riwayat.");reload();return
+            }
             if(vault.matches(ticket,session.scope) && state.value.entry?.id==entry.id) {
                 mutable.value=state.value.copy(entry=if(close) null else state.value.entry?.let { if(it==entry) saved else it },
                     saved=state.value.entry==entry,reviewing=if(close) false else state.value.reviewing,
-                    message=if(queue) "Tersimpan. Terkirim otomatis saat ada internet." else if(close) "Draf tersimpan di perangkat." else state.value.message)
+                    message=if(queue) (delivery?.message ?: com.inofarm.jogja.core.sync.ManagerDelivery.QUEUED) else if(close) "Draf tersimpan di perangkat." else state.value.message)
                 reload()
             }
         } catch(cancelled:CancellationException) { throw cancelled }
@@ -141,9 +147,14 @@ class ActivityViewModel(private val repository:ActivityRepository):ViewModel() {
         if(queue || close) mutable.value=state.value.copy(busy=true)
         try {
             repository.save(session,ticket,draft,queue)
+            // Pengelola waits for the server: a refusal reopens the form with the reason instead of joining the queue.
+            val delivery=if(queue) com.inofarm.jogja.core.sync.ManagerDelivery.deliver(session,listOf(draft.id)) else null
+            if(delivery is com.inofarm.jogja.core.sync.ManagerDelivery.Result.Rejected && delivery.replaceable && delivery.record!=null && vault.matches(ticket,session.scope) && state.value.draft?.id==draft.id) {
+                open(delivery.record,true);mutable.value=state.value.copy(message=delivery.message);return
+            }
             if(vault.matches(ticket,session.scope) && state.value.draft?.id==draft.id) {
                 mutable.value=state.value.copy(draft=if(close) null else state.value.draft,saved=state.value.draft==draft,reviewing=if(close) false else state.value.reviewing,
-                    message=if(queue) "Tersimpan. Terkirim otomatis saat ada internet." else if(close) "Draf tersimpan di perangkat." else state.value.message)
+                    message=if(queue) (delivery?.message ?: com.inofarm.jogja.core.sync.ManagerDelivery.QUEUED) else if(close) "Draf tersimpan di perangkat." else state.value.message)
                 reload()
             }
         } catch(cancelled:CancellationException) { throw cancelled }

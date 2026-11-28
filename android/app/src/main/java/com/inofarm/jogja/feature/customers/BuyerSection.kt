@@ -26,7 +26,7 @@ import java.util.UUID
  * searches the buyer list of that type (imported from Excel or added before) and picks one, or fills a new buyer that
  * joins the list when the sale is saved. A Perorangan buyer may stay unnamed.
  */
-@Composable internal fun BuyerSection(draft: SaleDraft, error: String?, search: (suspend (String, String) -> List<Customer>)?, edit: ((SaleDraft) -> SaleDraft) -> Unit) {
+@Composable internal fun BuyerSection(draft: SaleDraft, error: String?, whatsappError: String? = null, search: (suspend (String, String) -> List<Customer>)?, edit: ((SaleDraft) -> SaleDraft) -> Unit) {
     if (!draft.hasBuyer()) {
         // A sale saved before buyer types existed keeps its typed name; it stays editable until a type is chosen.
         if (draft.customer.isNotBlank() || error != null) com.inofarm.jogja.feature.FarmFormSection("Pembeli") {
@@ -53,17 +53,17 @@ import java.util.UUID
         return
     }
     com.inofarm.jogja.feature.FarmFormSection(if (draft.buyerType == "consumer") "Pembeli (boleh kosong)" else "Pembeli") {
-        BuyerPicker(draft, error, search, edit)
+        BuyerPicker(draft, error, whatsappError, search, edit)
     }
 }
 
 /** "Pembeli retail", "Mitra (tengkulak)": the line above the buyer's name. */
 internal fun buyerRole(type: String) = when (type) { "partner" -> "Mitra (tengkulak)"; "retail" -> "Pembeli retail"; else -> "Pembeli perorangan" }
 
-@Composable private fun BuyerPicker(draft: SaleDraft, error: String?, search: (suspend (String, String) -> List<Customer>)?, edit: ((SaleDraft) -> SaleDraft) -> Unit) {
+@Composable private fun BuyerPicker(draft: SaleDraft, error: String?, whatsappError: String?, search: (suspend (String, String) -> List<Customer>)?, edit: ((SaleDraft) -> SaleDraft) -> Unit) {
     if (draft.buyerId.isNotBlank()) {
         FinanceField("Nama pembeli baru", draft.customer, { value -> edit { it.copy(customer = value) } }, "sale-customer", error)
-        FinanceField("Nomor WhatsApp (opsional)", draft.buyerWhatsapp, { value -> edit { it.copy(buyerWhatsapp = value) } }, "sale-buyer-whatsapp", null, KeyboardType.Phone,
+        FinanceField("Nomor WhatsApp (opsional)", draft.buyerWhatsapp, { value -> edit { it.copy(buyerWhatsapp = value) } }, "sale-buyer-whatsapp", whatsappError, KeyboardType.Phone,
             hint = "Hanya terlihat oleh pengelola. Pembeli ini masuk daftar setelah penjualan disimpan.")
         TextButton({ edit { it.copy(buyerId = "", customer = "", buyerWhatsapp = "") } }, Modifier.heightIn(min = FarmSpace.Touch)) { Text("Cari di pembeli terdaftar") }
         return

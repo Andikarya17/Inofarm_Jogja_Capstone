@@ -61,6 +61,7 @@ data class HarvestDraft(val id:String=UUID.randomUUID().toString(),val greenhous
     private fun single(reasonRequired:Boolean):Map<String,String> = buildMap {
         if(runCatching {WireContract.uuid(groupId)}.isFailure) put("group","Pilih kelompok tanam.")
         if(runCatching {occurredAt()}.isFailure) put("occurred_at","Pilih tanggal panen dari kalender.")
+        else if(com.inofarm.jogja.core.cultivation.ManualTime.afterToday(occurredAt())) put("occurred_at","Tanggal panen tidak boleh sesudah hari ini.")
         val sent=sentItems
         if(sent.isEmpty() || sent.size>30) put("items",if(items.any { it.legacy }) "Isi 1–30 rincian grade panen." else "Isi bobot buah layak atau cacat.")
         val graded=sent.filter { it.legacy }; val rated=sent.filterNot { it.legacy }
@@ -106,7 +107,7 @@ data class HarvestDraft(val id:String=UUID.randomUUID().toString(),val greenhous
             val local=body.optJSONObject("_local_form");val raw=local ?: body
             val time=if(local==null) ManualTime.decode(body.getString("occurred_at")) else local.getString("date") to local.getString("time")
             val items=raw.optJSONArray("items") ?: JSONArray()
-            val lines=(0 until items.length()).map {items.getJSONObject(it).let {row -> HarvestLine(row.getString("id"),if(row.isNull("grade_id")) "" else row.optString("grade_id"),if(row.isNull("fruit_count")) "" else row.optString("fruit_count"),row.optString("weight_kg"),row.optString("grade_name"),
+            val lines=(0 until items.length()).map {items.getJSONObject(it).let {row -> HarvestLine(row.getString("id"),if(row.isNull("grade_id")) "" else row.optString("grade_id"),if(row.isNull("fruit_count")) "" else row.optString("fruit_count"),com.inofarm.jogja.core.design.FarmFormat.input(row.optString("weight_kg")),row.optString("grade_name"),
                 HarvestQuality.entries.firstOrNull { it.wire == row.optString("quality") })}}
             val locked=local?.optJSONArray("locked_items")?.let {array -> (0 until array.length()).map {array.getString(it)}.toSet()} ?: if(base==null) emptySet() else lines.map {it.id}.toSet()
             return HarvestDraft(id,gh,raw.getString(if(local!=null) "group_id" else "planting_group_id"),time.first,time.second,lines,raw.optString("notes"),raw.optString("reason").takeUnless {raw.isNull("reason")}.orEmpty(),

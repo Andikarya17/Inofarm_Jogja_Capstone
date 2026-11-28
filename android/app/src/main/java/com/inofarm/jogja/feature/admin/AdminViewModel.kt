@@ -242,7 +242,9 @@ class AdminViewModel(private val repository:AdminRepository,private val session:
         if(state.value.pending || state.value.busy) return
         val form=state.value.form ?: return
         val values=if(key=="greenhouse_id" && form.resource==AdminResource.ASSIGNMENT) form.values-"user_id" else form.values
-        mutable.value=state.value.copy(form=form.copy(values=values+(key to value)),message=null,dirty=true)
+        // A target's unit follows its parameter; picking it separately only let EC be saved as ppm and refused later.
+        val unit=if(form.resource==AdminResource.TARGET && key=="parameter") AdminForm.TARGET_UNITS[value]?.let { mapOf("unit" to it) }.orEmpty() else emptyMap()
+        mutable.value=state.value.copy(form=form.copy(values=values+(key to value)+unit),message=null,dirty=true)
         autosave?.cancel();val snapshot=snapshot()
         autosave=viewModelScope.launch {delay(250);try {persist(snapshot)} catch(error:Exception) {mutable.value=state.value.copy(message=userMessage(error))}}
         if(key=="greenhouse_id") loadOptions()

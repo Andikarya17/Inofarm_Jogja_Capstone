@@ -48,7 +48,9 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
             mutable.value=state.value.copy(loading=true)
             try {
                 val rows=repository.records(session,state.value.filter,count+1,state.value.mine)
-                val checks=if(session.role==UserRole.WORKER) repository.checks(session) else emptyMap()
+                // Both roles read the cached decisions: the row label for a worker's record is the same on every screen
+                // (QA 28 Nov 2026: pengelola saw "Belum dicek" here for records Cek catatan showed as "Sesuai").
+                val checks=repository.checks(session)
                 val detail=selectedId?.let {repository.detail(session,it)}
                 val selected=detail?.record;val pending=detail?.pending ?: emptyList();val archives=detail?.archives ?: emptyList()
                 if(vault.matches(ticket,session.scope)) {
@@ -109,21 +111,39 @@ class HistoryViewModel(private val repository:HistoryRepository):ViewModel() {
             finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(auditLoading=false)}
         }
     }
-    private fun mutate(done:String="Tersimpan. Terkirim otomatis saat ada internet.",action:suspend (FinanceSession,Long)->Unit) {
+    /** [deliver]: the record the action queued; pengelola then waits for the server's answer before the message. */
+    private fun mutate(done:String="Tersimpan. Terkirim otomatis saat ada internet.",deliver:String?=null,action:suspend (FinanceSession,Long)->Unit) {
         if(state.value.busy) return
         val session=vault.current ?: return;val ticket=vault.generation
         viewModelScope.launch {
             mutable.value=state.value.copy(busy=true,message=null)
             try {
                 action(session,ticket)
-                if(vault.matches(ticket,session.scope)) {mutable.value=state.value.copy(comparison=null,message=done,changed=state.value.changed+1);reload()}
+                val message=deliver?.let { com.inofarm.jogja.core.sync.ManagerDelivery.deliver(session,listOf(it),done).message } ?: done
+                if(vault.matches(ticket,session.scope)) {mutable.value=state.value.copy(comparison=null,message=message,changed=state.value.changed+1);reload()}
             } catch(cancelled:CancellationException) {throw cancelled}
             catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error))}
             finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(busy=false)}
         }
     }
     fun resolve(keepLocal:Boolean,reason:String,policy:String) {val reviewed=state.value.comparison ?: return;mutate {session,ticket -> repository.resolve(session,ticket,reviewed,keepLocal,reason,policy)}}
-    fun cancel(reviewed:LocalRecord,reason:String)=mutate {session,ticket -> repository.cancel(session,ticket,reviewed,reason)}
+    /** "Batalkan seluruh isian": every active section of one entry, sent together; pengelola waits for the answer. */
+    fun cancelBatch(records:List<LocalRecord>,reason:String) {
+        val eligible=records.filter {it.syncState==com.inofarm.jogja.core.contracts.SyncState.ACCEPTED && it.body.optString("record_state")!="cancelled"}
+        if(eligible.isEmpty() || state.value.busy) return
+        val session=vault.current ?: return;val ticket=vault.generation
+        viewModelScope.launch {
+            mutable.value=state.value.copy(busy=true,message=null)
+            try {
+                eligible.forEach {repository.cancel(session,ticket,it,reason)}
+                val message=com.inofarm.jogja.core.sync.ManagerDelivery.deliver(session,eligible.map {it.id},"${eligible.size} bagian isian dibatalkan.").message
+                if(vault.matches(ticket,session.scope)) {mutable.value=state.value.copy(message=message,changed=state.value.changed+1);reload()}
+            } catch(cancelled:CancellationException) {throw cancelled}
+            catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error))}
+            finally {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(busy=false)}
+        }
+    }
+    fun cancel(reviewed:LocalRecord,reason:String)=mutate("Catatan dibatalkan.",reviewed.id) {session,ticket -> repository.cancel(session,ticket,reviewed,reason)}
     fun season(reviewed:JSONObject,reason:String)=mutate {session,ticket -> repository.season(session,ticket,reviewed,reason)}
     fun retryClosed() {val reviewed=state.value.selected ?: return;mutate {session,ticket -> repository.retryClosed(session,ticket,reviewed)}}
     fun discardRejected() {val reviewed=state.value.selected ?: return;mutate("Isian yang ditolak sudah dibuang.") {session,ticket -> repository.discardRejected(session,ticket,reviewed)}}

@@ -71,9 +71,9 @@ final class InvestmentReportService
         return ['greenhouse_id' => $scenario['greenhouse_id'], 'season_id' => null, 'scenario_id' => $scenario['id'], 'scenario_version' => $scenario['version'], 'scope' => $collected['scope'], 'formula_version' => InvestmentEvaluation::VERSION,
             'currency' => 'IDR', 'timezone' => 'Asia/Jakarta', 'report_state' => 'provisional', 'review_note' => $input['review_note'], 'source_count' => count($collected['sources']), 'sources_hash' => $collected['sources_hash'], 'source_summary' => $counts,
             'metrics' => InvestmentEvaluation::calculate($scenario['initial_outlay'], array_column($scenario['cash_flows'], 'amount'), $scenario['discount_rate'], $scenario['payback_convention'], $scenario['source_provenance'] === 'declared_complete'),
-            'assumptions' => ['Input aktual/proyeksi adalah pernyataan pengelola dengan basis tercatat; periksa kesesuaiannya terhadap bukti bisnis.',
-                'Tahun dihitung relatif tanggal acuan; arus kas pada akhir periode tahunan, investasi awal sekali pada tahun0.',
-                'Kas neto tidak dihitung otomatis dari laba musim atau penyusutan. Realisasi nilai sisa harus dinyatakan dalam CF akhir jika digunakan.',
+            'assumptions' => ['Angka aktual dan proyeksi adalah pernyataan pengelola; cocokkan dengan bukti usaha.',
+                'Setiap tahun dihitung dari tanggal dasar; kas dianggap diterima di akhir tahun, investasi awal di awal.',
+                'Kas neto tidak diambil otomatis dari laba musim atau penyusutan. Bila ada hasil jual sisa aset, masukkan ke kas tahun terakhir.',
                 'Indikator merupakan analisis input skenario, bukan rekomendasi kelayakan otomatis; konvensi waktu pengembalian dipilih eksplisit.']];
     }
 

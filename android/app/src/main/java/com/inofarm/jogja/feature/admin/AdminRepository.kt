@@ -100,7 +100,7 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
         // The eleven reads do not depend on each other; running them together keeps the page from waiting on each in turn.
         fun read(source: String) = async { options(session, ticket, source, greenhouse) }
         val reads = listOf("seasons", "planting-groups", "varieties", "materials", "units", "grades", "expense-categories",
-            "schedules", "targets", "assignments").associateWith(::read)
+            "schedules", "targets", "assignments", "users").associateWith(::read)
         val period = async { greenhousePeriod(session, ticket, greenhouse) }
         val seasons = reads.getValue("seasons").await()
         val open = seasons.filter { it.optString("status") == "open" }.map { it.getString("id") }.toSet()
@@ -120,7 +120,7 @@ class AdminRepository(context:Context,val vault:FinanceSessionVault,private val 
             units.filter { it.optBoolean("active", true) }.map { it.optString("name") },
             grades.filter { it.optBoolean("active", true) }.map { it.optString("name") },
             categories.count { it.optBoolean("active", true) },
-            assignments.count { assignmentCurrent(it, now) }, period.await())
+            assignments.count { assignmentCurrent(it, now) && workerAssignment(it, reads.getValue("users").await()) }, period.await())
     }
     suspend fun greenhousePeriod(session: FinanceSession, ticket: Long, greenhouse: String): JSONObject = withContext(Dispatchers.IO) {
         current(session, ticket)

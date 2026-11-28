@@ -27371,6 +27371,30 @@
                     "received_at": {
                       "type": "string",
                       "format": "date-time"
+                    },
+                    "entry_batch_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sections": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
                     }
                   },
                   "required": [

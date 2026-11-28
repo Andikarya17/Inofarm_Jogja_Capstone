@@ -18,7 +18,16 @@ final class SeasonWorkbook
         if ($sheets === []) {
             throw new RuntimeException('Workbook needs at least one sheet.');
         }
-        $path = tempnam(sys_get_temp_dir(), 'xlsx');
+        // Not sys_get_temp_dir(): `php artisan serve` on Windows does not pass TEMP/TMP to its workers, so that
+        // directory is unwritable there and tempnam()'s fallback notice became a 500 (QA 28 Nov 2026).
+        $dir = storage_path('app/tmp');
+        if (! is_dir($dir) && ! @mkdir($dir, 0700, true) && ! is_dir($dir)) {
+            throw new RuntimeException('Cannot create workbook directory.');
+        }
+        $path = tempnam($dir, 'xlsx');
+        if ($path === false) {
+            throw new RuntimeException('Cannot create workbook.');
+        }
         try {
             $zip = new ZipArchive;
             if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {

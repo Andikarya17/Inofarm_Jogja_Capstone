@@ -418,7 +418,7 @@ private fun PeriodHero(id: String, period: JSONObject?, active: Boolean, enabled
                     !active || stateName == "inactive" -> Text("Greenhouse nonaktif", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     stateName == "ready" -> {
                         Text(text("variety") ?: text("group_name") ?: "Kelompok tanam", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        Text(listOfNotNull(text("group_name"), text("season_name"), text("sowing_date")?.let { "semai $it" }).joinToString(" · "),
+                        Text(listOfNotNull(text("group_name"), text("season_name"), text("sowing_date")?.let { "semai ${com.inofarm.jogja.core.design.FarmFormat.date(it)}" }).joinToString(" · "),
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     stateName == "needs_review" -> Text("Perlu ditetapkan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)

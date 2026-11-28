@@ -40,9 +40,9 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
 @Composable fun AssetForm(state:AssetEntryState,context:CultivationUiState,vm:AssetEntryViewModel) {
     val draft=state.draft ?: return
     val cancel = rememberEntryCancel(state.busy, vm::hasChanges, vm::cancel)
-    FarmFormFrame(header = { FarmFormHeader(if(draft.kind==AssetKind.ASSET) "Catat aset" else "Alokasikan penyusutan", state.saved, "asset-draft-status", "asset-close", cancel, !state.busy,
+    FarmFormFrame(errors = state.errors, header = { FarmFormHeader(if(draft.kind==AssetKind.ASSET) "Catat aset" else "Alokasikan penyusutan", state.saved, "asset-draft-status", "asset-close", cancel, !state.busy,
         showDraftStatus = false, closeLabel = "Batal", step = 1) },
-        bar = { FarmFormBar("asset-cancel", cancel, "asset-review", "Simpan", vm::review, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }) {
+        bar = { FarmFormBar("asset-cancel", cancel, "asset-review", "Simpan", { vm.review(com.inofarm.jogja.feature.expenses.FinanceLimits.asset(draft, context)) }, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }) {
         if(draft.kind==AssetKind.ASSET) {
             FarmFormSection("Identitas dan nilai aset") {
                 FinanceField("Nama aset",draft.name,{value -> vm.edit {it.copy(name=value)}},"asset-name",state.errors["name"])
@@ -59,7 +59,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
             FinanceDateField("Mulai dipakai",draft.inServiceDate,{value -> vm.edit {it.copy(inServiceDate=value)}},"asset-start",state.errors["depreciation"])
             runCatching {DepreciationAmounts.year(AssetDraft.money(draft.cost).toPlainString(),AssetDraft.money(draft.residual).toPlainString(),AssetDraft.year(draft.lifeYears),1,AssetDraft.date(draft.inServiceDate))}.getOrNull()?.let {
                 FarmFact("Perkiraan anggaran tahun pertama", moneyLabel(it.amount.toPlainString()))
-                Text("${it.start} hingga ${it.end}, akhir tidak termasuk.", style = MaterialTheme.typography.bodySmall)
+                Text(com.inofarm.jogja.core.design.FarmFormat.period(it.start.toString(), it.end.toString()), style = MaterialTheme.typography.bodySmall)
             }
             }
         } else {
@@ -79,7 +79,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
                 FinanceDateField("Akhir periode (tanggal ini tidak ikut)",draft.periodEnd,{value -> vm.edit {it.copy(periodEnd=value)}},"asset-period-end",state.errors["period"])
             }
             if(draft.usageReference.isBlank()) OutlinedButton(onClick={vm.edit {it.copy(usageReference=UUID.randomUUID().toString())}},modifier=Modifier.testTag("asset-new-usage")) {Text("Buat referensi pemakaian baru")}
-            else Text("Referensi pemakaian: ${draft.usageReference.take(8)}. Pastikan pemakaian ini belum dicatat sebelumnya.")
+            else Text("Pastikan pemakaian aset untuk periode ini belum pernah dicatat.")
             }
             FarmFormSection("Nominal alokasi") {
             FinanceField("Nominal alokasi (IDR)",draft.amount,{value -> vm.edit {it.copy(amount=value)}},"asset-amount",state.errors["amount"],KeyboardType.Decimal,
@@ -117,7 +117,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
         FarmFact("Harga perolehan",nominal(draft.cost),Modifier.testTag("asset-cost-fact"),prominent=true)
         FarmFact("Nilai sisa",nominal(draft.residual))
         FarmFact("Umur pemakaian",draft.lifeYears.takeIf { it.isNotBlank() }?.let { "$it tahun" } ?: "Belum diisi")
-        FarmFact("Mulai dipakai",draft.inServiceDate.ifBlank { "Belum diisi" })
+        FarmFact("Mulai dipakai",com.inofarm.jogja.core.design.FarmFormat.date(draft.inServiceDate))
         val source=context.expenses.find { it.optString("id")==draft.expenseId && it.optString("greenhouse_id")==draft.greenhouseId }
         val payment=source?.let { listOf(nominal(it.optString("amount")), it.optString("notes")).filter(String::isNotBlank).joinToString(" · ") }
         FarmFact("Pembayaran sumber",payment ?: draft.expenseId.takeIf { it.isNotBlank() } ?: "Belum tersedia")
@@ -128,8 +128,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
         FarmFact("Aset sumber",asset?.optString("name") ?: draft.assetId.ifBlank { "Belum tersedia" })
         FarmFact("Musim tujuan",season?.optString("name") ?: draft.seasonId.ifBlank { "Belum tersedia" })
         FarmFact("Tahun pemakaian ke",draft.usageYear.ifBlank { "Belum diisi" })
-        FarmFact("Periode pemakaian", "${draft.periodStart.ifBlank { "Awal belum diisi" }} hingga ${draft.periodEnd.ifBlank { "akhir belum diisi" }} (akhir tidak termasuk)")
-        FarmFact("Referensi pemakaian",draft.usageReference.ifBlank { "Belum tersedia" })
+        FarmFact("Periode pemakaian", com.inofarm.jogja.core.design.FarmFormat.period(draft.periodStart, draft.periodEnd))
     }
     FarmFact("Dasar pemakaian / pembagian",draft.basis.ifBlank { "Belum diisi" })
     if(draft.reason.isNotBlank()) FarmFact("Alasan koreksi",draft.reason)
@@ -138,7 +137,7 @@ data class AssetWorkspace(val entry:AssetEntryState,val vm:AssetEntryViewModel,v
 @Composable fun AssetFacts(record:LocalRecord,context:CultivationUiState) {
     val kind=AssetKind.entries.single {it.wire==record.kind}
     AssetDraftFacts(AssetDraft.from(record.id,record.greenhouseId,kind,record.body,record.baseVersion ?: record.serverVersion),context)
-    record.body.optString("formula_version").takeIf {it.isNotBlank()}?.let {Text("Metode: penyusutan garis lurus, anggaran ulang tahun pemakaian; pembulatan kumulatif.")}
+    record.body.optString("formula_version").takeIf {it.isNotBlank()}?.let {Text("Penyusutan dihitung rata setiap tahun pemakaian.")}
     if(record.body.has("year_budget")) Text("Anggaran tahun saat diterima: ${moneyLabel(record.body.getString("year_budget"))}")
     if(record.body.optString("record_state")=="cancelled") Notice("Dibatalkan; tidak dihitung sebagai alokasi aktif.",true)
 }

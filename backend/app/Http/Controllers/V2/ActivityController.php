@@ -117,7 +117,7 @@ final class ActivityController extends Controller
             'schedule_id' => ['sometimes', 'nullable', OperationInput::UUID], 'entry_batch_id' => ['sometimes', 'nullable', OperationInput::UUID],
             'age_basis' => 'sometimes|nullable|in:hss,hst', 'age_day' => 'sometimes|nullable|integer:strict|min:1|max:1000',
             'spray_date' => 'sometimes|nullable|date_format:Y-m-d', 'spray_period' => 'sometimes|nullable|in:morning,afternoon',
-            'activity_type' => 'required|in:nutrition,spray,general,stage,measurement', 'occurred_at' => 'required|date_format:Y-m-d\TH:i:sP',
+            'activity_type' => 'required|in:nutrition,spray,general,stage,measurement', 'occurred_at' => ['required', 'date_format:Y-m-d\TH:i:sP', OperationInput::notFuture('Waktu kegiatan')],
             'manual_ec' => 'sometimes|nullable|string|max:30', 'manual_ppm' => 'sometimes|nullable|string|max:30', 'manual_ph' => 'sometimes|nullable|string|max:30',
             'work_state' => 'required|in:completed,skipped', 'skipped_reason' => 'sometimes|nullable|string|max:1000', 'actual_stage' => 'sometimes|nullable|string|max:100',
             'materials' => 'present|array|max:30', 'materials.*' => 'required|array:material_id,material_name,unit_id,unit_name,quantity',

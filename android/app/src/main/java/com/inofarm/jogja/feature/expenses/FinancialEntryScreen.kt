@@ -51,11 +51,7 @@ import java.text.NumberFormat
 import java.util.Locale
 
 /** "Rp350.000", or "Rp350.000,50" when there are cents: the same whole-rupiah look as the home and finance heroes. */
-internal fun moneyLabel(value:String)=runCatching {
-    val amount=BigDecimal(value)
-    val cents=if(amount.stripTrailingZeros().scale()>0) 2 else 0
-    NumberFormat.getCurrencyInstance(Locale.forLanguageTag("id-ID")).apply {minimumFractionDigits=cents;maximumFractionDigits=2}.format(amount)
-}.getOrDefault("Nominal belum lengkap: $value")
+internal fun moneyLabel(value:String)=runCatching {com.inofarm.jogja.core.design.FarmFormat.money(BigDecimal(value))}.getOrDefault("Nominal belum lengkap: $value")
 private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",name)
 private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â· ${row.optString("notes").ifBlank {"Pembayaran operasi"}} Â· ${timeLabel(row.optString("paid_at"))}"
 
@@ -64,7 +60,10 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
     expense:HistoryUiState,expenseVm:HistoryViewModel,allocation:HistoryUiState,allocationVm:HistoryViewModel,queue:List<QueuedOperation>,sales:com.inofarm.jogja.feature.sales.SaleEntryViewModel,saleHistory:HistoryUiState,saleHistoryVm:HistoryViewModel,asset:com.inofarm.jogja.feature.assets.AssetWorkspace,reports:com.inofarm.jogja.feature.reports.SeasonReportWorkspace,investments:com.inofarm.jogja.feature.investments.InvestmentWorkspace,onSync:()->Unit,
     initialKind: String = RecordKind.EXPENSE.wire, linkRevision: Int = 0,
     homeRepository: com.inofarm.jogja.feature.managerhome.ManagerHomeRepository? = null, ticket: Long = 0L, syncUpdate: Long = 0L) {
-    var gh by rememberSaveable {mutableStateOf("")}
+    // The greenhouse picked for real costs stays picked while the app runs (per account), instead of resetting to
+    // "Belum dipilih" each time the tab is left (QA 28 Nov 2026).
+    var gh by rememberSaveable {mutableStateOf(LastFinanceGreenhouse.of(session.scope.key))}
+    LaunchedEffect(gh) {LastFinanceGreenhouse.remember(session.scope.key,gh)}
     var selected by key(linkRevision) { rememberSaveable { mutableStateOf(initialKind) } }
     val greenhouses = context.greenhouses.filter { it.optBoolean("active", true) }
     val canRecord = greenhouses.any { it.optString("id") == gh }
@@ -205,10 +204,10 @@ private fun sourceName(row:JSONObject)="${moneyLabel(row.optString("amount"))} Â
     val scroll = androidx.compose.foundation.rememberScrollState()
     // A refused Simpan scrolls back up so the first marked field is in view instead of the form seeming not to react.
     LaunchedEffect(state.errors) { if (state.errors.isNotEmpty()) scroll.animateScrollTo(0) }
-    FarmFormFrame(scroll = scroll,
+    FarmFormFrame(scroll = scroll, errors = state.errors,
         header = { FarmFormHeader("${if(draft.baseVersion==null) "Catat" else "Koreksi"} ${draft.kind.label}", state.saved, "expense-draft-status", "expense-close", cancel, !state.busy,
             showDraftStatus = false, closeLabel = "Batal", step = 1) },
-        bar = { FarmFormBar("expense-cancel", cancel, "expense-review", "Simpan", vm::review, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }
+        bar = { FarmFormBar("expense-cancel", cancel, "expense-review", "Simpan", { vm.review(FinanceLimits.allocation(draft, context)) }, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }
     ) {
         FarmContextStrip(greenhouse, null, null)
         FarmFormSection(if (draft.kind == RecordKind.EXPENSE) "Nominal pembayaran" else "Nominal alokasi") {
@@ -267,7 +266,7 @@ private val InlineExpenseErrors = setOf("amount", "category", "payment_kind", "p
     if(draft.kind==RecordKind.EXPENSE) {
         Text(context.expenseCategories.find {it.optString("id")==draft.categoryId}?.optString("name") ?: "Kategori tidak tersedia pada daftar acuan terakhir")
         Text(when(draft.paymentKind) {"operating" -> "Pembayaran operasi";"asset_acquisition" -> "Pembelian aset Â· beban musim melalui penyusutan";else -> "Jenis pembayaran belum dipilih"})
-        Text("Pembayaran: ${draft.date} ${draft.time} WIB");Text(draft.notes)
+        Text("Dibayar ${com.inofarm.jogja.core.design.FarmFormat.date(draft.date)} pukul ${draft.time} WIB");if(draft.notes.isNotBlank()) Text(draft.notes)
     } else {
         val source=context.expenses.find {it.optString("id")==draft.expenseId}
         FarmFact("Pembayaran sumber", source?.let(::sourceName) ?: "Belum tersedia pada data tersimpan")
@@ -306,4 +305,12 @@ private val InlineExpenseErrors = setOf("amount", "category", "payment_kind", "p
         Text("Saldo bisa berubah sebelum catatan terkirim.",style=MaterialTheme.typography.bodySmall)
         Text(context.lastSyncedAt?.let {"Diperbarui: ${timeLabel(java.time.Instant.ofEpochMilli(it).toString())}"} ?: "Waktu pemeriksaan terakhir belum tersedia.",style=MaterialTheme.typography.bodySmall)
     }
+}
+
+
+/** The last greenhouse picked under Biaya nyata, per account, for the life of the app process. */
+internal object LastFinanceGreenhouse {
+    private val picked=java.util.concurrent.ConcurrentHashMap<String,String>()
+    fun of(scope:String)=picked[scope].orEmpty()
+    fun remember(scope:String,gh:String) {if(gh.isBlank()) picked.remove(scope) else picked[scope]=gh}
 }

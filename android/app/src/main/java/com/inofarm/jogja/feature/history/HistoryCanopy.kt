@@ -1,6 +1,7 @@
 package com.inofarm.jogja.feature.history
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -131,8 +132,14 @@ internal fun CanopyRecordRow(
     val local = data.optJSONObject("_local_form")
     val facts = local ?: data
     val type = data.optString("activity_type")
+    val moment = data.optJSONObject("observations")?.optString("measurement_moment").orEmpty()
     val title = if (kind == OperationalKind.ACTIVITY) {
-        ActivityType.entries.find { it.wire == type }?.label ?: "Draf kegiatan"
+        // Two readings of one entry used to show as two identical "Pengukuran manual" rows (QA 28 Nov 2026).
+        when {
+            type == "measurement" && moment == "before_injection" -> "Pengukuran sebelum inject"
+            type == "measurement" && moment == "after_injection" -> "Pengukuran sesudah inject"
+            else -> ActivityType.entries.find { it.wire == type }?.label ?: "Draf kegiatan"
+        }
     } else if (kind == OperationalKind.ASSET) facts.optString("name").ifBlank { "Aset" }
     else kind.label.replaceFirstChar { it.uppercaseChar() }
     val instant = recordInstant(data)
@@ -142,7 +149,13 @@ internal fun CanopyRecordRow(
     val groupId = local?.optString("group_id") ?: data.optString("planting_group_id")
     val group = context.groups.find { it.optString("id") == groupId }?.optString("name")
     val recorder = data.optString("recorded_by_name").takeUnless { data.isNull("recorded_by_name") || it.isBlank() }
-    val notes = listOf("notes", "allocation_basis").firstNotNullOfOrNull { key ->
+    // A reading shows its values; other rows show their note.
+    val reading = if (kind == OperationalKind.ACTIVITY && type == "measurement") listOfNotNull(
+        data.optString("manual_ec").takeUnless { data.isNull("manual_ec") || it.isBlank() }?.let { "EC ${FarmFormat.number(it)}" },
+        data.optString("manual_ppm").takeUnless { data.isNull("manual_ppm") || it.isBlank() }?.let { "PPM ${FarmFormat.input(it)}" },
+        data.optString("manual_ph").takeUnless { data.isNull("manual_ph") || it.isBlank() }?.let { "pH ${FarmFormat.number(it, 1)}" },
+    ).joinToString(" · ").ifBlank { null } else null
+    val notes = reading ?: listOf("notes", "allocation_basis").firstNotNullOfOrNull { key ->
         data.optString(key).takeUnless { data.isNull(key) || it.isBlank() }
     }
     val amountKey = when (kind) { OperationalKind.SALE -> "total_amount"; OperationalKind.ASSET -> "cost"; else -> "amount" }
@@ -243,6 +256,96 @@ internal fun WorkerGreenhouseChips(context: CultivationUiState, selected: String
                     Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
                 }
             }
+        }
+    }
+}
+
+
+/**
+ * The sections of one Catat kegiatan entry (same entry_batch_id) as one card (QA 28 Nov 2026: one entry showed as
+ * four or five loose rows). The card opens to its sections, each still opened and cancelled on its own; pengelola
+ * can also cancel the whole entry at once.
+ */
+@Composable
+internal fun CanopyEntryGroup(
+    records: List<LocalRecord>, context: CultivationUiState, ownAccount: String?, checks: Map<String, String>,
+    first: Boolean, last: Boolean, canCancel: Boolean, busy: Boolean, onOpen: (LocalRecord) -> Unit, onCancelAll: (String) -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    var open by androidx.compose.runtime.saveable.rememberSaveable(records.first().body.optString("entry_batch_id")) { androidx.compose.runtime.mutableStateOf(false) }
+    var confirm by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val head = records.first().body
+    val parts = records.map { r ->
+        val t = r.body.optString("activity_type")
+        when (t) { "measurement" -> "ukur"; "nutrition" -> "nutrisi"; "spray" -> "semprot"; "stage" -> "stadia"; else -> "catatan" }
+    }.distinct().joinToString(", ")
+    val active = records.filter { it.syncState == SyncState.ACCEPTED && it.body.optString("record_state") != "cancelled" }
+    val cancelled = records.count { it.body.optString("record_state") == "cancelled" }
+    val status = when {
+        cancelled == records.size -> "Dibatalkan" to FarmTone.Neutral
+        cancelled > 0 -> "$cancelled dari ${records.size} dibatalkan" to FarmTone.Amber
+        records.any { it.syncState != SyncState.ACCEPTED } -> "Belum terkirim" to FarmTone.Amber
+        else -> "Terkirim" to FarmTone.Good
+    }
+    val clock = recordInstant(head)?.atZoneSameInstant(ActivityDraft.WIB)?.format(java.time.format.DateTimeFormatter.ofPattern("HH.mm"))
+    val greenhouse = head.optString("greenhouse_name").takeUnless { head.isNull("greenhouse_name") || it.isBlank() }
+        ?: context.greenhouses.find { it.optString("id") == records.first().greenhouseId }?.optString("name")
+    val recorder = head.optString("recorded_by_name").takeUnless { head.isNull("recorded_by_name") || it.isBlank() }
+    Column(Modifier.fillMaxWidth().testTag("finance-entry-${head.optString("entry_batch_id")}")) {
+        Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { open = !open }.heightIn(min = 64.dp)
+            .padding(horizontal = FarmSpace.Medium, vertical = FarmSpace.Medium)
+            .semantics(mergeDescendants = true) { contentDescription = "Isian kegiatan, ${records.size} bagian: $parts, ${status.first}" },
+            horizontalArrangement = Arrangement.spacedBy(FarmSpace.Medium), verticalAlignment = Alignment.Top) {
+            FarmIconTile(FarmIcon.Schedule, tone = FarmTone.Info, size = 40.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Isian kegiatan · ${records.size} bagian", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(parts.replaceFirstChar { it.uppercaseChar() }, style = MaterialTheme.typography.bodyMedium)
+                listOfNotNull(greenhouse, recorder).joinToString(" · ").takeIf { it.isNotBlank() }?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                }
+                Text(if (open) "Tutup rincian" else "Lihat ${records.size} bagian", style = MaterialTheme.typography.labelLarge, color = colors.primary)
+            }
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                clock?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant) }
+                FarmStatusChip(status.first, tone = status.second)
+            }
+        }
+        if (open) {
+            Column(Modifier.padding(start = FarmSpace.Large)) {
+                records.forEachIndexed { i, r ->
+                    CanopyRecordRow(r, OperationalKind.ACTIVITY, context, ownAccount, checks, i == 0, i == records.lastIndex) { onOpen(r) }
+                }
+            }
+            if (canCancel && active.isNotEmpty()) OutlinedButton(onClick = { confirm = true }, enabled = !busy, shape = FarmShape.Control,
+                modifier = Modifier.padding(horizontal = FarmSpace.Medium, vertical = FarmSpace.Small).fillMaxWidth().heightIn(min = FarmSpace.Touch)
+                    .testTag("finance-entry-cancel-all")) { Text(if (active.size == records.size) "Batalkan seluruh isian" else "Batalkan ${active.size} bagian yang masih aktif") }
+        }
+        if (!last) HorizontalDivider(Modifier.padding(start = 68.dp, end = FarmSpace.Medium), color = colors.outlineVariant)
+    }
+    if (confirm) {
+        var reason by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+        AlertDialog(onDismissRequest = { confirm = false },
+            title = { Text("Batalkan seluruh isian?") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(FarmSpace.Small)) {
+                Text("${active.size} bagian ($parts) dibatalkan sekaligus. Catatan tetap ada di riwayat.")
+                OutlinedTextField(reason, { reason = it.take(1000) }, label = { Text("Catatan (opsional)") }, modifier = Modifier.fillMaxWidth())
+            } },
+            confirmButton = { TextButton(onClick = { confirm = false; onCancelAll(reason) }) { Text("Batalkan isian") } },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Kembali") } })
+    }
+}
+
+/** Day rows with the sections of one entry gathered together; other records stay single. */
+internal fun groupEntries(rows: List<LocalRecord>, kind: OperationalKind): List<List<LocalRecord>> {
+    if (kind != OperationalKind.ACTIVITY) return rows.map { listOf(it) }
+    val batches = rows.groupBy { it.body.optString("entry_batch_id").takeUnless { id -> it.body.isNull("entry_batch_id") || id.isBlank() } }
+    val seen = mutableSetOf<String>()
+    return rows.mapNotNull { r ->
+        val batch = r.body.optString("entry_batch_id").takeUnless { r.body.isNull("entry_batch_id") || it.isBlank() }
+        when {
+            batch == null -> listOf(r)
+            batch in seen -> null
+            else -> { seen += batch; batches.getValue(batch) }
         }
     }
 }

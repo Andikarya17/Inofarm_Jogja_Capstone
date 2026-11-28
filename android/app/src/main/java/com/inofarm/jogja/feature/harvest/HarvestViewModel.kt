@@ -72,9 +72,14 @@ class HarvestViewModel(private val repository:HarvestRepository):ViewModel() {
         if(queue || close) mutable.value=state.value.copy(busy=true)
         try {
             repository.save(session,ticket,draft,queue)
+            // Pengelola waits for the server: a refusal reopens the form with the reason instead of joining the queue.
+            val delivery=if(queue) com.inofarm.jogja.core.sync.ManagerDelivery.deliver(session,listOf(draft.id)) else null
+            if(delivery is com.inofarm.jogja.core.sync.ManagerDelivery.Result.Rejected && delivery.replaceable && delivery.record!=null && vault.matches(ticket,session.scope) && state.value.draft?.id==draft.id) {
+                open(delivery.record,true);mutable.value=state.value.copy(message=delivery.message,changed=state.value.changed+1);return
+            }
             if(vault.matches(ticket,session.scope) && state.value.draft?.id==draft.id) {
                 mutable.value=state.value.copy(draft=if(close) null else state.value.draft,saved=state.value.draft==draft,reviewing=if(close) false else state.value.reviewing,
-                    changed=if(queue) state.value.changed+1 else state.value.changed,message=if(queue) "Tersimpan. Terkirim otomatis saat ada internet." else if(close) "Draf tersimpan di perangkat." else state.value.message)
+                    changed=if(queue) state.value.changed+1 else state.value.changed,message=if(queue) (delivery?.message ?: com.inofarm.jogja.core.sync.ManagerDelivery.QUEUED) else if(close) "Draf tersimpan di perangkat." else state.value.message)
                 reload()
             }
         } catch(cancelled:CancellationException) { throw cancelled }

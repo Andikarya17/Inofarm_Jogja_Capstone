@@ -34,5 +34,9 @@ class OperationRouteTest {
         assertTrue(ReviewableRejections.mayReplace("sale","harvest_exceeded"))
         assertTrue(ReviewableRejections.mayReplace("expense","expense_in_use"));assertTrue(ReviewableRejections.mayReplace("cost_allocation","allocation_exceeds_source"))
         for(code in listOf("entity_exists","operation_conflict","epoch_mismatch","season_closed","expense_balance_mismatch")) assertFalse(ReviewableRejections.mayReplace("cost_allocation",code))
+        // A refused cancel (payment still allocated) is discarded, not "fixed" through the correction form.
+        assertTrue(ReviewableRejections.mayReplace("expense","expense_in_use","update"))
+        assertFalse(ReviewableRejections.mayReplace("expense","expense_in_use","cancel"))
+        assertFalse(ReviewableRejections.mayReplace("harvest","harvest_in_use","cancel"))
     }
 }

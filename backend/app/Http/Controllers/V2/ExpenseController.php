@@ -134,7 +134,7 @@ final class ExpenseController extends Controller
     {
         $rules = $action === 'cancel' ? [] : ($financeResource === 'expenses' ? [
             'greenhouse_id' => ['required', OperationInput::UUID], 'category_id' => ['required', OperationInput::UUID],
-            'paid_at' => 'required|date_format:Y-m-d\TH:i:sP', 'amount' => 'required|string|max:30',
+            'paid_at' => ['required', 'date_format:Y-m-d\TH:i:sP', OperationInput::notFuture('Tanggal pembayaran')], 'amount' => 'required|string|max:30',
             'payment_kind' => 'required|in:operating,asset_acquisition', 'notes' => 'present|string|max:2000',
         ] : ['expense_id' => ['required', OperationInput::UUID], 'season_id' => ['required', OperationInput::UUID],
             'amount' => 'required|string|max:30', 'cost_class' => 'required|in:FC,VC', 'allocation_basis' => ['required', 'string', 'max:2000', 'regex:/\S/u']]);

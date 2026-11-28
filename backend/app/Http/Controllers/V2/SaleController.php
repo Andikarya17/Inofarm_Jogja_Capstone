@@ -35,7 +35,7 @@ final class SaleController extends Controller
     public function cancel(Request $request, string $id) {return $this->perform($request, 'cancel', $id);}
     private function perform(Request $request, string $action, ?string $id = null)
     {
-        $rules = $action === 'cancel' ? [] : ['season_id' => ['required', OperationInput::UUID], 'paid_at' => 'required|date_format:Y-m-d\TH:i:sP',
+        $rules = $action === 'cancel' ? [] : ['season_id' => ['required', OperationInput::UUID], 'paid_at' => ['required', 'date_format:Y-m-d\TH:i:sP', OperationInput::notFuture('Tanggal lunas')],
             'payment_status' => 'required|in:paid', 'customer_name' => 'present|string|max:200',
             'payment_method' => 'sometimes|nullable|in:cash,qris,transfer', 'payment_reference' => 'sometimes|nullable|string|max:100', 'customer_type' => 'sometimes|nullable|in:consumer,retail,partner', 'notes' => 'present|string|max:2000',
             'customer' => 'sometimes|nullable|array:id,type,name,whatsapp', 'customer.id' => ['required_with:customer', OperationInput::UUID],
