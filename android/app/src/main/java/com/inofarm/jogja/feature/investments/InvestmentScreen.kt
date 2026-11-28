@@ -31,9 +31,20 @@ data class InvestmentWorkspace(val state:InvestmentState,val vm:InvestmentViewMo
 private fun option(id:String,name:String)=JSONObject().put("id",id).put("name",name)
 private fun sourceLabel(kind:String)=when(kind) {"actual"->"Aktual yang dinyatakan";"projection"->"Proyeksi";else->"Belum dinyatakan"}
 private fun nullable(body:JSONObject,key:String)=if(body.isNull(key)) "Belum diketahui" else body.getString(key)
-internal fun investmentValue(value:String,unit:String,scale:Int):String {
-    val number=NumberFormat.getNumberInstance(Locale.forLanguageTag("id-ID")).apply {minimumFractionDigits=scale;maximumFractionDigits=scale;maximumIntegerDigits=Int.MAX_VALUE}.format(BigDecimal(value))
-    return when(unit) {"IDR"->"Rp$number";"percent"->"$number%";else->"$number tahun"}
+/** NPV as rupiah, IRR with two decimals, payback in years with one: the stored precision stays in "Rumus dan asumsi". */
+internal fun investmentValue(value:String,unit:String,@Suppress("UNUSED_PARAMETER") scale:Int):String = when(unit) {
+    "IDR"->com.inofarm.jogja.core.design.FarmFormat.money(BigDecimal(value))
+    "percent"->com.inofarm.jogja.core.design.FarmFormat.number(BigDecimal(value),2)+"%"
+    else->com.inofarm.jogja.core.design.FarmFormat.number(BigDecimal(value),1)+" tahun"
+}
+
+/** One plain sentence on what NPV says at the chosen discount rate; nothing when NPV is not available. */
+internal fun investmentConclusion(metrics:JSONObject,discount:String):String? {
+    val npv=metrics.optJSONObject("NPV")?.takeUnless {it.isNull("value")}?.getString("value")?.toBigDecimalOrNull() ?: return null
+    val provisional=metrics.optJSONObject("NPV")?.optString("status")=="provisional"
+    val text=if(npv.signum()>=0) "Pada diskonto $discount, nilai kas masa depan menutup investasi awal (NPV ${com.inofarm.jogja.core.design.FarmFormat.money(npv)}). Skenario ini layak dari sisi NPV."
+        else "Pada diskonto $discount, nilai kas masa depan belum menutup investasi awal (NPV ${com.inofarm.jogja.core.design.FarmFormat.money(npv)}). Skenario ini belum layak dari sisi NPV."
+    return if(provisional) "$text Hasil sementara karena sumber data belum lengkap." else text
 }
 @Composable private fun SourceChoice(label:String,value:String,tag:String,change:(String)->Unit) {
     Choice(label,value,listOf(option("","Belum dinyatakan"),option("actual","Aktual yang dinyatakan"),option("projection","Proyeksi")),tag,onSelect=change)
@@ -167,11 +178,11 @@ private fun LazyListScope.scenarioForm(draft:InvestmentScenarioDraft,state:Inves
 }
 /** Step 2 of a scenario: what will be saved, year by year, then Simpan queues it and Ubah goes back to the form. */
 private fun LazyListScope.scenarioSummary(d:InvestmentScenarioDraft,context:CultivationUiState,vm:InvestmentViewModel) {
-    fun money(value:String)=value.ifBlank {null}?.let {"$it IDR"} ?: "Belum diketahui"
+    fun money(value:String)=value.ifBlank {null}?.let { com.inofarm.jogja.core.design.FarmFormat.money(it.replace(',','.')) } ?: "Belum diketahui"
     item {FarmPanel(title = "Ringkasan skenario") {
         FarmFact("Nama", d.name.ifBlank {"Belum diisi"}, prominent = true)
         FarmFact("Greenhouse", context.greenhouses.find {it.optString("id")==d.greenhouseId}?.optString("name") ?: "Greenhouse tersimpan")
-        FarmFact("Tanggal dasar", d.baseDate.ifBlank {"Belum diisi"})
+        FarmFact("Tanggal dasar", com.inofarm.jogja.core.design.FarmFormat.date(d.baseDate))
         FarmFact("Jumlah tahun", d.horizon.ifBlank {"Belum diisi"})
         FarmFact("Investasi awal", "${money(d.initial)} · ${sourceLabel(d.initialKind)}")
         FarmFact("Diskonto tahunan", d.discountPercent.ifBlank {null}?.let {"$it%"} ?: "Belum diketahui")
@@ -190,11 +201,11 @@ private fun LazyListScope.scenarioSummary(d:InvestmentScenarioDraft,context:Cult
 }
 private fun LazyListScope.rawScenario(d:InvestmentScenarioDraft) {
     item {Text("Isian Anda",style=MaterialTheme.typography.titleLarge);Text("${d.name} · tanggal ${d.baseDate} · ${d.horizon} tahun");Text("Investasi awal: ${d.initial.ifBlank {"belum diketahui"}} IDR; ${sourceLabel(d.initialKind)}");Text("${d.initialReference}\n${d.initialBasis}");Text("Diskonto: ${d.discountPercent.ifBlank {"belum diketahui"}}%; cara hitung: ${d.convention.ifBlank {"belum dipilih"}}");Text("${d.notes}\nAlasan: ${d.reason}")}
-    d.flows.forEachIndexed {i,f->item {Text("Tahun ${i+1}: ${f.amount.ifBlank {"belum diketahui"}} IDR · ${sourceLabel(f.kind)}\n${f.reference}\n${f.basis}")}}
+    d.flows.forEachIndexed {i,f->item {Text(listOf("Tahun ${i+1}: ${f.amount.ifBlank {null}?.let { com.inofarm.jogja.core.design.FarmFormat.money(it.replace(",",".")) } ?: "belum diketahui"} · ${sourceLabel(f.kind)}",f.reference,f.basis).filter {it.isNotBlank()}.joinToString("\n"))}}
 }
 private fun LazyListScope.scenario(data:JSONObject) {
-    item {Text(data.getString("name"),style=MaterialTheme.typography.titleLarge);Text("Versi ${data.getInt("version")} · ${if(data.getString("record_state")=="cancelled") "Dibatalkan" else "Aktif"}");Text("Tanggal dasar ${data.getString("base_date")} · ${data.getInt("horizon_years")} tahun");Text("Investasi awal: ${nullable(data,"initial_outlay")} IDR");val source=data.getJSONObject("initial_source");Text("${sourceLabel(source.optString("kind"))}\n${source.getString("reference")}\n${source.getString("basis")}");Text("Diskonto: ${if(data.isNull("discount_rate")) "belum diketahui" else InvestmentInputs.percentFromRate(data.getString("discount_rate"))+"%"}");Text("Cara hitung waktu pengembalian: ${nullable(data,"payback_convention")}");Text("${data.getString("notes")}\nDicatat ${data.getString("recorded_by_name")}");Notice(if(data.getString("source_provenance")=="declared_complete") "Sumber dan dasar dinyatakan lengkap oleh pengelola." else "Sumber atau dasar belum lengkap.")}
-    val flows=data.getJSONArray("cash_flows");repeat(flows.length()) {i->val f=flows.getJSONObject(i);item {Text("Tahun ${f.getInt("year")}: ${nullable(f,"amount")} IDR · ${sourceLabel(f.optString("source_kind"))}\n${f.getString("source_reference")}\n${f.getString("basis")}")}}
+    item {Text(data.getString("name"),style=MaterialTheme.typography.titleLarge);Text("Versi ${data.getInt("version")} · ${if(data.getString("record_state")=="cancelled") "Dibatalkan" else "Aktif"}");Text("Tanggal dasar ${com.inofarm.jogja.core.design.FarmFormat.date(data.getString("base_date"))} · ${data.getInt("horizon_years")} tahun");Text("Investasi awal: ${com.inofarm.jogja.core.design.FarmFormat.money(nullable(data,"initial_outlay"))}");val source=data.getJSONObject("initial_source");Text(listOf(sourceLabel(source.optString("kind")),source.getString("reference"),source.getString("basis")).filter {it.isNotBlank()}.joinToString("\n"));Text("Diskonto: ${if(data.isNull("discount_rate")) "belum diketahui" else InvestmentInputs.percentFromRate(data.getString("discount_rate"))+"%"}");Text("Cara hitung waktu pengembalian: ${when(nullable(data,"payback_convention")) {"interpolation"->"Interpolasi bagian tahun";"end_of_year"->"Akhir tahun penerimaan";else->"Belum dipilih"}}");Text(listOf(data.getString("notes"),"Dicatat ${data.getString("recorded_by_name")}").filter {it.isNotBlank()}.joinToString("\n"));Notice(if(data.getString("source_provenance")=="declared_complete") "Sumber dan dasar dinyatakan lengkap oleh pengelola." else "Sumber atau dasar belum lengkap.")}
+    val flows=data.getJSONArray("cash_flows");repeat(flows.length()) {i->val f=flows.getJSONObject(i);item {Text(listOf("Tahun ${f.getInt("year")}: ${com.inofarm.jogja.core.design.FarmFormat.money(nullable(f,"amount"))} · ${sourceLabel(f.optString("source_kind"))}",f.getString("source_reference"),f.getString("basis")).filter {it.isNotBlank()}.joinToString("\n"))}}
 }
 private fun LazyListScope.report(data:JSONObject,accepted:Boolean) {
     item {
@@ -205,9 +216,11 @@ private fun LazyListScope.report(data:JSONObject,accepted:Boolean) {
             else InvestmentInputs.percentFromRate(scenario.getString("discount_rate")) + "%"
         FarmPanel(title = scenario.getString("name")) {
             Text("${scope.getJSONObject("greenhouse").getString("name")} · skenario versi ${data.getInt("scenario_version")}")
-            FarmFact("Periode", "Tanggal dasar ${scenario.getString("base_date")} · ${scenario.getInt("horizon_years")} tahun")
-            FarmFact("Sumber arus kas", "${summary.getInt("actual")} aktual dinyatakan, ${summary.getInt("projection")} proyeksi, ${summary.getInt("unknown")} belum dinyatakan.")
-            Text("Cara hitung ${nullable(scenario, "payback_convention")} · diskonto $discount", style = MaterialTheme.typography.bodyMedium)
+            FarmFact("Periode", "Tanggal dasar ${com.inofarm.jogja.core.design.FarmFormat.date(scenario.getString("base_date"))} · ${scenario.getInt("horizon_years")} tahun")
+            FarmFact("Sumber arus kas", listOfNotNull(summary.getInt("actual").takeIf { it > 0 }?.let { "$it aktual" }, summary.getInt("projection").takeIf { it > 0 }?.let { "$it proyeksi" },
+                summary.getInt("unknown").takeIf { it > 0 }?.let { "$it belum diberi sumber" }).joinToString(", ").ifEmpty { "Belum ada" })
+            Text("Pengembalian dihitung dengan ${when(nullable(scenario, "payback_convention")) {"interpolation"->"interpolasi bagian tahun";"end_of_year"->"akhir tahun penerimaan";else->"belum dipilih"}} · diskonto $discount", style = MaterialTheme.typography.bodyMedium)
+            investmentConclusion(data.getJSONObject("metrics"), discount)?.let { FarmFact("Kesimpulan", it) }
             if (accepted) Text("Diterbitkan ${timeLabel(data.getString("generated_at"))} oleh ${data.getString("recorded_by_name")}",
                 style = MaterialTheme.typography.bodySmall)
             FarmFact("Catatan", data.getString("review_note"))
@@ -221,7 +234,6 @@ private fun LazyListScope.report(data:JSONObject,accepted:Boolean) {
         FarmSection("Asumsi evaluasi") {
             val assumptions = data.getJSONArray("assumptions")
             repeat(assumptions.length()) { Text(assumptions.getString(it)) }
-            FarmFact("Versi rumus", data.getString("formula_version"))
         }
     }
 }
@@ -231,7 +243,7 @@ private fun LazyListScope.report(data:JSONObject,accepted:Boolean) {
         val unit = m.getString("unit")
         val value = when {
             !m.isNull("value") -> investmentValue(m.getString("value"), unit, m.getInt("display_scale"))
-            m.getString("status") == "not_recovered" -> "Belum kembali dalam horizon"
+            m.getString("status") == "not_recovered" -> "Belum kembali dalam periode skenario"
             else -> "Belum dapat dihitung"
         }
         if (!m.isNull("value") && unit == "IDR") FarmAmount(value, MaterialTheme.typography.headlineSmall)
@@ -249,8 +261,8 @@ private fun LazyListScope.report(data:JSONObject,accepted:Boolean) {
                 repeat(flows.length()) { year ->
                     FarmFact("Kas neto tahun ${year + 1} (IDR)", if (flows.isNull(year)) "Belum diketahui" else flows.getString(year))
                 }
-                FarmFact("Diskonto (pecahan)", nullable(input, "discount_rate"))
-                FarmFact("Cara hitung pengembalian", nullable(input, "payback_convention"))
+                FarmFact("Diskonto", if (input.isNull("discount_rate")) "Belum diketahui" else InvestmentInputs.percentFromRate(input.getString("discount_rate")) + "%")
+                FarmFact("Cara hitung pengembalian", when (nullable(input, "payback_convention")) { "interpolation" -> "Interpolasi bagian tahun"; "end_of_year" -> "Akhir tahun penerimaan"; else -> "Belum dipilih" })
                 val assumptions = m.getJSONArray("assumptions")
                 repeat(assumptions.length()) { Text(assumptions.getString(it)) }
             }

@@ -102,11 +102,13 @@ class FinanceMeasurementTest extends FinanceTestCase
         foreach ([$b, $a] as $op) $this->postJson('/api/v2/activities', $op)->assertCreated();
         $expected = max($a['entity_id'], $b['entity_id']);
         $this->getJson($url)->assertJsonPath('data.id', $expected);
-        // A delayed older write and a future calendar day never supersede today's reading.
-        foreach (['2026-11-01T23:58:00+07:00', '2026-11-03T00:00:00+07:00'] as $at) $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], ['occurred_at' => $at])))->assertCreated();
+        // A delayed older write never supersedes today's reading, and a future calendar day is refused (28 Nov 2026).
+        $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], ['occurred_at' => '2026-11-01T23:58:00+07:00'])))->assertCreated();
+        $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], ['occurred_at' => '2026-11-03T00:00:00+07:00'])))->assertUnprocessable();
         for ($i=0; $i<52; $i++) $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], ['activity_type' => 'general', 'manual_ec' => null, 'manual_ppm' => null, 'notes' => 'Pekerjaan tanpa pengukuran'])))->assertCreated();
         $this->getJson($url)->assertJsonPath('data.id', $expected);
         $this->travelTo(\Carbon\Carbon::parse('2026-11-03T00:01:00+07:00'));
+        $this->postJson('/api/v2/activities', $this->operation('activity', $this->payload($ctx['group']['id'], ['occurred_at' => '2026-11-03T00:00:00+07:00'])))->assertCreated();
         $this->getJson($url)->assertJsonPath('data.occurred_at', '2026-11-02T17:00:00.000000Z');
         $this->travelBack();
     }

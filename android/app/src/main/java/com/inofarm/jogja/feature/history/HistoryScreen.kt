@@ -89,6 +89,11 @@ import java.util.Locale
                         HistoryFilters(context, state.filter, state.filterSeason, vm::filter, kind, pickDates = session.role == UserRole.WORKER,
                             badge = activeFilterCount(state.filter, state.filterSeason), keepType = state.filter.type.takeIf { chipType })
                     }
+                    // An active filter is always visible with a one-tap way out; one carried over from another screen
+                    // used to hide today's records without notice (QA 28 Nov 2026).
+                    if (activeFilterCount(state.filter, state.filterSeason) > 0) TextButton(
+                        onClick = { vm.filter(LocalHistoryFilter(type = state.filter.type.takeIf { chipType }), null) },
+                        modifier = Modifier.heightIn(min = FarmSpace.Touch).testTag("history-clear-filter")) { Text("Hapus filter, tampilkan semua") }
                     context.lastSyncedAt?.let {
                         Text("Diperbarui ${java.time.Instant.ofEpochMilli(it).atZone(ActivityDraft.WIB).format(DateTimeFormatter.ofPattern("HH.mm 'WIB'"))}",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -159,8 +164,11 @@ import java.util.Locale
                     item(key = "day-rows-$heading-${rows.first().id}") { Faded(fade) {
                         Column(Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
                             .background(MaterialTheme.colorScheme.surface)) {
-                            rows.forEachIndexed { i, r ->
-                                CanopyRecordRow(r, kind, context, session.scope.accountId, state.checks, i == 0, i == rows.lastIndex) { vm.select(r.id) }
+                            val grouped = groupEntries(rows, kind)
+                            grouped.forEachIndexed { i, group ->
+                                if (group.size == 1) CanopyRecordRow(group.single(), kind, context, session.scope.accountId, state.checks, i == 0, i == grouped.lastIndex) { vm.select(group.single().id) }
+                                else CanopyEntryGroup(group, context, session.scope.accountId, state.checks, i == 0, i == grouped.lastIndex,
+                                    canCancel = session.role == UserRole.MANAGER, busy = state.busy, onOpen = { vm.select(it.id) }) { reason -> vm.cancelBatch(group, reason) }
                             }
                         }
                     }}
@@ -274,7 +282,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
     val season=name(context.seasons,state.filterSeason,"Musim terpilih")
     val greenhouse=if(chipGreenhouse) null else name(context.greenhouses,filter.greenhouseId,"Greenhouse terpilih")
     val group=name(context.groups,filter.groupId,"Kelompok terpilih")
-    val period=listOfNotNull(filter.from?.let { "Dari $it" },filter.until?.let { "Sampai $it" })
+    val period=listOfNotNull(filter.from?.let { "Dari ${com.inofarm.jogja.core.design.FarmFormat.date(it)}" },filter.until?.let { "Sampai ${com.inofarm.jogja.core.design.FarmFormat.date(it)}" })
         .joinToString(" · ").takeIf { it.isNotEmpty() }?.plus(" WIB")
     val type=ActivityType.entries.find { it.wire==filter.type }?.label
     val status=when(filter.recordState) {"active" -> "Aktif"; "cancelled" -> "Dibatalkan"; else -> null}
@@ -381,7 +389,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
 @Composable private fun HistoryDetail(record:LocalRecord,session:FinanceSession,context:CultivationUiState,state:HistoryUiState,vm:HistoryViewModel,queue:List<QueuedOperation>,onEdit:(LocalRecord,Boolean)->Unit,kind:OperationalKind,returnToQueue:Boolean) {
     var cancelReview by remember {mutableStateOf<LocalRecord?>(null)}
     val pending=state.pending
-    val reviewable=pending.isNotEmpty() && pending.all {it.state=="REJECTED" && ReviewableRejections.mayReplace(kind.wire,it.error?.optString("code"))}
+    val reviewable=pending.isNotEmpty() && pending.all {it.state=="REJECTED" && ReviewableRejections.mayReplace(kind.wire,it.error?.optString("code"),it.envelope.optString("action"))}
     val own=record.recorderId().let {it.isBlank() || it==session.scope.accountId}
     RecordDetail(record,session,context,vm::close,onEdit={onEdit(record,reviewable)},kind=kind,returnToQueue=returnToQueue) {
         if (kind == OperationalKind.ACTIVITY) com.inofarm.jogja.feature.verification.ActivityVerificationFeedback(session, record)
@@ -432,7 +440,7 @@ private fun historyScope(context:CultivationUiState,state:HistoryUiState,kind:Op
         }
         state.archives.forEachIndexed {index,body ->
             var expanded by rememberSaveable(record.id,index) {mutableStateOf(false)}
-            TextButton(onClick={expanded=!expanded},modifier=Modifier.fillMaxWidth().testTag("history-archive-$index")) {Text("Isian saya sebelum diselesaikan ${index+1}")}
+            TextButton(onClick={expanded=!expanded},modifier=Modifier.fillMaxWidth().testTag("history-archive-$index")) {Text("Isian lama yang disimpan ${index+1}")}
             if(expanded) RecordFacts(record.copy(body=body),session,context,kind)
         }
     }

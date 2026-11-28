@@ -215,7 +215,7 @@ final class MasterService
     {
         $unsold = self::unsoldWeight($seasonId);
         if (bccomp($unsold, '0', 6) > 0 && trim($note ?? '') === '') {
-            throw new DomainFailure('season_unsold_balance', 'Masih ada '.rtrim(rtrim($unsold, '0'), '.').' kg buah belum terjual. Isi catatan, misalnya gagal jual, untuk tetap menutup musim.', 422);
+            throw new DomainFailure('season_unsold_balance', 'Masih ada '.str_replace('.', ',', rtrim(rtrim($unsold, '0'), '.')).' kg buah layak belum terjual. Isi catatan, misalnya gagal jual, untuk tetap menutup musim.', 422);
         }
     }
 

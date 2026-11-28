@@ -80,13 +80,13 @@ class ReportExportViewModel(private val repository:ReportExportRepository):ViewM
 @Composable fun ReportExportActions(row:LocalRecord) {
     val action=LocalReportExport.current ?: return
     com.inofarm.jogja.core.design.FarmSection("Unduh laporan") {
-        Text("Pilih format untuk salinan laporan yang sedang dibuka.", style=MaterialTheme.typography.bodyMedium)
+        Text("PDF untuk dibaca dan dibagikan. CSV berisi seluruh data tersimpan untuk pemeriksa atau Excel.", style=MaterialTheme.typography.bodyMedium)
         FlowRow(horizontalArrangement=Arrangement.spacedBy(FarmSpace.Small),
             verticalArrangement=Arrangement.spacedBy(FarmSpace.Small)) {
             OutlinedButton(onClick={action(row,"pdf")},shape=FarmShape.Control,
                 modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("report-download-pdf")) {Text("Unduh PDF")}
             OutlinedButton(onClick={action(row,"csv")},shape=FarmShape.Control,
-                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("report-download-csv")) {Text("Unduh CSV")}
+                modifier=Modifier.heightIn(min=FarmSpace.Touch).testTag("report-download-csv")) {Text("Unduh data audit (CSV)")}
         }
     }
 }

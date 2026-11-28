@@ -52,6 +52,7 @@ class SaleEntryViewModel(private val repository:SaleRepository):ViewModel() {
         mutable.value=state.value.copy(draft=fresh,errors=emptyMap(),reviewing=false,saved=false,message=null,credit=emptyMap())
     }
     fun hasChanges()=entry.changed(state.value.draft)
+    fun clearMessage() {mutable.value=state.value.copy(message=null)}
     /** "Batal": closes the form and undoes its autosave, so nothing stays behind as a draft. */
     fun cancel() {
         val draft=state.value.draft ?: return;pauseAutosave()
@@ -75,7 +76,8 @@ class SaleEntryViewModel(private val repository:SaleRepository):ViewModel() {
         pauseAutosave();saveJob=viewModelScope.launch {delay(350);save(updated,false,false)}
     }
     fun pauseAutosave() {saveJob?.cancel();saveJob=null}
-    fun review() {val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty())}
+    /** [stockErrors]: lines asking more kg than the harvests hold, from the stock the screen shows. */
+    fun review(stockErrors:Map<String,String> = emptyMap()) {val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired)+stockErrors;mutable.value=state.value.copy(errors=errors,reviewing=errors.isEmpty())}
     fun backToForm() {mutable.value=state.value.copy(reviewing=false)}
     fun saveAndClose() {val draft=state.value.draft ?: return;pauseAutosave();viewModelScope.launch {save(draft,false,true)}}
     fun queue() {val draft=state.value.draft ?: return;val errors=draft.validation(reasonRequired);if(errors.isNotEmpty()) {mutable.value=state.value.copy(errors=errors,reviewing=false);return};pauseAutosave();viewModelScope.launch {save(draft,true,true)}}
@@ -84,9 +86,14 @@ class SaleEntryViewModel(private val repository:SaleRepository):ViewModel() {
         if(queue || close) mutable.value=state.value.copy(busy=true)
         try {
             repository.save(session,ticket,draft,queue)
+            // Pengelola waits for the server: a refusal reopens the form with the reason instead of joining the queue.
+            val delivery=if(queue) com.inofarm.jogja.core.sync.ManagerDelivery.deliver(session,listOf(draft.id)) else null
+            if(delivery is com.inofarm.jogja.core.sync.ManagerDelivery.Result.Rejected && delivery.replaceable && delivery.record!=null && vault.matches(ticket,session.scope) && state.value.draft?.id==draft.id) {
+                open(delivery.record,true);mutable.value=state.value.copy(message=delivery.message,changed=state.value.changed+1);return
+            }
             if(vault.matches(ticket,session.scope) && state.value.draft?.id==draft.id) mutable.value=state.value.copy(draft=if(close) null else state.value.draft,
                 saved=state.value.draft==draft,reviewing=if(close) false else state.value.reviewing,changed=if(queue || close) state.value.changed+1 else state.value.changed,
-                message=if(queue) "Tersimpan. Terkirim otomatis saat ada internet." else if(close) "Draf penjualan tersimpan di perangkat." else state.value.message)
+                message=if(queue) (delivery?.message ?: com.inofarm.jogja.core.sync.ManagerDelivery.QUEUED) else if(close) "Draf penjualan tersimpan di perangkat." else state.value.message)
         } catch(cancelled:CancellationException) {throw cancelled}
         catch(error:SaleValidationFailure) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(draft=state.value.draft?.copy(baseVersion=error.baseVersion),errors=error.fields,reviewing=false,message=error.message)}
         catch(error:Exception) {if(vault.matches(ticket,session.scope)) mutable.value=state.value.copy(message=userMessage(error))}

@@ -221,8 +221,6 @@ private fun QueueRecord(operation: QueuedOperation, opening: Boolean, reviewErro
         }
         if (expanded && !worker) {
             HorizontalDivider()
-            FarmFact("ID kiriman", operation.id)
-            FarmFact("ID catatan", operation.entityId)
             FarmFact("Percobaan kirim", operation.attempts.toString())
             if (kind in setOf("activity_review", "harvest_review") && payload != null) {
                 val parent = if (kind == "harvest_review") "panen" else "kegiatan"

@@ -116,12 +116,12 @@ final class SeasonReportService
             'cost_basis' => 'standard', 'cost_sheet' => $data['cost_sheet'], 'cost_gaps' => $data['cost_gaps'],
             'sources_hash' => $data['sources_hash'], 'source_count' => count($data['sources']), 'source_counts' => $counts,
             'assumptions' => [
-                'Hanya revisi keuangan yang diterima server pada snapshot ini; draf dan antrean perangkat tidak masuk agregasi.',
-                'Biaya memakai biaya standar Musim ke-n yang sama untuk setiap greenhouse; pembayaran, alokasi dan penyusutan nyata hanya dicantumkan sebagai rujukan.',
-                'Pernyataan lengkap dan jumlah antrean adalah tinjauan pengelola, bukan bukti semua transaksi/perangkat offline terdeteksi.',
-                'Pembelian aset dan catatan pemakaian bahan tidak menjadi pembayaran atau biaya musim kedua.',
-                'TR memakai total pembayaran lunas yang telah dibulatkan per transaksi sesuai kontrak; panen belum terjual bukan penerimaan.',
-                'Laporan adalah evaluasi manajerial dalam cakupan sistem, bukan kesimpulan kelayakan otomatis.',
+                'Hanya catatan keuangan yang sudah sampai di server saat laporan dibuat yang dihitung; isian yang belum terkirim tidak ikut.',
+                'Biaya memakai biaya standar musim yang sama untuk setiap greenhouse; pembayaran, alokasi dan penyusutan nyata hanya sebagai rujukan.',
+                'Pernyataan lengkap dan jumlah catatan belum terkirim adalah penilaian pengelola, bukan pemeriksaan otomatis semua perangkat.',
+                'Pembelian aset dan pemakaian bahan tidak dihitung dua kali sebagai biaya musim.',
+                'Penjualan memakai total pembayaran lunas per transaksi; panen yang belum terjual bukan penjualan.',
+                'Laporan ini bahan pertimbangan pengelola, bukan keputusan layak atau tidak secara otomatis.',
             ]];
     }
 }

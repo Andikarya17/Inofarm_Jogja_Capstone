@@ -49,17 +49,47 @@ internal fun FarmFormFrame(
     header: @Composable () -> Unit,
     bar: @Composable () -> Unit,
     scroll: androidx.compose.foundation.ScrollState? = null,
+    /** The form's current errors. Simpan never stays silent: the first one shows above the bar (QA 28 Nov 2026). */
+    errors: Map<String, String> = emptyMap(),
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    CompositionLocalProvider(LocalCanopyForm provides true) {
+    val focus = remember { FirstErrorFocus() }
+    CompositionLocalProvider(LocalCanopyForm provides true, LocalFirstErrorFocus provides focus) {
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.weight(1f).verticalScroll(scroll ?: rememberScrollState()).padding(vertical = FarmSpace.Medium),
                 verticalArrangement = Arrangement.spacedBy(FarmSpace.Medium)) {
                 header()
                 content()
             }
+            FarmFormProblems(errors)
             bar()
         }
+    }
+}
+
+/**
+ * The first field that shows an error brings itself into view. Fields compose top to bottom, so within one save
+ * attempt the first to claim is the topmost; the others skip until the window has passed.
+ */
+internal class FirstErrorFocus {
+    private var claimedAt = 0L
+    fun claim(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - claimedAt < 600) return false
+        claimedAt = now; return true
+    }
+}
+internal val LocalFirstErrorFocus = compositionLocalOf<FirstErrorFocus?> { null }
+
+/** "Belum bisa disimpan" with the first reason, always visible above Batal / Simpan. */
+@Composable
+internal fun FarmFormProblems(errors: Map<String, String>) {
+    val first = errors.values.firstOrNull { it.isNotBlank() } ?: return
+    val more = errors.values.count { it.isNotBlank() } - 1
+    Surface(Modifier.fullBleed(FarmSpace.Page).testTag("form-problems"), color = MaterialTheme.colorScheme.errorContainer) {
+        Text("Belum bisa disimpan: " + first + if (more > 0) " ($more isian lain juga perlu diperbaiki)" else "",
+            Modifier.padding(horizontal = FarmSpace.Page, vertical = FarmSpace.Small).semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
     }
 }
 

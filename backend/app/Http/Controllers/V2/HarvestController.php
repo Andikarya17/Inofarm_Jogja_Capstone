@@ -124,7 +124,7 @@ final class HarvestController extends Controller
 
     private function perform(Request $request, HarvestService $service, string $action, ?string $id = null)
     {
-        $rules = $action === 'cancel' ? [] : ['planting_group_id' => ['required', OperationInput::UUID], 'occurred_at' => 'required|date_format:Y-m-d\TH:i:sP',
+        $rules = $action === 'cancel' ? [] : ['planting_group_id' => ['required', OperationInput::UUID], 'occurred_at' => ['required', 'date_format:Y-m-d\TH:i:sP', OperationInput::notFuture('Tanggal panen')],
             'items' => 'required|array|min:1|max:30', 'items.*' => 'required|array:id,grade_id,fruit_count,weight_kg,quality',
             'items.*.quality' => 'sometimes|required|in:saleable,defective',
             'items.*.id' => ['required', OperationInput::UUID, 'distinct'], 'items.*.grade_id' => ['sometimes', 'nullable', OperationInput::UUID, 'distinct'],

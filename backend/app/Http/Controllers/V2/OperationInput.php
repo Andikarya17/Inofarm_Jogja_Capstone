@@ -12,6 +12,24 @@ final class OperationInput
 {
     public const UUID = 'regex:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D';
 
+    /**
+     * A recorded event (activity, harvest, payment, paid sale) cannot lie after today in WIB. Back dates stay free
+     * (decision 28 Nov 2026); a payment dated a month ahead was accepted before and vanished from "this month".
+     */
+    public static function notFuture(string $label): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($label): void {
+            $at = is_string($value) ? \DateTimeImmutable::createFromFormat('Y-m-d\TH:i:sP', $value) : false;
+            if ($at === false) {
+                return;
+            }
+            $endOfToday = \Carbon\CarbonImmutable::now('Asia/Jakarta')->addDay()->startOfDay();
+            if ($at >= $endOfToday) {
+                $fail($label.' tidak boleh sesudah hari ini.');
+            }
+        };
+    }
+
     /** Managers may omit the change note (stored as null); every other actor keeps the endpoint's existing rule. */
     public static function reasonRule(Request $request, array|string $existing, int $max = 1000): array|string
     {

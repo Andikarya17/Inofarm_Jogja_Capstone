@@ -171,15 +171,27 @@ final class ManagerHome
     private function recent(Builder $activities, Builder $harvests): array
     {
         $recent = [];
+        // The sections of one Catat kegiatan entry (same entry_batch_id) count as one recent record (QA 28 Nov 2026),
+        // so enough activity rows are read to still fill five entries.
         foreach (['activity' => $activities, 'harvest' => $harvests] as $kind => $query) {
-            $rows = $query->orderByDesc('r.occurred_at')->orderByDesc('r.id')->limit(5)
+            $rows = $query->orderByDesc('r.occurred_at')->orderByDesc('r.id')->limit($kind === 'activity' ? 30 : 5)
                 ->get(['r.id', 'r.version', 's.greenhouse_id', 's.id as season_id', 'g.id as group_id']);
             $snapshots = $this->accepted->readMany($kind, $rows->all());
+            $batches = [];
             foreach ($rows as $row) {
                 $body = $snapshots[$row->id];
+                $batch = $body['entry_batch_id'] ?? null;
+                if ($batch !== null && isset($batches[$batch])) {
+                    $recent[$batches[$batch]]['sections'][] = $body['activity_type'] ?? null;
+                    continue;
+                }
                 $recent[] = ['id' => $row->id, 'kind' => $kind, 'activity_type' => $body['activity_type'] ?? null,
                     'greenhouse_id' => $row->greenhouse_id, 'season_id' => $row->season_id, 'group_id' => $row->group_id,
-                    'recorded_by_name' => $body['recorded_by_name'] ?? null, 'occurred_at' => $body['occurred_at'], 'received_at' => $body['created_at']];
+                    'recorded_by_name' => $body['recorded_by_name'] ?? null, 'occurred_at' => $body['occurred_at'], 'received_at' => $body['created_at'],
+                    'entry_batch_id' => $batch, 'sections' => [$body['activity_type'] ?? $kind]];
+                if ($batch !== null) {
+                    $batches[$batch] = array_key_last($recent);
+                }
             }
         }
         usort($recent, fn ($a, $b) => [$b['occurred_at'], $b['id']] <=> [$a['occurred_at'], $a['id']]);

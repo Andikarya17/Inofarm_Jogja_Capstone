@@ -384,7 +384,7 @@ private fun ReferenceFacts(activity: JSONObject) {
         if (snapshot == null) {
             Text("Acuan belum tersedia.")
         } else {
-            Text("Versi kelompok ${snapshot.optInt("planting_group_version")} · pembanding ${snapshot.optString("comparator_version")}")
+            Text("Acuan yang berlaku saat catatan dibuat")
             snapshot.optJSONObject("schedule")?.let { schedule ->
                 FarmFact("Jadwal versi ${schedule.optInt("version")}", timeLabel(schedule.optString("planned_at")))
                 schedule.text("notes")?.let { Text(it) }

@@ -23,7 +23,19 @@ class AdminFormTest {
         val draft=AdminForm.edit(AdminResource.TARGET,row).let {it.copy(values=it.values+("reason" to "Koreksi"))}
         val payload=draft.payload()
         assertEquals("0",payload.getString("target_value"));assertTrue(payload.isNull("minimum"))
-        assertEquals("2026-11-02T00:00:00Z",payload.getString("effective_from"));assertFalse(payload.has("planting_group_id"))
+        // The server accepts Y-m-d\TH:i:sP only: an explicit offset, never "Z".
+        assertEquals("2026-11-02T07:00:00+07:00",payload.getString("effective_from"));assertFalse(payload.has("planting_group_id"))
+    }
+    @Test fun editingAScheduleShowsWibAndResendsAnOffsetTheServerAccepts() {
+        val row=JSONObject().put("id",id).put("version",1).put("planting_group_id",id).put("activity_type","measurement")
+            .put("planned_at","2026-11-29T00:00:00.000000Z").put("notes",JSONObject.NULL).put("active",true)
+        val draft=AdminForm.edit(AdminResource.SCHEDULE,row)
+        assertEquals("2026-11-29T07:00:00+07:00",draft.values["planned_at"])
+        val payload=draft.copy(values=draft.values+("active" to "false")).payload()
+        assertEquals("2026-11-29T07:00:00+07:00",payload.getString("planned_at"));assertFalse(payload.getBoolean("active"))
+        val typedWrong=AdminForm(AdminResource.SCHEDULE,values=mapOf("planting_group_id" to id,"activity_type" to "measurement","planned_at" to "29/11/2026 07:00"))
+        val message=runCatching {typedWrong.payload()}.exceptionOrNull()?.message.orEmpty()
+        assertTrue(message,message.startsWith("Waktu rencana belum sesuai"))
     }
     @Test fun userPasswordsNeverEnterDraftAndEditEmailKeepsAccountId() {
         val form=AdminForm(AdminResource.USER,values=mapOf("greenhouse_id" to id,"name" to "Pekerja","email" to "worker@example.invalid","role" to "worker"))

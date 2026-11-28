@@ -52,8 +52,8 @@ data class AssetDraft(val id:String=UUID.randomUUID().toString(),val greenhouseI
         fun date(text:String):LocalDate { require(Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}").matches(text));return LocalDate.parse(text).also {require(it.year in 1..9999)} }
         fun from(id:String,gh:String,kind:AssetKind,body:JSONObject,base:Long?):AssetDraft {
             val local=body.optJSONObject("_local_form");val raw=local ?: body
-            return AssetDraft(id,gh,kind,raw.optString("expense_id"),raw.optString("asset_id"),raw.optString("season_id"),raw.optString("name"),raw.optString("cost"),raw.optString("residual"),
-                raw.optString("life_years"),raw.optString("in_service_date"),raw.optString("usage_year"),raw.optString("period_start"),raw.optString("period_end"),raw.optString("usage_reference"),raw.optString("amount"),
+            return AssetDraft(id,gh,kind,raw.optString("expense_id"),raw.optString("asset_id"),raw.optString("season_id"),raw.optString("name"),com.inofarm.jogja.core.design.FarmFormat.input(raw.optString("cost")),com.inofarm.jogja.core.design.FarmFormat.input(raw.optString("residual")),
+                raw.optString("life_years"),raw.optString("in_service_date"),raw.optString("usage_year"),raw.optString("period_start"),raw.optString("period_end"),raw.optString("usage_reference"),com.inofarm.jogja.core.design.FarmFormat.input(raw.optString("amount")),
                 if(local!=null) raw.optString("basis") else raw.optString(if(kind==AssetKind.ASSET) "usage_basis" else "allocation_basis"),raw.optString("reason"),base,local?.optBoolean("replace_validation_rejected")==true,local?.optBoolean("locked_parents") ?: (base!=null))
         }
     }

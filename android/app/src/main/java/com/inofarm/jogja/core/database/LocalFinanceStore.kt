@@ -445,7 +445,7 @@ class LocalFinanceStore(private val helper: FinanceDatabase, private val cipher:
         require(record(scope,id)?.syncState !in setOf(SyncState.EPOCH_REVIEW,SyncState.SCOPE_REVOKED)) { "Catatan ditahan karena data dipulihkan atau akses berubah. Draf tetap tersimpan." }
         val pending=pending(scope,id)
         if(replaceValidationRejected) {
-            require(pending.isNotEmpty() && pending.all {it.state=="REJECTED" && ReviewableRejections.mayReplace(kind,it.error?.optString("code"))}) {"Penolakan ini tidak dapat diganti tanpa rekonsiliasi."}
+            require(pending.isNotEmpty() && pending.all {it.state=="REJECTED" && ReviewableRejections.mayReplace(kind,it.error?.optString("code"),it.envelope.optString("action"))}) {"Penolakan ini tidak dapat diganti tanpa rekonsiliasi."}
             record(scope,id)?.let {archive(scope,it,"replace_reviewed_rejection")}
             db.update("outbox",values("state" to "SUPERSEDED"),"scope=? AND entity_id=? AND state='REJECTED'",arrayOf(scope,id))
         } else require(pending.isEmpty()) { "Kiriman sebelumnya untuk catatan ini masih menunggu atau ditolak. Buka catatannya di Riwayat untuk mengirim ulang atau membuangnya." }

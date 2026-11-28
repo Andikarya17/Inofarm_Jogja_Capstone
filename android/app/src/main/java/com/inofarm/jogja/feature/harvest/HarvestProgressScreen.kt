@@ -126,7 +126,7 @@ private fun HarvestProgressDetail(
         Text("${progress.getString("greenhouse")} · ${progress.getString("season")}")
         FarmFact("Varietas", progress.optJSONObject("variety")?.optString("name") ?: "Belum tersedia")
         FarmFact("Populasi", "${progress.getLong("population")} tanaman")
-        FarmFact("Tanggal semai", progress.getString("sowing_date"))
+        FarmFact("Tanggal semai", com.inofarm.jogja.core.design.FarmFormat.date(progress.getString("sowing_date")))
         FarmFact("Status", if (completion == null) "Panen bertahap" else "Panen selesai")
         completion?.let {
             Text("${it.getString("by_name")} · ${timeLabel(it.getString("at"))}")

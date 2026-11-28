@@ -71,10 +71,10 @@ private fun seasonName(context: CultivationUiState, id: String) = context.season
     var pickGreenhouse by remember { mutableStateOf(false) }
     var pendingType by remember { mutableStateOf<String?>(null) }
     val correcting = draft.baseVersion != null || draft.lockedSeason
-    FarmFormFrame(header = {
+    FarmFormFrame(errors = state.errors, header = {
         FarmFormHeader(if (draft.baseVersion == null) "Catat penjualan" else "Koreksi penjualan", state.saved, "sale-draft-status", "sale-close", cancel, !state.busy,
             showDraftStatus = false, closeLabel = "Batal", step = 1)
-    }, bar = { FarmFormBar("sale-cancel", cancel, "sale-review", "Simpan", vm::review, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }) {
+    }, bar = { FarmFormBar("sale-cancel", cancel, "sale-review", "Simpan", { vm.review(SaleFormModel.stockErrors(draft, stock)) }, enabled = !state.busy, busy = state.busy, saveLabel = "Batal") }) {
         val season = seasonName(context, draft.seasonId)
         FarmContextStrip(listOfNotNull(greenhouseName(context, draft.greenhouseId), season).joinToString(" · "),
             if (correcting) "Musim penjualan ini tetap" else if (season != null) "Musim berjalan, dipilih otomatis" else "Belum ada musim berjalan", null,
@@ -92,7 +92,7 @@ private fun seasonName(context: CultivationUiState, id: String) = context.season
             if (type != draft.buyerType) { if (SaleFormModel.switchLoss(draft, type) != null) pendingType = type else vm.edit { SaleFormModel.switchType(it, type, stock, prices) } }
         }
         state.errors["buyer_type"]?.let { FieldError(it) }
-        com.inofarm.jogja.feature.customers.BuyerSection(draft, state.errors["customer"], buyerSearch) { change -> vm.edit(change) }
+        com.inofarm.jogja.feature.customers.BuyerSection(draft, state.errors["customer"], state.errors["buyer_whatsapp"], buyerSearch) { change -> vm.edit(change) }
 
         FruitSection(draft, context, stock, prices, sales, state.errors, vm)
 

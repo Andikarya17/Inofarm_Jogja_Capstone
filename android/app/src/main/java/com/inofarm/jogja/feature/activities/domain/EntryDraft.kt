@@ -59,6 +59,7 @@ data class EntryDraft(
 
     fun validation(): Map<String, String> = buildMap {
         if (runCatching { ManualTime.encode(date, time) }.isFailure) put("occurred_at", "Gunakan tanggal dan jam yang sah.")
+        else if (ManualTime.afterToday(ManualTime.encode(date, time))) put("occurred_at", "Waktu kegiatan tidak boleh sesudah hari ini.")
         if (ageBasis !in setOf("hss", "hst")) put("age", "Pilih HSS atau HST.")
         else if (ageDay.trim().toIntOrNull()?.let { it in 1..1000 } != true) put("age", "Isi hari ke berapa, angka 1 sampai 1000.")
         if (!hasMeasurement && nutritionMaterials.isEmpty() && !hasSpray && stage.isBlank() && notes.isBlank())
@@ -76,8 +77,11 @@ data class EntryDraft(
         if (stage.length > 100) put("actual_stage", "Stadia maksimal 100 karakter.")
         if (notes.length > 2000) put("notes", "Catatan maksimal 2.000 karakter.")
         // Each section's own checks (decimals, pH range, material and dose) are reported under its field keys.
-        if (isEmpty()) sections().forEach { section ->
-            val ids = withSectionIds().sectionIds
+        // One copy with fixed section ids: sections() and the lookup below must agree, or a section's error (pH out
+        // of range) lands on a key no field shows and Simpan seems to do nothing (QA 28 Nov 2026).
+        val fixed = withSectionIds()
+        if (isEmpty()) fixed.sections().forEach { section ->
+            val ids = fixed.sectionIds
             val block = measurements.indices.firstOrNull { index -> measurementKey(index).let { ids[it] } == section.id && measurements[index].filled }
             section.validation(false).forEach { (key, message) ->
                 val field = when {
@@ -175,7 +179,7 @@ data class EntryDraft(
 
         private fun materials(array: JSONArray?) = (0 until (array?.length() ?: 0)).map { index ->
             val row = array!!.getJSONObject(index)
-            MaterialDraft(row.optString("material_id"), row.optString("unit_id"), row.optString("quantity"), row.optString("name"), row.optString("unit_name"))
+            MaterialDraft(row.optString("material_id"), row.optString("unit_id"), com.inofarm.jogja.core.design.FarmFormat.input(row.optString("quantity")), row.optString("name"), row.optString("unit_name"))
         }
 
         fun from(body: JSONObject): EntryDraft {

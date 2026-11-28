@@ -25,6 +25,7 @@ data class FinancialDraft(val id:String=UUID.randomUUID().toString(),val kind:Re
             if(runCatching {WireContract.uuid(categoryId)}.isFailure) put("category","Pilih kategori pengeluaran.")
             if(paymentKind !in setOf("operating","asset_acquisition")) put("payment_kind","Pilih pembayaran operasi atau pembelian aset.")
             if(runCatching {paidAt()}.isFailure) put("paid_at","Pilih tanggal dan jam pembayaran dari kalender dan jam.")
+            else if(com.inofarm.jogja.core.cultivation.ManualTime.afterToday(paidAt())) put("paid_at","Tanggal pembayaran tidak boleh sesudah hari ini.")
             if(notes.length>2000) put("notes","Keterangan maksimal 2.000 karakter.")
         } else {
             if(runCatching {WireContract.uuid(expenseId)}.isFailure) put("expense","Pilih pembayaran operasi yang sudah terkirim.")
@@ -64,7 +65,7 @@ data class FinancialDraft(val id:String=UUID.randomUUID().toString(),val kind:Re
             val stamp=if(kind==RecordKind.EXPENSE) {
                 if(local==null) ManualTime.decode(body.getString("paid_at")) else local.getString("date") to local.getString("time")
             } else "" to ""
-            return FinancialDraft(id,kind,gh,raw.optString("amount"),raw.optString("category_id"),raw.optString("payment_kind"),raw.optString("notes"),stamp.first,stamp.second,
+            return FinancialDraft(id,kind,gh,com.inofarm.jogja.core.design.FarmFormat.input(raw.optString("amount")),raw.optString("category_id"),raw.optString("payment_kind"),raw.optString("notes"),stamp.first,stamp.second,
                 raw.optString("expense_id"),raw.optString("season_id"),raw.optString("cost_class"),raw.optString("allocation_basis"),raw.optString("reason"),base,
                 local?.optBoolean("replace_validation_rejected")==true,local?.optBoolean("locked_parents") ?: (base!=null))
         }

@@ -37,6 +37,7 @@ import com.inofarm.jogja.feature.FarmFormSection
 import com.inofarm.jogja.feature.FarmReviewFrame
 import com.inofarm.jogja.feature.FarmRoleCards
 import com.inofarm.jogja.feature.FinanceDateField
+import com.inofarm.jogja.feature.FinanceTimeField
 import com.inofarm.jogja.feature.FinanceField
 import com.inofarm.jogja.feature.Notice
 import kotlinx.coroutines.flow.first
@@ -258,12 +259,25 @@ internal fun adminConfirmation(form: AdminForm, state: AdminState, password: Str
             }
         }
         field.type == "date" -> FinanceDateField(field.label + (if (field.optional) " (opsional)" else ""), value, { vm.edit(field.key, it) }, "admin-${field.key}")
+        // A moment (schedule time, target validity, assignment) is picked as a WIB date and time, never typed as
+        // "YYYY-MM-DDTHH:mm:ss+07:00" (QA 28 Nov 2026). The form keeps one value with an explicit +07:00 offset.
+        field.type == "timestamp" -> {
+            val decoded = remember(form.id, field.key) { runCatching { com.inofarm.jogja.core.cultivation.ManualTime.decode(value) }.getOrDefault("" to "") }
+            var day by remember(form.id, field.key) { mutableStateOf(decoded.first) }
+            var time by remember(form.id, field.key) { mutableStateOf(decoded.second) }
+            // Half-typed text stays in the fields; only a whole date and time becomes the stored moment.
+            fun store() = vm.edit(field.key, if (day.isBlank()) "" else runCatching {
+                com.inofarm.jogja.core.cultivation.ManualTime.encode(day.trim(), time.trim().ifBlank { "00:00" }) }.getOrDefault("$day $time"))
+            val label = field.label + (if (field.optional) " (opsional)" else "")
+            FinanceDateField("$label · tanggal", day, { day = it; store() }, "admin-${field.key}")
+            FinanceTimeField("$label · jam (WIB)", time, { time = it; store() }, "admin-${field.key}-time")
+        }
         else -> FinanceField(field.label + (if (field.optional) " (opsional)" else ""), value, { vm.edit(field.key, it) }, "admin-${field.key}", keyboard = when (field.type) {
             "integer" -> KeyboardType.Number
             "decimal" -> KeyboardType.Decimal
             "email" -> KeyboardType.Email
             else -> KeyboardType.Text
-        }, hint = when (field.type) { "timestamp" -> "YYYY-MM-DDTHH:mm:ss+07:00"; else -> null },
+        }, hint = null,
             leadingIcon = if (field.type == "email") ({ FarmControlIcon(FarmIcon.Mail, null) }) else null)
     }
 }
@@ -340,11 +354,18 @@ internal fun adminConfirmation(form: AdminForm, state: AdminState, password: Str
         }
         return
     }
-    FarmFormFrame(
+    // The form's own rules (format, order of dates, units) run before the summary, so a known problem never reaches
+    // the server's refusal (QA 28 Nov 2026: email, end date and target unit only failed after Simpan).
+    var problem by remember(form.id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(form.values) { problem = null }
+    FarmFormFrame(errors = listOfNotNull(problem).associateBy { "form" },
         header = { FarmFormHeader("$action ${form.resource.label}", state.saved, "admin-saved", "admin-close", vm::requestCancel, !state.busy,
             showDraftStatus = false, closeLabel = "Batal", step = if (state.pending) null else 1) },
         bar = { FarmFormBar("admin-cancel", vm::requestCancel, "admin-submit", if (state.pending) "Kirim ulang" else "Simpan",
-            { if (state.pending) vm.submit(password, onAccepted) else summary = true },
+            { if (state.pending) vm.submit(password, onAccepted) else {
+                problem = runCatching { form.payload(password) }.exceptionOrNull()?.let { it.message ?: "Periksa isian." }
+                if (problem == null) summary = true
+            } },
             enabled = !state.busy, busy = state.busy, mainEnabled = !state.busy && !state.rejected && passwordMatches, saveLabel = "Batal") }
     ) {
         state.message?.let {Notice(it)}

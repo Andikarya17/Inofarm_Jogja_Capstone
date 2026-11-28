@@ -71,6 +71,10 @@ object SaleFormModel {
         .filter { it.optString("greenhouse_id") == greenhouseId && it.optString("status") == "open" }
         .maxByOrNull { it.optString("start_date") }?.optString("id")
 
+    /** A card selling more than its stock blocks Simpan in the form itself, not after the Ringkasan (QA 28 Nov 2026). */
+    fun stockErrors(draft: SaleDraft, stock: SaleStock): Map<String, String> = cards(draft, stock).filter { it.short }
+        .associate { card -> "stock.${card.groupId}.${card.gradeId}" to "${listOf(card.varietyName, qualityLabel(card.quality)).filter { it.isNotBlank() }.joinToString(" ")}: ${card.after()}, kurangi bobotnya." }
+
     fun cards(draft: SaleDraft, stock: SaleStock): List<SaleCard> {
         val options = stock.options(draft.seasonId).associateBy { it.groupId to it.gradeId }
         val after = stock.fifoPreview(draft.seasonId, draft.items).associateBy { it.lineId }

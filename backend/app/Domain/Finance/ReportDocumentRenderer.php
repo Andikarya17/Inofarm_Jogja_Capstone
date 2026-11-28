@@ -94,7 +94,7 @@ class ReportDocumentRenderer
     private function metricValue(array $metric): string
     {
         if ($metric['value'] === null) {
-            return $metric['status'] === 'not_recovered' ? 'Belum kembali dalam horizon' : 'Belum dapat dihitung';
+            return $metric['status'] === 'not_recovered' ? 'Belum kembali dalam periode skenario' : 'Belum dapat dihitung';
         }
         $negative = str_starts_with($metric['value'], '-');
         $parts = explode('.', ltrim($metric['value'], '-'));
@@ -105,29 +105,107 @@ class ReportDocumentRenderer
         };
     }
 
+    private const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+    private static function day(?string $date): string
+    {
+        if ($date === null || $date === '') {
+            return 'Belum diisi';
+        }
+        $at = \Carbon\CarbonImmutable::parse($date, 'Asia/Jakarta');
+
+        return $at->day.' '.self::MONTHS[$at->month - 1].' '.$at->year;
+    }
+
+    private static function moment(?string $value): string
+    {
+        if ($value === null || $value === '') {
+            return 'Belum diketahui';
+        }
+        $at = \Carbon\CarbonImmutable::parse($value)->setTimezone('Asia/Jakarta');
+
+        return $at->day.' '.self::MONTHS[$at->month - 1].' '.$at->year.' '.$at->format('H.i').' WIB';
+    }
+
+    private function fact(string $label, string $value, bool $strong = false): string
+    {
+        return '<tr><td class="label">'.self::escape($label).'</td><td'.($strong ? ' class="value"' : '').'>'.self::escape($value).'</td></tr>';
+    }
+
+    /** "Rp4.500.000", "−Rp4.150.000", "9,70%", "2,5 tahun", "10 kg": what a person reads, not the stored precision. */
+    private function plainValue(array $metric): string
+    {
+        if ($metric['value'] === null) {
+            return $metric['status'] === 'not_recovered' ? 'Belum kembali dalam periode skenario' : 'Belum dapat dihitung';
+        }
+        $value = (float) $metric['value'];
+        $digits = match ($metric['unit']) { 'IDR' => (fmod(abs($value), 1.0) > 0 ? 2 : 0), 'percent' => 2, 'year' => 1, default => 2 };
+        $number = number_format(abs($value), $digits, ',', '.');
+        if ($metric['unit'] !== 'IDR' && $digits > 0) {
+            $number = rtrim(rtrim($number, '0'), ',');
+        }
+        $sign = $value < 0 ? '−' : '';
+
+        return match ($metric['unit']) {
+            'IDR' => $sign.'Rp'.$number, 'percent' => $sign.$number.'%', 'year' => $sign.$number.' tahun', 'kg' => $sign.$number.' kg', default => $sign.$number.' '.$metric['unit']
+        };
+    }
+
     public function html(array $document): string
     {
         $investment = $document['kind'] === 'investment_report';
         $scope = $document['scope'];
         $title = $investment ? 'Evaluasi Investasi' : 'Evaluasi Musim';
-        $html = '<!doctype html><html lang="id"><head><meta charset="utf-8"><style>@page{margin:38px 42px 48px}body{font-family:"DejaVu Sans",sans-serif;font-size:12px;line-height:1.45;color:#172a24}h1{font-size:23px;color:#14532d;margin:4px 0 14px}h2{font-size:14px;color:#14532d;page-break-after:avoid;margin:18px 0 7px}h3{font-size:11px;page-break-after:avoid;margin:12px 0 5px}p{margin:5px 0;word-wrap:break-word}.brand{font-size:10px;letter-spacing:2px;color:#527060}.value{font-size:17px;font-weight:bold}.detail{font-size:10px;white-space:normal}.source-compact{page-break-inside:avoid}.section{page-break-before:always}.rule{border-top:1px solid #c8d9ce;margin:12px 0}.muted{color:#527060}</style></head><body><p class="brand">INOFARM · LAPORAN TERSIMPAN</p><h1>'.$title.'</h1>';
-        $html .= $this->detail($scope['greenhouse']['name'], 'Greenhouse');
-        $html .= $this->detail($investment ? $scope['scenario']['name'] : $scope['season']['name'], $investment ? 'Skenario' : 'Musim');
-        foreach (['id' => 'Nomor laporan', 'version' => 'Versi laporan', 'generated_at' => 'Diterbitkan (UTC)', 'recorded_by_name' => 'Pengelola', 'report_state' => 'Status tersimpan', 'review_note' => 'Catatan tinjauan', 'currency' => 'Mata uang', 'timezone' => 'Zona waktu sumber', 'formula_version' => 'Versi rumus', 'snapshot_hash' => 'SHA256 snapshot', 'sources_hash' => 'SHA256 sumber', 'source_count' => 'Jumlah sumber'] as $key => $label) {
-            $value = $document[$key] ?? null;
-            if ($key === 'report_state') {
-                $value = match ($value) {
-                    'provisional' => 'Sementara', 'reviewed_final' => 'Tinjauan final tersimpan', default => $value
-                };
-            }
-            $html .= $this->detail($value, $label);
+        $html = '<!doctype html><html lang="id"><head><meta charset="utf-8"><style>@page{margin:38px 42px 48px}body{font-family:"DejaVu Sans",sans-serif;font-size:12px;line-height:1.45;color:#172a24}h1{font-size:23px;color:#14532d;margin:4px 0 14px}h2{font-size:14px;color:#14532d;page-break-after:avoid;margin:18px 0 7px}h3{font-size:11px;page-break-after:avoid;margin:12px 0 5px}p{margin:5px 0;word-wrap:break-word}.brand{font-size:10px;letter-spacing:2px;color:#527060}.value{font-size:17px;font-weight:bold}.detail{font-size:10px;white-space:normal}.source-compact{page-break-inside:avoid}.section{page-break-before:always}.rule{border-top:1px solid #c8d9ce;margin:12px 0}.muted{color:#527060}table.facts{border-collapse:collapse;width:100%;margin:6px 0}table.facts td{padding:5px 6px;border-bottom:1px solid #e1ebe4;vertical-align:top}table.facts td.label{color:#527060;width:42%}</style></head><body><p class="brand">INOFARM · LAPORAN</p><h1>'.$title.'</h1>';
+        // Page 1 is for the owner or investor (QA 28 Nov 2026): plain names, rupiah, kg and WIB dates, and for a season
+        // only the figures the app shows (no profit or ratios). Everything stored stays in the appendix that follows.
+        $html .= '<table class="facts">';
+        $html .= $this->fact('Greenhouse', $scope['greenhouse']['name']);
+        if ($investment) {
+            $html .= $this->fact('Skenario', $scope['scenario']['name']);
+            $html .= $this->fact('Tanggal dasar', self::day($scope['scenario']['base_date'] ?? null).' · '.($scope['scenario']['horizon_years'] ?? '').' tahun');
+        } else {
+            $html .= $this->fact('Musim', $scope['season']['name']);
+            $end = $scope['season']['end_date'] ?? null;
+            $html .= $this->fact('Periode', self::day($scope['season']['start_date'] ?? null).' sampai '.($end ? self::day($end) : 'sekarang'));
         }
-        $html .= '<div class="rule"></div><p class="muted">Ekspor memakai snapshot yang sama dengan laporan yang dibuka. Perubahan sumber setelah penerbitan tidak menghitung ulang laporan ini. Nilai kosong tidak diubah menjadi nol.</p>';
+        $state = match ($document['report_state'] ?? null) {
+            'provisional' => 'Sementara', 'reviewed_final' => 'Final', default => (string) ($document['report_state'] ?? '')
+        };
+        $html .= $this->fact('Status', $state);
+        $html .= $this->fact('Diterbitkan', self::moment($document['generated_at'] ?? null).' oleh '.($document['recorded_by_name'] ?? ''));
+        if (($document['review_note'] ?? '') !== '') {
+            $html .= $this->fact('Catatan', (string) $document['review_note']);
+        }
+        $html .= '</table>';
+        $shown = $investment ? ['NPV' => 'Nilai kini bersih (NPV)', 'IRR' => 'Tingkat pengembalian (IRR)', 'PP' => 'Waktu pengembalian', 'DPP' => 'Waktu pengembalian terdiskonto']
+            : ['FC' => 'Biaya tetap (FC)', 'VC' => 'Biaya variabel (VC)', 'TC' => 'Biaya total (TC)', 'TR' => 'Penjualan lunas', 'Q' => 'Berat terjual'];
+        $html .= '<h2>Ringkasan</h2><table class="facts">';
+        foreach ($shown as $key => $label) {
+            if (isset($document['metrics'][$key])) {
+                $html .= $this->fact($label, $this->plainValue($document['metrics'][$key]), true);
+            }
+        }
+        $html .= '</table>';
+        if ($investment && isset($document['metrics']['NPV']['value'])) {
+            $positive = ! str_starts_with((string) $document['metrics']['NPV']['value'], '-');
+            $html .= '<p>'.self::escape($positive ? 'Nilai kas masa depan menutup investasi awal pada diskonto skenario: layak dari sisi NPV.'
+                : 'Nilai kas masa depan belum menutup investasi awal pada diskonto skenario: belum layak dari sisi NPV.').'</p>';
+        }
+        if (($document['report_state'] ?? null) === 'provisional') {
+            $html .= '<p class="muted">Laporan sementara: bisa berubah bila ada biaya atau penjualan yang belum tercatat.</p>';
+        }
+        $html .= '<p class="muted">Angka di atas diambil dari laporan yang sama dengan di aplikasi. Lampiran berikut berisi seluruh data tersimpan untuk pemeriksaan.</p>';
+        $html .= '<div class="section"><h2>Lampiran untuk pemeriksa</h2>';
+        foreach (['id' => 'Nomor laporan', 'version' => 'Versi laporan', 'generated_at' => 'Diterbitkan (UTC)', 'currency' => 'Mata uang', 'timezone' => 'Zona waktu sumber', 'formula_version' => 'Versi rumus', 'snapshot_hash' => 'SHA256 snapshot', 'sources_hash' => 'SHA256 sumber', 'source_count' => 'Jumlah sumber'] as $key => $label) {
+            $html .= $this->detail($document[$key] ?? null, $label);
+        }
         $ordered = array_replace(array_intersect_key(self::LABELS, $document['metrics']), array_diff_key(array_fill_keys(array_keys($document['metrics']), ''), self::LABELS));
-        $html .= '<h2>Ringkasan indikator</h2>';
+        $html .= '<h2>Seluruh indikator tersimpan</h2>';
         foreach ($ordered as $key => $label) {
             $html .= '<p><strong>'.self::escape($key.' · '.($label ?: $key)).':</strong> '.self::printable($this->metricValue($document['metrics'][$key])).'</p>';
         }
+        $html .= '</div>';
         $html .= '<div class="section"><h2>Rincian perhitungan tersimpan</h2>';
         foreach ($ordered as $key => $label) {
             $metric = $document['metrics'][$key];
@@ -140,7 +218,7 @@ class ReportDocumentRenderer
                     $shown = $metric[$field];
                     if ($field === 'status') {
                         $shown = match ($shown) {
-                            'available' => 'Terhitung dari input yang dinyatakan','provisional' => 'Sementara','not_recovered' => 'Belum kembali dalam horizon',default => 'Belum dapat dihitung'
+                            'available' => 'Terhitung dari input yang dinyatakan','provisional' => 'Sementara','not_recovered' => 'Belum kembali dalam periode skenario',default => 'Belum dapat dihitung'
                         };
                     }
                     if ($field === 'reasons' && $shown === []) {

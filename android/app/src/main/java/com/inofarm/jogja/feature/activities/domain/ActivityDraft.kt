@@ -55,6 +55,7 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
             if(runCatching { LocalDate.parse(sprayDate) }.isFailure || sprayPeriod !in setOf("morning","afternoon")) put("spray","Isi tanggal semprot dan pilih pagi atau sore.")
         }
         if(runCatching { occurredAt() }.isFailure) put("occurred_at","Pilih tanggal dan jam kejadian dari kalender dan jam.")
+        else if(com.inofarm.jogja.core.cultivation.ManualTime.afterToday(occurredAt())) put("occurred_at","Waktu kegiatan tidak boleh sesudah hari ini.")
         for((key,text) in listOf("manual_ec" to ec,"manual_ppm" to ppm,"manual_ph" to ph)) {
             if(text.isNotBlank()) {
                 val number=runCatching { numeric(text) }.getOrNull()
@@ -156,11 +157,11 @@ data class ActivityDraft(val id: String=UUID.randomUUID().toString(),val greenho
             fun text(key:String)=if(raw.isNull(key)) "" else raw.optString(key)
             return ActivityDraft(id,gh,text(if(local!=null) "group_id" else "planting_group_id"),ActivityType.entries.single { it.wire==raw.getString(if(local!=null) "type" else "activity_type") },
                 local?.getString("date") ?: occurred!!.toLocalDate().toString(),local?.getString("time") ?: occurred!!.toLocalTime().format(DateTimeFormatter.ofPattern(if(occurred.second==0) "HH:mm" else "HH:mm:ss")),
-                nullable(if(local!=null) "ppm" else "manual_ppm").orEmpty(),nullable(if(local!=null) "ph" else "manual_ph").orEmpty(),nullable(if(local!=null) "stage" else "actual_stage").orEmpty(),
+                com.inofarm.jogja.core.design.FarmFormat.input(nullable(if(local!=null) "ppm" else "manual_ppm").orEmpty()),com.inofarm.jogja.core.design.FarmFormat.input(nullable(if(local!=null) "ph" else "manual_ph").orEmpty()),nullable(if(local!=null) "stage" else "actual_stage").orEmpty(),
                 if(local!=null) raw.getBoolean("skipped") else raw.getString("work_state")=="skipped",nullable("skipped_reason").orEmpty(),raw.optString("notes"),
                 (0 until materials.length()).map { materials.getJSONObject(it).let { row ->
                     fun field(key:String)=if(row.isNull(key)) "" else row.optString(key)
-                    MaterialDraft(field("material_id"),field("unit_id"),field("quantity"),field("name").ifBlank { field("material_name") },field("unit_name")) } },nullable("schedule_id"),nullable("reason").orEmpty(),nullable("reference_policy") ?: "preserve",base,local?.optBoolean("replace_validation_rejected")==true,nullable(if(local!=null) "ec" else "manual_ec").orEmpty(),
+                    MaterialDraft(field("material_id"),field("unit_id"),com.inofarm.jogja.core.design.FarmFormat.input(field("quantity")),field("name").ifBlank { field("material_name") },field("unit_name")) } },nullable("schedule_id"),nullable("reason").orEmpty(),nullable("reference_policy") ?: "preserve",base,local?.optBoolean("replace_validation_rejected")==true,com.inofarm.jogja.core.design.FarmFormat.input(nullable(if(local!=null) "ec" else "manual_ec").orEmpty()),
                 raw.optLong("running_period_version").takeIf { it > 0 },
                 ObservationField.entries.mapNotNull { field ->
                     val values = raw.optJSONObject("observations")

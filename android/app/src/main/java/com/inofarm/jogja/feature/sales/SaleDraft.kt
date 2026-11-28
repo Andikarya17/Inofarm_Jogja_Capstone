@@ -31,6 +31,7 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
         if(runCatching {WireContract.uuid(greenhouseId)}.isFailure) put("greenhouse","Pilih greenhouse.")
         if(runCatching {WireContract.uuid(seasonId)}.isFailure) put("season","Pilih musim penjualan.")
         if(runCatching {paidAt()}.isFailure) put("paid_at","Pilih tanggal dan jam lunas dari kalender dan jam.")
+        else if(com.inofarm.jogja.core.cultivation.ManualTime.afterToday(paidAt())) put("paid_at","Tanggal lunas tidak boleh sesudah hari ini.")
         if(!paid) put("paid","Konfirmasikan pembayaran sudah lunas sebelum menyimpan.")
         if(customer.length>200) put("customer","Nama pembeli maksimal200 karakter.")
         if(notes.length>2000) put("notes","Keterangan maksimal2.000 karakter.")
@@ -59,6 +60,8 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
         else if(hasCustomer()) {
             if(runCatching {WireContract.uuid(buyerId)}.isFailure) put("customer","Pilih pembeli terdaftar atau isi pembeli baru.")
             else if(customer.isBlank()) put("customer","Isi nama pembeli.")
+            if(!buyerExisting && buyerWhatsapp.isNotBlank() && WhatsappNumber.normalize(buyerWhatsapp)==null)
+                put("buyer_whatsapp","Nomor WhatsApp belum sesuai. Tulis seperti 0812-3456-7890.")
         }
     }
     fun payload():JSONObject {
@@ -109,13 +112,23 @@ data class SaleDraft(val id:String=UUID.randomUUID().toString(),val greenhouseId
             fun text(row:JSONObject,key:String)=if(row.isNull(key)) "" else row.optString(key)
             rows("lines")?.let {list -> return list.map {row ->
                 if(local) SaleLine(row.getString("id"),row.optString("group_id"),row.optString("grade_id"),row.optString("buyer_grade"),row.optString("quantity"),row.optString("fruit_count"),row.optString("price"))
-                else SaleLine(row.getString("id"),row.optString("planting_group_id"),row.optString("grade_id"),text(row,"buyer_grade"),row.getString("quantity_kg"),text(row,"fruit_count"),row.getString("price_per_kg"))
+                else SaleLine(row.getString("id"),row.optString("planting_group_id"),row.optString("grade_id"),text(row,"buyer_grade"),com.inofarm.jogja.core.design.FarmFormat.input(row.getString("quantity_kg")),text(row,"fruit_count"),com.inofarm.jogja.core.design.FarmFormat.input(row.getString("price_per_kg")))
             }}
             return (rows("items") ?: throw org.json.JSONException("lines")).map {row ->
                 val source=stock.sourceOf(row.optString(if(local) "source_id" else "harvest_item_id"))
                 SaleLine(row.getString("id"),source?.first.orEmpty(),source?.second.orEmpty(),if(local) row.optString("grade") else text(row,"buyer_grade"),
-                    row.getString(if(local) "quantity" else "quantity_kg"),"",row.getString(if(local) "price" else "price_per_kg"))
+                    com.inofarm.jogja.core.design.FarmFormat.input(row.getString(if(local) "quantity" else "quantity_kg")),"",com.inofarm.jogja.core.design.FarmFormat.input(row.getString(if(local) "price" else "price_per_kg")))
             }
         }
+    }
+}
+
+/** Same rule as the server's WhatsappNumber: 0812…, +62 812… and 62812… are one number; letters are refused. */
+object WhatsappNumber {
+    fun normalize(raw:String):String? {
+        if(raw.isBlank() || Regex("""[^0-9+\s\-().]""").containsMatchIn(raw)) return null
+        var digits=raw.filter {it.isDigit()}
+        if(digits.startsWith("0")) digits="62"+digits.drop(1) else if(digits.startsWith("8")) digits="62"+digits
+        return digits.takeIf {it.startsWith("62") && it.length in 10..15}
     }
 }
